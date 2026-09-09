@@ -267,10 +267,36 @@ class SystemSkillEngine:
                         snippet=msg,
                         source="system"
                     ))
-                    task_mgr.complete_task(task.task_id, summary=msg)
-                    raw_results = [{"title": f"Launched App: {app}", "snippet": msg, "url": f"app://{app}"}]
-                    payload = self.hud_engine.build_structured_payload(f"Launch App: {app}", "APP LAUNCH", raw_results, msg)
-                    return True, msg, False, "", payload
+                elif task.type == TaskType.TERMINAL_COMMAND.value:
+                    cmd_str = task.data.get("command", "")
+                    task_mgr.update_progress(task.task_id, 20, f"Executing: {cmd_str[:40]}...")
+                    from core.system_commander import get_system_commander
+                    commander = get_system_commander()
+                    res = commander.execute(cmd_str, timeout=60.0)
+                    stdout_snip = res["stdout"][:2000] if res["stdout"] else ""
+                    stderr_snip = res["stderr"][:1000] if res["stderr"] else ""
+                    output_display = stdout_snip or stderr_snip or "Command completed with no output."
+
+                    task_mgr.add_finding(task.task_id, TaskFinding(
+                        title=f"Terminal: {cmd_str[:30]}",
+                        url="term://system",
+                        snippet=output_display[:400],
+                        source="terminal",
+                        extra=res
+                    ))
+                    summary_msg = f"Exit code {res['exit_code']} in {res['elapsed_sec']}s"
+                    if res["success"]:
+                        task_mgr.complete_task(task.task_id, summary=summary_msg, extra_data=res)
+                    else:
+                        task_mgr.fail_task(task.task_id, error_msg=res.get("error") or summary_msg)
+
+                    payload = self.hud_engine.build_structured_payload(
+                        f"Command: {cmd_str[:30]}",
+                        "TERMINAL",
+                        [{"title": f"Output ({res['elapsed_sec']}s)", "snippet": output_display, "url": "term://output"}],
+                        summary_msg
+                    )
+                    return True, f"Executed `{cmd_str}` (exit {res['exit_code']}):\n{output_display[:600]}", False, "", payload
 
                 elif task.type == TaskType.MEMORY_RECALL.value:
                     task_mgr.update_progress(task.task_id, 40, "Retrieving memory entries...")
@@ -449,17 +475,26 @@ class SystemSkillEngine:
                 msg = upgrader.format_level_up_whisper()
                 raw = [{"title": "Level-Up Whisper Active", "snippet": msg, "url": "data/self_upgrade_log.json"}]
             else:
+                from core.task_manager import TaskManager
+                task_mgr = TaskManager()
+                audit_task = task_mgr.create_task(
+                    type_="terminal",
+                    title="LIVE CODE AUDIT: REPOSITORY SELF-CHECK",
+                    data={
+                        "command": "soldierboy audit --repository",
+                        "stdout": "⚡ Initializing codebase self-inspection...\n"
+                    }
+                )
+                accumulated_lines = []
+
                 def _audit_progress_cb(finfo):
-                    try:
-                        from frontend.hud_panel import HUDPanelManager
-                        HUDPanelManager().show_action_hud(
-                            title=f"LIVE CODE AUDIT [{finfo['index']}/{finfo['total']}]",
-                            action_type="AUDIT FEED",
-                            details=f"Auditing file: {finfo['file']} ({finfo['lines']} lines of code)... [OK]",
-                            preview_link_or_file=finfo['path']
-                        )
-                    except Exception:
-                        pass
+                    nonlocal accumulated_lines
+                    line_entry = f"⚡ LIVE CODE AUDIT [{finfo['index']}/{finfo['total']}]: {finfo['file']} ({finfo['lines']} LOC)... [VERIFIED]"
+                    accumulated_lines.append(line_entry)
+                    display_stdout = "\n".join(accumulated_lines[-24:]) if len(accumulated_lines) > 24 else "\n".join(accumulated_lines)
+                    pct = int(finfo['index'] / finfo['total'] * 100)
+                    audit_task.data["stdout"] = display_stdout
+                    task_mgr.update_progress(audit_task.task_id, pct, line_entry)
                     if callable(on_progress):
                         try:
                             on_progress(finfo)
@@ -468,14 +503,15 @@ class SystemSkillEngine:
 
                 res = upgrader.inspect_code_and_logs(on_progress=_audit_progress_cb)
                 msg = f"Self-Inspection complete. {res['inspected_files']} files audited ({res['total_lines_of_code']} total lines of code). {res['recommendation']}"
+                final_stdout = "\n".join(accumulated_lines) + f"\n\n✓ AUDIT COMPLETE: {res['inspected_files']} files audited ({res['total_lines_of_code']} LOC).\n{res['recommendation']}"
+                task_mgr.complete_task(
+                    audit_task.task_id,
+                    summary=f"Audited {res['inspected_files']} files",
+                    extra_data={"stdout": final_stdout, "exit_code": 0}
+                )
                 raw = [{"title": "Diagnostic Codebase Inspection", "snippet": msg, "url": "modules/self_upgrade.py"}]
 
-            payload = self.hud_engine.build_structured_payload("Diagnostic Audit", "SYSTEM AUDIT", raw, msg)
-            try:
-                from frontend.hud_panel import HUDPanelManager
-                HUDPanelManager().show_action_hud(title="Self-Upgrade & Diagnostic Audit", action_type="SYSTEM AUDIT", details=msg)
-            except Exception:
-                pass
+            payload = self.hud_engine.build_structured_payload("Diagnostic Audit", "TERMINAL", raw, msg)
             return True, msg, False, "", payload
 
         # 8. Sarcastic Phrase Triggers

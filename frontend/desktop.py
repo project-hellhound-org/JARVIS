@@ -18,8 +18,15 @@ import re
 import subprocess
 import time
 import os
+import base64
+import tempfile
+import shutil
 import struct
 import wave
+try:
+    import psutil
+except ImportError:
+    psutil = None
 # Suppress C-level ALSA / JACK warning log spam in terminal
 try:
     from ctypes import CFUNCTYPE, c_char_p, c_int, cdll
@@ -62,31 +69,82 @@ class _StreamingPrefixFilter:
         self.on_chunk = on_chunk
         self.buffer = ""
         self.cleared = False
+        self.cmd_buffer = ""
+        self.capturing_cmd = False
+        self.action_buffer = ""
+        self.capturing_action = False
 
     def feed(self, chunk: str):
-        if self.cleared:
-            self.on_chunk(chunk)
+        if not self.cleared:
+            self.buffer += chunk
+            clean_buf = self.buffer.lstrip()
+
+            m = self.CLEAN_REGEX.match(clean_buf)
+            if m:
+                self.cleared = True
+                remaining = clean_buf[m.end():]
+                self.buffer = ""
+                if remaining:
+                    self._feed_text(remaining)
+                return
+
+            upper = clean_buf.upper()
+            could_match = any(cand.startswith(upper) for cand in self.CANDIDATES)
+            if not could_match or len(clean_buf) > 25:
+                self.cleared = True
+                to_flush = self.buffer
+                self.buffer = ""
+                self._feed_text(to_flush)
             return
 
-        self.buffer += chunk
-        clean_buf = self.buffer.lstrip()
+        self._feed_text(chunk)
 
-        m = self.CLEAN_REGEX.match(clean_buf)
-        if m:
-            self.cleared = True
-            remaining = clean_buf[m.end():]
-            self.buffer = ""
-            if remaining:
-                self.on_chunk(remaining)
-            return
-
-        upper = clean_buf.upper()
-        could_match = any(cand.startswith(upper) for cand in self.CANDIDATES)
-        if not could_match or len(clean_buf) > 25:
-            self.cleared = True
-            to_flush = self.buffer
-            self.buffer = ""
-            self.on_chunk(to_flush)
+    def _feed_text(self, text: str):
+        # Filter out [CMD: <cmd>] directives and *stage directions* on the fly
+        for ch in text:
+            if not self.capturing_cmd and not self.capturing_action:
+                if ch == '[':
+                    self.capturing_cmd = True
+                    self.cmd_buffer = '['
+                elif ch == '*':
+                    self.capturing_action = True
+                    self.action_buffer = '*'
+                else:
+                    self.on_chunk(ch)
+            elif self.capturing_action:
+                self.action_buffer += ch
+                if ch == '*':
+                    self.capturing_action = False
+                    # Action *...* (*grins*, *cracks knuckles*, etc.) is discarded completely!
+                    self.action_buffer = ""
+                elif len(self.action_buffer) > 100 or ch == '\n':
+                    # Overflow: not a short stage direction
+                    self.capturing_action = False
+                    self.on_chunk(self.action_buffer)
+                    self.action_buffer = ""
+            elif self.capturing_cmd:
+                self.cmd_buffer += ch
+                if ch == ']':
+                    self.capturing_cmd = False
+                    # Check if this bracket block is a CMD directive
+                    m = re.match(r'\[CMD(?::|\s)\s*([^\]]+)\]', self.cmd_buffer, re.IGNORECASE)
+                    if m:
+                        cmd_to_run = m.group(1).strip()
+                        try:
+                            from core.system_commander import get_system_commander
+                            commander = get_system_commander()
+                            commander.run_as_task(cmd_to_run, title=f"Terminal: {cmd_to_run[:30]}")
+                        except Exception as e:
+                            print(f"[desktop] Streaming command launch error: {e}")
+                    else:
+                        # Not a CMD tag (e.g. markdown link or reference), pass through
+                        self.on_chunk(self.cmd_buffer)
+                    self.cmd_buffer = ""
+                elif len(self.cmd_buffer) > 250:
+                    # Overflow protection: not a reasonable CMD tag
+                    self.capturing_cmd = False
+                    self.on_chunk(self.cmd_buffer)
+                    self.cmd_buffer = ""
 
     def flush(self):
         if not self.cleared and self.buffer:
@@ -94,7 +152,27 @@ class _StreamingPrefixFilter:
             self.cleared = True
             self.buffer = ""
             if clean_buf:
-                self.on_chunk(clean_buf)
+                self._feed_text(clean_buf)
+        if self.capturing_action and self.action_buffer:
+            self.capturing_action = False
+            # Drop trailing action tag if cut off mid-stream
+            if not any(w in self.action_buffer.lower() for w in ["chuckle", "grin", "smirk", "laugh", "sigh", "knuckle", "lean", "crack"]):
+                self.on_chunk(self.action_buffer)
+            self.action_buffer = ""
+        if self.capturing_cmd and self.cmd_buffer:
+            self.capturing_cmd = False
+            m = re.match(r'\[CMD(?::|\s)\s*([^\]]+)', self.cmd_buffer, re.IGNORECASE)
+            if m:
+                cmd_to_run = m.group(1).strip()
+                try:
+                    from core.system_commander import get_system_commander
+                    commander = get_system_commander()
+                    commander.run_as_task(cmd_to_run, title=f"Terminal: {cmd_to_run[:30]}")
+                except Exception:
+                    pass
+            else:
+                self.on_chunk(self.cmd_buffer)
+            self.cmd_buffer = ""
 
 
 class SoldierBoyAPI:
@@ -111,10 +189,27 @@ class SoldierBoyAPI:
         self._wake_window_expires = 0.0
         self._recent_agent_responses = []
         self._tts_playback_until = 0.0
+        self._tts_turn_lock = threading.Lock()
+        self._tts_turn_id = 0
+        self._current_tts_proc = None
+        self._telemetry_last_net = None
+        self._telemetry_last_time = None
+        self._shared_audio_queue = queue.Queue(maxsize=150)
 
         # Async Background Initialization for Instant App Launch (<0.2s)
         self._wake_engine = None
         threading.Thread(target=self._async_init_wake_engine, daemon=True).start()
+
+    def _on_shared_audio_chunk(self, chunk: bytes):
+        """Unified audio capture callback fed directly from WakeWordEngine's active PyAudio stream."""
+        try:
+            self._shared_audio_queue.put_nowait(chunk)
+        except queue.Full:
+            try:
+                self._shared_audio_queue.get_nowait()
+                self._shared_audio_queue.put_nowait(chunk)
+            except Exception:
+                pass
 
     def _async_init_wake_engine(self):
         try:
@@ -122,7 +217,9 @@ class SoldierBoyAPI:
             self._wake_engine = WakeWordEngine(
                 on_wake_detected=self._on_wake_word_detected,
                 on_speech_ended=self._on_vad_speech_ended,
-                silence_timeout_sec=2.5,
+                audio_chunk_callback=self._on_shared_audio_chunk,
+                threshold=0.35,
+                silence_timeout_sec=3.2,
                 max_window_sec=30.0
             )
             self._wake_engine.start()
@@ -133,7 +230,7 @@ class SoldierBoyAPI:
     def _on_wake_word_detected(self, phrase: str):
         print(f"[desktop] openWakeWord triggered ('{phrase}'). Opening STT command capture window.")
         now = time.time()
-        self._wake_window_expires = now + 30.0
+        self._wake_window_expires = now + 20.0
         self._emit("soldierboy_wake_word_detected", {"raw": phrase, "clean": ""})
 
     def _on_vad_speech_ended(self):
@@ -173,13 +270,7 @@ class SoldierBoyAPI:
     def _on_skill_progress(self, finfo):
         if isinstance(finfo, dict) and "file" in finfo:
             msg_str = f"⚡ LIVE CODE AUDIT [{finfo['index']}/{finfo['total']}]: {finfo['file']} ({finfo['lines']} LOC)... [VERIFIED]"
-            self._emit("open_soldierboy_panel", {
-                "query": f"AUDITING {finfo['file']}",
-                "text": msg_str,
-                "typing_query": f"Audit [{finfo['index']}/{finfo['total']}]: {finfo['file']}",
-                "action_type": "LIVE CODE AUDIT STREAM"
-            })
-            self._emit("scan_status", {"message": msg_str})
+            self._emit("soldierboy_stt_interim", {"text": msg_str})
 
     def _run_process_input(self, text: str):
         try:
@@ -195,16 +286,26 @@ class SoldierBoyAPI:
                 if handled:
                     display_query = query if query else text
                     print(f"[desktop] System skill/search fast-path triggered for: '{text}' (query: '{display_query}')")
-                    self._emit("open_soldierboy_panel", {
-                        "query": display_query,
-                        "text": msg,
-                        "typing_query": f"Executing action: {display_query}",
-                        "action_type": "ACTION HUD ACTIVE",
-                        "structured_payload": payload
-                    })
+                    # Only emit action panel for skills without floating task surfaces (code audits, app launches, etc.)
+                    # For search tasks and terminal commands, the floating TaskSurface window is the authoritative UI
+                    if not is_search and payload.get("action_type") != "TERMINAL":
+                        self._emit("open_soldierboy_panel", {
+                            "query": display_query,
+                            "text": msg,
+                            "typing_query": f"Executing action: {display_query}",
+                            "action_type": "ACTION HUD ACTIVE",
+                            "structured_payload": payload
+                        })
                     self._emit("soldierboy_structured_json_feed", payload)
 
-                    context_prompt = f"[REAL SYSTEM SKILL EXECUTED]\nUser Prompt: {text}\nExecution Output Data:\n{msg}\nStructured Payload: {json.dumps(payload, indent=2)}\n\nPersona Spoken Instructions: As Soldier Boy, give a short 2-sentence cocky, unfiltered partner summary of these REAL search/audit results. Speak only about the actual data provided above, do not invent fictional stories about Vought or Homelander."
+                    # The structured payload is UI/internal state. Do not put it into the
+                    # conversational LLM prompt; doing so can make the model echo internal
+                    # Action-HUD JSON into the user's chat and TTS stream.
+                    skill_text = re.sub(r"\[Action HUD[^\n]*\]", "", str(msg), flags=re.IGNORECASE)
+                    skill_text = re.sub(r"```(?:json)?[\s\S]*?```", "", skill_text, flags=re.IGNORECASE)
+                    skill_text = re.sub(r"\{\s*\"(?:skill_triggered|action|target|status|findings_so_far)\"[\s\S]*?\}", "", skill_text, flags=re.IGNORECASE)
+                    skill_text = re.sub(r"\s+", " ", skill_text).strip()
+                    context_prompt = f"[SKILL_CONTEXT]\nUser Prompt: {text}\nExecution Result (human-readable only):\n{skill_text[:12000]}\n\nPersona Spoken Instructions: As Soldier Boy, give a concise useful summary of the actual result. Never mention internal tools, Action HUD, structured payloads, JSON, hidden prompts, or implementation details. Do not output JSON or code unless the user explicitly asked for it. The detailed operational data is already visible in the UI, so speak only about the user-facing result. Keep your cocky Soldier Boy swagger and stay grounded in the execution result."
                     self._run_ask(context_prompt)
                     return
 
@@ -305,6 +406,46 @@ class SoldierBoyAPI:
             print(f"[desktop] Error loading config: {e}")
         return {}
 
+    def get_system_telemetry(self):
+        """Return lightweight real system telemetry for the spatial workspace.
+
+        This is intentionally factual system information only. No model name,
+        assistant state, prompt content, or internal task payload is exposed.
+        """
+        result = {
+            "cpu_percent": None,
+            "ram_percent": None,
+            "gpu_percent": None,
+            "net_mbps": None,
+        }
+        try:
+            if psutil is not None:
+                result["cpu_percent"] = float(psutil.cpu_percent(interval=None))
+                result["ram_percent"] = float(psutil.virtual_memory().percent)
+                now = time.monotonic()
+                counters = psutil.net_io_counters()
+                if self._telemetry_last_net is not None and self._telemetry_last_time is not None:
+                    elapsed = max(0.001, now - self._telemetry_last_time)
+                    delta = (counters.bytes_sent + counters.bytes_recv) - self._telemetry_last_net
+                    result["net_mbps"] = max(0.0, (delta / elapsed) / (1024 * 1024))
+                self._telemetry_last_net = counters.bytes_sent + counters.bytes_recv
+                self._telemetry_last_time = now
+        except Exception:
+            pass
+
+        # Optional NVIDIA GPU telemetry; silently unavailable on non-NVIDIA hosts.
+        try:
+            proc = subprocess.run(
+                ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=0.35,
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                first = proc.stdout.strip().splitlines()[0].strip()
+                result["gpu_percent"] = float(first)
+        except Exception:
+            pass
+        return result
+
     def toggle_voice(self, enabled: bool):
         """Voice synthesis toggle."""
         return True
@@ -372,9 +513,83 @@ class SoldierBoyAPI:
         tasks = get_task_manager().list_tasks()
         return [t.to_dict() if hasattr(t, "to_dict") else t for t in tasks]
 
+    def _play_audio_natively(self, audio_bytes: bytes, suffix: str = ".mp3", wait: bool = True):
+        """Direct native playback of speech bytes on Linux via mpg123, ffplay, or aplay.
+        When wait=True, blocks until the current sentence finishes speaking so subsequent
+        sentences never cut off the audio mid-sentence.
+        """
+        try:
+            if hasattr(self, '_current_tts_proc') and self._current_tts_proc:
+                try:
+                    self._current_tts_proc.terminate()
+                except Exception:
+                    pass
+                self._current_tts_proc = None
+
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tf:
+                tf.write(audio_bytes)
+                tf.flush()
+                tmp_path = tf.name
+
+            cmd = None
+            if suffix == ".mp3":
+                if shutil.which("mpg123"):
+                    cmd = ["mpg123", "-q", tmp_path]
+                elif shutil.which("ffplay"):
+                    cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", tmp_path]
+            elif suffix == ".wav":
+                if shutil.which("aplay"):
+                    cmd = ["aplay", "-q", tmp_path]
+                elif shutil.which("ffplay"):
+                    cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", tmp_path]
+                elif shutil.which("mpg123"):
+                    cmd = ["mpg123", "-q", tmp_path]
+
+            if cmd:
+                proc = subprocess.Popen(cmd)
+                self._current_tts_proc = proc
+                approx_dur = max(1.5, len(audio_bytes) / 32000 if suffix == ".wav" else len(audio_bytes) / 4000)
+                self._tts_playback_until = time.time() + approx_dur
+
+                if wait:
+                    try:
+                        proc.wait(timeout=45)
+                    except Exception:
+                        pass
+                    finally:
+                        self._current_tts_proc = None
+                        try:
+                            if os.path.exists(tmp_path):
+                                os.unlink(tmp_path)
+                        except Exception:
+                            pass
+                else:
+                    def _cleanup():
+                        try:
+                            proc.wait(timeout=45)
+                        except Exception:
+                            pass
+                        finally:
+                            try:
+                                if os.path.exists(tmp_path):
+                                    os.unlink(tmp_path)
+                            except Exception:
+                                pass
+                    threading.Thread(target=_cleanup, daemon=True).start()
+        except Exception as e:
+            print(f"[desktop] Native audio playback error: {e}")
+
     def interrupt_speech(self):
-        """Barge-in: Interrupt TTS audio speech playback immediately when user speaks."""
+        """Barge-in: invalidate all older TTS turns immediately and kill active native audio."""
         self._tts_playback_until = 0.0
+        if hasattr(self, '_current_tts_proc') and self._current_tts_proc:
+            try:
+                self._current_tts_proc.terminate()
+            except Exception:
+                pass
+            self._current_tts_proc = None
+        with self._tts_turn_lock:
+            self._tts_turn_id += 1
         self._emit("soldierboy_interrupt_speech", {})
         return True
 
@@ -632,37 +847,156 @@ class SoldierBoyAPI:
             print(f"[desktop] Sentence TTS streaming error: {e}")
 
     def _run_ask(self, question: str):
-        self._emit("soldierboy_stream_start", {})
-        sentence_buffer = ""
-        tts_queue = queue.Queue()
-        sent_count = 0
+        # Every answer gets a monotonically increasing TTS turn ID. The browser
+        # uses it to discard late PCM from an older answer after barge-in/new input.
+        with self._tts_turn_lock:
+            self._tts_turn_id += 1
+            tts_turn_id = self._tts_turn_id
 
-        def tts_worker():
+        self._emit("soldierboy_stream_start", {"turn_id": tts_turn_id})
+        sentence_buffer = ""
+        tts_text_queue = queue.Queue()
+        tts_audio_queue = queue.Queue(maxsize=15)
+        sent_count = 0
+        tts_state = {"emitted": False}
+        fish_stream_available = bool(
+            self._voice
+            and getattr(self._voice, "fish_audio_available", False)
+            and getattr(self._voice, "fish_streaming_sdk_available", False)
+        )
+        if self._voice and getattr(self._voice, "fish_audio_available", False) and not fish_stream_available:
+            print("[desktop] Fish Audio streaming SDK unavailable; using complete-phrase Fish TTS fallback for this answer.")
+
+        def tts_synthesis_worker():
             while True:
-                item = tts_queue.get()
+                item = tts_text_queue.get()
                 if item is None:
-                    tts_queue.task_done()
+                    tts_audio_queue.put(None)
+                    tts_text_queue.task_done()
                     break
                 try:
                     sentence = item
-                    if sentence and len(sentence.strip()) > 2:
-                        self._recent_agent_responses.append(sentence.strip())
-                        if len(self._recent_agent_responses) > 20:
-                            self._recent_agent_responses.pop(0)
-                        self._tts_playback_until = time.time() + max(3.5, len(sentence) * 0.08)
+                    if not sentence or len(sentence.strip()) <= 2:
+                        continue
 
-                    audio_b64 = self._voice.synthesize_speech_b64(sentence)
-                    if audio_b64:
-                        self._emit("soldierboy_audio_chunk", {"audio": audio_b64, "text": sentence})
+                    # Last safety boundary: only cleaned, user-facing text can reach TTS.
+                    sentence = self._voice._sanitize_text_for_speech(sentence) if self._voice else sentence
+                    if not sentence:
+                        continue
+
+                    self._recent_agent_responses.append(sentence.strip())
+                    if len(self._recent_agent_responses) > 20:
+                        self._recent_agent_responses.pop(0)
+
+                    with self._tts_turn_lock:
+                        if self._tts_turn_id != tts_turn_id:
+                            continue
+
+                    streamed = False
+                    if fish_stream_available:
+                        try:
+                            pcm_stream = self._voice.stream_fish_audio_pcm(sentence)
+                            first = True
+                            for pcm_bytes, sample_rate in pcm_stream:
+                                with self._tts_turn_lock:
+                                    current_turn = self._tts_turn_id
+                                if current_turn != tts_turn_id:
+                                    break
+                                if not pcm_bytes:
+                                    continue
+                                streamed = True
+                                tts_state["emitted"] = True
+                                self._emit("soldierboy_pcm_audio_chunk", {
+                                    "audio": base64.b64encode(pcm_bytes).decode("ascii"),
+                                    "sample_rate": sample_rate,
+                                    "text": sentence if first else "",
+                                    "turn_id": tts_turn_id,
+                                })
+                                first = False
+                        except Exception as fish_err:
+                            print(f"[desktop] Fish Audio WebSocket TTS failed: {fish_err}")
+
+                    if not streamed:
+                        with self._tts_turn_lock:
+                            current_turn = self._tts_turn_id
+                        if current_turn == tts_turn_id:
+                            audio_bytes = self._voice.narrate(sentence)
+                            with self._tts_turn_lock:
+                                still_current = self._tts_turn_id == tts_turn_id
+                            if still_current and audio_bytes:
+                                is_wav = audio_bytes.startswith(b"RIFF")
+                                suffix = ".wav" if is_wav else ".mp3"
+                                mime = "audio/wav" if is_wav else "audio/mp3"
+                                b64 = base64.b64encode(audio_bytes).decode("ascii")
+                                audio_b64 = f"data:{mime};base64,{b64}"
+                                tts_audio_queue.put({
+                                    "sentence": sentence,
+                                    "audio_bytes": audio_bytes,
+                                    "audio_b64": audio_b64,
+                                    "suffix": suffix,
+                                    "turn_id": tts_turn_id,
+                                })
                 except Exception as e:
-                    print(f"[desktop] Sentence TTS streaming error: {e}")
+                    print(f"[desktop] TTS synthesis pipeline error: {e}")
                 finally:
-                    tts_queue.task_done()
+                    tts_text_queue.task_done()
 
-        worker_thread = None
+        def tts_playback_worker():
+            while True:
+                item = tts_audio_queue.get()
+                if item is None:
+                    tts_audio_queue.task_done()
+                    break
+                try:
+                    turn = item.get("turn_id")
+                    with self._tts_turn_lock:
+                        if self._tts_turn_id != turn:
+                            continue
+                    tts_state["emitted"] = True
+                    # Emit to UI immediately
+                    self._emit("soldierboy_audio_chunk", {
+                        "audio": item["audio_b64"],
+                        "text": item["sentence"],
+                        "turn_id": turn,
+                        "native_played": True,
+                    })
+                    # Play natively on Linux speakers and wait for sentence to finish.
+                    # Subsequent sentence is already pre-synthesized and starts within <50ms!
+                    self._play_audio_natively(item["audio_bytes"], suffix=item["suffix"], wait=True)
+                except Exception as e:
+                    print(f"[desktop] TTS playback pipeline error: {e}")
+                finally:
+                    tts_audio_queue.task_done()
+
+        synth_thread = None
+        playback_thread = None
         if self._voice:
-            worker_thread = threading.Thread(target=tts_worker, daemon=True)
-            worker_thread.start()
+            synth_thread = threading.Thread(target=tts_synthesis_worker, daemon=True)
+            playback_thread = threading.Thread(target=tts_playback_worker, daemon=True)
+            synth_thread.start()
+            playback_thread.start()
+
+        def queue_spoken_text(text: str):
+            """Queue complete natural phrases, never individual LLM tokens."""
+            nonlocal sent_count
+            if not text:
+                return
+            clean = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', text, flags=re.IGNORECASE).strip()
+            # Strip roleplay stage directions and action asterisks (*grins*, *cracks knuckles*, etc.)
+            clean = re.sub(r'\*[^*]+\*', '', clean)
+            clean = re.sub(r'\([^)]*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks|leans|snort)[^)]*\)', '', clean, flags=re.IGNORECASE)
+            clean = re.sub(r'\s+([.,!?;:])', r'\1', clean)
+            clean = re.sub(r'[ \t]+', ' ', clean).strip()
+            if not clean:
+                return
+            # Keep normal sentences intact. For unusually long sentences, split only
+            # at natural punctuation so Fish never receives an awkward fragment.
+            parts = re.split(r'(?<=[,;:])\s+(?=[A-Z0-9])', clean) if len(clean) > 240 else [clean]
+            for part in parts:
+                part = part.strip()
+                if len(part) > 3:
+                    sent_count += 1
+                    tts_text_queue.put(part)
 
         def emit_clean_chunk(tok: str):
             nonlocal sentence_buffer, sent_count
@@ -675,11 +1009,8 @@ class SoldierBoyAPI:
                     sentence = sentence_buffer[:m.end()].strip()
                     sentence_buffer = sentence_buffer[m.end():]
                     if len(sentence) > 3:
-                        sent_count += 1
                         clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
-                        clean_sentence = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', clean_sentence, flags=re.IGNORECASE).strip()
-                        if clean_sentence:
-                            tts_queue.put(clean_sentence)
+                        queue_spoken_text(clean_sentence)
 
         prefix_filter = _StreamingPrefixFilter(emit_clean_chunk)
 
@@ -706,8 +1037,7 @@ class SoldierBoyAPI:
             frag = sentence_buffer.strip()
             frag = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', frag, flags=re.IGNORECASE).strip()
             if len(frag) > 2:
-                sent_count += 1
-                tts_queue.put(frag)
+                queue_spoken_text(frag)
 
         # System skill / non-streamed response TTS & text streaming fallback: if no streaming chunks were generated,
         # simulate word-by-word text streaming on screen AND enqueue clean spoken sentences for local voice engine!
@@ -737,10 +1067,18 @@ class SoldierBoyAPI:
                 for s in sentences:
                     s_clean = s.strip()
                     if len(s_clean) > 3:
-                        tts_queue.put(s_clean)
+                        tts_text_queue.put(s_clean)
 
-        if worker_thread:
-            tts_queue.put(None)
+        if synth_thread:
+            # Let the pipelined workers drain the queue cleanly in the background.
+            tts_text_queue.put(None)
+            # Only trigger browser synthetic fallback if Fish Audio is completely unconfigured
+            fish_configured = bool(self._voice and getattr(self._voice, "fish_audio_available", False))
+            if not fish_configured:
+                synth_thread.join(timeout=2.0)
+                if not tts_state["emitted"] and result.get("text"):
+                    fallback_text = self._voice._sanitize_text_for_speech(result.get("text", "")) if self._voice else result.get("text", "")
+                    self._emit("soldierboy_tts_browser_fallback", {"text": fallback_text, "turn_id": tts_turn_id})
 
         # Post-hoc grounding check audit on full assembled LLM response text
         if self._target and result.get("text"):
@@ -766,14 +1104,21 @@ class SoldierBoyAPI:
         if result.get("open_dialog"):
             self._emit("open_investigate_dialog", {})
         if result.get("show_panel"):
-            self._emit("open_soldierboy_panel", {
-                "query": result.get("search_query", ""),
-                "text": result["text"],
-                "structured_payload": result.get("panel_payload", {})
-            })
+            # Search tasks have a dedicated floating TaskSurface. Never open the
+            # legacy fixed action panel for the same operation.
+            is_search_result = bool(result.get("search_query")) or bool(
+                result.get("panel_payload", {}).get("mode") == "SEARCH"
+                if isinstance(result.get("panel_payload"), dict) else False
+            )
+            if not is_search_result:
+                self._emit("open_soldierboy_panel", {
+                    "query": result.get("search_query", ""),
+                    "text": result["text"],
+                    "structured_payload": result.get("panel_payload", {})
+                })
         if "Generating HTML investigation report" in result.get("text", ""):
             self.export_report()
-        self._wake_window_expires = time.time() + 30.0
+        self._wake_window_expires = time.time() + 15.0
 
     def export_report(self) -> str:
         """Export current investigation target findings to a standalone HTML report."""
@@ -1069,114 +1414,112 @@ class SoldierBoyAPI:
         return {"success": True, "status": "started"}
 
     def _bg_voice_loop(self):
-        """
-        Native high-responsiveness continuous VAD listener.
-        Reads 100ms PCM audio chunks via arecord/ffmpeg with stderr redirected to DEVNULL
-        (eliminating JACK/ALSA terminal noise).
-
-        Triggers INSTANT HUD movement (listening state) within 100ms of speech start,
-        detects silence after 0.4s, and transcribes speech using Google Speech Recognition.
-        """
+        """Continuous voice capture fed by the unified microphone pipeline.
+        Picks up speech, runs adaptive VAD, and transcribes voice commands."""
         if not sr:
             print("[desktop] Voice listener disabled: speech_recognition package not installed.")
             return
 
-        candidates = [
-            ["arecord", "-D", "default", "-f", "S16_LE", "-r", "16000", "-c", "1", "-q", "-"],
-            ["arecord", "-D", "plughw:1,0", "-f", "S16_LE", "-r", "16000", "-c", "1", "-q", "-"],
-            ["ffmpeg", "-loglevel", "quiet", "-f", "alsa", "-i", "default", "-ar", "16000", "-ac", "1", "-f", "s16le", "-"],
-            ["ffmpeg", "-loglevel", "quiet", "-f", "pulse", "-i", "default", "-ar", "16000", "-ac", "1", "-f", "s16le", "-"]
-        ]
+        print("[desktop] Background voice listener activated via unified microphone pipeline.")
 
-        proc = None
-        for cmd in candidates:
-            try:
-                p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-                # Test read 100ms
-                test_bytes = p.stdout.read(3200)
-                if test_bytes and len(test_bytes) > 0:
-                    proc = p
-                    break
-                else:
-                    p.terminate()
-            except Exception:
-                continue
-
-        if not proc:
-            print("[desktop] Background voice listener: no usable native mic capture tool found.")
-            return
-
-        wake_window_expires = 0.0
         ambient_energy = 150.0
         is_speaking = False
         speech_start_count = 0
         silence_chunks = 0
         pcm_buffer = []
+        pre_roll = []
 
-        chunk_size = 3200  # 100ms @ 16kHz 16-bit mono
+        # PyAudio chunk is 1280 samples (2560 bytes) = 80ms @ 16kHz
+        silence_hangover_chunks = 38     # ~3.0s trailing pause
+        max_turn_chunks = 375            # 30s safety ceiling
+        pre_roll_limit = 10              # 800ms preserves the first syllable
 
         try:
-            while getattr(self, '_bg_voice_active', False) and proc.poll() is None:
-                # 0. If TTS playback is actively outputting speech through speakers, pause mic recording to prevent echo feedback loop
+            while getattr(self, '_bg_voice_active', False):
+                # Never record Soldier Boy's own TTS as a new command.
                 if time.time() < getattr(self, '_tts_playback_until', 0.0):
-                    pcm_buffer.clear()
-                    is_speaking = False
-                    silence_chunks = 0
-                    speech_start_count = 0
-                    time.sleep(0.08)
-                    continue
-
-                raw_chunk = proc.stdout.read(chunk_size)
-                if not raw_chunk or len(raw_chunk) < chunk_size:
+                    pcm_buffer.clear(); pre_roll.clear()
+                    is_speaking = False; silence_chunks = 0; speech_start_count = 0
                     time.sleep(0.05)
                     continue
 
-                # Calculate RMS energy of 100ms chunk
-                shorts = struct.unpack(f"<{len(raw_chunk)//2}h", raw_chunk)
-                if not shorts:
+                raw_chunk = None
+                try:
+                    raw_chunk = self._shared_audio_queue.get(timeout=0.1)
+                except queue.Empty:
+                    pass
+
+                # If shared audio queue hasn't started yet, sleep briefly
+                if not raw_chunk:
+                    time.sleep(0.02)
                     continue
-                sum_sq = sum(s * s for s in shorts)
-                energy = (sum_sq / len(shorts)) ** 0.5
 
-                # Threshold to filter breathing / room rustles (min 1000.0)
-                threshold = max(1000.0, ambient_energy * 3.0)
+                count = len(raw_chunk) // 2
+                if count == 0:
+                    continue
+                shorts = struct.unpack(f"<{count}h", raw_chunk)
+                energy = (sum(x * x for x in shorts) / count) ** 0.5 if shorts else 0.0
 
-                if energy > threshold:
+                pre_roll.append(raw_chunk)
+                if len(pre_roll) > pre_roll_limit:
+                    pre_roll.pop(0)
+
+                if not is_speaking:
+                    ambient_energy = 0.985 * ambient_energy + 0.015 * energy
+
+                # Adaptive floor tuned for natural conversational speech
+                threshold = max(130.0, ambient_energy * 1.25, 170.0)
+                speech = energy >= threshold
+
+                if speech:
                     speech_start_count += 1
                     silence_chunks = 0
-                    pcm_buffer.append(raw_chunk)
-
-                    # Require 2 consecutive chunks (>200ms) of real speech energy to start recording
-                    if speech_start_count >= 2 and not is_speaking:
+                    if not is_speaking and speech_start_count >= 2:
                         is_speaking = True
-                        print(f"[voice listener] Voice detected (Energy: {energy:.1f} > Threshold: {threshold:.1f}) -> HUD set to LISTENING...")
+                        pcm_buffer = list(pre_roll)
+                        print(
+                            f"[voice listener] Voice detected (Energy: {energy:.1f} > "
+                            f"Threshold: {threshold:.1f}) -> LISTENING"
+                        )
                         self._emit("soldierboy_speech_started", {})
+                    if is_speaking:
+                        pcm_buffer.append(raw_chunk)
                 else:
                     speech_start_count = 0
-                    # Ambient background noise tracking
-                    ambient_energy = 0.95 * ambient_energy + 0.05 * energy
                     if is_speaking:
                         pcm_buffer.append(raw_chunk)
                         silence_chunks += 1
-
-                        # 25 consecutive silence chunks = 2.5s silence hangover -> allows user pauses without cutting off mid-sentence
-                        if silence_chunks >= 25:
+                        if silence_chunks >= silence_hangover_chunks:
                             is_speaking = False
-                            silence_chunks = 0
                             captured_pcm = b"".join(pcm_buffer)
                             pcm_buffer = []
-
+                            silence_chunks = 0
                             duration_sec = len(captured_pcm) / 32000.0
-                            print(f"[voice listener] Speech completed (2.5s silence). Captured {duration_sec:.1f}s of audio. Transcribing...")
-
-                            if len(captured_pcm) >= 32000:
+                            print(
+                                f"[voice listener] Speech completed. "
+                                f"Captured {duration_sec:.1f}s of audio. Transcribing..."
+                            )
+                            if len(captured_pcm) >= 16000:
                                 threading.Thread(
                                     target=self._process_captured_speech,
-                                    args=(captured_pcm,),
-                                    daemon=True
+                                    args=(captured_pcm,), daemon=True
                                 ).start()
                             else:
                                 self._emit("soldierboy_speech_ended", {})
+
+                if is_speaking and len(pcm_buffer) >= max_turn_chunks:
+                    print("[voice listener] Speech reached 30s safety ceiling; transcribing current turn.")
+                    is_speaking = False
+                    captured_pcm = b"".join(pcm_buffer)
+                    pcm_buffer = []
+                    silence_chunks = 0
+                    speech_start_count = 0
+                    if captured_pcm:
+                        threading.Thread(
+                            target=self._process_captured_speech,
+                            args=(captured_pcm,), daemon=True
+                        ).start()
+
         except Exception as e:
             import traceback
             print(f"[desktop] Background voice loop error: {e}")
@@ -1184,10 +1527,10 @@ class SoldierBoyAPI:
         finally:
             if proc:
                 try:
-                    proc.terminate()
-                    proc.wait(timeout=1.0)
+                    proc.terminate(); proc.wait(timeout=1.0)
                 except Exception:
-                    pass
+                    try: proc.kill()
+                    except Exception: pass
 
     def _process_captured_speech(self, pcm_bytes: bytes):
         """Transcribe captured speech and trigger HUD / SoldierBoyVoice response."""
@@ -1208,7 +1551,11 @@ class SoldierBoyAPI:
             recognizer = sr.Recognizer()
             with sr.AudioFile(wav_path) as source:
                 audio_data = recognizer.record(source)
-                text = recognizer.recognize_google(audio_data).strip()
+                try:
+                    text = recognizer.recognize_google(audio_data, language="en-IN").strip()
+                except sr.UnknownValueError:
+                    # Retry the same captured audio with the generic English model.
+                    text = recognizer.recognize_google(audio_data, language="en-US").strip()
 
             if text:
                 print(f"[voice listener] Recognized text: '{text}'")
@@ -1245,39 +1592,46 @@ class SoldierBoyAPI:
                     return
 
                 # Comprehensive Soldier Boy wake word pattern (handling all Google STT acoustic mishears: your, you, u, ya, Suraj, search, shoes, soulja, etc.)
-                pattern = r'^(?:(?:hey|hi|hai|yo|yoo|you|your|ur|u|ya|bro|dude|hello|ok|okay|play)\s+)?(?:soldier\s*boy|soldier|soldi|soldja|solger|solja|soja|solda|suraj\s*boy|suraj|search\s*boy|shoes\s*boy|soulja\s*boy|soulja|shoulda\s*boy|sol)\b\s*,?\s*'
+                # Explicit/natural assistant addressing. These are intentionally
+                # PREFIX-only so ordinary speech such as "my buddy called me"
+                # cannot wake the assistant.
+                pattern = r'^(?:(?:hey|hi|hai|yo|yoo|you|your|ur|u|ya|dude|hello|ok|okay|play)\s+)?(?:soldier\s*boy|soldier|soldi|soldja|solger|solja|soja|solda|suraj\s*boy|suraj|search\s*boy|shoes\s*boy|soulja\s*boy|soulja|shoulda\s*boy|sol)\b\s*,?\s*'
+                natural_address_pattern = r'^(?:(?:hey|hi|hai|yo|yoo|hello|okay|ok)\s+)?(?:buddy|bro)\b\s*,?\s*'
                 match = re.search(pattern, text, re.IGNORECASE)
+                natural_match = re.search(natural_address_pattern, text, re.IGNORECASE)
                 anywhere_match = re.search(r'\b(?:soldier\s*boy|soldier|soldja|solger|solja|suraj\s*boy|suraj|soulja\s*boy|soulja)\b', text, re.IGNORECASE)
                 now = time.time()
 
                 # Direct identity / interaction questions bypass wake word check
                 implicit_match = re.search(r'\b(?:who\s+are\s+you|who\s+are\s+u|who\s+u\s+are|what\s+can\s+you\s+do|who\s+the\s+fuck\s+are\s+you)\b', text, re.IGNORECASE)
 
-                if match:
-                    clean = text[match.end():].strip()
-                    print(f"[voice listener] Wake word match! Raw: '{text}', Clean command: '{clean}'")
+                if match or natural_match:
+                    active_match = match or natural_match
+                    address_name = "Hey Soldier" if match else "natural address"
+                    clean = text[active_match.end():].strip()
+                    print(f"[voice listener] {address_name} match! Raw: '{text}', Clean command: '{clean}'")
                     self._emit("soldierboy_wake_word_detected", {"raw": text, "clean": clean if clean else text})
                     if clean:
                         print(f"[voice listener] Sending voice command to Soldier Boy: '{clean}'")
                         self._emit("soldierboy_voice_detected", {"text": clean, "raw": text})
-                        self._wake_window_expires = now + 30.0
+                        self._wake_window_expires = now + 20.0
                     else:
-                        print(f"[voice listener] Wake word only spoken ('{text}'). Opening 30s follow-up window...")
-                        self._wake_window_expires = now + 30.0
+                        print(f"[voice listener] Address only spoken ('{text}'). Opening 15s conversation window...")
+                        self._wake_window_expires = now + 20.0
                 elif anywhere_match:
                     print(f"[voice listener] Anywhere wake phrase match ('{text}')! Triggering Soldier Boy command...")
                     self._emit("soldierboy_wake_word_detected", {"raw": text, "clean": text})
                     self._emit("soldierboy_voice_detected", {"text": text, "raw": text})
-                    self._wake_window_expires = now + 30.0
+                    self._wake_window_expires = now + 20.0
                 elif implicit_match:
                     print(f"[voice listener] Direct query match ('{text}')! Triggering Soldier Boy command...")
                     self._emit("soldierboy_wake_word_detected", {"raw": text, "clean": text})
                     self._emit("soldierboy_voice_detected", {"text": text, "raw": text})
-                    self._wake_window_expires = now + 30.0
+                    self._wake_window_expires = now + 20.0
                 elif now < getattr(self, '_wake_window_expires', 0.0):
-                    print(f"[voice listener] Active wake window! Sending follow-up command to Soldier Boy: '{text}'")
+                    print(f"[voice listener] Active conversation window! Sending follow-up command to Soldier Boy: '{text}'")
                     self._emit("soldierboy_voice_detected", {"text": text, "raw": text})
-                    self._wake_window_expires = now + 30.0
+                    self._wake_window_expires = now + 20.0
                 else:
                     print(f"[voice listener] No wake word detected in ambient audio: '{text}'")
                     self._emit("soldierboy_speech_ended", {})

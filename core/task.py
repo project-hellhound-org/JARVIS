@@ -19,6 +19,7 @@ class TaskType(str, Enum):
     YOUTUBE_SEARCH = "youtube_search"
     BROWSER_SURF = "browser_surf"
     SYSTEM_ACTION = "system_action"
+    TERMINAL_COMMAND = "terminal_command"
     MEMORY_RECALL = "memory_recall"
     INVESTIGATION = "investigation"
     GENERIC_SKILL = "generic_skill"

@@ -2,10 +2,12 @@ import re
 from typing import Tuple, Dict, Any, Optional
 from core.task import Task, TaskType, TaskFinding
 from core.task_manager import get_task_manager, TaskManager
+from core.event_bus import get_event_bus, EventBus
 
 class AgentRouter:
     def __init__(self):
         self.task_manager: TaskManager = get_task_manager()
+        self.event_bus: EventBus = get_event_bus()
 
     def route_input(self, text: str) -> Tuple[bool, str, Optional[Task], str]:
         """
@@ -18,25 +20,40 @@ class AgentRouter:
         if not text_lower:
             return False, "", None, ""
 
+        # ── 0. Check for Mode Switch Commands ─────────────────────
+        if any(kw in text_lower for kw in ["osint mode", "war room", "recon mode", "tactical mode", "war mode", "warm mode", "warm room", "engage osint", "engage war"]):
+            self.event_bus.emit("set_app_mode", {"mode": "osint"})
+            return True, "War room mode engaged, partner. Reconnaissance and target tracking active.", None, "mode_switch_osint"
+
+        if any(kw in text_lower for kw in ["partner mode", "assistant mode", "casual mode", "companion mode"]):
+            self.event_bus.emit("set_app_mode", {"mode": "partner"})
+            return True, "Switched back to partner mode, buddy. Keeping things clean and quiet.", None, "mode_switch_partner"
+
         active_task = self.task_manager.get_active_task()
 
         # ── 1. Check for Conversational Follow-Up Commands ────────
+        target_task = active_task
+        if not target_task:
+            tasks = self.task_manager.list_tasks()
+            if tasks:
+                target_task = tasks[-1]
+
         # A. Minimize command
-        if any(w in text_lower for w in ["minimize", "minimize panel", "hide panel", "minimize that", "hide that", "put it down"]):
-            if active_task:
-                self.task_manager.minimize_task(active_task.task_id)
-                return True, "Minimized the panel, buddy.", active_task, "followup_minimize"
+        if any(w in text_lower for w in ["minimize", "minimize panel", "minimize window", "hide panel", "hide window", "minimize that", "hide that", "put it down", "minimize that window"]):
+            if target_task:
+                self.task_manager.minimize_task(target_task.task_id)
+                return True, "Minimized the panel, buddy.", target_task, "followup_minimize"
 
         # B. Expand/Maximize command
-        if any(w in text_lower for w in ["expand", "maximize", "show panel", "restore panel", "bring it up", "open panel", "restore", "restore surface", "expand surface", "restore task"]):
-            if active_task:
-                self.task_manager.expand_task(active_task.task_id)
-                return True, "Expanded the task surface.", active_task, "followup_expand"
+        if any(w in text_lower for w in ["expand", "maximize", "show panel", "show window", "restore panel", "restore window", "bring it up", "open panel", "restore", "restore surface", "expand surface", "restore task", "maximize window", "bring that up"]):
+            if target_task:
+                self.task_manager.expand_task(target_task.task_id)
+                return True, "Expanded the task surface.", target_task, "followup_expand"
 
         # C. Close/Dismiss command
-        if any(w in text_lower for w in ["close panel", "close task", "dismiss panel", "dismiss task", "close that", "dismiss that"]):
-            if active_task:
-                self.task_manager.close_task(active_task.task_id)
+        if any(w in text_lower for w in ["close panel", "close window", "close task", "dismiss panel", "dismiss window", "dismiss task", "close that", "dismiss that", "close that window"]):
+            if target_task:
+                self.task_manager.close_task(target_task.task_id)
                 return True, "Closed the task surface.", None, "followup_close"
 
         # D. Select Item / Open Result ("open the second one", "show result 1")
@@ -73,7 +90,39 @@ class AgentRouter:
             )
             return True, f"Searching YouTube for '{query}', buddy.", task, "youtube_search"
 
-        # ── 3. Check for Google / Web Search ───────────────────────
+        # ── 3. Check for Autonomous Terminal / System Command ──────
+        # Handles explicit commands, backticks, or direct CLI binary execution (dig, nmap, curl, etc.)
+        cmd_candidate = None
+        m_cmd_explicit = re.search(r'^(?:run\s+command|execute\s+command|terminal|shell|bash)\s*[:\-]?\s*(.+)$', text_strip, re.IGNORECASE)
+        m_backtick = re.search(r'^(?:run|exec|execute)?\s*`([^`]+)`$', text_strip, re.IGNORECASE)
+        
+        cli_tools = [
+            "dig", "nmap", "curl", "subfinder", "nuclei", "httpx", "ping", "whois",
+            "traceroute", "df", "free", "ps", "ls", "cat", "python", "python3",
+            "bash", "ip", "netstat", "ss", "uptime", "uname", "grep", "which",
+            "find", "head", "tail", "wc"
+        ]
+        tools_regex = r'^(?:run|exec|execute)?\s*(' + '|'.join(cli_tools) + r')\b(.*)$'
+        m_tool = re.search(tools_regex, text_strip, re.IGNORECASE)
+
+        if m_backtick:
+            cmd_candidate = m_backtick.group(1).strip()
+        elif m_cmd_explicit:
+            cmd_candidate = m_cmd_explicit.group(1).strip().strip('`')
+        elif m_tool and not any(kw in text_lower for kw in ["search", "youtube", "investigate", "target"]):
+            tool_name = m_tool.group(1).strip().lower()
+            rest = m_tool.group(2).strip()
+            cmd_candidate = f"{tool_name} {rest}".strip()
+
+        if cmd_candidate:
+            task = self.task_manager.create_task(
+                type_=TaskType.TERMINAL_COMMAND.value,
+                title=f"Terminal: {cmd_candidate[:30]}",
+                data={"command": cmd_candidate}
+            )
+            return True, f"Executing `{cmd_candidate}` on your system.", task, "terminal_command"
+
+        # ── 4. Check for Google / Web Search ───────────────────────
         if any(kw in text_lower for kw in ["google", "search", "look up", "latest news", "find out"]):
             if not any(t_kw in text_lower for t_kw in ["search target", "search case", "target investigation"]):
                 m_g = re.search(r'(?:google\s+search|search\s+google|search|look\s+up|find\s+out|find)\s+(?:for\s+|about\s+|on\s+)?(.+)', text_lower)
@@ -89,11 +138,11 @@ class AgentRouter:
                 )
                 return True, f"Searching Google for '{query}'.", task, "google_search"
 
-        # ── 4. Check for System Action (App Launch) ────────────────
+        # ── 5. Check for System Action (App Launch) ────────────────
         m_app = re.search(r'^(?:open|launch|run|start)\s+(?:application|app|program)?\s*([a-zA-Z0-9_\-\s]+)$', text_lower)
         if m_app:
             app_name = m_app.group(1).strip()
-            excluded = ["google", "youtube", "dialog", "target", "investigation", "case", "node", "first", "second", "third", "fourth", "fifth", "1", "2", "3", "4", "5", "panel", "surface", "chip"]
+            excluded = ["google", "youtube", "dialog", "target", "investigation", "case", "node", "first", "second", "third", "fourth", "fifth", "1", "2", "3", "4", "5", "panel", "surface", "chip"] + cli_tools
             if app_name not in excluded and not app_name.startswith("the ") and not any(w in app_name for w in ["result", "video", "item", "link", "number", "second", "third", "fourth", "fifth"]):
                 task = self.task_manager.create_task(
                     type_=TaskType.SYSTEM_ACTION.value,

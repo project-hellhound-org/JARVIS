@@ -27,6 +27,7 @@ gemini_api_key: YOUR_GEMINI_API_KEY_HERE
 # ── Fish Audio Voice Synthesis ──────────────────────────────────
 # Get your key at: https://fish.audio/app/developers
 fish_audio_api_key: YOUR_FISH_AUDIO_API_KEY_HERE
+fish_audio_model: s2.1-pro-free
 fish_audio_voice_id: e81ae965a9a94ed69ff05eed7e7a57c7
 
 assets_dir: assets

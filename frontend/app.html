@@ -61,12 +61,39 @@
     transition: background 0.3s ease, color 0.3s ease;
   }
 
+  /* OSINT WAR ROOM MODE (Serious Tactical Red) */
+  body.mode-osint {
+    --accent: #EF4444;
+    --accent-dim: rgba(239, 68, 68, 0.16);
+    --accent-glow: rgba(239, 68, 68, 0.45);
+    --accent-text: #FCA5A5;
+    --border-active: rgba(239, 68, 68, 0.55);
+  }
+  body.mode-osint #soldierboy-hud-canvas {
+    filter: drop-shadow(0 0 28px rgba(239, 68, 68, 0.35));
+  }
+  body.mode-osint #soldierboy-top-bar {
+    border-bottom: 1px solid rgba(239, 68, 68, 0.35) !important;
+    background: rgba(14, 4, 4, 0.94) !important;
+  }
+  body.mode-osint #hud-container {
+    box-shadow: inset 0 0 140px rgba(185, 28, 28, 0.22);
+  }
+
+  /* PARTNER ASSISTANT MODE */
+  body.mode-partner {
+    --accent: #FF9D2E;
+    --accent-dim: rgba(255, 157, 46, 0.10);
+    --accent-glow: rgba(255, 157, 46, 0.20);
+    --accent-text: #FFB84D;
+  }
+
   #bg-layer {
     position: fixed; inset: 0; z-index: 0;
-    background-image: url('soldier-banner.png');
+    background-image: none;
     background-size: cover; background-position: 68% center;
-    opacity: 0.65;
-    filter: brightness(0.90) contrast(1.10) saturate(0.85);
+    opacity: 0;
+    filter: none;
     transition: background-image 0.5s ease, filter 0.35s ease, opacity 0.35s ease;
   }
   #bg-overlay {
@@ -75,8 +102,8 @@
     transition: background 0.35s ease;
   }
 
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.10); border-radius: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
 
   #shell {
@@ -262,7 +289,7 @@
     height: 100%;
     z-index: 200;
     pointer-events: none; /* Never blocks underlying elements or galaxy */
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* Individual Spatial Task Window */
@@ -552,30 +579,30 @@
     box-shadow: 0 0 16px rgba(255, 157, 46, 0.25);
   }
   #soldierboy-hud-node-tooltip {
-    position: absolute;
-    top: 24px;
-    left: 50%;
-    transform: translateX(-50%) translateY(4px);
-    background: rgba(8, 9, 10, 0.94);
-    border: 1px solid rgba(255, 157, 46, 0.35);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.9), 0 0 12px rgba(255, 157, 46, 0.15);
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    transform: translate(-50%, -100%);
+    background: rgba(10, 11, 14, 0.95) !important;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 157, 46, 0.45) !important;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.9), 0 0 16px rgba(255, 157, 46, 0.25) !important;
     border-radius: 6px;
-    padding: 5px 12px;
+    padding: 6px 14px;
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 11px;
     color: #E6E6E6;
     pointer-events: none;
-    z-index: 100;
+    z-index: 99999 !important;
     white-space: nowrap;
     opacity: 0;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition: opacity 0.15s ease;
     display: flex;
     align-items: center;
     gap: 8px;
   }
   #soldierboy-hud-node-tooltip.hud-node-tooltip-visible {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
   }
   @keyframes statusPulse {
     0% { transform: translateX(-50%) scale(1); }
@@ -893,6 +920,63 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Rotating Dot-Dot Thinking Spinner */
+  .thinking-dot-spinner-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 15px;
+    background: rgba(255, 157, 46, 0.08);
+    border: 1px solid rgba(255, 157, 46, 0.25);
+    border-radius: 20px;
+    margin: 4px 0;
+  }
+  .dot-spinner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    height: 16px;
+    width: 16px;
+    animation: dot-spin 1.1s linear infinite;
+  }
+  .dot-spinner__dot {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    height: 100%;
+    width: 100%;
+  }
+  .dot-spinner__dot::before {
+    content: '';
+    height: 22%;
+    width: 22%;
+    border-radius: 50%;
+    background-color: var(--accent-text);
+  }
+  .dot-spinner__dot:nth-child(1) { transform: rotate(0deg); opacity: 1; }
+  .dot-spinner__dot:nth-child(2) { transform: rotate(45deg); opacity: 0.85; }
+  .dot-spinner__dot:nth-child(3) { transform: rotate(90deg); opacity: 0.7; }
+  .dot-spinner__dot:nth-child(4) { transform: rotate(135deg); opacity: 0.55; }
+  .dot-spinner__dot:nth-child(5) { transform: rotate(180deg); opacity: 0.4; }
+  .dot-spinner__dot:nth-child(6) { transform: rotate(225deg); opacity: 0.25; }
+  .dot-spinner__dot:nth-child(7) { transform: rotate(270deg); opacity: 0.15; }
+  .dot-spinner__dot:nth-child(8) { transform: rotate(315deg); opacity: 0.08; }
+  @keyframes dot-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .thinking-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--accent-text);
+    font-family: var(--sans);
+  }
 
   /* Sleek Floating Glass Composer Footer */
   #composer-footer {
@@ -1412,6 +1496,251 @@
   .geo-flatmap { width: 100%; height: 100%; position: absolute; top: 0; left: 0; background: #030405; display: none; }
   .geo-flatmap.active { display: block; }
   .geo-flatmap-svg { width: 100%; height: 100%; background: #030405; }
+
+  /* ================================================================
+     SOLDIER-BOY SPATIAL DESKTOP — GALAXY-FIRST WORKSPACE
+     The banner artwork is intentionally not used as the desktop
+     background. The galaxy owns the workspace; the banner remains
+     available as a branding asset for README/GitHub use.
+     ================================================================ */
+  #bg-layer, #bg-overlay { display: none !important; }
+  body { background: #030405 !important; }
+
+  #soldierboy-top-bar {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    min-height: 36px !important;
+    padding: 0 12px !important;
+    background: rgba(3,4,5,0.72) !important;
+    border-bottom: 1px solid rgba(255,255,255,0.045) !important;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.35) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+  }
+  .top-bar-left { gap: 8px !important; pointer-events: none !important; }
+  .top-bar-menu-btn {
+    width: 30px !important; height: 28px !important;
+    padding: 0 !important; border: 1px solid rgba(255,255,255,0.07) !important;
+    background: rgba(8,9,10,0.55) !important;
+  }
+  .top-bar-menu-btn {
+    position: absolute !important;
+    top: 12px !important;
+    left: 14px !important;
+    z-index: 500 !important;
+    pointer-events: auto !important;
+  }
+  .top-bar-brand, .top-bar-center, #export-report-btn { display: none !important; }
+  .top-bar-right { margin-left: auto; }
+
+  #soldierboy-body-container { position: relative !important; }
+  #soldierboy-main-workspace { position: relative !important; background: transparent !important; }
+
+  /* Full-window galaxy layer */
+  #workspace-content-grid {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    overflow: hidden !important;
+    z-index: 1 !important;
+  }
+  #soldierboy-hud-pane {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    display: block !important;
+    z-index: 1 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+  }
+  #soldierboy-hud-pane #soldierboy-hud-wrapper {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    transform: none !important;
+    display: block !important;
+    pointer-events: none !important;
+  }
+  #soldierboy-hud-canvas {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    filter: drop-shadow(0 0 34px rgba(255,157,46,0.10)) !important;
+    pointer-events: auto !important;
+    cursor: grab !important;
+  }
+  #soldierboy-hud-node-tooltip { z-index: 99999 !important; pointer-events: none !important; }
+  #soldierboy-hud-floating-status, #ekg-container { display: none !important; }
+
+  /* Spatial interaction: the galaxy canvas must receive pointer input. The chat
+     layer only captures events on actual message content, leaving empty space
+     available for orbit/zoom. */
+  #soldierboy-hud-pane, #soldierboy-hud-wrapper { pointer-events: none !important; }
+  #soldierboy-hud-canvas { pointer-events: auto !important; touch-action: none !important; }
+  #soldierboy-chat-container { pointer-events: none !important; }
+  #thread { pointer-events: none !important; }
+  #thread > * { pointer-events: auto !important; }
+
+  /* Deep-space field: no banner, no colored wash. */
+  #bg-layer, #bg-overlay { display: none !important; }
+  body { background: #010204 !important; }
+
+  /* Remove the old transient HUD status pill entirely. State belongs to the
+     animation itself; there is no floating LISTENING/SPEAKING badge. */
+  #soldierboy-hud-floating-status, #ekg-container { display: none !important; }
+
+  /* FINAL SPATIAL WORKSPACE OVERRIDES */
+  #bg-layer, #bg-overlay { display: none !important; }
+  body { background: #010204 !important; }
+  #soldierboy-hud-pane, #soldierboy-hud-wrapper { pointer-events: none !important; }
+  #soldierboy-hud-canvas {
+    pointer-events: auto !important;
+    touch-action: none !important;
+    cursor: grab !important;
+  }
+  #soldierboy-hud-canvas:active { cursor: grabbing !important; }
+  #soldierboy-chat-container, #thread { pointer-events: none !important; }
+  #thread > * { pointer-events: auto !important; }
+  /* Empty conversation space must never steal galaxy gestures. Only actual chat items receive input. */
+  #thread { pointer-events: none !important; }
+  #thread > * { pointer-events: auto !important; }
+  #soldierboy-hud-floating-status, #ekg-container { display: none !important; }
+  #spatial-galaxy-meta, #spatial-system-telemetry { display: none !important; }
+
+  /* Let task windows live in the galaxy without blocking it when they are not
+     actually under the pointer. Their own surfaces remain interactive. */
+  #soldierboy-task-surfaces-container { pointer-events: none !important; }
+  #soldierboy-task-surfaces-container .soldierboy-task-surface { pointer-events: auto !important; }
+
+  /* Conversation floats inside the galaxy rather than sitting in a card. */
+  #soldierboy-chat-container {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    z-index: 5 !important;
+    pointer-events: none !important;
+  }
+  .workspace-card-header { display: none !important; }
+  #thread {
+    width: min(980px, 72vw) !important;
+    height: 100% !important;
+    margin: 0 auto !important;
+    padding: 62px 0 155px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    pointer-events: none !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+  }
+  #thread::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+  #thread > * { pointer-events: auto !important; }
+  .msg-user { max-width: 62% !important; }
+  .msg-answer { max-width: 92% !important; }
+
+  /* Remove the old investigation framing from the default workspace. */
+  #case-title, #case-sub, .case-sub-inline, #thinking-indicator { display: none !important; }
+  #soldierboy-input-bar {
+    z-index: 300 !important;
+    width: min(720px, 58vw) !important;
+    bottom: 22px !important;
+  }
+  #hint { display: none !important; }
+  #composer {
+    width: 100% !important;
+    max-width: none !important;
+    background: rgba(5,6,7,0.78) !important;
+    border-color: rgba(255,157,46,0.24) !important;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.58), 0 0 28px rgba(255,157,46,0.05) !important;
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+  }
+
+  /* Small, information-dense system readout: no status dots, no fake state. */
+  #spatial-system-telemetry {
+    display: none !important;
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 4px 7px;
+    color: rgba(180,184,190,0.68);
+    font: 500 9px/1.2 var(--mono);
+    letter-spacing: .035em;
+    text-transform: uppercase;
+    pointer-events: none;
+    white-space: nowrap;
+    text-shadow: 0 1px 10px rgba(0,0,0,.9);
+  }
+  .spatial-metric { display:inline-flex; gap:5px; align-items:baseline; }
+  .spatial-metric .k { color: rgba(110,114,120,.72); }
+  .spatial-metric .v { color: rgba(210,212,216,.78); }
+  .spatial-metric.warn .v { color: #FFB84D; }
+  .spatial-metric.hot .v { color: #f87171; }
+
+  /* Quiet galaxy metadata, inspired by the reference without copying its HUD. */
+  #spatial-galaxy-meta {
+    display: none !important;
+    position: absolute;
+    top: 13px;
+    left: 58px;
+    z-index: 40;
+    display: flex;
+    gap: 7px;
+    color: rgba(150,154,160,.62);
+    font: 500 9px/1.2 var(--mono);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    pointer-events: none;
+    text-shadow: 0 1px 10px rgba(0,0,0,.9);
+  }
+  #spatial-galaxy-meta .meta-value { color: rgba(225,226,228,.78); }
+
+  /* Task windows float over the galaxy and remain the authoritative detail layer. */
+  #soldierboy-task-surfaces-container { z-index: 200 !important; }
+  #soldierboy-minimized-tasks-bar { z-index: 250 !important; }
+
+  @media (max-width: 900px) {
+    #thread { width: min(900px, 86vw) !important; }
+    #soldierboy-input-bar { width: min(720px, 82vw) !important; }
+    #spatial-system-telemetry { right: 10px; gap: 8px; }
+  }
+
 </style>
 </head>
 <body>
@@ -1423,6 +1752,18 @@
 
 <div id="shell">
 
+  <div id="spatial-galaxy-meta" aria-hidden="true">
+    <span>NODES <span class="meta-value" id="galaxy-node-count">0</span></span>
+    <span>·</span>
+    <span>LINKS <span class="meta-value" id="galaxy-link-count">0</span></span>
+  </div>
+  <div id="spatial-system-telemetry" aria-hidden="true">
+    <span class="spatial-metric" id="metric-cpu"><span class="k">CPU</span><span class="v" id="telemetry-cpu">—</span></span>
+    <span class="spatial-metric" id="metric-ram"><span class="k">RAM</span><span class="v" id="telemetry-ram">—</span></span>
+    <span class="spatial-metric" id="metric-gpu"><span class="k">GPU</span><span class="v" id="telemetry-gpu">—</span></span>
+    <span class="spatial-metric" id="metric-net"><span class="k">NET</span><span class="v" id="telemetry-net">—</span></span>
+  </div>
+
   <!-- 1. TOP APPLICATION BAR -->
   <header id="soldierboy-top-bar">
     <div class="top-bar-left">
@@ -1433,18 +1774,23 @@
           <circle cx="12" cy="19" r="1.5"></circle>
         </svg>
       </button>
-      <div class="top-bar-brand" id="top-bar-logo-trigger" onclick="toggleSidebarExpanded()" title="Toggle Navigation Menu">
-        <img src="soldierboy-icon.png" alt="Logo" class="top-bar-logo-img" />
-        <span class="top-bar-title">SOLDIER BOY</span>
+      <div class="top-bar-brand" id="top-bar-logo-trigger" onclick="toggleSidebarExpanded()" title="Toggle Navigation Menu" aria-hidden="true"></div>
+    </div>
+    <div class="top-bar-center" style="display:flex; align-items:center; gap:12px;">
+      <div class="telemetry-item" id="top-bar-exec-item" style="display:none; align-items:center; gap:6px; background:rgba(255,157,46,0.12); border:1px solid rgba(255,157,46,0.35); border-radius:4px; padding:2px 8px;">
+        <span class="thinking-spinner" style="width:8px; height:8px; border-width:1.5px; border-top-color:#FF9D2E;"></span>
+        <span class="telemetry-label" style="color:#FF9D2E; font-weight:700; font-family:var(--mono); font-size:10px;">EXEC</span>
+        <span class="telemetry-val" id="top-bar-exec-val" style="color:#E6E6E6; font-family:var(--mono); font-size:10.5px; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</span>
+      </div>
+      <div class="telemetry-item" id="top-bar-status-item" style="display:flex; align-items:center; gap:8px; padding:3px 12px; border-radius:12px; background:rgba(255, 255, 255, 0.04); border:1px solid rgba(255, 255, 255, 0.08);">
+        <span class="telemetry-dot" id="top-bar-status-dot" style="width:7px; height:7px; border-radius:50%; background:#22C55E; box-shadow:0 0 10px #22C55E; transition:all 0.3s ease;"></span>
+        <span class="telemetry-val" id="top-bar-status-val" style="color:#F1F5F9; font-family:'Inter', sans-serif; font-size:11px; font-weight:600; letter-spacing:0.5px; transition:color 0.3s ease;">IDLE / READY</span>
       </div>
     </div>
-    <div class="top-bar-center">
-      <div class="telemetry-item"><span class="telemetry-label">CPU</span> <span class="telemetry-val" id="telemetry-cpu">28%</span></div>
-      <div class="telemetry-item"><span class="telemetry-label">RAM</span> <span class="telemetry-val" id="telemetry-ram">44%</span></div>
-      <div class="telemetry-item"><span class="telemetry-label">NET</span> <span class="telemetry-val" id="telemetry-net">ACTIVE</span></div>
-      <div class="telemetry-item"><span class="telemetry-label">ENGINE</span> <span class="telemetry-val">NEMOTRON-3</span></div>
-    </div>
-    <div class="top-bar-right">
+    <div class="top-bar-right" style="display:flex; align-items:center;">
+      <button id="mode-toggle-btn" class="hud-color-btn" onclick="toggleAppMode()" title="Toggle Assistant vs OSINT War Room Mode" style="display:inline-flex; align-items:center; gap:6px; margin-right:8px; padding:5px 12px; border-radius:6px; font-family:'Inter', sans-serif; font-size:11px; font-weight:700; letter-spacing:0.4px; border:1px solid rgba(255,157,46,0.35); background:rgba(255,157,46,0.1); color:#FFB84D; cursor:pointer; transition:all 0.25s ease;">
+        <span id="mode-label">PARTNER MODE</span>
+      </button>
       <button id="export-report-btn" class="hud-color-btn" title="Export HTML Investigation Report" style="display:none; margin-right: 8px;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: middle;">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -1513,9 +1859,7 @@
         <button class="nav-btn" id="skills-nav">
           <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>Skills Palette
         </button>
-        <button class="nav-btn" id="settings-nav">
-          <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings
-        </button>
+
       </div>
 
       <div class="nav-rail-section-label" style="margin-top:10px;">Session</div>
@@ -1546,9 +1890,9 @@
         
         <!-- CHAT CONVERSATION CONTAINER CARD -->
         <div id="soldierboy-chat-container">
-          <div class="workspace-card-header">
-            <span class="card-header-title" id="case-title">SOLDIER BOY THREAD</span>
-            <span class="case-sub-inline" id="case-sub">Type a target below to start an investigation</span>
+          <div class="workspace-card-header" aria-hidden="true">
+            <span class="card-header-title" id="case-title"></span>
+            <span class="case-sub-inline" id="case-sub"></span>
           </div>
 
           <div id="thread"></div>
@@ -1565,11 +1909,17 @@
           <div id="soldierboy-hud-wrapper">
             <canvas id="soldierboy-hud-canvas" width="480" height="480"></canvas>
             <div id="soldierboy-hud-node-tooltip"></div>
-            <div id="soldierboy-hud-floating-status" class="idle">IDLE</div>
-            <!-- Floating EKG Pulse Waveform Line below HUD -->
-            <div id="ekg-container" style="width: 260px; height: 45px; margin-top: -20px; position: relative; background: transparent; overflow: hidden; pointer-events: none;">
-              <canvas id="ekg-canvas" width="260" height="45"></canvas>
-            </div>
+            <!-- Floating RE-CENTER HUD button (appears when HUD is panned away from center) -->
+            <button id="hud-recenter-btn" onclick="if(window.HudGalaxy) window.HudGalaxy.recenter();" title="Recenter Soldier Boy HUD" style="position:fixed; bottom:74px; right:20px; z-index:90; display:flex; align-items:center; gap:6px; background:rgba(18, 20, 24, 0.85); backdrop-filter:blur(10px); border:1px solid rgba(255, 157, 46, 0.35); border-radius:18px; padding:5px 12px; color:#FF9D2E; font-size:11px; font-weight:700; font-family:var(--mono); letter-spacing:0.05em; cursor:pointer; opacity:0; pointer-events:none; transition:opacity 0.25s ease, background 0.15s ease, border-color 0.15s ease; box-shadow:0 4px 16px rgba(0,0,0,0.5);" onmouseenter="this.style.background='rgba(255,157,46,0.18)'; this.style.borderColor='rgba(255,157,46,0.7)'" onmouseleave="this.style.background='rgba(18, 20, 24, 0.85)'; this.style.borderColor='rgba(255,157,46,0.35)'">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="22" y1="12" x2="18" y2="12"></line>
+                <line x1="6" y1="12" x2="2" y2="12"></line>
+                <line x1="12" y1="6" x2="12" y2="2"></line>
+                <line x1="12" y1="22" x2="12" y2="18"></line>
+              </svg>
+              <span>RE-CENTER HUD</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1603,9 +1953,6 @@
     </main>
 
   </div>
-</div></div>
-
-</div>
 
 <!-- 3D Case Graph Overlay -->
 <div class="overlay" id="graph-overlay">
@@ -1847,7 +2194,7 @@
       <div class="collapsible-card settings-card">
         <div class="collapsible-card-header" onclick="toggleCardCollapse(this)">
           <div class="collapsible-card-title">
-            <span>⚡</span>
+            <span style="opacity:0.6; font-family:var(--mono); font-size:11px; margin-right:4px;">[LLM]</span>
             <span>Language Model Engine</span>
           </div>
           <div class="collapsible-card-badge">Ollama / Gemini / NVIDIA</div>
@@ -1868,7 +2215,7 @@
               </button>
             </div>
           </div>
-          <div class="settings-hint">Free cloud fallback (aistudio.google.com/apikey).</div>
+          <div class="settings-hint">Google Gemini API key for multimodal reasoning.</div>
           <div class="settings-row">
             <label>NVIDIA NIM API Key</label>
             <div class="key-input-wrap">
@@ -1881,7 +2228,8 @@
               </button>
             </div>
           </div>
-          <div class="settings-hint">Primary high-speed LLM engine (build.nvidia.com).</div>
+          <div class="settings-hint">NVIDIA NIM API key for ultra-fast Nemotron reasoning.</div>
+          <div class="settings-row"><label>NVIDIA Model</label><input type="text" id="cfg-nvidia-model" placeholder="nvidia/nemotron-3-super-120b-a12b" /></div>
         </div>
       </div>
 
@@ -1889,7 +2237,7 @@
       <div class="collapsible-card settings-card">
         <div class="collapsible-card-header" onclick="toggleCardCollapse(this)">
           <div class="collapsible-card-title">
-            <span>🎙️</span>
+            <span style="opacity:0.6; font-family:var(--mono); font-size:11px; margin-right:4px;">[VOX]</span>
             <span>Fish Audio Voice Engine</span>
           </div>
           <div class="collapsible-card-badge">s2.1-pro</div>
@@ -1918,7 +2266,7 @@
       <div class="collapsible-card settings-card">
         <div class="collapsible-card-header" onclick="toggleCardCollapse(this)">
           <div class="collapsible-card-title">
-            <span>🛠️</span>
+            <span style="opacity:0.6; font-family:var(--mono); font-size:11px; margin-right:4px;">[RCN]</span>
             <span>Reconnaissance Modules</span>
           </div>
           <div class="collapsible-card-badge">OSINT Tools</div>
@@ -1936,13 +2284,16 @@
       <div style="display:flex; align-items:center; padding-top:12px;">
         <button id="settings-save">Save Settings</button>
         <span id="settings-status"></span>
-</div>
+       </div>
+     </div>
+   </div>
+ </div>
 
 <!-- Target Investigation Dialog Overlay -->
 <div class="overlay" id="target-dialog-overlay">
   <div class="overlay-panel" style="width:480px; height:auto; background: #050607; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);">
     <div class="overlay-head" style="border-bottom: 1px solid rgba(255, 255, 255, 0.06); background: #08090A;">
-      <span class="t" style="color: #FF9D2E; font-family: var(--mono); letter-spacing: 1px;">🔍 TARGET INVESTIGATION</span>
+      <span class="t" style="color: #FF9D2E; font-family: var(--sans); font-weight: 700; letter-spacing: 0.8px;">TARGET INVESTIGATION</span>
       <button class="overlay-close" id="target-dialog-close">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -1962,8 +2313,7 @@
 <div id="soldierboy-action-panel" class="soldierboy-panel-hidden">
   <div class="soldierboy-panel-header" style="display:flex; justify-content:space-between; align-items:center;">
     <div class="soldierboy-panel-title">
-      <span style="color:#FF9D2E;">⚡</span>
-      <span style="letter-spacing:1.5px; font-weight:700;">SOLDIER BOY AGENT SURFACE</span>
+      <span style="letter-spacing:1px; font-weight:700; font-family:var(--sans);">SOLDIER BOY AGENT SURFACE</span>
     </div>
     <div style="display:flex; gap:8px; align-items:center;">
       <button onclick="if(TaskSurfaceManager.activeTaskId) TaskSurfaceManager.minimizeTaskSurface(TaskSurfaceManager.activeTaskId)" style="background:rgba(255,157,46,0.15); border:1px solid #FF9D2E; color:#FFB84D; font-size:9px; font-weight:700; padding:2px 6px; border-radius:3px; cursor:pointer;">[MINIMIZE]</button>
@@ -1982,7 +2332,7 @@
     </div>
     <div class="soldierboy-results-preview" id="soldierboy-results-preview" style="margin-top:10px; padding-top:8px; border-top:1px dashed rgba(255, 255, 255, 0.08);">
       <div style="font-size:11px; color:#FFB84D; font-family:var(--mono);">
-        🌐 Live Google search window opened in desktop browser
+        Live search window opened in desktop browser
       </div>
     </div>
   </div>
@@ -2037,6 +2387,21 @@ if (thread) {
     const distanceToBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight;
     userHasScrolledUp = distanceToBottom > 80;
   });
+
+  // Enable smooth mouse wheel scrolling for the message thread
+  window.addEventListener('wheel', (e) => {
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    if (!target) return;
+    // Check if wheel occurred over chat thread or its messages
+    if (target.closest('#thread, #soldierboy-chat-container')) {
+      const hud = window.HudGalaxy;
+      // Do not scroll thread if the cursor is directly above the HUD constellation
+      if (hud && typeof hud.isPointerOverHud === 'function' && hud.isPointerOverHud(e.clientX, e.clientY)) {
+        return;
+      }
+      thread.scrollTop += e.deltaY;
+    }
+  }, { passive: true });
 }
 
 function escapeHtml(s) {
@@ -2087,15 +2452,19 @@ function showThinking(show) {
 
 function cleanSpeakerPrefix(text) {
   if (!text) return "";
-  return text.replace(/^(\s*(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*)/i, '');
+  let clean = text.replace(/^(\s*(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*)/i, '');
+  // Strip execution directives so they never display in chat text
+  clean = clean.replace(/\[CMD(?::|\s)[^\]]*\]/gi, '');
+  clean = clean.replace(/\[CMD(?::|\s)[^\]]*$/gi, '');
+  clean = clean.replace(/\[CMD[^\]]*\]/gi, '');
+  // Strip stage directions, roleplay actions, asterisks and parenthetical signs (*grins*, *cracks knuckles*, (chuckles), etc.)
+  clean = clean.replace(/\*[^*]+\*/g, '');
+  clean = clean.replace(/\*[^*]*$/g, ''); // in-flight asterisk action being typed
+  clean = clean.replace(/\([^)]*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks|leans|snort)[^)]*\)/gi, '');
+  return clean.replace(/[ \t]+/g, ' ').trimStart();
 }
 
 function addUserMessage(text) {
-  const speaker = document.createElement('div');
-  speaker.className = 'msg-speaker msg-speaker-user';
-  speaker.textContent = 'USER';
-  thread.appendChild(speaker);
-
   const el = document.createElement('div');
   el.className = 'msg-user';
   el.textContent = text;
@@ -2169,11 +2538,6 @@ function showCopySuccess(btn) {
 
 function addAnswer(text) {
   const clean = cleanSpeakerPrefix(text);
-  const speaker = document.createElement('div');
-  speaker.className = 'msg-speaker msg-speaker-soldierboy';
-  speaker.textContent = 'SOLDIER BOY';
-  thread.appendChild(speaker);
-
   const el = document.createElement('div');
   el.className = 'msg-answer';
   if (typeof marked !== 'undefined' && marked.parse) {
@@ -2192,11 +2556,6 @@ function streamTextToThread(text, onComplete) {
   text = cleanSpeakerPrefix(text);
   showThinking(false);
   setHudState('speaking');
-
-  const speaker = document.createElement('div');
-  speaker.className = 'msg-speaker msg-speaker-soldierboy';
-  speaker.textContent = 'SOLDIER BOY';
-  thread.appendChild(speaker);
 
   const el = document.createElement('div');
   el.className = 'msg-answer streaming';
@@ -2236,19 +2595,34 @@ function streamTextToThread(text, onComplete) {
   }, delay);
 }
 
-function startStreamingAnswer() {
-  showThinking(false);
-  setHudState('speaking');
-  streamingBuffer = "";
+const SPINNER_HTML = `
+  <div class="thinking-dot-spinner-wrapper">
+    <div class="dot-spinner">
+      <div class="dot-spinner__dot"></div>
+      <div class="dot-spinner__dot"></div>
+      <div class="dot-spinner__dot"></div>
+      <div class="dot-spinner__dot"></div>
+      <div class="dot-spinner__dot"></div>
+      <div class="dot-spinner__dot"></div>
+      <div class="dot-spinner__dot"></div>
+      <div class="dot-spinner__dot"></div>
+    </div>
+    <span class="thinking-label">THINKING...</span>
+  </div>
+`;
 
-  const speaker = document.createElement('div');
-  speaker.className = 'msg-speaker msg-speaker-soldierboy';
-  speaker.textContent = 'SOLDIER BOY';
-  thread.appendChild(speaker);
+function startStreamingAnswer() {
+  if (currentStreamingElem) {
+    streamingBuffer = "";
+    return currentStreamingElem;
+  }
+  showThinking(false);
+  setHudState('thinking');
+  streamingBuffer = "";
 
   const el = document.createElement('div');
   el.className = 'msg-answer streaming';
-  el.innerHTML = '<span class="cursor-blink">▌</span>';
+  el.innerHTML = SPINNER_HTML;
   thread.appendChild(el);
   currentStreamingElem = el;
   scrollThreadToBottom();
@@ -2260,10 +2634,15 @@ function updateStreamingChunk(chunkText) {
   streamingBuffer += chunkText;
   soldierboyAudioEnergy = Math.min(255, soldierboyAudioEnergy + 55 + Math.random() * 35);
   const display = cleanSpeakerPrefix(streamingBuffer);
-  if (typeof marked !== 'undefined' && marked.parse) {
-    currentStreamingElem.innerHTML = marked.parse(display) + '<span class="cursor-blink">▌</span>';
-  } else {
-    currentStreamingElem.textContent = display;
+  if (display && display.trim().length > 0) {
+    if (soldierboyHudState === 'thinking') setHudState('speaking');
+    if (typeof marked !== 'undefined' && marked.parse) {
+      currentStreamingElem.innerHTML = marked.parse(display) + '<span class="cursor-blink">▌</span>';
+    } else {
+      currentStreamingElem.textContent = display;
+    }
+  } else if (!currentStreamingElem.querySelector('.dot-spinner')) {
+    currentStreamingElem.innerHTML = SPINNER_HTML;
   }
   scrollThreadToBottom();
 }
@@ -2651,7 +3030,7 @@ function runSkillPrompt(prefix) {
 
 /* ---------- Settings Overlay ---------- */
 
-$('#settings-nav').addEventListener('click', () => {
+$('#nav-settings-tab').addEventListener('click', () => {
   $('#settings-overlay').classList.add('open');
   if (api() && api().get_config) {
     api().get_config().then((cfg) => { if (cfg) applyConfigToForm(cfg); });
@@ -2778,7 +3157,7 @@ function renderCaseList(cases) {
 
 function setCaseHeader(name, sub, risk) {
   $('#case-title').textContent = name || 'SOLDIER BOY';
-  $('#case-sub').textContent = sub || 'Type a target below to start an investigation';
+  $('#case-sub').textContent = sub || '';
   $('#risk-chip').textContent = risk != null ? `risk ${risk}` : 'risk —';
   const exportBtn = $('#export-report-btn');
   if (exportBtn) {
@@ -2869,12 +3248,12 @@ function handleSend() {
 
   if (state.pendingImagePath) {
     addUserMessage(text ? `[screenshot] ${text}` : '[screenshot]');
-    showThinking(true);
+    startStreamingAnswer();
     if (api() && api().submit_image) api().submit_image(state.pendingImagePath, text);
     clearAttachmentChip();
   } else {
     addUserMessage(text);
-    showThinking(true);
+    startStreamingAnswer();
 
     try {
       if (api() && api().process_input) {
@@ -2885,11 +3264,11 @@ function handleSend() {
         api().ask(text);
       } else {
         console.warn('[desktop] pywebview api unavailable');
-        showThinking(false);
+        finalizeStreamingAnswer('Error: pywebview API unavailable');
       }
     } catch (err) {
       console.error('[desktop] handleSend api call error:', err);
-      showThinking(false);
+      finalizeStreamingAnswer('Error: ' + (err.message || 'Request failed'));
     }
   }
 }
@@ -2914,7 +3293,7 @@ $('#new-case-btn').addEventListener('click', () => {
   state.entities = [];
   state.lastVizEntityCount = 0;
   thread.innerHTML = '';
-  setCaseHeader(null, 'Type a target below to start an investigation', null);
+  setCaseHeader(null, '', null);
   document.querySelectorAll('.case-item').forEach(el => el.classList.remove('active'));
   $('#chat-input').focus();
 });
@@ -3011,14 +3390,23 @@ const HudGalaxy = {
   nodes: new Map(),
   links: [],
   stars: [],
-  NUM_STARS: 180,
+  NUM_STARS: 900,
 
-  // 3D Camera / Orbit Dynamics
+  // 3D Camera / Orbit Dynamics & Screen Translation
   rotX: 0,
   rotY: 0,
   targetRotX: 0,
   targetRotY: 0,
+  panX: 0,
+  panY: 0,
+  targetPanX: 0,
+  targetPanY: 0,
+  basePanX: 0,
+  basePanY: 0,
+  dragMode: 'pan',
   autoAngle: 0,
+  zoom: 1,
+  targetZoom: 1,
   fov: 340,
   isDragging: false,
   dragStartX: 0,
@@ -3051,25 +3439,25 @@ const HudGalaxy = {
     this.initStars();
     this.initAmbientNodes();
     this.bindEvents();
+    this.resize();
   },
 
   initStars() {
     this.stars = [];
+    let seed = 0x51A7B00B;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
     for (let i = 0; i < this.NUM_STARS; i++) {
-      const u = Math.random();
-      const v = Math.random();
-      const theta = u * 2.0 * Math.PI;
-      const phi = Math.acos(2.0 * v - 1.0);
-      const r = 38 + Math.cbrt(Math.random()) * 145;
-
+      const bright = rand();
       this.stars.push({
-        x: r * Math.sin(phi) * Math.cos(theta),
-        y: r * Math.sin(phi) * Math.sin(theta),
-        z: r * Math.cos(phi),
-        size: 0.9 + Math.random() * 2.0,
-        baseAlpha: 0.25 + Math.random() * 0.55,
-        twinkleSpeed: 0.0006 + Math.random() * 0.0012,
-        twinklePhase: Math.random() * Math.PI * 2
+        u: rand(),
+        v: rand(),
+        size: bright > 0.97 ? 1.35 + rand() * 1.2 : 0.45 + rand() * 0.75,
+        baseAlpha: bright > 0.97 ? 0.70 + rand() * 0.22 : 0.24 + rand() * 0.48,
+        twinkleSpeed: 0.00012 + rand() * 0.00045,
+        twinklePhase: rand() * Math.PI * 2
       });
     }
   },
@@ -3078,38 +3466,28 @@ const HudGalaxy = {
     this.nodes.clear();
     this.links = [];
 
-    // Central SYSTEM Core Node
     this.addNode({
-      id: 'node_core',
-      type: 'SYSTEM',
-      label: 'SOLDIER-BOY CORE',
-      state: 'idle',
-      x: 0, y: 0, z: 0,
-      size: 10,
-      isCore: true
+      id: 'node_core', type: 'SYSTEM', label: 'SOLDIER-BOY CORE', state: 'idle',
+      x: 0, y: 0, z: 0, size: 12, isCore: true
     });
 
-    // 6 Subtle ambient structural network nodes (authentic structural neural mesh, zero fake data)
-    const ambCount = 6;
+    const ambCount = 46;
+    let seed = 0xC0FFEE;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
     for (let i = 0; i < ambCount; i++) {
-      const angle = (i / ambCount) * Math.PI * 2;
-      const r = 82 + (i % 2 === 0 ? 12 : -8);
-      const elev = ((i % 3) - 1) * 26;
+      const theta = rand() * Math.PI * 2;
+      const phi = Math.acos(2 * rand() - 1);
+      const radius = 70 + Math.pow(rand(), 0.68) * 150;
+      const x = Math.sin(phi) * Math.cos(theta) * radius;
+      const y = Math.cos(phi) * radius * 0.70;
+      const z = Math.sin(phi) * Math.sin(theta) * radius;
       const id = `node_amb_${i}`;
       this.addNode({
-        id: id,
-        type: 'SYSTEM',
-        label: `SYN-${String(i + 1).padStart(2, '0')}`,
-        state: 'idle',
-        x: Math.cos(angle) * r,
-        y: elev,
-        z: Math.sin(angle) * r,
-        orbitRadius: r,
-        orbitAngle: angle,
-        orbitSpeed: 0.0016 * (i % 2 === 0 ? 1 : -1),
-        orbitElevation: elev,
-        size: 2.5,
-        isAmbient: true
+        id, type: 'SYSTEM', label: `SYN-${String(i + 1).padStart(2, '0')}`,
+        state: 'idle', x, y, z, size: 1.8 + rand() * 2.0, isAmbient: true
       });
       this.connectNodes('node_core', id, { ambient: true });
     }
@@ -3262,10 +3640,31 @@ const HudGalaxy = {
   },
 
   setColorTheme(theme) {
-    this.colorTheme = 'orange';
-    this.palette.SYSTEM.fill = '#FF9D2E';
-    this.palette.SYSTEM.glow = 'rgba(255, 157, 46, 0.85)';
-    this.palette.TASK.fill = '#D98224';
+    this.colorTheme = (theme === 'crimson' || theme === 'red' || theme === 'osint') ? 'crimson' : 'orange';
+    if (this.colorTheme === 'crimson') {
+      this.palette.SYSTEM = { fill: '#EF4444', glow: 'rgba(239, 68, 68, 0.95)', stroke: 'rgba(254, 202, 202, 0.95)', size: 9.5 };
+      this.palette.TASK = { fill: '#DC2626', glow: 'rgba(220, 38, 38, 0.85)', stroke: 'rgba(248, 113, 113, 0.95)', size: 8 };
+      this.palette.SEARCH = { fill: '#7F1D1D', glow: 'rgba(127, 29, 29, 0.65)', stroke: 'rgba(239, 68, 68, 0.85)', size: 6.5 };
+      this.palette.RESULT = { fill: '#F87171', glow: 'rgba(248, 113, 113, 0.75)', stroke: 'rgba(254, 202, 202, 0.85)', size: 6 };
+      this.palette.FINDING = { fill: '#EF4444', glow: 'rgba(239, 68, 68, 0.75)', stroke: 'rgba(252, 165, 165, 0.9)', size: 6 };
+      this.palette.TARGET = { fill: '#B91C1C', glow: 'rgba(185, 28, 28, 0.90)', stroke: 'rgba(254, 202, 202, 0.95)', size: 8.5 };
+      this.palette.APPLICATION = { fill: '#991B1B', glow: 'rgba(153, 27, 27, 0.55)', stroke: 'rgba(248, 113, 113, 0.8)', size: 6.5 };
+    } else {
+      this.palette.SYSTEM = { fill: '#FF9D2E', glow: 'rgba(255, 157, 46, 0.85)', stroke: 'rgba(255, 215, 150, 0.95)', size: 9 };
+      this.palette.TASK = { fill: '#D98224', glow: 'rgba(217, 130, 36, 0.85)', stroke: 'rgba(255, 184, 77, 0.95)', size: 7.5 };
+      this.palette.SEARCH = { fill: '#8A8D91', glow: 'rgba(138, 141, 145, 0.55)', stroke: 'rgba(200, 204, 210, 0.85)', size: 6.5 };
+      this.palette.RESULT = { fill: '#FFB84D', glow: 'rgba(255, 184, 77, 0.65)', stroke: 'rgba(255, 220, 160, 0.85)', size: 5.5 };
+      this.palette.FINDING = { fill: '#E68A2E', glow: 'rgba(230, 138, 46, 0.75)', stroke: 'rgba(255, 200, 130, 0.9)', size: 5.5 };
+      this.palette.TARGET = { fill: '#EF4444', glow: 'rgba(239, 68, 68, 0.65)', stroke: 'rgba(254, 202, 202, 0.85)', size: 7 };
+      this.palette.APPLICATION = { fill: '#8A8D91', glow: 'rgba(138, 141, 145, 0.50)', stroke: 'rgba(200, 204, 210, 0.8)', size: 6 };
+    }
+    this.nodes.forEach(node => {
+      if (node.isCore) return;
+      const p = this.palette[node.type] || this.palette.SYSTEM;
+      node.fill = p.fill;
+      node.glow = p.glow;
+      node.stroke = p.stroke;
+    });
   },
 
   // Future-proof extension points
@@ -3293,6 +3692,23 @@ const HudGalaxy = {
     this.connectNodes('node_core', targetItem.id);
   },
 
+  recenter() {
+    this.targetPanX = 0;
+    this.targetPanY = 0;
+    this.targetRotX = 0;
+    this.targetRotY = 0;
+    this.targetZoom = 1;
+    this.updateRecenterButtonVisibility();
+  },
+
+  updateRecenterButtonVisibility() {
+    const btn = document.getElementById('hud-recenter-btn');
+    if (!btn) return;
+    const isMoved = Math.hypot(this.targetPanX, this.targetPanY) > 50 || Math.abs(this.targetZoom - 1) > 0.15;
+    btn.style.opacity = isMoved ? '1' : '0';
+    btn.style.pointerEvents = isMoved ? 'auto' : 'none';
+  },
+
   bindEvents() {
     if (!this.canvas) return;
 
@@ -3300,8 +3716,11 @@ const HudGalaxy = {
       this.isDragging = true;
       this.dragStartX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
       this.dragStartY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+      this.basePanX = this.targetPanX;
+      this.basePanY = this.targetPanY;
       this.baseRotX = this.rotX;
       this.baseRotY = this.rotY;
+      this.dragMode = (e.shiftKey || e.button === 2) ? 'orbit' : 'pan';
       this.canvas.style.cursor = 'grabbing';
       if (e.preventDefault && e.type !== 'touchstart') e.preventDefault();
     };
@@ -3313,8 +3732,17 @@ const HudGalaxy = {
       if (this.isDragging) {
         const deltaX = clientX - this.dragStartX;
         const deltaY = clientY - this.dragStartY;
-        this.targetRotY = this.baseRotY - (deltaX * 0.015);
-        this.targetRotX = this.baseRotX + (deltaY * 0.015);
+        if (this.dragMode === 'orbit') {
+          this.targetRotY = this.baseRotY - (deltaX * 0.015);
+          this.targetRotX = this.baseRotX + (deltaY * 0.015);
+        } else {
+          this.targetPanX = this.basePanX + deltaX;
+          this.targetPanY = this.basePanY + deltaY;
+          // Dynamic subtle 3D tilt during translation
+          this.targetRotY = this.baseRotY - Math.max(-0.4, Math.min(0.4, deltaX * 0.0008));
+          this.targetRotX = this.baseRotX + Math.max(-0.4, Math.min(0.4, deltaY * 0.0008));
+        }
+        this.updateRecenterButtonVisibility();
       } else {
         this.handlePointerMove(clientX, clientY);
       }
@@ -3332,6 +3760,7 @@ const HudGalaxy = {
         if (dist < 6) {
           this.handlePointerClick(clientX, clientY);
         }
+        this.updateRecenterButtonVisibility();
       }
     };
 
@@ -3342,14 +3771,27 @@ const HudGalaxy = {
     window.addEventListener('mouseup', onPointerUp);
     window.addEventListener('touchend', onPointerUp);
 
+    // Wheel zoom controls the constellation only when cursor is directly above the HUD
+    this.canvas.addEventListener('wheel', (e) => {
+      if (!this.isPointerOverHud(e.clientX, e.clientY)) {
+        return;
+      }
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * 0.0012);
+      this.targetZoom = Math.max(0.62, Math.min(2.35, this.targetZoom * factor));
+      this.updateRecenterButtonVisibility();
+    }, { passive: false });
+
     this.canvas.addEventListener('dblclick', (e) => {
       if (this.hoveredNodeId) {
         const node = this.nodes.get(this.hoveredNodeId);
         if (node && node.taskId && window.TaskSurfaceManager) {
           window.TaskSurfaceManager.restoreWindow(node.taskId);
           window.TaskSurfaceManager.focusAndCenter(node.taskId);
+          return;
         }
       }
+      this.recenter();
     });
 
     // Responsive Canvas Resize Observer
@@ -3363,9 +3805,64 @@ const HudGalaxy = {
     if (!this.canvas) return;
     const rect = this.canvas.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
-      // Maintain 480px coordinate resolution, CSS manages layout
+      // Render at the actual workspace resolution so the full-screen galaxy
+      // stays crisp instead of stretching a 480px bitmap across the desktop.
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+      if (this.canvas.width !== width || this.canvas.height !== height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.ctx = this.canvas.getContext('2d');
+      }
       this.fov = 340;
     }
+  },
+
+  isPointerOverHud(clientX, clientY) {
+    if (!this.canvas) return false;
+
+    // Direct check: if cursor is over message cards, input bar, or floating windows, it is NOT over HUD
+    if (typeof document !== 'undefined' && document.elementFromPoint) {
+      const target = document.elementFromPoint(clientX, clientY);
+      if (target) {
+        if (target.closest('#soldierboy-input-bar, .soldierboy-task-surface, #sidebar, #soldierboy-action-panel, .msg-user, .msg-answer, .msg-bubble')) {
+          return false;
+        }
+      }
+    }
+
+    // Hovered directly over a node
+    if (this.hoveredNodeId) return true;
+
+    // Check distance to any visible active node
+    for (const [id, node] of this.nodes) {
+      if (node.screenX != null && node.screenY != null) {
+        const r = (node.screenRadius || 8) + 24;
+        if (Math.hypot(clientX - node.screenX, clientY - node.screenY) <= r) {
+          return true;
+        }
+      }
+    }
+
+    // Check distance to the central HUD core
+    const coreNode = this.nodes.get('node_core');
+    const coreX = (coreNode && coreNode.screenX != null) ? coreNode.screenX : ((this.canvas.width / 2) + this.panX);
+    const coreY = (coreNode && coreNode.screenY != null) ? coreNode.screenY : ((this.canvas.height / 2) + this.panY);
+    const distToCore = Math.hypot(clientX - coreX, clientY - coreY);
+
+    // Compute dynamic constellation radius from active nodes
+    let maxDist = 240;
+    this.nodes.forEach(node => {
+      if (node.screenX != null && node.screenY != null) {
+        const d = Math.hypot(node.screenX - coreX, node.screenY - coreY);
+        if (d > maxDist && d < 650) {
+          maxDist = d;
+        }
+      }
+    });
+
+    const hudEffectiveRadius = Math.max(240, maxDist + 45);
+    return distToCore <= hudEffectiveRadius;
   },
 
   handlePointerMove(clientX, clientY) {
@@ -3430,13 +3927,35 @@ const HudGalaxy = {
 
     const typeColor = node.fill || '#FF9D2E';
     const stateColor = (node.state === 'running' || node.state === 'active') ? '#FF9D2E' : (node.state === 'settled' ? '#22C55E' : '#8A8D91');
-    const label = node.label.length > 28 ? (node.label.substring(0, 26) + '…') : node.label;
+    const label = node.label.length > 36 ? (node.label.substring(0, 34) + '…') : node.label;
 
     this.tooltipElem.innerHTML = `
       <span style="color:${typeColor}; font-weight:700;">[${node.type}]</span>
       <span style="color:#E6E6E6; font-weight:600;">${this.escapeHtml(label)}</span>
       <span style="font-size:9px; color:${stateColor}; font-weight:700;">● ${(node.state || 'ACTIVE').toUpperCase()}</span>
     `;
+
+    // Position tooltip right above the hovered node with viewport clamping
+    const radius = node.screenRadius || 8;
+    let tx = node.screenX || (window.innerWidth / 2);
+    let ty = (node.screenY || 200) - radius - 14;
+
+    // If too close to the top header bar (top < 68px), flip tooltip below node
+    if (ty < 68) {
+      ty = (node.screenY || 200) + radius + 32;
+      this.tooltipElem.style.transform = 'translate(-50%, 0)';
+    } else {
+      this.tooltipElem.style.transform = 'translate(-50%, -100%)';
+    }
+
+    // Horizontal clamping: keep within viewport margins
+    const minX = 140;
+    const maxX = window.innerWidth - 140;
+    tx = Math.max(minX, Math.min(maxX, tx));
+    ty = Math.max(50, Math.min(window.innerHeight - 50, ty));
+
+    this.tooltipElem.style.left = `${Math.round(tx)}px`;
+    this.tooltipElem.style.top = `${Math.round(ty)}px`;
     this.tooltipElem.classList.add('hud-node-tooltip-visible');
   },
 
@@ -3456,6 +3975,7 @@ const HudGalaxy = {
 
   render(audioEnergy) {
     if (!this.canvas) return;
+    updateGalaxyMeta();
     if (!this.ctx) this.ctx = this.canvas.getContext('2d');
     const ctx = this.ctx;
     if (!ctx) return;
@@ -3469,94 +3989,59 @@ const HudGalaxy = {
     const height = this.canvas.height;
     ctx.clearRect(0, 0, width, height);
 
-    const cx = width / 2;
-    const cy = height / 2;
+    // Smooth translation interpolation
+    this.panX += (this.targetPanX - this.panX) * 0.14;
+    this.panY += (this.targetPanY - this.panY) * 0.14;
 
-    // Smooth rotational damping
+    const cx = (width / 2) + this.panX;
+    const cy = (height / 2) + this.panY;
+
+    // Manual orbit + wheel zoom only. Speech never rotates the constellation.
     this.rotX += (this.targetRotX - this.rotX) * 0.08;
     this.rotY += (this.targetRotY - this.rotY) * 0.08;
-
-    // Auto-orbit speed based on state
-    let autoSpeed = 0.003;
-    if (this.state === 'thinking' || this.state === 'task_active' || this.state === 'processing') {
-      autoSpeed = 0.012;
-    } else if (this.state === 'speaking') {
-      autoSpeed = 0.007;
-    } else if (this.state === 'listening') {
-      autoSpeed = 0.002;
-    }
-    this.autoAngle += autoSpeed;
-
-    const cosAuto = Math.cos(this.autoAngle);
-    const sinAuto = Math.sin(this.autoAngle);
+    this.zoom += (this.targetZoom - this.zoom) * 0.12;
+    const viewScale = Math.max(0.90, Math.min(width, height) / 760) * this.zoom;
     const cosX = Math.cos(this.rotX), sinX = Math.sin(this.rotX);
     const cosY = Math.cos(this.rotY), sinY = Math.sin(this.rotY);
 
+    // The constellation is spatially stable. There is no automatic orbit;
+    // user drag/wheel is the only camera motion. Speech affects only the core.
+    const cosAuto = 1;
+    const sinAuto = 0;
+
     const isOrange = (this.colorTheme === 'orange');
     const starRGB = isOrange ? '255, 180, 100' : '255, 100, 100';
-    const isHudActive = (this.state !== 'idle');
+    const energy = Math.max(0, Math.min(255, this.audioEnergy)) / 255;
+    const speechMotion = this.state === 'speaking' ? energy : 0;
+    const coreX = cx + Math.sin(now * 0.008) * speechMotion * 2.2;
+    const coreY = cy + Math.cos(now * 0.006) * speechMotion * 1.6;
+    const coreNode = this.nodes.get('node_core');
+    if (coreNode) {
+      coreNode.screenX = coreX;
+      coreNode.screenY = coreY;
+      coreNode.screenScale = viewScale;
+    }
 
-    // 1. PROJECT & RENDER BACKGROUND STARFIELD
-    const vocalPulse = isHudActive ? (1 + (this.audioEnergy / 255) * 0.22 * Math.sin(now * 0.005)) : 1;
+    // 1. FIXED DEEP-SPACE STARFIELD. These stars never orbit with the nodes.
     for (let i = 0; i < this.stars.length; i++) {
       const s = this.stars[i];
-      const sx = s.x * vocalPulse;
-      const sy = s.y * vocalPulse;
-      const sz = s.z * vocalPulse;
-
-      const rx1 = sx * cosAuto - sz * sinAuto;
-      const ry1 = sy;
-      const rz1 = sx * sinAuto + sz * cosAuto;
-
-      const rx2 = rx1 * cosY + rz1 * sinY;
-      const rz2 = -rx1 * sinY + rz1 * cosY;
-      const ry2 = ry1 * cosX - rz2 * sinX;
-      const rz3 = ry1 * sinX + rz2 * cosX;
-
-      const scale = Math.max(0.12, this.fov / (this.fov + rz3));
-      const px = cx + rx2 * scale;
-      const py = cy + ry2 * scale;
-
-      const voiceGlow = isHudActive ? (this.audioEnergy / 255) * 0.35 : 0;
-      const alpha = Math.min(1, s.baseAlpha + voiceGlow + Math.sin(now * s.twinkleSpeed + s.twinklePhase) * 0.22);
-      const pSize = Math.max(0.6, s.size * scale * (isHudActive ? (1 + (this.audioEnergy / 255) * 0.25) : 1));
-
+      const px = s.u * width;
+      const py = s.v * height;
+      const alpha = Math.max(0.10, Math.min(1.0,
+        s.baseAlpha + Math.sin(now * s.twinkleSpeed + s.twinklePhase) * 0.08));
       ctx.beginPath();
-      ctx.arc(px, py, pSize, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${starRGB}, ${alpha * 0.75})`;
+      ctx.arc(px, py, s.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(232, 238, 246, ${alpha})`;
       ctx.fill();
     }
 
     // 2. UPDATE & PROJECT NODES
     const projectedNodes = [];
     this.nodes.forEach(node => {
-      // Orbital drift update
-      if (!node.isCore) {
-        node.orbitAngle += node.orbitSpeed;
-        const targetX = Math.cos(node.orbitAngle) * node.orbitRadius;
-        const targetZ = Math.sin(node.orbitAngle) * node.orbitRadius;
-        node.x += (targetX - node.x) * 0.05;
-        node.z += (targetZ - node.z) * 0.05;
-        node.y += (node.orbitElevation - node.y) * 0.05;
-      }
-
-      // Vocal attraction in LISTENING state
-      let nx = node.x;
-      let ny = node.y;
-      let nz = node.z;
-      if (this.state === 'listening' && !node.isCore) {
-        nx *= 0.92;
-        ny *= 0.92;
-        nz *= 0.92;
-      }
-
-      // Speech envelope pulsation on connected nodes
-      if (this.state === 'speaking' && !node.isCore) {
-        const pulseAmt = (this.audioEnergy / 255) * 0.12 * Math.sin(now * 0.01 + node.pulsePhase);
-        nx *= (1 + pulseAmt);
-        ny *= (1 + pulseAmt);
-        nz *= (1 + pulseAmt);
-      }
+      // Constellation positions are stable. Only the central core reacts to voice.
+      const nx = node.x;
+      const ny = node.y;
+      const nz = node.z;
 
       // 3D rotation
       const rx1 = nx * cosAuto - nz * sinAuto;
@@ -3569,13 +4054,13 @@ const HudGalaxy = {
       const rz3 = ry1 * sinX + rz2 * cosX;
 
       const scale = Math.max(0.15, this.fov / (this.fov + rz3));
-      const px = cx + rx2 * scale;
-      const py = cy + ry2 * scale;
+      const px = cx + rx2 * scale * viewScale;
+      const py = cy + ry2 * scale * viewScale;
 
       node.screenX = px;
       node.screenY = py;
-      node.screenScale = scale;
-      node.screenRadius = Math.max(2, node.size * scale);
+      node.screenScale = scale * viewScale;
+      node.screenRadius = Math.max(2, node.size * scale * viewScale);
       node.projZ = rz3;
 
       projectedNodes.push(node);
@@ -3607,7 +4092,12 @@ const HudGalaxy = {
         linkAlpha *= 0.35;
       }
 
-      const strokeColor = isHighlighted ? 'rgba(255, 210, 110, ' : (isHovered ? 'rgba(255, 180, 80, ' : 'rgba(255, 140, 40, ');
+      let strokeColor;
+      if (isOrange) {
+        strokeColor = isHighlighted ? 'rgba(255, 210, 110, ' : (isHovered ? 'rgba(255, 180, 80, ' : 'rgba(255, 140, 40, ');
+      } else {
+        strokeColor = isHighlighted ? 'rgba(254, 202, 202, ' : (isHovered ? 'rgba(248, 113, 113, ' : 'rgba(220, 38, 38, ');
+      }
 
       ctx.beginPath();
       ctx.moveTo(source.screenX, source.screenY);
@@ -3616,26 +4106,26 @@ const HudGalaxy = {
       ctx.lineWidth = Math.max(0.7, (isHighlighted ? 1.8 : (link.ambient ? 0.9 : 1.2)) * avgScale);
       ctx.stroke();
 
-      // Traveling photon pulse
-      let pulseSpeed = 0.25;
-      if (this.state === 'thinking') pulseSpeed = 0.65;
-      if (this.state === 'speaking') pulseSpeed = 0.40 + (this.audioEnergy / 255) * 0.6;
-      link.pulsePos = (link.pulsePos + dt * pulseSpeed) % 1.0;
-
-      const pulseX = source.screenX + (target.screenX - source.screenX) * link.pulsePos;
-      const pulseY = source.screenY + (target.screenY - source.screenY) * link.pulsePos;
-      const pulseRadius = Math.max(1.2, 2.2 * avgScale);
-
-      ctx.beginPath();
-      ctx.arc(pulseX, pulseY, pulseRadius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 230, 160, ${Math.min(0.95, linkAlpha * 1.5)})`;
-      ctx.fill();
+      // Speech does not move the constellation. Only active work may show a
+      // restrained traveling pulse on links.
+      if (this.state === 'thinking' || this.state === 'task_active' || this.state === 'processing') {
+        const pulseSpeed = this.state === 'thinking' ? 0.45 : 0.28;
+        link.pulsePos = (link.pulsePos + dt * pulseSpeed) % 1.0;
+        const pulseX = source.screenX + (target.screenX - source.screenX) * link.pulsePos;
+        const pulseY = source.screenY + (target.screenY - source.screenY) * link.pulsePos;
+        const pulseRadius = Math.max(1.1, 2.0 * avgScale);
+        ctx.beginPath();
+        ctx.arc(pulseX, pulseY, pulseRadius, 0, Math.PI * 2);
+        const pulseFill = isOrange ? `rgba(255, 230, 160, ${Math.min(0.72, linkAlpha * 1.15)})` : `rgba(254, 202, 202, ${Math.min(0.85, linkAlpha * 1.2)})`;
+        ctx.fillStyle = pulseFill;
+        ctx.fill();
+      }
     }
 
     // 4. DRAW SHOCKWAVE (ON INTERRUPTED)
     if (this.shockwaveActive) {
-      this.shockwaveRadius += dt * 320;
-      const swAlpha = Math.max(0, 1 - this.shockwaveRadius / 160);
+      this.shockwaveRadius += dt * 320 * viewScale;
+      const swAlpha = Math.max(0, 1 - this.shockwaveRadius / (160 * viewScale));
       ctx.beginPath();
       ctx.arc(cx, cy, this.shockwaveRadius, 0, Math.PI * 2);
       ctx.strokeStyle = `rgba(255, 90, 50, ${swAlpha * 0.8})`;
@@ -3645,11 +4135,12 @@ const HudGalaxy = {
     }
 
     // 5. DRAW CENTRAL SYSTEM CORE
-    const calmBreathing = Math.sin(now / 2200) * 2.5;
-    let coreRadius = 38 + (this.audioEnergy / 255) * 22 + calmBreathing;
-    if (this.state === 'interrupted') coreRadius = 28;
+    // The core is the only spatial element that moves with speech.
+    const calmBreathing = Math.sin(now / 2200) * 1.8;
+    let coreRadius = (32 + energy * 20 + calmBreathing) * viewScale;
+    if (this.state === 'interrupted') coreRadius = 28 * viewScale;
 
-    const coreGrad = ctx.createRadialGradient(cx, cy, 3, cx, cy, coreRadius);
+    const coreGrad = ctx.createRadialGradient(coreX, coreY, 3, coreX, coreY, coreRadius);
     if (isOrange) {
       coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
       coreGrad.addColorStop(0.28, 'rgba(255, 165, 55, 0.92)');
@@ -3664,9 +4155,9 @@ const HudGalaxy = {
 
     ctx.save();
     ctx.beginPath();
-    ctx.arc(cx, cy, coreRadius, 0, Math.PI * 2);
+    ctx.arc(coreX, coreY, coreRadius, 0, Math.PI * 2);
     ctx.fillStyle = coreGrad;
-    ctx.shadowBlur = 35 + Math.sin(now / 2000) * 6 + (this.audioEnergy / 255) * 20;
+    ctx.shadowBlur = (35 + Math.sin(now / 2000) * 6 + (this.audioEnergy / 255) * 20) * Math.min(2, viewScale);
     ctx.shadowColor = isOrange ? 'rgba(255, 140, 40, 0.9)' : 'rgba(255, 60, 60, 0.9)';
     ctx.fill();
     ctx.restore();
@@ -3714,11 +4205,15 @@ const HudGalaxy = {
 
       // Inline label for operational or hovered nodes
       if ((!node.isAmbient && node.screenScale > 0.4) || isHovered || isSelected) {
-        ctx.font = `${Math.max(9, Math.round(9.5 * node.screenScale))}px 'JetBrains Mono', monospace`;
-        ctx.fillStyle = isHovered || isSelected ? '#f8fafc' : 'rgba(241, 245, 249, 0.78)';
+        ctx.save();
+        ctx.font = `600 ${Math.max(11, Math.round(11 * Math.min(1.4, node.screenScale)))}px 'Inter', sans-serif`;
+        ctx.fillStyle = isHovered || isSelected ? '#FFFFFF' : '#E2E8F0';
         ctx.textAlign = 'center';
-        const displayLabel = node.label.length > 22 ? (node.label.substring(0, 20) + '..') : node.label;
-        ctx.fillText(displayLabel, node.screenX, node.screenY + radius + 11 * node.screenScale);
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = 4;
+        const displayLabel = node.label.length > 24 ? (node.label.substring(0, 22) + '..') : node.label;
+        ctx.fillText(displayLabel, node.screenX, node.screenY + radius + 13 * node.screenScale);
+        ctx.restore();
       }
 
       ctx.restore();
@@ -3728,15 +4223,57 @@ const HudGalaxy = {
 
 window.HudGalaxy = HudGalaxy;
 
+let currentAppMode = 'partner'; // 'partner' or 'osint'
+
+function setAppMode(mode) {
+  currentAppMode = mode;
+  const label = document.getElementById('mode-label');
+  const btn = document.getElementById('mode-toggle-btn');
+  const body = document.body;
+
+  if (mode === 'osint') {
+    if (label) label.textContent = 'OSINT WAR ROOM';
+    if (btn) {
+      btn.style.borderColor = 'rgba(239, 68, 68, 0.65)';
+      btn.style.color = '#FCA5A5';
+      btn.style.background = 'rgba(239, 68, 68, 0.18)';
+      btn.style.boxShadow = '0 0 16px rgba(239, 68, 68, 0.25)';
+    }
+    body.classList.add('mode-osint');
+    body.classList.remove('mode-partner');
+    if (window.HudGalaxy) {
+      window.HudGalaxy.setColorTheme('crimson');
+      window.HudGalaxy.shockwaveActive = true;
+      window.HudGalaxy.shockwaveRadius = 15;
+    }
+    showSubtitles('ENGAGED OSINT WAR ROOM MODE — Serious tactical tracking active.', 'WAR ROOM ACTIVE');
+  } else {
+    if (label) label.textContent = 'PARTNER MODE';
+    if (btn) {
+      btn.style.borderColor = 'rgba(255, 157, 46, 0.35)';
+      btn.style.color = '#FFB84D';
+      btn.style.background = 'rgba(255, 157, 46, 0.1)';
+      btn.style.boxShadow = 'none';
+    }
+    body.classList.add('mode-partner');
+    body.classList.remove('mode-osint');
+    if (window.HudGalaxy) {
+      window.HudGalaxy.setColorTheme('orange');
+    }
+    showSubtitles('PARTNER ASSISTANT MODE — Clean companion & personal workflow active.', 'PARTNER ACTIVE');
+  }
+}
+
+function toggleAppMode() {
+  setAppMode(currentAppMode === 'partner' ? 'osint' : 'partner');
+}
+window.setAppMode = setAppMode;
+window.toggleAppMode = toggleAppMode;
+
 function setHudColorTheme(colorTheme) {
   soldierboyHudColorTheme = 'orange';
   safeSetStorage('soldierboy_hud_color', 'orange');
   safeSetStorage('joe_hud_color', 'orange');
-
-  const bgLayer = document.getElementById('bg-layer');
-  if (bgLayer) {
-    bgLayer.style.backgroundImage = "url('soldier-banner.png')";
-  }
 
   if (!soldierboyCanvas) soldierboyCanvas = document.getElementById('soldierboy-hud-canvas') || document.getElementById('joe-hud-canvas');
   if (soldierboyCanvas) {
@@ -3783,6 +4320,42 @@ function setHudState(state) {
     else if (state === 'task_active' || state === 'processing') floatingStatus.textContent = 'TASK ACTIVE';
     else floatingStatus.textContent = 'IDLE';
   }
+
+  const topStatusVal = document.getElementById('top-bar-status-val');
+  const topStatusDot = document.getElementById('top-bar-status-dot');
+  if (topStatusVal && topStatusDot) {
+    if (state === 'listening') {
+      topStatusVal.textContent = 'LISTENING...';
+      topStatusVal.style.color = '#38BDF8';
+      topStatusDot.style.background = '#38BDF8';
+      topStatusDot.style.boxShadow = '0 0 10px #38BDF8';
+    } else if (state === 'speaking') {
+      topStatusVal.textContent = 'SOLDIER BOY SPEAKING';
+      topStatusVal.style.color = '#FF9D2E';
+      topStatusDot.style.background = '#FF9D2E';
+      topStatusDot.style.boxShadow = '0 0 10px #FF9D2E';
+    } else if (state === 'thinking') {
+      topStatusVal.textContent = 'ANALYZING & THINKING...';
+      topStatusVal.style.color = '#F59E0B';
+      topStatusDot.style.background = '#F59E0B';
+      topStatusDot.style.boxShadow = '0 0 10px #F59E0B';
+    } else if (state === 'task_active' || state === 'processing') {
+      topStatusVal.textContent = 'TASK EXECUTING';
+      topStatusVal.style.color = '#FF9D2E';
+      topStatusDot.style.background = '#FF9D2E';
+      topStatusDot.style.boxShadow = '0 0 10px #FF9D2E';
+    } else if (state === 'interrupted') {
+      topStatusVal.textContent = 'INTERRUPTED';
+      topStatusVal.style.color = '#EF4444';
+      topStatusDot.style.background = '#EF4444';
+      topStatusDot.style.boxShadow = '0 0 10px #EF4444';
+    } else {
+      topStatusVal.textContent = 'IDLE / READY';
+      topStatusVal.style.color = '#8A8D91';
+      topStatusDot.style.background = '#22C55E';
+      topStatusDot.style.boxShadow = '0 0 8px #22C55E';
+    }
+  }
 }
 
 function drawSoldierBoyHud() {
@@ -3792,12 +4365,19 @@ function drawSoldierBoyHud() {
     return;
   }
 
-  // Calculate audio energy state for all HUD states
-  if (audioAnalyser && audioDataArray && (soldierboyHudState === 'listening' || soldierboyHudState === 'speaking')) {
+  // Real audio frequency reactive energy for TTS speech & microphone input
+  if (soldierboyHudState === 'speaking' && window.ttsAnalyser && window.ttsDataArray) {
+    window.ttsAnalyser.getByteFrequencyData(window.ttsDataArray);
+    let sum = 0;
+    for (let i = 0; i < window.ttsDataArray.length; i++) sum += window.ttsDataArray[i];
+    const avg = sum / window.ttsDataArray.length;
+    soldierboyAudioEnergy = Math.max(16, avg * 1.8);
+  } else if (soldierboyHudState === 'listening' && audioAnalyser && audioDataArray) {
     audioAnalyser.getByteFrequencyData(audioDataArray);
     let sum = 0;
     for (let i = 0; i < audioDataArray.length; i++) sum += audioDataArray[i];
-    soldierboyAudioEnergy = sum / audioDataArray.length;
+    const avg = sum / audioDataArray.length;
+    soldierboyAudioEnergy = Math.max(14, avg * 1.6);
   } else if (soldierboyHudState === 'listening') {
     soldierboyAudioEnergy = Math.max(soldierboyAudioEnergy * 0.90, 85 + Math.sin(Date.now() / 45) * 55 + Math.random() * 40);
   } else if (soldierboyHudState === 'speaking') {
@@ -3806,7 +4386,7 @@ function drawSoldierBoyHud() {
   } else if (soldierboyHudState === 'thinking') {
     soldierboyAudioEnergy = 45 + Math.sin(Date.now() / 65) * 35;
   } else if (soldierboyHudState === 'task_active' || soldierboyHudState === 'processing') {
-    soldierboyAudioEnergy = 60 + Math.sin(Date.now() / 50) * 30;
+    soldierboyAudioEnergy = 75 + Math.sin(Date.now() / 40) * 40;
   } else if (soldierboyHudState === 'interrupted') {
     soldierboyAudioEnergy = 110 + Math.sin(Date.now() / 20) * 40;
   } else {
@@ -4199,6 +4779,84 @@ let hasReceivedAudioChunk = false;
 let soldierBoyPanelTimer = null;
 let recentAgentTexts = [];
 let ttsPlaybackEndTime = 0;
+let soldierboyPcmContext = null;
+let soldierboyPcmNextStartTime = 0;
+let soldierboyPcmGeneration = 0;
+let activeSoldierBoyTtsTurn = 0;
+
+function stopSoldierBoyPcmStream() {
+  soldierboyPcmGeneration++;
+  soldierboyPcmNextStartTime = 0;
+  if (soldierboyPcmContext) {
+    try { soldierboyPcmContext.close(); } catch(e) {}
+    soldierboyPcmContext = null;
+  }
+}
+
+function ensureSoldierBoyPcmContext() {
+  if (!soldierboyPcmContext || soldierboyPcmContext.state === 'closed') {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    soldierboyPcmContext = new Ctx();
+  }
+  if (soldierboyPcmContext.state === 'suspended') {
+    soldierboyPcmContext.resume().catch(() => {});
+  }
+  return soldierboyPcmContext;
+}
+
+function enqueueSoldierBoyPcmChunk(audioB64, sampleRate, text, turnId) {
+  if (!audioB64) return;
+  if (turnId != null && Number(turnId) !== Number(activeSoldierBoyTtsTurn)) return;
+  const generation = soldierboyPcmGeneration;
+  const ctx = ensureSoldierBoyPcmContext();
+  if (!ctx) return false;
+
+  try {
+    const binary = atob(audioB64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    // Fish Audio PCM is signed 16-bit mono. Convert to Float32 for Web Audio.
+    const sampleCount = Math.floor(bytes.byteLength / 2);
+    const buffer = ctx.createBuffer(1, sampleCount, sampleRate || 44100);
+    const channel = buffer.getChannelData(0);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    for (let i = 0; i < sampleCount; i++) {
+      channel[i] = view.getInt16(i * 2, true) / 32768;
+    }
+
+    if (text && text.trim()) {
+      recentAgentTexts.push(text.trim());
+      if (recentAgentTexts.length > 20) recentAgentTexts.shift();
+      showSubtitles(text, 'SOLDIER BOY SPEECH');
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    const now = ctx.currentTime;
+    // Keep chunks ordered; if generation stalls, resume immediately rather than
+    // playing old audio over a newer answer.
+    const startAt = Math.max(now + 0.01, soldierboyPcmNextStartTime);
+    soldierboyPcmNextStartTime = startAt + buffer.duration;
+    ttsPlaybackEndTime = Math.max(
+      ttsPlaybackEndTime,
+      Date.now() + Math.max(250, (startAt - now + buffer.duration) * 1000)
+    );
+    source.onended = () => {
+      try { source.disconnect(); } catch(e) {}
+    };
+    if (generation !== soldierboyPcmGeneration) return false;
+    source.start(startAt);
+    isPlayingSoldierBoyQueue = true;
+    setHudState('speaking');
+    return true;
+  } catch (e) {
+    console.warn('[SoldierBoyPCM] chunk playback error:', e);
+    return false;
+  }
+}
+window.enqueueSoldierBoyPcmChunk = enqueueSoldierBoyPcmChunk;
 
 // Backward compatibility bindings for audio queue
 try {
@@ -4208,6 +4866,7 @@ try {
 } catch(e){}
 
 function resetSoldierBoyAudioQueue() {
+  stopSoldierBoyPcmStream();
   soldierboyAudioQueue = [];
   isPlayingSoldierBoyQueue = false;
   if (currentSoldierBoyAudioElement) {
@@ -4378,8 +5037,8 @@ const TaskSurfaceManager = {
       let newX = this.dragState.winX + dx;
       let newY = this.dragState.winY + dy;
 
-      // Viewport clamping protecting the voice composer
-      newY = Math.max(10, Math.min(ws.composerTop - 40, newY));
+      // Windows can occupy the galaxy freely; keep their title bar recoverable.
+      newY = Math.max(10, Math.min(ws.height - 36, newY));
       newX = Math.max(-this.dragState.width + 80, Math.min(ws.width - 80, newX));
 
       this.dragState.elem.style.left = newX + 'px';
@@ -4393,7 +5052,7 @@ const TaskSurfaceManager = {
       const minW = 360;
       const minH = 220;
       const maxW = ws.width - 20;
-      const maxH = ws.composerTop - 12;
+      const maxH = ws.height - 20;
 
       let { winX, winY, winW, winH, handle } = this.resizeState;
       let newX = winX;
@@ -4458,13 +5117,13 @@ const TaskSurfaceManager = {
         task.x = 20;
         task.y = 16;
         task.width = Math.max(380, ws.width - 40);
-        task.height = Math.max(260, ws.composerTop - 24);
+        task.height = Math.max(260, ws.height - 40);
       } else {
         if (task.x + task.width > ws.width - 20) {
           task.x = Math.max(20, ws.width - task.width - 20);
         }
-        if (task.y + task.height > ws.composerTop - 10) {
-          task.y = Math.max(16, ws.composerTop - task.height - 10);
+        if (task.y + task.height > ws.height - 10) {
+          task.y = Math.max(16, ws.height - task.height - 10);
         }
       }
       this.applyWindowBounds(elem, task);
@@ -4483,7 +5142,7 @@ const TaskSurfaceManager = {
       task.x = 20;
       task.y = 16;
       task.width = Math.max(380, ws.width - 40);
-      task.height = Math.max(260, ws.composerTop - 24);
+      task.height = Math.max(260, ws.height - 40);
       task.is_maximized = true;
     } else {
       if (task.prevBounds) {
@@ -4508,7 +5167,7 @@ const TaskSurfaceManager = {
     if (!task) return;
     const ws = this.getWorkspaceBounds();
     task.x = Math.max(20, Math.round((ws.width - task.width) / 2));
-    task.y = Math.max(20, Math.round((ws.composerTop - task.height) / 2));
+    task.y = Math.max(20, Math.round((ws.height - task.height) / 2));
     const elem = document.getElementById(`task-surface-${taskId}`);
     if (elem) {
       this.applyWindowBounds(elem, task);
@@ -4520,14 +5179,61 @@ const TaskSurfaceManager = {
     this.bringToFront(taskId);
   },
 
+  updateTelemetryRibbon(task, eventName) {
+    const execItem = document.getElementById('top-bar-exec-item');
+    const execVal = document.getElementById('top-bar-exec-val');
+    if (!execItem || !execVal) return;
+
+    if (eventName === 'task.completed' || eventName === 'task.failed' || eventName === 'task.closed') {
+      execItem.style.background = eventName === 'task.failed' ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)';
+      execItem.style.borderColor = eventName === 'task.failed' ? 'rgba(239,68,68,0.4)' : 'rgba(34,197,94,0.4)';
+      const spinner = execItem.querySelector('.thinking-spinner');
+      if (spinner) spinner.style.display = 'none';
+      setTimeout(() => {
+        if (execItem) {
+          execItem.style.display = 'none';
+          execItem.style.background = 'rgba(255,157,46,0.12)';
+          execItem.style.borderColor = 'rgba(255,157,46,0.35)';
+          if (spinner) spinner.style.display = 'inline-block';
+        }
+      }, 3000);
+    } else {
+      const label = (task.data && task.data.command) || (task.query ? `SEARCH: ${task.query}` : task.title) || 'Task Active';
+      execVal.textContent = label;
+      execItem.style.display = 'flex';
+      showSubtitles(label, 'RUNNING TASK');
+    }
+  },
+
   handleEvent(event, payload) {
     if (!payload || !payload.task) return;
     const task = payload.task;
     this.tasks[task.task_id] = task;
+    this.updateTelemetryRibbon(task, event);
 
     switch (event) {
       case 'task.created':
-      case 'task.started':
+        // Deduplicate window surfaces: if an older terminal window has this exact command, close the old one
+        const newCmd = (task.data && task.data.command) || task.title;
+        if (newCmd && (task.type === 'terminal_command' || task.type === 'terminal')) {
+          Object.values(this.tasks).forEach(oldTask => {
+            if (oldTask.task_id !== task.task_id && ((oldTask.data && oldTask.data.command === newCmd) || oldTask.title === task.title)) {
+              if (window.HudGalaxy) window.HudGalaxy.removeNode('task_' + oldTask.task_id);
+              this.closeTaskSurface(oldTask.task_id);
+            }
+          });
+        }
+
+        // Keep screen clean: auto-close oldest completed window if more than 2 windows are open simultaneously
+        const openSurfaces = Object.values(this.tasks).filter(t => !t.is_minimized);
+        if (openSurfaces.length > 2) {
+          const oldestDone = openSurfaces.find(t => t.task_id !== task.task_id && (t.state === 'COMPLETED' || t.state === 'FAILED'));
+          if (oldestDone) {
+            if (window.HudGalaxy) window.HudGalaxy.removeNode('task_' + oldestDone.task_id);
+            this.closeTaskSurface(oldestDone.task_id);
+          }
+        }
+
         if (window.HudGalaxy) {
           const qText = (task.query || task.title || '').replace(/^Google Search:\s*/i, '').replace(/^Search Google for\s*/i, '');
           window.HudGalaxy.addNode({
@@ -4553,6 +5259,14 @@ const TaskSurfaceManager = {
           }
         }
         this.renderTaskSurface(task);
+        break;
+      case 'task.started':
+        // Lifecycle update only. The task surface and galaxy nodes are created by task.created.
+        // Never create another window/node for a started event.
+        if (this.tasks[task.task_id]) {
+          this.tasks[task.task_id] = task;
+          this.renderTaskSurface(task);
+        }
         break;
       case 'task.finding':
         if (window.HudGalaxy && task.findings && task.findings.length > 0) {
@@ -4634,6 +5348,20 @@ const TaskSurfaceManager = {
     }
 
     let surfaceElem = document.getElementById(`task-surface-${task.task_id}`);
+    const isTerminal = task.type === 'terminal_command' || task.type === 'terminal';
+    const isRunning = task.state === 'RUNNING' || task.state === 'STARTED' || task.state === 'CREATED' || !task.state;
+
+    // Fast-path: if terminal surface is already mounted and actively streaming, update only the pre content to prevent DOM thrashing/glitching
+    if (surfaceElem && isTerminal && isRunning) {
+      const pre = surfaceElem.querySelector('pre');
+      if (pre && (task.progress_msg || (task.data && (task.data.stdout || task.data.stderr)))) {
+        const text = (task.data && (task.data.stdout || task.data.stderr)) || task.progress_msg || '';
+        pre.textContent = text;
+        pre.scrollTop = pre.scrollHeight;
+        return;
+      }
+    }
+
     if (!surfaceElem) {
       surfaceElem = document.createElement('div');
       surfaceElem.id = `task-surface-${task.task_id}`;
@@ -4657,6 +5385,8 @@ const TaskSurfaceManager = {
 
     if (isGoogleSearch) {
       contentHtml = this.renderGoogleSearchSurface(task);
+    } else if (task.type === 'terminal_command' || task.type === 'terminal') {
+      contentHtml = this.renderTerminalSurface(task);
     } else if (task.type === 'browser_surf' && task.data && task.data.url) {
       contentHtml = this.renderBrowserSurface(task);
     } else if (task.type === 'system_action') {
@@ -4749,7 +5479,7 @@ const TaskSurfaceManager = {
     }
 
     const queryBox = `
-      <div style="background:#08090A; border:1px solid rgba(255, 255, 255, 0.06); border-radius:6px; padding:6px 10px; margin-bottom:10px; font-size:11px; flex-shrink:0;">
+      <div style="background:#08090A; border:1px solid rgba(255, 255, 255, 0.06); border-radius:6px; padding:9px 12px; margin-bottom:12px; font-size:12.5px; flex-shrink:0;">
         <span style="color:#8A8D91; font-weight:600;">QUERY:</span> <span style="color:#FFB84D; font-weight:700;">${this.escapeHtml(queryText)}</span>
       </div>
     `;
@@ -4768,18 +5498,17 @@ const TaskSurfaceManager = {
         return `
           <div style="background: #08090A; border: 1px solid rgba(255, 255, 255, 0.06); border-left: 3px solid #FF9D2E; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; transition: all 0.2s ease;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:4px;">
-              <div style="font-weight:700; color:#E6E6E6; font-size:12px; flex:1; line-height:1.4;">
+              <div style="font-weight:700; color:#E6E6E6; font-size:15px; flex:1; line-height:1.5;">
                 <span style="color:#FF9D2E; font-family:var(--mono); margin-right:6px;">[${idx + 1}]</span>${this.escapeHtml(f.title || 'Search Result')}
               </div>
               <button onclick="TaskSurfaceManager.selectItem('${task.task_id}', ${idx})" style="background:rgba(255,157,46,0.15); border:1px solid #FF9D2E; color:#FFB84D; font-size:10px; font-weight:700; padding:3px 10px; border-radius:4px; cursor:pointer; flex-shrink:0;">
                 OPEN
               </button>
             </div>
-            <div style="font-size:10px; color:#8A8D91; margin-bottom:6px; font-family:var(--mono); display:flex; align-items:center; gap:4px;">
-              <span>🌐 ${this.escapeHtml(domain)}</span>
+            <div style="font-size:11.5px; color:#7B8087; margin-bottom:8px; font-family:var(--mono); display:flex; align-items:center; gap:4px;">
+              <span style="opacity:0.6; margin-right:2px;">//</span><span>${this.escapeHtml(domain)}</span>
             </div>
-            <div style="font-size:11.5px; color:#C5C8CC; line-height:1.5; font-family:var(--sans);">${this.escapeHtml(f.snippet || '')}</div>
-            ${f.url ? `<div style="margin-top:6px; font-size:10px;"><a href="${this.escapeHtml(f.url)}" target="_blank" onclick="event.stopPropagation();" style="color:#FFB84D; text-decoration:none; word-break:break-all;">🔗 ${this.escapeHtml(f.url)}</a></div>` : ''}
+            <div style="font-size:13px; color:#D0D3D7; line-height:1.65; font-family:var(--sans);">${this.escapeHtml(f.snippet || '')}</div>
           </div>
         `;
       }).join('');
@@ -4800,6 +5529,83 @@ const TaskSurfaceManager = {
     return statusBadge + queryBox + `<div style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px;">${cardsHtml}</div>`;
   },
 
+  renderTerminalSurface(task) {
+    const cmd = (task.data && task.data.command) || task.title.replace(/^Terminal:\s*/i, '') || 'command';
+    const state = task.state || 'RUNNING';
+    const isDone = state === 'COMPLETED';
+    const isFailed = state === 'FAILED';
+    const isRunning = state === 'RUNNING' || state === 'CREATED' || state === 'STARTED';
+
+    const exitCode = task.data?.exit_code !== undefined ? task.data.exit_code : (isDone ? 0 : isFailed ? 1 : null);
+    const elapsed = task.data?.elapsed_sec !== undefined ? `${task.data.elapsed_sec}s` : '';
+
+    let outputText = '';
+    if (task.data && task.data.stdout) {
+      outputText = task.data.stdout;
+    } else if (task.data && task.data.stderr) {
+      outputText = task.data.stderr;
+    } else if (task.findings && task.findings.length > 0) {
+      outputText = task.findings.map(f => f.snippet || f.title).join('\n');
+    } else if (task.progress_msg) {
+      outputText = task.progress_msg;
+    } else {
+      outputText = isRunning ? 'Executing command in background...' : 'No output captured.';
+    }
+
+    let statusBadge = '';
+    if (isRunning) {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#FF9D2E; font-weight:700;">
+            <span class="thinking-spinner" style="width:10px; height:10px; border-width:1.5px; border-top-color:#FF9D2E;"></span>
+            <span>RUNNING COMMAND...</span>
+          </div>
+          <span style="font-size:10px; color:#8A8D91; font-family:var(--mono);">LIVE EXEC</span>
+        </div>
+      `;
+    } else if (isDone) {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#22C55E; font-weight:700;">
+            <span>✓</span>
+            <span>COMPLETED (EXIT ${exitCode})</span>
+          </div>
+          <span style="font-size:10px; color:#22C55E; font-family:var(--mono);">${elapsed}</span>
+        </div>
+      `;
+    } else if (isFailed) {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#EF4444; font-weight:700;">
+            <span>✕</span>
+            <span>FAILED (EXIT ${exitCode !== null ? exitCode : 1})</span>
+          </div>
+          <span style="font-size:10px; color:#EF4444; font-family:var(--mono);">${elapsed}</span>
+        </div>
+      `;
+    }
+
+    const cmdHeader = `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#0B0C0E; border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; margin-bottom:8px; flex-shrink:0;">
+        <div style="display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono', monospace; font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%;">
+          <span style="color:#FF9D2E; font-weight:700;">$</span>
+          <span style="color:#F1F5F9; font-weight:600;">${this.escapeHtml(cmd)}</span>
+        </div>
+        <button onclick="navigator.clipboard && navigator.clipboard.writeText(this.closest('.soldierboy-task-surface').querySelector('pre').textContent)" style="background:rgba(255,157,46,0.12); border:1px solid rgba(255,157,46,0.4); color:#FFB84D; font-family:'Inter', sans-serif; font-size:11px; font-weight:700; padding:4px 10px; border-radius:4px; cursor:pointer; flex-shrink:0;">
+          COPY
+        </button>
+      </div>
+    `;
+
+    return `
+      ${statusBadge}
+      ${cmdHeader}
+      <div style="flex:1; min-height:0; display:flex; flex-direction:column; background:#040506; border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:12px 14px; overflow:hidden;">
+        <pre style="flex:1; margin:0; overflow-y:auto; font-family:'JetBrains Mono', 'Fira Code', monospace; font-size:13px; line-height:1.65; letter-spacing:0.2px; color:${isFailed ? '#F87171' : '#4ADE80'}; font-weight:500; white-space:pre-wrap; word-break:break-all;">${this.escapeHtml(outputText)}</pre>
+      </div>
+    `;
+  },
+
   renderBrowserSurface(task) {
     const targetUrl = task.data.url;
     const isYt = targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be');
@@ -4811,7 +5617,7 @@ const TaskSurfaceManager = {
     return `
       <div style="flex:1; display:flex; flex-direction:column; min-height:0; background:#030405; border:1px solid rgba(255, 157, 46, 0.4); border-radius:6px; overflow:hidden;">
         <div style="display:flex; justify-content:space-between; align-items:center; background:#08090A; padding:6px 10px; border-bottom:1px solid rgba(255, 255, 255, 0.08); font-size:10.5px; color:#E6E6E6; flex-shrink:0;">
-          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">🌐 INTERNAL BROWSER: ${this.escapeHtml(task.data.title || targetUrl)}</span>
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;"><span style="opacity:0.6; margin-right:4px;">[WEB]</span>INTERNAL BROWSER: ${this.escapeHtml(task.data.title || targetUrl)}</span>
           <a href="${targetUrl}" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:700; flex-shrink:0;">↗ EXT BROWSER</a>
         </div>
         <iframe src="${embedUrl}" style="flex:1; width:100%; border:none; min-height:240px;" allow="autoplay; encrypted-media" allowfullscreen></iframe>
@@ -4823,7 +5629,7 @@ const TaskSurfaceManager = {
     const appName = (task.data && task.data.app_name) || 'Application';
     return `
       <div style="background: #08090A; border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid #22C55E; border-radius: 6px; padding: 12px 14px; font-family: var(--mono);">
-        <div style="font-weight:700; color:#FF9D2E; font-size:12px; margin-bottom:6px;">⚡ SYSTEM PROCESS LAUNCH</div>
+        <div style="font-weight:700; color:#FF9D2E; font-size:12px; margin-bottom:6px;"><span style="opacity:0.6; margin-right:4px;">[CMD]</span>SYSTEM PROCESS LAUNCH</div>
         <div style="font-size:11px; color:#E6E6E6;">Application: <span style="color:#FFB84D; font-weight:700;">${this.escapeHtml(appName)}</span></div>
         <div style="font-size:10.5px; color:#22C55E; margin-top:4px; font-weight:700;">✓ Process Started Successfully</div>
         <div style="font-size:9.5px; color:#8A8D91; margin-top:6px;">${this.escapeHtml(task.summary || 'Command dispatched to desktop environment.')}</div>
@@ -4859,12 +5665,6 @@ const TaskSurfaceManager = {
   escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  },
-
-  selectItem(taskId, index) {
-    if (window.pywebview && window.pywebview.api && window.pywebview.api.select_task_item) {
-      window.pywebview.api.select_task_item(taskId, index);
-    }
   },
 
   minimizeTaskSurface(taskId) {
@@ -4956,8 +5756,45 @@ function toggleSidebarExpanded() {
   }
 }
 
+
+/* ---------- Spatial System Telemetry ---------- */
+let spatialTelemetryTimer = null;
+async function updateSpatialSystemTelemetry() {
+  try {
+    if (!api() || !api().get_system_telemetry) return;
+    const m = await api().get_system_telemetry();
+    if (!m) return;
+    const set = (id, value, level) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = value == null ? '—' : String(value);
+      const metric = el.closest('.spatial-metric');
+      if (metric) metric.classList.remove('warn', 'hot');
+      if (metric && level) metric.classList.add(level);
+    };
+    const cpu = Number(m.cpu_percent);
+    const ram = Number(m.ram_percent);
+    const gpu = Number(m.gpu_percent);
+    set('telemetry-cpu', Number.isFinite(cpu) ? `${cpu.toFixed(0)}%` : '—', cpu >= 90 ? 'hot' : cpu >= 75 ? 'warn' : '');
+    set('telemetry-ram', Number.isFinite(ram) ? `${ram.toFixed(0)}%` : '—', ram >= 92 ? 'hot' : ram >= 80 ? 'warn' : '');
+    set('telemetry-gpu', Number.isFinite(gpu) ? `${gpu.toFixed(0)}%` : '—', gpu >= 95 ? 'hot' : gpu >= 80 ? 'warn' : '');
+    const net = Number(m.net_mbps);
+    set('telemetry-net', Number.isFinite(net) ? `${net.toFixed(net >= 10 ? 0 : 1)} MB/s` : '—', net >= 100 ? 'warn' : '');
+  } catch (_) {}
+}
+function updateGalaxyMeta() {
+  const nodes = document.getElementById('galaxy-node-count');
+  const links = document.getElementById('galaxy-link-count');
+  if (nodes && window.HudGalaxy && HudGalaxy.nodes) nodes.textContent = String(HudGalaxy.nodes.size);
+  if (links && window.HudGalaxy && HudGalaxy.links) links.textContent = String(HudGalaxy.links.length);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   TaskSurfaceManager.init();
+  if (window.HudGalaxy && typeof HudGalaxy.resize === 'function') HudGalaxy.resize();
+  updateSpatialSystemTelemetry();
+  spatialTelemetryTimer = setInterval(updateSpatialSystemTelemetry, 2000);
+  setInterval(updateGalaxyMeta, 500);
 
   // Desktop Shell Navigation Rail tab switching & auto-close menu on selection
   const navItems = document.querySelectorAll('.nav-rail-item');
@@ -5122,7 +5959,8 @@ function enqueueSoldierBoyAudio(audioData, text) {
     }
     let src = audioData;
     if (!audioData.startsWith('data:')) {
-      src = 'data:audio/wav;base64,' + audioData;
+      const isWav = audioData.startsWith('UklGR');
+      src = `data:audio/${isWav ? 'wav' : 'mp3'};base64,` + audioData;
     }
     soldierboyAudioQueue.push({ src, text });
     if (!isPlayingSoldierBoyQueue) {
@@ -5192,8 +6030,25 @@ window.soldierboy = window.joe = {
     switch (event) {
       case 'soldierboy_audio_chunk':
       case 'joe_audio_chunk':
-        if (data && data.audio) {
-          enqueueSoldierBoyAudio(data.audio, data.text);
+        if (data && (data.turn_id == null || Number(data.turn_id) === Number(activeSoldierBoyTtsTurn))) {
+          if (data.native_played) {
+            hasReceivedAudioChunk = true;
+            if (data.text && data.text.trim()) {
+              recentAgentTexts.push(data.text.trim());
+              if (recentAgentTexts.length > 20) recentAgentTexts.shift();
+              showSubtitles(data.text, 'SOLDIER BOY');
+              setHudState('speaking');
+              const estMs = Math.max(2500, data.text.length * 85);
+              if (window.nativeSpeakingTimer) clearTimeout(window.nativeSpeakingTimer);
+              window.nativeSpeakingTimer = setTimeout(() => {
+                if (soldierboyHudState === 'speaking') {
+                  setHudState('idle');
+                }
+              }, estMs);
+            }
+          } else if (data.audio) {
+            enqueueSoldierBoyAudio(data.audio, data.text);
+          }
         }
         break;
       case 'soldierboy_task_event':
@@ -5201,8 +6056,14 @@ window.soldierboy = window.joe = {
           TaskSurfaceManager.handleEvent(data.event, data.payload);
         }
         break;
+      case 'set_app_mode':
+        if (data && data.mode) {
+          setAppMode(data.mode);
+        }
+        break;
       case 'soldierboy_interrupt_speech':
       case 'joe_interrupt_speech':
+        if (window.nativeSpeakingTimer) clearTimeout(window.nativeSpeakingTimer);
         resetSoldierBoyAudioQueue();
         setHudState('interrupted');
         showSubtitles('BARGE-IN DETECTED — Speech interrupted.', 'VOICE CONTROL');
@@ -5288,7 +6149,6 @@ window.soldierboy = window.joe = {
       case 'scan_status':
         showThinking(true);
         setHudState('thinking');
-        addStatusLine(data.message);
         showSubtitles(data.message, 'RECON STREAM');
         $('#session-status').textContent = 'running';
         break;
@@ -5320,14 +6180,40 @@ window.soldierboy = window.joe = {
 
       case 'soldierboy_stream_start':
       case 'joe_stream_start':
+        // A new answer supersedes any previous speech immediately.
+        resetSoldierBoyAudioQueue();
+        if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch(e) {} }
         hasReceivedAudioChunk = false;
+        activeSoldierBoyTtsTurn = Number(data?.turn_id || (activeSoldierBoyTtsTurn + 1));
         setHudState('speaking');
         startStreamingAnswer();
+        break;
+
+      case 'soldierboy_pcm_audio_chunk':
+        if (data && data.audio) {
+          hasReceivedAudioChunk = true;
+          enqueueSoldierBoyPcmChunk(data.audio, data.sample_rate || 44100, data.text || '', data.turn_id);
+        }
         break;
 
       case 'soldierboy_stream_chunk':
       case 'joe_stream_chunk':
         updateStreamingChunk(data.chunk);
+        break;
+
+      case 'soldierboy_tts_browser_fallback':
+        if (data && data.text && (data.turn_id == null || Number(data.turn_id) === Number(activeSoldierBoyTtsTurn)) && 'speechSynthesis' in window) {
+          try {
+            const utterance = new SpeechSynthesisUtterance(data.text);
+            utterance.rate = 1.0;
+            utterance.pitch = 0.9;
+            utterance.onstart = () => setHudState('speaking');
+            utterance.onend = () => { if (soldierboyHudState === 'speaking') setHudState('idle'); };
+            utterance.onerror = () => { if (soldierboyHudState === 'speaking') setHudState('idle'); };
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+          } catch(e) { console.warn('[SoldierBoyTTS] browser fallback failed:', e); }
+        }
         break;
 
       case 'soldierboy_answer':
@@ -5635,192 +6521,193 @@ function render3DCanvasGraph(container, data) {
   if (!container) return;
   const width = container.clientWidth || 700;
   const height = container.clientHeight || 500;
-  
+
   container.innerHTML = '';
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.floor(width * dpr);
+  canvas.height = Math.floor(height * dpr);
   canvas.style.width = '100%';
   canvas.style.height = '100%';
   canvas.style.display = 'block';
   canvas.style.cursor = 'grab';
+  canvas.style.touchAction = 'none';
   container.appendChild(canvas);
 
   const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const cx = width / 2;
   const cy = height / 2;
-
   const nodes = (data && data.nodes) ? data.nodes : [];
-  const root = nodes.find(n => n.type === 'target') || nodes[0] || { value: state.activeCase || 'Target' };
+  const root = nodes.find(n => n.type === 'target') || nodes[0] || { value: state.activeCase || 'SOLDIER BOY' };
   const children = nodes.filter(n => n !== root);
 
-  canvas.addEventListener('mousedown', (e) => {
-    overlayIsDragging = true;
-    canvas.style.cursor = 'grabbing';
-    overlayLastMouse = { x: e.clientX, y: e.clientY };
-  });
+  let rotX = -0.12;
+  let rotY = 0;
+  let zoom = 1;
+  let dragging = false;
+  let dragged = false;
+  let last = { x: 0, y: 0 };
+  let projected = [];
+  let stars = [];
 
-  window.addEventListener('mouseup', () => {
-    overlayIsDragging = false;
-    canvas.style.cursor = 'grab';
-  });
-
-  canvas.addEventListener('mousemove', (e) => {
-    if (!overlayIsDragging) return;
-    const dx = e.clientX - overlayLastMouse.x;
-    const dy = e.clientY - overlayLastMouse.y;
-    overlay3DRotY += dx * 0.008;
-    overlay3DRotX += dy * 0.008;
-    overlayLastMouse = { x: e.clientX, y: e.clientY };
-  });
+  // Fixed deep-space star field. Stars do not rotate or zoom with the constellation.
+  let seed = 0x51a7b0;
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const starCount = Math.min(950, Math.max(520, Math.floor(width * height / 1700)));
+  for (let i = 0; i < starCount; i++) {
+    stars.push({
+      x: rand() * width,
+      y: rand() * height,
+      r: rand() < 0.9 ? 0.35 + rand() * 0.65 : 0.9 + rand() * 1.4,
+      a: 0.22 + rand() * 0.65,
+      phase: rand() * Math.PI * 2,
+      warm: rand() < 0.08
+    });
+  }
 
   if (overlay3DAnimFrame) cancelAnimationFrame(overlay3DAnimFrame);
 
-  function animate() {
-    if (!overlayIsDragging) {
-      overlay3DRotY += 0.008; // smooth 3D auto rotation
-    }
-
-    ctx.clearRect(0, 0, width, height);
-
-    // Deep 3D Space radial background
-    const bg = ctx.createRadialGradient(cx, cy, 20, cx, cy, width / 1.2);
-    bg.addColorStop(0, '#1c0808');
-    bg.addColorStop(1, '#060202');
-    ctx.fillStyle = bg;
+  function drawStars(time) {
+    ctx.fillStyle = '#010205';
     ctx.fillRect(0, 0, width, height);
-
-    const focalLength = 400;
-    const radius = Math.min(width, height) / 2.6;
-    const projected = [];
-
-    // Root node at 3D origin
-    projected.push({
-      node: root,
-      x: cx,
-      y: cy,
-      z: 0,
-      scale: 1,
-      isRoot: true,
-      color: '#ff5a5f'
-    });
-
-    children.forEach((n, i) => {
-      const phi = Math.acos(-1 + (2 * i + 1) / children.length);
-      const theta = Math.sqrt(children.length * Math.PI) * phi;
-
-      // 3D sphere point coordinates
-      let wx = radius * Math.cos(theta) * Math.sin(phi);
-      let wy = radius * Math.sin(theta) * Math.sin(phi);
-      let wz = radius * Math.cos(phi);
-
-      // Rotate around X and Y axes
-      const cosX = Math.cos(overlay3DRotX), sinX = Math.sin(overlay3DRotX);
-      const cosY = Math.cos(overlay3DRotY), sinY = Math.sin(overlay3DRotY);
-
-      let y1 = wy * cosX - wz * sinX;
-      let z1 = wy * sinX + wz * cosX;
-
-      let rx = wx * cosY + z1 * sinY;
-      let ry = y1;
-      let rz = -wx * sinY + z1 * cosY;
-
-      const scale = focalLength / (focalLength + rz + 200);
-      const px = cx + rx * scale;
-      const py = cy + ry * scale;
-
-      projected.push({
-        node: n,
-        x: px,
-        y: py,
-        z: rz,
-        scale: scale,
-        isRoot: false,
-        color: getNodeBorderColor(n)
-      });
-    });
-
-    // Z-Sort for 3D depth layering
-    projected.sort((a, b) => a.z - b.z);
-
-    const rootP = projected.find(p => p.isRoot);
-
-    // Render 3D connecting lines
-    projected.forEach(p => {
-      if (!p.isRoot && rootP) {
-        ctx.beginPath();
-        ctx.moveTo(rootP.x, rootP.y);
-        ctx.lineTo(p.x, p.y);
-        const col = getLinkColor(p.node.metadata ? p.node.metadata.correlation_signal : 'discovered');
-        ctx.strokeStyle = col;
-        ctx.globalAlpha = Math.max(0.2, Math.min(0.85, p.scale * 0.8));
-        ctx.lineWidth = Math.max(1, 2 * p.scale);
-        ctx.setLineDash([5, 4]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.globalAlpha = 1.0;
-      }
-    });
-
-    // Render 3D sphere nodes
-    projected.forEach(p => {
-      const r = p.isRoot ? 22 * p.scale : 11 * p.scale;
-
-      // Glowing outer wireframe ring
+    for (const star of stars) {
+      const twinkle = 0.82 + Math.sin(time * 0.00035 + star.phase) * 0.12;
+      ctx.globalAlpha = Math.max(0.08, Math.min(0.9, star.a * twinkle));
+      ctx.fillStyle = star.warm ? '#d5c5a8' : '#dce3ed';
       ctx.beginPath();
-      ctx.arc(p.x, p.y, r + 6 * p.scale, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.globalAlpha = 0.25 * p.scale;
+      ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
       ctx.fill();
-
-      // Main 3D Sphere mesh representation
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = p.isRoot ? '#ff5a5f' : '#180606';
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = 2.5 * p.scale;
-      ctx.globalAlpha = Math.max(0.35, Math.min(1.0, p.scale));
-      ctx.fill();
-      ctx.stroke();
-
-      // 3D label
-      ctx.font = `bold ${Math.max(9, Math.round(12 * p.scale))}px monospace`;
-      ctx.fillStyle = '#ffddcc';
-      ctx.textAlign = 'center';
-      ctx.fillText(truncateLabel(p.node.value || p.node.platform), p.x, p.y + r + 15 * p.scale);
-      ctx.globalAlpha = 1.0;
-    });
-
-    overlay3DAnimFrame = requestAnimationFrame(animate);
+    }
+    ctx.globalAlpha = 1;
   }
 
-  // Handle click on 3D node
+  function projectNodes() {
+    const focalLength = 460;
+    const radius = Math.min(width, height) / 2.75 * zoom;
+    projected = [{ node: root, x: cx, y: cy, z: 0, scale: 1, isRoot: true, color: '#ffad32' }];
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    const total = Math.max(1, children.length);
+
+    children.forEach((n, i) => {
+      const phi = Math.acos(-1 + (2 * i + 1) / total);
+      const theta = Math.sqrt(total * Math.PI) * phi;
+      const wx = radius * Math.cos(theta) * Math.sin(phi);
+      const wy = radius * Math.sin(theta) * Math.sin(phi);
+      const wz = radius * Math.cos(phi);
+      const y1 = wy * cosX - wz * sinX;
+      const z1 = wy * sinX + wz * cosX;
+      const rx = wx * cosY + z1 * sinY;
+      const ry = y1;
+      const rz = -wx * sinY + z1 * cosY;
+      const scale = focalLength / (focalLength + rz + 300);
+      projected.push({ node: n, x: cx + rx * scale, y: cy + ry * scale, z: rz, scale, isRoot: false, color: getNodeBorderColor(n) });
+    });
+    projected.sort((a, b) => a.z - b.z);
+  }
+
+  function draw(time) {
+    drawStars(time);
+    projectNodes();
+    const rootP = projected.find(p => p.isRoot);
+
+    // Stable constellation: speech never moves these nodes.
+    for (const p of projected) {
+      if (p.isRoot || !rootP) continue;
+      ctx.beginPath();
+      ctx.moveTo(rootP.x, rootP.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = '#70481d';
+      ctx.globalAlpha = Math.max(0.12, Math.min(0.46, p.scale * 0.42));
+      ctx.lineWidth = Math.max(0.65, 1.15 * p.scale);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    const energy = Math.max(0, Math.min(1, Number(window.__soldierVoiceEnergy || 0)));
+    for (const p of projected) {
+      const pulse = p.isRoot ? 1 + energy * 0.16 + Math.sin(time * 0.006) * energy * 0.025 : 1;
+      const r = (p.isRoot ? 22 : 8.5) * p.scale * pulse;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r + (p.isRoot ? 15 : 5) * p.scale, 0, Math.PI * 2);
+      ctx.fillStyle = p.isRoot ? '#ff9d22' : p.color;
+      ctx.globalAlpha = p.isRoot ? 0.13 + energy * 0.12 : 0.11 * p.scale;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = p.isRoot ? '#ff9d22' : '#07090b';
+      ctx.strokeStyle = p.isRoot ? '#ffd27a' : p.color;
+      ctx.lineWidth = p.isRoot ? 2.2 : 1.6;
+      ctx.globalAlpha = Math.max(0.45, Math.min(1, p.scale));
+      ctx.fill();
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      if (!p.isRoot && p.scale > 0.78) {
+        ctx.font = `bold ${Math.max(9, Math.round(11 * p.scale))}px monospace`;
+        ctx.fillStyle = '#d7d4cd';
+        ctx.textAlign = 'center';
+        ctx.fillText(truncateLabel(p.node.value || p.node.platform), p.x, p.y + r + 14 * p.scale);
+      }
+    }
+    overlay3DAnimFrame = requestAnimationFrame(draw);
+  }
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoom = Math.max(0.42, Math.min(3.4, zoom * Math.exp(-e.deltaY * 0.00125)));
+  }, { passive: false });
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    dragging = true;
+    dragged = false;
+    last = { x: e.clientX, y: e.clientY };
+    canvas.setPointerCapture?.(e.pointerId);
+    canvas.style.cursor = 'grabbing';
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - last.x;
+    const dy = e.clientY - last.y;
+    if (Math.abs(dx) + Math.abs(dy) > 3) dragged = true;
+    rotY += dx * 0.008;
+    rotX = Math.max(-1.25, Math.min(1.25, rotX + dy * 0.008));
+    last = { x: e.clientX, y: e.clientY };
+  });
+
+  canvas.addEventListener('pointerup', (e) => {
+    dragging = false;
+    canvas.releasePointerCapture?.(e.pointerId);
+    canvas.style.cursor = 'grab';
+  });
+  canvas.addEventListener('pointercancel', () => {
+    dragging = false;
+    canvas.style.cursor = 'grab';
+  });
+
   canvas.addEventListener('click', (e) => {
+    if (dragged) { dragged = false; return; }
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    
-    // Find closest node to click
-    const focalLength = 400;
-    const radius = Math.min(width, height) / 2.6;
     let closest = null;
-    let minDist = 999;
-
-    nodes.forEach(n => {
-      const p = projected.find(pr => pr.node === n);
-      if (p) {
-        const dist = Math.hypot(p.x - mx, p.y - my);
-        if (dist < minDist && dist < 30) {
-          minDist = dist;
-          closest = n;
-        }
-      }
-    });
-
+    let minDist = 30;
+    for (const p of projected) {
+      const dist = Math.hypot(p.x - mx, p.y - my);
+      if (dist < minDist) { minDist = dist; closest = p.node; }
+    }
     if (closest) selectNode(closest);
   });
 
-  animate();
+  draw(performance.now());
 }
 
 function selectNodeByName(val) {

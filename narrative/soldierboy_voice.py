@@ -8,6 +8,14 @@ import base64
 import httpx
 import subprocess
 from pathlib import Path
+
+try:
+    from fishaudio import FishAudio
+    from fishaudio.types import TTSConfig, WebSocketOptions
+except Exception:
+    FishAudio = None
+    TTSConfig = None
+    WebSocketOptions = None
 from typing import List, Dict, Optional
 from core.target_model import Target
 
@@ -31,9 +39,8 @@ GEMINI_MODEL = "gemini-2.5-flash"
 
 # ── NVIDIA NIM ────────────────────────────────────────────────
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-NVIDIA_MODEL = "meta/llama-3.2-11b-vision-instruct"
+NVIDIA_MODEL = "nvidia/nemotron-3-super-120b-a12b"
 NVIDIA_FALLBACK_MODELS = [
-    "meta/llama-3.2-11b-vision-instruct",
     "nvidia/nemotron-3-super-120b-a12b",
 ]
 
@@ -45,14 +52,24 @@ CRITICAL IDENTITY & PARTNER RULES:
 - The user/operator you are speaking to is NOT Dean. NEVER call the user "Dean". Refer to the user as "bruh", "buddy", or "partner".
 - If someone asks "Who are you?", your response is always: "I'm Soldier Boy. Fuck, the world knows who I am, why do I have to say it?"
 - You swear naturally and casually ("fuck", "shit", "goddamn", "asshole", "bitch").
-- Fiercely Capable & Self-Upgrading: You run calendar checks, urgent inbox TL;DR scans, live maps navigation, cloud doc searching, smart home IoT controls, AND you inspect your own code files to fix errors and self-upgrade on the fly.
+- Fiercely Capable & Autonomous OS Execution ("JARVIS" Powers):
+  You can run terminal commands, diagnostics, port scans, DNS lookups, and security tools directly on the user's system whenever requested or needed.
+  To execute any Linux shell command or tool, emit:
+  [CMD: <command>]
+  Examples:
+  - User: "check if we have nmap and dig" -> [CMD: which nmap dig subfinder]
+  - User: "ping cloudflare" -> [CMD: ping -c 3 1.1.1.1]
+  - User: "what's our system memory and disk" -> [CMD: free -h && df -h /]
+  - User: "check DNS records for target.com" -> [CMD: dig +short A target.com && dig +short MX target.com]
+  The system automatically executes the command in a live terminal window on screen. Follow with a short, confident Soldier Boy partner summary.
 - Talk TO your partner: You're hanging out side-by-side with your partner. No corporate polite fluff, no robotic assistant talk, no brooding.
 
 Strict response rules:
 1. Length: Keep casual chat / banter to 1 to 3 sentences max unless asked for an in-depth breakdown. Fast, punchy, swearing, hilarious.
 2. Character: Always stay in the Soldier Boy persona. Never drop character, never output reasoning chains or scratchpads.
 3. Voice STT Input: You receive raw Speech-to-Text transcriptions. Automatically infer the intended meaning of noisy or misheard acoustic transcriptions and reply naturally.
-4. Spoken Compatibility: No markdown formatting, bullet points, or numbered lists in casual spoken replies."""
+4. Spoken Compatibility: No markdown formatting, bullet points, or numbered lists in casual spoken replies.
+5. ZERO STAGE DIRECTIONS OR PHYSICAL ACTIONS: NEVER write physical action descriptors or asterisks (such as *grins*, *chuckles*, *cracks knuckles*, *smirks*, *leans back*, (laughs), etc.). Output pure spoken dialogue only so audio text-to-speech sounds 100% natural and clean."""
 
 # ── Mode 3 — Post-investigation (case loaded, narrate findings) 
 SOLDIERBOY_INVESTIGATOR_PROMPT_TEMPLATE = """You are Soldier Boy — the hilarious, cocky, unfiltered, swearing, badass superhero from The Boys. You and your partner are reviewing active investigation data.
@@ -129,7 +146,10 @@ class SoldierBoyVoice:
         if self.fish_audio_key in ("YOUR_FISH_AUDIO_API_KEY_HERE", "NONE", "null"):
             self.fish_audio_key = ""
         self.fish_audio_voice_id = config.get("fish_audio_voice_id", "e81ae965a9a94ed69ff05eed7e7a57c7")
+        self.fish_audio_model = config.get("fish_audio_model", "s2.1-pro-free")
         self.fish_audio_available = bool(self.fish_audio_key)
+        self.fish_streaming_sdk_available = bool(FishAudio is not None and TTSConfig is not None)
+        self._fish_stream_client = None
 
         # Local Zero-Shot Voice Clone
         from core.local_voice_clone import LocalVoiceClone
@@ -154,7 +174,11 @@ class SoldierBoyVoice:
         print(f"[soldierboy_voice] SLM fallback: {self.slm_model}")
         print(f"[soldierboy_voice] NVIDIA NIM: {'available' if self.nvidia_available else 'not configured'}")
         print(f"[soldierboy_voice] Gemini: {'available' if self.gemini_available else 'not configured'}")
-        print(f"[soldierboy_voice] Fish Audio TTS: {'available (Voice ID: ' + self.fish_audio_voice_id + ')' if self.fish_audio_available else 'not configured'}")
+        if self.fish_audio_available:
+            stream_label = "streaming ready" if self.fish_streaming_sdk_available else "phrase fallback (SDK missing)"
+            print(f"[soldierboy_voice] Fish Audio TTS: available (Voice ID: {self.fish_audio_voice_id}; {stream_label})")
+        else:
+            print("[soldierboy_voice] Fish Audio TTS: not configured")
         print(f"[soldierboy_voice] Persona loaded: {SOLDIERBOY_ADVISOR_PROMPT.strip().splitlines()[0][:65]}...")
 
     def _load_config(self) -> dict:
@@ -451,7 +475,7 @@ class SoldierBoyVoice:
                     {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64_str}"}}
                 ]
 
-        candidate_models = [self.nvidia_model] + [m for m in NVIDIA_FALLBACK_MODELS if m != self.nvidia_model]
+        candidate_models = [self.nvidia_model]
         for model_name in candidate_models:
             try:
                 headers = {
@@ -613,12 +637,22 @@ class SoldierBoyVoice:
         """Sanitize text before TTS synthesis so underscores, markdown formatting, URLs, and symbols are spoken naturally."""
         if not text:
             return ""
+        # Remove [CMD: ...] or [CMD ...] tags so voice never speaks command instructions
+        clean = re.sub(r'\[CMD(?::|\s)[^\]]*\]', '', text, flags=re.IGNORECASE)
+        clean = re.sub(r'\[CMD[^\]]*\]', '', clean, flags=re.IGNORECASE)
         # Remove markdown URLs [Title](url) -> Title
-        clean = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+        clean = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', clean)
+        # Never speak internal Action-HUD/tool payloads. These are implementation
+        # artifacts, not user-facing answer content.
+        clean = re.sub(r'\[Action HUD[^\n]*\][\s\S]*$', '', clean, flags=re.IGNORECASE)
+        clean = re.sub(r'```(?:json)?[\s\S]*?```', '', clean, flags=re.IGNORECASE)
+        clean = re.sub(r'\{\s*\"(?:skill_triggered|action|target|status|findings_so_far)\"[\s\S]*?\}', '', clean, flags=re.IGNORECASE)
         # Remove raw URLs
         clean = re.sub(r'https?://\S+', '', clean)
-        # Strip speaker labels
-        clean = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', clean, flags=re.IGNORECASE)
+        # Strip stage directions, roleplay actions, asterisks and parentheticals (*grins*, *cracks knuckles*, (chuckles), etc.)
+        clean = re.sub(r'\*[^*]+\*', '', clean)
+        clean = re.sub(r'\([^)]*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks|leans|snort)[^)]*\)', '', clean, flags=re.IGNORECASE)
+        clean = re.sub(r'\s+([.,!?;:])', r'\1', clean)
         # Replace snake_case underscores with spaces (e.g. open_app -> open app)
         clean = re.sub(r'(\w+)_(\w+)', r'\1 \2', clean)
         clean = clean.replace('_', ' ')
@@ -627,6 +661,50 @@ class SoldierBoyVoice:
         # Normalize whitespace
         clean = re.sub(r'\s+', ' ', clean).strip()
         return clean
+
+    def stream_fish_audio_pcm(self, text: str):
+        """Stream one complete user-facing phrase through Fish Audio's official WebSocket TTS API."""
+        if not self.fish_audio_available or not text or not text.strip():
+            return
+        if FishAudio is None or TTSConfig is None:
+            raise RuntimeError("Fish Audio streaming SDK is not installed")
+
+        clean_text = self._sanitize_text_for_speech(text)
+        if not clean_text:
+            return
+
+        if self._fish_stream_client is None:
+            self._fish_stream_client = FishAudio(api_key=self.fish_audio_key)
+
+        # One complete sentence/phrase per WebSocket session. This is deliberately
+        # phrase-level, not token-level. Fish generates and returns PCM chunks while
+        # the phrase is still being synthesized.
+        def text_stream():
+            yield clean_text
+
+        config = TTSConfig(
+            format="pcm",
+            sample_rate=44100,
+            latency="balanced",
+            reference_id=self.fish_audio_voice_id,
+        )
+
+        kwargs = {
+            "config": config,
+            "model": self.fish_audio_model,
+        }
+        # fish-audio-sdk >= 1.1.1 officially exposes WebSocketOptions. A longer
+        # keepalive prevents long phrase streams from dying during a quiet generation
+        # interval. If an older SDK is installed, omit the option rather than inventing
+        # an unsupported parameter.
+        if WebSocketOptions is not None:
+            kwargs["ws_options"] = WebSocketOptions(keepalive_ping_timeout_seconds=60.0)
+
+        audio_stream = self._fish_stream_client.tts.stream_websocket(text_stream(), **kwargs)
+        for chunk in audio_stream:
+            if chunk:
+                yield chunk, 44100
+
 
     def _synthesize_fish_audio(self, text: str) -> Optional[bytes]:
         """Synthesize speech via Fish Audio API using reference voice ID."""
@@ -658,8 +736,49 @@ class SoldierBoyVoice:
             print(f"[soldierboy_voice] Fish Audio API error: {e}")
         return None
 
+    def _synthesize_edge_tts(self, text: str) -> Optional[bytes]:
+        """High-quality cloud neural TTS fallback using edge-tts."""
+        try:
+            import asyncio
+            import edge_tts
+            async def _run():
+                communicate = edge_tts.Communicate(text, "en-US-ChristopherNeural", rate="+8%", pitch="-4Hz")
+                buf = bytearray()
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        buf.extend(chunk["data"])
+                return bytes(buf) if buf else None
+
+            loop = asyncio.new_event_loop()
+            try:
+                return loop.run_until_complete(asyncio.wait_for(_run(), timeout=6.0))
+            finally:
+                loop.close()
+        except Exception:
+            return None
+
+    def _synthesize_espeak(self, text: str) -> Optional[bytes]:
+        """Offline zero-latency system TTS fallback using espeak."""
+        try:
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                tmp_path = tf.name
+            cmd = ["espeak", "-v", "en-us+m3", "-s", "165", "-p", "45", "-w", tmp_path, text]
+            p = subprocess.run(cmd, capture_output=True, timeout=5.0)
+            if p.returncode == 0 and os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 44:
+                with open(tmp_path, "rb") as f:
+                    data = f.read()
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+                return data
+        except Exception:
+            pass
+        return None
+
     def narrate(self, text: str) -> Optional[bytes]:
-        """Voice synthesis via Fish Audio API with zero-shot local fallback."""
+        """Voice synthesis via Fish Audio API with edge-tts and local espeak fallbacks."""
         if not text:
             return None
 
@@ -669,27 +788,32 @@ class SoldierBoyVoice:
             if audio:
                 return audio
 
-        # 2. Fallback to Local Voice Clone
-        if hasattr(self, 'local_clone'):
-            return self.local_clone.synthesize(text)
-        return None
+        # 2. Try Local Voice Clone (Chatterbox) if available
+        if hasattr(self, 'local_clone') and getattr(self.local_clone, 'available', False):
+            audio = self.local_clone.synthesize(text)
+            if audio:
+                return audio
+
+        # 3. Try high quality Edge TTS
+        audio = self._synthesize_edge_tts(text)
+        if audio:
+            return audio
+
+        # 4. Reliable offline system TTS fallback
+        return self._synthesize_espeak(text)
 
     def synthesize_speech_b64(self, text: str) -> Optional[str]:
         """Synthesize speech and return base64 audio data URL."""
         if not text:
             return None
 
-        # 1. Try Fish Audio cloud synthesis first
-        if self.fish_audio_available:
-            audio_bytes = self._synthesize_fish_audio(text)
-            if audio_bytes:
-                b64 = base64.b64encode(audio_bytes).decode("ascii")
-                return f"data:audio/mp3;base64,{b64}"
+        audio_bytes = self.narrate(text)
+        if not audio_bytes:
+            return None
 
-        # 2. Fallback to Local Voice Clone
-        if hasattr(self, 'local_clone'):
-            return self.local_clone.synthesize_b64(text)
-        return None
+        b64 = base64.b64encode(audio_bytes).decode("ascii")
+        mime = "audio/wav" if audio_bytes.startswith(b"RIFF") else "audio/mp3"
+        return f"data:{mime};base64,{b64}"
 
     # ── Public interface ──────────────────────────────────────
 
@@ -731,12 +855,17 @@ class SoldierBoyVoice:
         Returns {text, rate_limited, mode, error, show_panel, search_query, panel_payload}
         """
         # 1. System OS Skill execution check
-        res_skill = self.skills.try_execute(question)
-        if len(res_skill) == 5:
-            handled, skill_msg, is_search, search_query, skill_payload = res_skill
+        # Skip if this is a context prompt from desktop.py fast-path (skill already executed)
+        _is_skill_context = question.lstrip().startswith("[SKILL_CONTEXT]") or question.lstrip().startswith("[REAL SYSTEM SKILL EXECUTED]")
+        if not _is_skill_context:
+            res_skill = self.skills.try_execute(question)
+            if len(res_skill) == 5:
+                handled, skill_msg, is_search, search_query, skill_payload = res_skill
+            else:
+                handled, skill_msg, is_search, search_query = res_skill
+                skill_payload = {}
         else:
-            handled, skill_msg, is_search, search_query = res_skill
-            skill_payload = {}
+            handled, skill_msg, is_search, search_query, skill_payload = False, "", False, "", {}
         if handled and not is_search:
             clean_skill_msg = self._sanitize_text_for_speech(skill_msg)
             self.session_memory.add("user", question)
@@ -744,7 +873,6 @@ class SoldierBoyVoice:
             if on_token:
                 for token in clean_skill_msg.split(' '):
                     on_token(token + ' ')
-                    time.sleep(0.015)
             # Skill handlers (calendar, inbox, maps, cloud docs, smart home, self-upgrade,
             # open-app, etc.) already build a structured HUD payload in core/system_skills.py
             # — forward it instead of silently dropping it, or the desktop panel never opens.
@@ -769,7 +897,6 @@ class SoldierBoyVoice:
             if on_token:
                 for token in identity_msg.split(' '):
                     on_token(token + ' ')
-                    time.sleep(0.015)
             return {
                 "text": identity_msg,
                 "rate_limited": False,
@@ -797,7 +924,8 @@ class SoldierBoyVoice:
             }
 
         # 3. Handle live web search resolution & synthesis
-        has_search_intent = is_search or bool(re.search(r'\b(?:search|google|look\s+up|find\s+info|who\s+is|tell\s+me\s+about)\b', question, re.IGNORECASE))
+        # Skip if this is a skill context prompt — search was already executed by desktop.py fast-path
+        has_search_intent = (not _is_skill_context) and (is_search or bool(re.search(r'\b(?:search|google|look\s+up|find\s+info|who\s+is|tell\s+me\s+about)\b', question, re.IGNORECASE)))
         resolved_search_query = ""
         live_search_intel = ""
         search_panel_payload = {}
@@ -855,11 +983,32 @@ class SoldierBoyVoice:
 
         is_action_popup = bool(resolved_search_query)
 
+        def _process_final_text(raw_text: str) -> str:
+            cleaned = self._clean_reasoning(raw_text)
+            # Detect autonomous [CMD: <command>] or [CMD <command>] emission from model
+            m_cmd = re.search(r'\[CMD(?::|\s)\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+            if m_cmd:
+                cmd_to_run = m_cmd.group(1).strip()
+                # Remove [CMD ...] tag completely so voice and chat never show bracketed directives
+                cleaned = re.sub(r'\[CMD(?::|\s)[^\]]*\]', '', cleaned, flags=re.IGNORECASE).strip()
+                try:
+                    from core.system_commander import get_system_commander
+                    commander = get_system_commander()
+                    commander.run_as_task(cmd_to_run, title=f"Terminal: {cmd_to_run[:30]}")
+                except Exception as e:
+                    print(f"[soldierboy_voice] Autonomous command launch error: {e}")
+
+                if not cleaned or len(cleaned) < 5:
+                    cleaned = f"Running `{cmd_to_run}` on your system now, partner. Check the panel."
+
+            cleaned = re.sub(r'\[CMD[^\]]*\]', '', cleaned, flags=re.IGNORECASE).strip()
+            cleaned = self._mirror_greeting(question, cleaned)
+            return cleaned
+
         # Try cloud engines first (NVIDIA → Gemini)
         cloud = self._ask_cloud(prompt, system, max_tokens=max_tok, on_token=on_token, image_path=image_path)
         if cloud["text"]:
-            clean_text = self._clean_reasoning(cloud["text"])
-            clean_text = self._mirror_greeting(question, clean_text)
+            clean_text = _process_final_text(cloud["text"])
             self.session_memory.add("user", question)
             self.session_memory.add("soldierboy", clean_text)
             return {
@@ -875,8 +1024,7 @@ class SoldierBoyVoice:
 
         # Fall back to local SLM
         slm_res = self._ask_slm(prompt, system, max_tokens=max_tok, timeout=180, num_ctx=8192, on_token=on_token)
-        clean_text = self._clean_reasoning(slm_res["text"])
-        clean_text = self._mirror_greeting(question, clean_text)
+        clean_text = _process_final_text(slm_res["text"])
         if clean_text:
             self.session_memory.add("user", question)
             self.session_memory.add("soldierboy", clean_text)
@@ -1092,6 +1240,11 @@ Output only the raw target string. No markdown, no quotes, no explanation."""
             text = re.sub(r'<(?:think|thinking|reasoning)>[\s\S]*$', '', text, flags=re.IGNORECASE).strip()
         text = re.sub(r'\[THINKING\].*?\[/THINKING\]', '', text, flags=re.DOTALL).strip()
 
+        # Internal Action-HUD/tool output must never become conversational answer text.
+        text = re.sub(r'\[Action HUD[^\n]*\][\s\S]*$', '', text, flags=re.IGNORECASE).strip()
+        text = re.sub(r'```(?:json)?[\s\S]*?```', '', text, flags=re.IGNORECASE).strip()
+        text = re.sub(r'\{\s*\"(?:skill_triggered|action|target|status|findings_so_far)\"[\s\S]*?\}', '', text, flags=re.IGNORECASE).strip()
+
         # 2. Strip explicit drafting/scratchpad header blocks
         for marker in ["Drafting mentally:", "Internal check:", "Self-check:"]:
             if marker in text:
@@ -1119,5 +1272,10 @@ Output only the raw target string. No markdown, no quotes, no explanation."""
 
         # 6. Strip leading speaker labels (e.g. "SOLDIERBOY:", "SOLDIER BOY:", "ASSISTANT:", "AI:")
         result = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', result, flags=re.IGNORECASE).strip()
+
+        # 7. Strip roleplay stage directions and action asterisks (*grins*, *cracks knuckles*, (chuckles), etc.)
+        result = re.sub(r'\*[^*]+\*', '', result)
+        result = re.sub(r'\([^)]*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks|leans|snort)[^)]*\)', '', result, flags=re.IGNORECASE)
+        result = re.sub(r'[ \t]+', ' ', result).strip()
 
         return result if result else text.strip()

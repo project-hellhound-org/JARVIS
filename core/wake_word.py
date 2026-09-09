@@ -14,6 +14,8 @@ import math
 import struct
 import threading
 import queue
+import json
+import re
 from pathlib import Path
 from typing import Callable, Optional, Dict, Any
 
@@ -63,22 +65,24 @@ class WakeWordEngine:
         self,
         on_wake_detected: Optional[Callable[[str], None]] = None,
         on_speech_ended: Optional[Callable[[], None]] = None,
+        audio_chunk_callback: Optional[Callable[[bytes], None]] = None,
         model_path: Optional[str] = None,
-        threshold: float = 0.5,
-        silence_timeout_sec: float = 2.5,
+        threshold: float = 0.35,
+        silence_timeout_sec: float = 3.2,
         max_window_sec: float = 30.0
     ):
         self.on_wake_detected = on_wake_detected
         self.on_speech_ended = on_speech_ended
+        self.audio_chunk_callback = audio_chunk_callback
 
         # Load dynamic VAD settings to prevent cutting off mid-sentence speech
         vad_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "vad_settings.json")
-        loaded_silence = 2.5
+        loaded_silence = silence_timeout_sec
         if os.path.exists(vad_file):
             try:
                 with open(vad_file, "r") as f:
                     vdata = json.load(f)
-                    loaded_silence = float(vdata.get("speech_hangover_ms", 2500)) / 1000.0
+                    loaded_silence = max(3.2, float(vdata.get("speech_hangover_ms", 3200)) / 1000.0)
             except Exception:
                 pass
 
@@ -210,13 +214,13 @@ class WakeWordEngine:
             return False, ""
         clean = text.strip().lower()
         aliases = [
-            "hey soldier", "yo soldier", "your soldier", "you soldier", "ur soldier", 
+            "hey soldier", "yo soldier", "your soldier", "you soldier", "ur soldier",
             "soldier boy", "your soldier boy", "you soldier boy", "ur soldier boy",
-            "hey dean", "hey joe", "joke", "jarvis", "chow", "show", "suraj"
+            "buddy", "hey buddy", "bro", "hey bro"
         ]
 
-        # Check for phonetic mishears ("joke", "jarvis", "chow")
-        mishears = ["joke", "jarvis", "chow", "show", "suraj"]
+        # Conservative phonetic fallbacks retained for the Soldier identity only.
+        mishears = ["chow", "show", "suraj"]
         for m in mishears:
             if clean.startswith(m) or f"hey {m}" in clean or f"yo {m}" in clean:
                 try:
@@ -230,7 +234,10 @@ class WakeWordEngine:
                 return True, "Hey Soldier"
 
         for alias in aliases:
-            if alias in clean or clean.startswith(alias):
+            if alias in ("buddy", "hey buddy", "bro", "hey bro"):
+                if re.match(rf'^{re.escape(alias)}\b', clean):
+                    return True, alias.title()
+            elif clean.startswith(alias):
                 return True, alias.title()
         return False, ""
 
@@ -281,6 +288,12 @@ class WakeWordEngine:
                 if not data:
                     continue
 
+                if self.audio_chunk_callback:
+                    try:
+                        self.audio_chunk_callback(data)
+                    except Exception:
+                        pass
+
                 audio_int16 = np.frombuffer(data, dtype=np.int16)
                 now = time.time()
 
@@ -289,29 +302,31 @@ class WakeWordEngine:
                     prediction = self._model.predict(audio_int16)
                     for model_name, score in prediction.items():
                         if score >= self.threshold:
-                            print(f"[wake_word] 'Hey Soldier' detected via openWakeWord! Score: {score:.3f}")
+                            print(f"[wake_word] 'Hey Soldier' detected via openWakeWord! Score: {score:.3f} >= {self.threshold:.3f}")
                             self.trigger_wake_event("Hey Soldier")
                             break
+                        elif score >= 0.20:
+                            print(f"[wake_word] Candidate voice detected: {score:.3f} (threshold: {self.threshold:.3f})")
 
                 # 2. Run Voice Activity Detection (VAD) for active command window
                 if self.is_window_active:
                     elapsed = now - self.window_start_time
                     rms = self._compute_rms(data)
 
-                    # Speech detection threshold (RMS > 400 = speech)
-                    if rms > 400.0:
+                    # Speech detection threshold (RMS > 180.0 = speech; tuned for natural conversational volume)
+                    if rms > 180.0:
                         self.last_speech_time = now
                         self.has_detected_speech_in_window = True
 
                     silence_duration = now - self.last_speech_time
 
                     # Close window if:
-                    # a) Speech was detected and followed by silence_timeout_sec (1.2s)
+                    # a) Speech was detected and followed by the configured natural-pause timeout
                     # b) Maximum window ceiling (30s) reached
                     if (self.has_detected_speech_in_window and silence_duration >= self.silence_timeout_sec) or (elapsed >= self.max_window_sec):
                         print(f"[wake_word] VAD early-closing command window (silence: {silence_duration:.1f}s, total: {elapsed:.1f}s).")
                         self.is_window_active = False
-                        self._wake_cooldown_until = time.time() + 1.5
+                        self._wake_cooldown_until = time.time() + 2.5
                         if self._model:
                             try:
                                 self._model.reset()
