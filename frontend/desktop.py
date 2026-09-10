@@ -212,10 +212,21 @@ class JarvisAPI:
         self._telemetry_last_net = None
         self._telemetry_last_time = None
         self._shared_audio_queue = queue.Queue(maxsize=150)
+        self._cfg = self._load_config()
 
         # Async Background Initialization for Instant App Launch (<0.2s)
         self._wake_engine = None
         threading.Thread(target=self._async_init_wake_engine, daemon=True).start()
+
+    def _load_config(self) -> dict:
+        try:
+            import yaml
+            if CONFIG_PATH.exists():
+                with open(CONFIG_PATH, "r") as f:
+                    return yaml.safe_load(f) or {}
+        except Exception:
+            pass
+        return {}
 
     def _on_shared_audio_chunk(self, chunk: bytes):
         """Unified audio capture callback fed directly from WakeWordEngine's active PyAudio stream."""
