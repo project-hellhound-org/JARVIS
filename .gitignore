@@ -23,6 +23,7 @@ soldier-env/
 # Soldier Boy case files — don't commit investigations
 cases/
 /*.txt
+!requirements.txt
 
 # Memory store — local embeddings, not for version control
 memory/chroma_db/
@@ -57,6 +58,7 @@ test_chatterbox_clone.py
 listen_joe_voice.py
 joe_voice_sample.wav
 soldierboy_voice_sample.*
+jarvis_voice_sample.*
 
 # PyInstaller
 *.spec

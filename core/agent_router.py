@@ -171,4 +171,44 @@ class AgentRouter:
             )
             return True, f"Initiating investigation pipeline for target '{target}'.", task, "investigation"
 
+        # ── 7. Check for Flight Radar / Military Airspace ──────────
+        if any(kw in text_lower for kw in [
+            "military flight", "military aircraft", "flight radar", "airspace",
+            "tracking flight", "flight trace", "radar sweep", "god's view flight",
+            "gods view flight", "military radar", "air traffic", "track aircraft", "planes overhead"
+        ]):
+            task = self.task_manager.create_task(
+                type_=TaskType.FLIGHT_INTEL.value,
+                title="Tactical Airspace Radar",
+                data={"query": text_strip}
+            )
+            return True, "Locking onto global military airspace and ADS-B radar feeds.", task, "flight_intel"
+
+        # ── 8. Check for Live Weather Telemetry ────────────────────
+        if any(kw in text_lower for kw in [
+            "weather", "temperature", "forecast", "how's the weather", "how is the weather",
+            "current weather", "is it raining", "what's the weather"
+        ]):
+            loc = ""
+            m_loc = re.search(r'(?:weather|forecast|temperature)\s+(?:in|for|at)\s+([a-zA-Z\s,]+)', text_lower)
+            if m_loc:
+                loc = m_loc.group(1).strip()
+            task = self.task_manager.create_task(
+                type_=TaskType.WEATHER_INTEL.value,
+                title=f"Weather Telemetry: {loc.title() if loc else 'Local Sector'}",
+                data={"location": loc, "query": text_strip}
+            )
+            ack = f"Scanning atmospheric telemetry for {loc.title()}, partner." if loc else "Pulling live atmospheric telemetry for our sector."
+            return True, ack, task, "weather_intel"
+
+        # ── 9. Check for CCTV Surveillance Feeds ──────────────────
+        if any(kw in text_lower for kw in ["cctv", "traffic cam", "security camera", "public camera", "surveillance camera"]):
+            city = "shinjuku" if any(w in text_lower for w in ["tokyo", "shinjuku", "japan"]) else "austin"
+            task = self.task_manager.create_task(
+                type_=TaskType.BROWSER_SURF.value,
+                title=f"CCTV Surveillance: {city.title()}",
+                data={"cctv": True, "city": city}
+            )
+            return True, f"Connecting to live public CCTV surveillance feeds for {city.title()}.", task, "cctv_intel"
+
         return False, "", None, ""

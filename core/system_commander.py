@@ -75,9 +75,14 @@ class SystemCommander:
         stdout_lines = []
         stderr_lines = []
 
+        # Graceful git chaining: If git commit is chained before git push, guard against clean working tree exit code 1
+        exec_cmd = cmd
+        if "git commit" in exec_cmd and ("&&" in exec_cmd or ";" in exec_cmd):
+            exec_cmd = re.sub(r'git\s+commit\s+([^&|;]+)', r'(git diff --cached --quiet || git commit \1)', exec_cmd)
+
         try:
             process = subprocess.Popen(
-                cmd,
+                exec_cmd,
                 shell=True,
                 executable="/bin/bash",
                 stdout=subprocess.PIPE,
@@ -220,8 +225,23 @@ class SystemCommander:
             else:
                 self.task_manager.fail_task(task.task_id, error_msg=res.get("error") or summary)
 
+            # Closed-Loop Agentic Feedback: notify registered listener (JARVIS loop)
+            cb = getattr(self, '_debrief_callback', None)
+            if callable(cb):
+                try:
+                    cb(cmd, res, task.task_id)
+                except Exception as e:
+                    print(f"[SystemCommander] Debrief callback error: {e}")
+
         threading.Thread(target=_worker, daemon=True).start()
         return task
+
+    def set_debrief_callback(self, callback: Optional[Callable[[str, Dict[str, Any], str], None]]):
+        """Register a callback for closed-loop tool output debriefing."""
+        self._debrief_callback = callback
+
+    # Convenient alias
+    execute_async = run_as_task
 
 _commander_instance = None
 

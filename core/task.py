@@ -22,6 +22,8 @@ class TaskType(str, Enum):
     TERMINAL_COMMAND = "terminal_command"
     MEMORY_RECALL = "memory_recall"
     INVESTIGATION = "investigation"
+    FLIGHT_INTEL = "flight_intel"
+    WEATHER_INTEL = "weather_intel"
     GENERIC_SKILL = "generic_skill"
 
 @dataclass

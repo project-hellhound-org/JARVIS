@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="assets/soldier-banner.png" alt="Soldier Boy" width="100%"/>
+  <img src="assets/jarvis-banner.png" alt="J.A.R.V.I.S." width="100%"/>
 </p>
 
-<h1 align="center">SOLDIER BOY : AUTONOMOUS PERSONAL & OSINT ASSISTANT</h1>
+<h1 align="center">J.A.R.V.I.S. : AUTONOMOUS TACTICAL PERSONAL & OSINT ASSISTANT</h1>
 <p align="center">
-  <b>Autonomous Personal AI Assistant by Project Hellhound</b>
+  <b>Just A Rather Very Intelligent System — Autonomous Personal AI Assistant by Project Hellhound</b>
   <br>
-  <i>Your all-in-one local personal assistant & OSINT intelligence powerhouse. From daily workflow automation, live web search, system task execution, and offline voice interaction to target enumeration, identity pivoting, multi-source username scans, email intelligence, and 2D/3D topology graphs.</i>
+  <i>Your all-in-one local personal assistant & OSINT intelligence powerhouse. From daily workflow automation, live web search, system task execution, and tactical voice interaction to target enumeration, identity pivoting, multi-source username scans, email intelligence, and 2D/3D topology graphs.</i>
 </p>
 
 <p align="center">
@@ -22,9 +22,8 @@
 
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10+-blue?style=flat-square&logo=python&logoColor=white" alt="Python Version"/></a>
-  <a href="https://github.com/project-hellhound-org/SOLDIER-BOY/releases"><img src="https://img.shields.io/badge/Release-v2.0.0-red?style=flat-square" alt="Release Version"/></a>
+  <a href="https://github.com/project-hellhound-org/SOLDIER-BOY/releases"><img src="https://img.shields.io/badge/Release-v2.0.0-cyan?style=flat-square" alt="Release Version"/></a>
   <img src="https://img.shields.io/badge/AI--Powered-Ollama%20%7C%20NVIDIA%20NIM%20%7C%20Gemini-red?style=flat-square" alt="AI Support"/>
-  <img src="https://img.shields.io/badge/Wake%20Word-Hey%20Soldier%20(openWakeWord)-orange?style=flat-square" alt="Wake Word"/>
   <img src="https://img.shields.io/badge/Voice-Fish%20Audio%20%7C%20Local%20Clone-brightgreen?style=flat-square" alt="Voice Synthesis"/>
   <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-lightgrey?style=flat-square" alt="Platform"/>
   <img src="https://img.shields.io/badge/License-GPLv3-blue?style=flat-square" alt="License"/>
@@ -33,47 +32,47 @@
 ---
 
 > [!NOTE]
-> ### 🛡️ Persona & Privacy Notice
-> **Soldier Boy** operates as your direct, autonomous personal assistant and security investigator. He manages daily queries, web research, system automation, and open-source intelligence gathering with an **unfiltered, commanding, and pragmatic tone**. All operations run locally or through encrypted API bridges with zero data leaving your machine without explicit permission.
+> ### 🛡️ Persona & Protocol Notice
+> **J.A.R.V.I.S.** operates as your tactical executive assistant and intelligence officer. He manages daily queries, web research, system automation, and open-source intelligence gathering with an **intelligent, witty, articulate, and highly capable demeanor**. All operations run locally or through encrypted API bridges with zero data leaving your machine without explicit authorization.
 
 ---
 
 ## What Is This?
 
-**Soldier Boy** is the next-generation autonomous personal AI assistant and OSINT intelligence framework developed by **Project Hellhound**. Transitioned from a pure reconnaissance tool into an **all-in-one personal assistant**, Soldier Boy handles everything—from everyday task automation, live web dorking, and system query resolution to deep target investigations, username cross-referencing, email metadata parsing, and network topology graphing.
+**J.A.R.V.I.S.** is the next-generation autonomous tactical personal AI assistant and OSINT intelligence framework developed by **Project Hellhound**. Transitioned into an **all-in-one personal assistant**, J.A.R.V.I.S. handles everything—from everyday task automation, live web dorking, and system query resolution to deep target investigations, username cross-referencing, email metadata parsing, and network topology graphing.
 
-It features **persistent memory and an automated case blackboard**—all personal tasks, research logs, discovered handles, email profiles, DNS records, IP locations, Wayback snapshots, and evidence notes are retained in isolated workspaces (`~/.soldierboy/cases/<target>/`) so your assistant workflows seamlessly resume across sessions.
+It features **persistent memory and an automated case blackboard**—all personal tasks, research logs, discovered handles, email profiles, DNS records, IP locations, Wayback snapshots, and evidence notes are retained in isolated workspaces (`~/.jarvis/cases/<target>/` and `data/jarvis_memory.json`) so your assistant workflows seamlessly resume across sessions.
 
 Operate across three flexible interfaces:
-- **Desktop GUI Application**: A dedicated PyWebView/FastAPI desktop interface featuring collapsible card modules, transparent eye API key toggles, 2D/3D radial topology graphs, and hands-free microphone input with trained `"Hey Soldier"` wake word detection (`soldierboy`).
-- **Interactive Terminal**: An interactive terminal environment with real-time monologue streaming, live progress feedback, and inline command execution (`soldierboy --cli`).
-- **Headless CLI Runner**: Direct one-line command execution for automated scripts and headless task triggers (`soldierboy investigate <target>`).
+- **Desktop GUI Application**: A dedicated PyWebView/FastAPI desktop interface featuring collapsible card modules, transparent eye API key toggles, 2D/3D radial topology graphs, and hands-free microphone input (`jarvis` or `soldierboy`).
+- **Interactive Terminal**: An interactive terminal environment with real-time monologue streaming, live progress feedback, and inline command execution (`jarvis --cli`).
+- **Headless CLI Runner**: Direct one-line command execution for automated scripts and headless task triggers (`jarvis investigate <target>`).
 
 ---
 
 ## How It Works
 
 ```
-You ──> soldierboy ("Hey Soldier...") ──> Intent & Task Parser ──> Executive Assistant Core
-                                                 │                           │
-                                                 ▼                           ▼
-                                      Personal Workflow Engine    OSINT & Recon Toolchain
-                                      ├─ Live Web Research        ├─ Sherlock & Maigret
-                                      ├─ System Automation        ├─ Holehe & Gravatar
-                                      ├─ Local Voice Synthesis    ├─ GitHub & Breach Check
-                                      └─ Case Memory Blackboard   └─ EXIF, WHOIS & DNS
-                                                 │
-                                                 ▼ (Populates Persistent Blackboard)
-                                      Soldier Boy Voice Engine <── Grounding Guard
-                                                 │                 (Fish Audio / Local)
-                                                 ▼
-                                      /export (Submission-Ready HTML Case & Task Reports)
+You ──> jarvis ("Jarvis...") ──> Intent & Task Parser ──> Executive Assistant Core
+                                         │                           │
+                                         ▼                           ▼
+                              Personal Workflow Engine    OSINT & Recon Toolchain
+                              ├─ Live Web Research        ├─ Sherlock & Maigret
+                              ├─ System Automation        ├─ Holehe & Gravatar
+                              ├─ Tactical Voice Synthesis ├─ GitHub & Breach Check
+                              └─ Case Memory Blackboard   └─ EXIF, WHOIS & DNS
+                                         │
+                                         ▼ (Populates Persistent Blackboard)
+                              Jarvis Voice Engine <────── Grounding Guard
+                                         │                 (Fish Audio / Local)
+                                         ▼
+                              /export (Submission-Ready HTML Case & Task Reports)
 ```
 
 - **All-in-One Personal Capabilities**: Ask general questions, perform live web extractions, summarize complex documents, run system audits, or launch target investigations.
 - **Collapsible Card System**: Settings, ledgers, and maps render in responsive card components with collapsible header toggles (`▼` / `▶`) and real-time state badges.
 - **Eye Toggle Security**: API key fields (Gemini, NVIDIA NIM, Fish Audio) feature transparent eye buttons (`👁`) for password visibility control.
-- **Hands-Free Speech Input**: Voice typing via microphone (`🎤`) paired with a custom-trained `hey_soldier.onnx` openWakeWord engine.
+- **Hands-Free Speech Input**: Direct voice interaction paired with push-to-talk and intelligent conversational streaming.
 - **Interactive Topology Graphs**: 2D SVG radial network fallback + 3D WebGL graph populating entity connections alongside active skill nodes.
 
 ---
@@ -89,15 +88,14 @@ Autonomous intelligence gathering and personal assistant reasoning utilize fast 
 
 ---
 
-## 🎙️ Voice Intelligence & Wake Word Engine
+## 🎙️ Voice Intelligence & Synthesis Engine
 
-Soldier Boy features high-fidelity, low-latency conversational speech powered by **Fish Audio** (Voice ID: `e81ae965a9a94ed69ff05eed7e7a57c7`) with automatic zero-shot local fallback (**Chatterbox TTS**).
+J.A.R.V.I.S. features high-fidelity, low-latency conversational speech powered by **Fish Audio** (Voice ID: `05b36da8574341d0803391491850db20`) with automatic phrase caching and zero-shot local fallback (**Chatterbox TTS**).
 
-### 🎧 Trained "Hey Soldier" Wake Word Model
-- **Genuine openWakeWord Engine**: Uses a production-grade `hey_soldier.onnx` neural classifier trained on real synthesized speech datasets and openWakeWord feature embeddings.
-- **Zero-False-Accept Discrimination**: Validated on real audio clips to achieve a 1.0 peak score on spoken `"Hey Soldier"` while maintaining 0.00 false accepts on non-target background speech.
-- **Soldier Boy Search Protocol**: Speak `"Hey Soldier, search Google for [query]"` to activate live web extractions and trigger the holographic action panel.
-- **Muting Guard**: Ambient speech listening is automatically muted while Soldier Boy is speaking to prevent self-triggering audio loops.
+### 🎧 Conversational Audio Protocol
+- **Fish Audio Voice Engine**: Configured out of the box with J.A.R.V.I.S. voice signature `05b36da8574341d0803391491850db20`.
+- **Pre-synthesized Tactical Audio Cache**: Instant vocal responses for common system acknowledgments and telemetry updates.
+- **Muting Guard**: Ambient speech listening is automatically muted while J.A.R.V.I.S. is speaking to prevent self-triggering audio loops.
 
 ---
 
@@ -136,9 +134,9 @@ source ~/.bashrc   # or source ~/.zshrc
 The automated installer will:
 - Set up an isolated Python environment (`soldier-env`).
 - Initialize `config.yaml` from template configuration.
-- Install OSINT and personal assistant toolchains (`sherlock`, `maigret`, `holehe`, `chatterbox-tts`, `openwakeword`).
+- Install OSINT and personal assistant toolchains (`sherlock`, `maigret`, `holehe`, `chatterbox-tts`).
 - Mount desktop application dependencies (`pywebview`).
-- Register global `soldierboy` command integration.
+- Register global `jarvis` and `soldierboy` command integration.
 
 ---
 
@@ -147,21 +145,22 @@ The automated installer will:
 ### 1. Native Desktop GUI App
 Launch the desktop application with collapsible cards and interactive 2D/3D topology graph:
 ```bash
-soldierboy
+jarvis
+# (Legacy alias also supported: soldierboy)
 ```
 
 ### 2. Interactive Terminal
 Launch the interactive CLI interface:
 ```bash
-soldierboy --cli
+jarvis --cli
 ```
 
 ### 3. Headless Direct Command
 Run a direct target investigation or assistant command:
 ```bash
-soldierboy investigate target@email.com
-soldierboy investigate johndoe_87
-soldierboy investigate target.com
+jarvis investigate target@email.com
+jarvis investigate johndoe_87
+jarvis investigate target.com
 ```
 
 ---
@@ -187,13 +186,13 @@ All actions can be triggered via slash commands or natural language:
 
 ## Capabilities & Arsenal
 
-Soldier Boy combines personal assistant capabilities with specialized OSINT tools:
+J.A.R.V.I.S. combines personal assistant capabilities with specialized OSINT tools:
 
 | Module | Category | Description |
 | :--- | :--- | :--- |
 | `personal_assistant` | Workflow Core | General Q&A, system commands, document analysis, and daily task management. |
-| `wake_word_engine` | Voice Trigger | Production openWakeWord `hey_soldier.onnx` classifier for background activation. |
-| `local_voice_clone` | Audio Engine | Zero-shot local voice synthesis powered by Chatterbox TTS. |
+| `voice_engine` | Audio Engine | Low-latency Fish Audio synthesis (`05b36da8574341d0803391491850db20`) with local caching. |
+| `local_voice_clone` | Audio Fallback | Zero-shot local voice synthesis powered by Chatterbox TTS. |
 | `sherlock` | Username Scan | Multi-source account discovery across 300+ platforms. |
 | `maigret` | Deep Identity | Advanced profile harvesting and metadata extraction. |
 | `holehe` | Email Intelligence | Checks registration status across 120+ web services. |
@@ -210,15 +209,19 @@ Soldier Boy combines personal assistant capabilities with specialized OSINT tool
 
 ## Scope Policy & Legal Compliance
 
-Soldier Boy is built for **personal productivity, authorized penetration testing, bug bounty programs, CTF challenges, and legitimate security research**.
+J.A.R.V.I.S. is built for **personal productivity, authorized penetration testing, bug bounty programs, CTF challenges, and legitimate security research**.
 - Always obtain explicit authorization before investigating external targets.
 - Users are solely responsible for ensuring compliance with all applicable local and international laws.
-
----
 
 ## License
 
 This project is licensed under the [GNU General Public License v3 (GPLv3)](LICENSE).
+
+---
+
+## Acknowledgements & Inspirations
+
+- **[God's Eye View](https://github.com/bilawalsidhu/gods-eye-view)** by Bilawal Sidhu (MIT License): Inspiring tactical airspace tracking, 3D trajectory traces, atmospheric weather telemetry, and real-time agentic loop methodologies. Tactical models and telemetry datasets are adapted and credited under their respective open-source licenses.
 
 ---
 
@@ -232,5 +235,6 @@ This project is licensed under the [GNU General Public License v3 (GPLv3)](LICEN
 
 <div align="center">
   <br/>
-  <sub>Built with power and precision. The Soldier Boy way.</sub>
+  <sub>Built with precision and intelligence. At your service, sir.</sub>
 </div>
+

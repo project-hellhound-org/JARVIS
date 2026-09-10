@@ -46,7 +46,7 @@ except ImportError:
 from core.target_model import Target
 from core.case_brief import CaseBrief, parse_brief_with_slm
 from core.wake_word import WakeWordEngine
-from narrative.soldierboy_voice import SoldierBoyVoice
+from narrative.jarvis_voice import JarvisVoice, SoldierBoyVoice
 from narrative.session_memory import SessionMemory
 from memory.lessons_store import LessonsStore
 
@@ -62,8 +62,8 @@ _CONTEXT_SIGNALS = re.compile(
 
 
 class _StreamingPrefixFilter:
-    CANDIDATES = ("SOLDIER BOY:", "SOLDIERBOY:", "SOLDIER-BOY:", "ASSISTANT:", "AI:")
-    CLEAN_REGEX = re.compile(r'^\s*(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', re.IGNORECASE)
+    CANDIDATES = ("JARVIS:", "J.A.R.V.I.S.:", "SOLDIER BOY:", "SOLDIERBOY:", "SOLDIER-BOY:", "ASSISTANT:", "AI:")
+    CLEAN_REGEX = re.compile(r'^\s*(?:JARVIS|J\.A\.R\.V\.I\.S\.|SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', re.IGNORECASE)
 
     def __init__(self, on_chunk):
         self.on_chunk = on_chunk
@@ -71,10 +71,15 @@ class _StreamingPrefixFilter:
         self.cleared = False
         self.cmd_buffer = ""
         self.capturing_cmd = False
+        self.cmd_in_single = False
+        self.cmd_in_double = False
         self.action_buffer = ""
         self.capturing_action = False
 
-    def feed(self, chunk: str):
+    def push(self, chunk: str):
+        if not chunk:
+            return
+
         if not self.cleared:
             self.buffer += chunk
             clean_buf = self.buffer.lstrip()
@@ -99,6 +104,8 @@ class _StreamingPrefixFilter:
 
         self._feed_text(chunk)
 
+    feed = push
+
     def _feed_text(self, text: str):
         # Filter out [CMD: <cmd>] directives and *stage directions* on the fly
         for ch in text:
@@ -106,6 +113,8 @@ class _StreamingPrefixFilter:
                 if ch == '[':
                     self.capturing_cmd = True
                     self.cmd_buffer = '['
+                    self.cmd_in_single = False
+                    self.cmd_in_double = False
                 elif ch == '*':
                     self.capturing_action = True
                     self.action_buffer = '*'
@@ -124,10 +133,16 @@ class _StreamingPrefixFilter:
                     self.action_buffer = ""
             elif self.capturing_cmd:
                 self.cmd_buffer += ch
-                if ch == ']':
+                if ch == "'" and not self.cmd_in_double:
+                    self.cmd_in_single = not self.cmd_in_single
+                elif ch == '"' and not self.cmd_in_single:
+                    self.cmd_in_double = not self.cmd_in_double
+                elif ch == ']' and not self.cmd_in_single and not self.cmd_in_double:
                     self.capturing_cmd = False
+                    self.cmd_in_single = False
+                    self.cmd_in_double = False
                     # Check if this bracket block is a CMD directive
-                    m = re.match(r'\[CMD(?::|\s)\s*([^\]]+)\]', self.cmd_buffer, re.IGNORECASE)
+                    m = re.match(r'\[CMD(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
                     if m:
                         cmd_to_run = m.group(1).strip()
                         try:
@@ -140,9 +155,11 @@ class _StreamingPrefixFilter:
                         # Not a CMD tag (e.g. markdown link or reference), pass through
                         self.on_chunk(self.cmd_buffer)
                     self.cmd_buffer = ""
-                elif len(self.cmd_buffer) > 250:
+                elif len(self.cmd_buffer) > 2000 or (ch == '\n' and not self.cmd_in_single and not self.cmd_in_double and len(self.cmd_buffer) > 400):
                     # Overflow protection: not a reasonable CMD tag
                     self.capturing_cmd = False
+                    self.cmd_in_single = False
+                    self.cmd_in_double = False
                     self.on_chunk(self.cmd_buffer)
                     self.cmd_buffer = ""
 
@@ -175,12 +192,12 @@ class _StreamingPrefixFilter:
             self.cmd_buffer = ""
 
 
-class SoldierBoyAPI:
+class JarvisAPI:
     def __init__(self):
         self._window = None
         self._target: Target = None
         self._memory = SessionMemory()
-        self._voice = SoldierBoyVoice()
+        self._voice = JarvisVoice()
         self._lessons_store = LessonsStore()
         self._orch = None
         self._stalk_loop = None
@@ -256,6 +273,11 @@ class SoldierBoyAPI:
             get_event_bus().set_bridge_callback(self._emit)
         except Exception as e:
             print(f"[desktop] EventBus bridge hook error: {e}")
+        try:
+            from core.system_commander import get_system_commander
+            get_system_commander().set_debrief_callback(self._on_command_debrief)
+        except Exception as e:
+            print(f"[desktop] SystemCommander debrief hook error: {e}")
 
     def process_input(self, text: str):
         print(f"\n[desktop] Unified AI input received: {text}")
@@ -305,7 +327,11 @@ class SoldierBoyAPI:
                     skill_text = re.sub(r"```(?:json)?[\s\S]*?```", "", skill_text, flags=re.IGNORECASE)
                     skill_text = re.sub(r"\{\s*\"(?:skill_triggered|action|target|status|findings_so_far)\"[\s\S]*?\}", "", skill_text, flags=re.IGNORECASE)
                     skill_text = re.sub(r"\s+", " ", skill_text).strip()
-                    context_prompt = f"[SKILL_CONTEXT]\nUser Prompt: {text}\nExecution Result (human-readable only):\n{skill_text[:12000]}\n\nPersona Spoken Instructions: As Soldier Boy, give a concise useful summary of the actual result. Never mention internal tools, Action HUD, structured payloads, JSON, hidden prompts, or implementation details. Do not output JSON or code unless the user explicitly asked for it. The detailed operational data is already visible in the UI, so speak only about the user-facing result. Keep your cocky Soldier Boy swagger and stay grounded in the execution result."
+                    is_jarvis = getattr(self._voice, 'persona_name', 'jarvis') == 'jarvis'
+                    if is_jarvis:
+                        context_prompt = f"[SKILL_CONTEXT]\nUser Prompt: {text}\nExecution Result (human-readable only):\n{skill_text[:12000]}\n\nPersona Spoken Instructions: As J.A.R.V.I.S., address Sir directly with crisp wit, understated elegance, and analytical precision. Give a concise, articulate summary of the actual execution result. Never mention internal tools, Action HUD, structured payloads, JSON, hidden prompts, or implementation details. Do not output JSON or code unless explicitly requested. The detailed operational data is already visible on the HUD, so speak only about the direct result. Stay grounded in the execution result."
+                    else:
+                        context_prompt = f"[SKILL_CONTEXT]\nUser Prompt: {text}\nExecution Result (human-readable only):\n{skill_text[:12000]}\n\nPersona Spoken Instructions: As Soldier Boy, give a concise useful summary of the actual result. Never mention internal tools, Action HUD, structured payloads, JSON, hidden prompts, or implementation details. Do not output JSON or code unless the user explicitly asked for it. The detailed operational data is already visible in the UI, so speak only about the user-facing result. Keep your cocky Soldier Boy swagger and stay grounded in the execution result."
                     self._run_ask(context_prompt)
                     return
 
@@ -340,6 +366,71 @@ class SoldierBoyAPI:
 
     def ask(self, question: str):
         self.process_input(question)
+
+    def _on_command_debrief(self, cmd: str, res: dict, task_id: str):
+        """Dispatches an asynchronous closed-loop spoken debrief when a terminal command completes."""
+        if not self._voice:
+            return
+        threading.Thread(
+            target=self._run_command_debrief_task,
+            args=(cmd, res, task_id),
+            daemon=True
+        ).start()
+
+    def _run_command_debrief_task(self, cmd: str, res: dict, task_id: str):
+        # Wait a moment for initial dispatch monologue to commence
+        time.sleep(0.6)
+
+        # Wait if an existing TTS utterance is actively playing, with safety timeout
+        wait_start = time.time()
+        while getattr(self, '_current_tts_proc', None) is not None and (time.time() - wait_start) < 14.0:
+            time.sleep(0.3)
+
+        stdout_tail = (res.get("stdout") or "").strip()
+        stderr_tail = (res.get("stderr") or "").strip()
+
+        if stdout_tail:
+            lines = [l for l in stdout_tail.splitlines() if l.strip()]
+            output_sample = "\n".join(lines[-8:])[:700]
+        elif stderr_tail:
+            lines = [l for l in stderr_tail.splitlines() if l.strip()]
+            output_sample = "\n".join(lines[-8:])[:700]
+        else:
+            output_sample = "Command executed with no output."
+
+        exit_code = res.get("exit_code", 0)
+        status_word = "SUCCESS (exit 0)" if res.get("success") else f"FAILED (exit {exit_code})"
+
+        is_jarvis = getattr(self._voice, 'persona_name', 'jarvis') == 'jarvis'
+        if is_jarvis:
+            persona_instructions = (
+                f"Persona Spoken Instructions:\n"
+                f"Give a short, crisp 1-2 sentence J.A.R.V.I.S. spoken debrief to Sir about the actual result.\n"
+                f"Stay in character — articulate, dryly witty, unflappable, addressing Sir directly.\n"
+                f"If it succeeded, report the outcome with understated satisfaction and tactical precision.\n"
+                f"If it failed or had nothing to report, inform Sir candidly and factually without making excuses.\n"
+                f"Never output markdown code blocks, never output [CMD] directives. Output pure spoken dialogue only."
+            )
+        else:
+            persona_instructions = (
+                f"Persona Spoken Instructions:\n"
+                f"Give a short, punchy 1-2 sentence Soldier Boy spoken debrief to your partner about the actual result.\n"
+                f"Stay in character — cocky swagger, natural swearing, hilarious.\n"
+                f"If it succeeded, brag and summarize the result.\n"
+                f"If it failed or had nothing to commit, curse and tell your partner the actual fact honestly.\n"
+                f"Never output markdown code blocks, never output [CMD] directives. Output pure spoken dialogue only."
+            )
+
+        debrief_prompt = (
+            f"[COMMAND_DEBRIEF]\n"
+            f"You previously fired command: `{cmd}`\n"
+            f"Execution Status: {status_word}\n"
+            f"Terminal Output Tail:\n{output_sample}\n\n"
+            f"{persona_instructions}"
+        )
+
+        print(f"[desktop] Closed-loop command debrief triggered for `{cmd}` ({status_word})")
+        self._run_ask(debrief_prompt)
 
     def false_positive(self, platform: str, context: str = "general"):
         """Record a false-positive lesson from the desktop UI."""
@@ -399,7 +490,7 @@ class SoldierBoyAPI:
                     "nvidia_api_key": clean("nvidia_api_key"),
                     "nvidia_model": config.get("nvidia_model", "nvidia/nemotron-3-super-120b-a12b"),
                     "fish_audio_api_key": clean("fish_audio_api_key"),
-                    "fish_audio_voice_id": config.get("fish_audio_voice_id", "e81ae965a9a94ed69ff05eed7e7a57c7"),
+                    "fish_audio_voice_id": config.get("fish_audio_voice_id", "05b36da8574341d0803391491850db20"),
                     "tools": config.get("tools", {}),
                 }
         except Exception as e:
@@ -621,7 +712,7 @@ class SoldierBoyAPI:
             with open(CONFIG_PATH, "w") as f:
                 yaml.dump(existing, f, default_flow_style=False, sort_keys=False)
 
-            self._voice = SoldierBoyVoice()
+            self._voice = JarvisVoice()
 
             engine = "SLM"
             if self._voice.nvidia_available:
@@ -1430,8 +1521,10 @@ class SoldierBoyAPI:
         pre_roll = []
 
         # PyAudio chunk is 1280 samples (2560 bytes) = 80ms @ 16kHz
-        silence_hangover_chunks = 38     # ~3.0s trailing pause
-        max_turn_chunks = 375            # 30s safety ceiling
+        cfg_pipeline = getattr(self, '_cfg', {}).get("audio_pipeline", {}) if hasattr(self, '_cfg') else {}
+        hangover_ms = cfg_pipeline.get("speech_hangover_ms", 800)
+        silence_hangover_chunks = max(4, hangover_ms // 80)     # ~800ms trailing pause for prompt response
+        max_turn_chunks = 125            # 10s safety ceiling
         pre_roll_limit = 10              # 800ms preserves the first syllable
 
         try:
@@ -1467,8 +1560,8 @@ class SoldierBoyAPI:
                 if not is_speaking:
                     ambient_energy = 0.985 * ambient_energy + 0.015 * energy
 
-                # Adaptive floor tuned for natural conversational speech
-                threshold = max(130.0, ambient_energy * 1.25, 170.0)
+                # Adaptive floor tuned for responsive conversational speech
+                threshold = max(160.0, ambient_energy * 1.45, 195.0)
                 speech = energy >= threshold
 
                 if speech:
@@ -1497,9 +1590,9 @@ class SoldierBoyAPI:
                             duration_sec = len(captured_pcm) / 32000.0
                             print(
                                 f"[voice listener] Speech completed. "
-                                f"Captured {duration_sec:.1f}s of audio. Transcribing..."
+                                f"Captured {duration_sec:.1f}s of audio. Transcribing immediately..."
                             )
-                            if len(captured_pcm) >= 16000:
+                            if len(captured_pcm) >= 12000:
                                 threading.Thread(
                                     target=self._process_captured_speech,
                                     args=(captured_pcm,), daemon=True
@@ -1508,7 +1601,7 @@ class SoldierBoyAPI:
                                 self._emit("soldierboy_speech_ended", {})
 
                 if is_speaking and len(pcm_buffer) >= max_turn_chunks:
-                    print("[voice listener] Speech reached 30s safety ceiling; transcribing current turn.")
+                    print("[voice listener] Speech reached safety ceiling; transcribing current turn.")
                     is_speaking = False
                     captured_pcm = b"".join(pcm_buffer)
                     pcm_buffer = []
@@ -1591,45 +1684,50 @@ class SoldierBoyAPI:
                     self._wake_window_expires = 0.0
                     return
 
-                # Comprehensive Soldier Boy wake word pattern (handling all Google STT acoustic mishears: your, you, u, ya, Suraj, search, shoes, soulja, etc.)
+                # Wake word patterns: J.A.R.V.I.S. + Soldier Boy + natural addressing
                 # Explicit/natural assistant addressing. These are intentionally
                 # PREFIX-only so ordinary speech such as "my buddy called me"
                 # cannot wake the assistant.
-                pattern = r'^(?:(?:hey|hi|hai|yo|yoo|you|your|ur|u|ya|dude|hello|ok|okay|play)\s+)?(?:soldier\s*boy|soldier|soldi|soldja|solger|solja|soja|solda|suraj\s*boy|suraj|search\s*boy|shoes\s*boy|soulja\s*boy|soulja|shoulda\s*boy|sol)\b\s*,?\s*'
-                natural_address_pattern = r'^(?:(?:hey|hi|hai|yo|yoo|hello|okay|ok)\s+)?(?:buddy|bro)\b\s*,?\s*'
-                match = re.search(pattern, text, re.IGNORECASE)
+                jarvis_pattern = r'^(?:(?:hey|hi|hai|yo|yoo|hello|ok|okay)\s+)?(?:jarvis|jarv|service|javis|jarvises)\b\s*,?\s*'
+                jarvis_anywhere = r'\b(?:jarvis|jarv)\b'
+                soldier_pattern = r'^(?:(?:hey|hi|hai|yo|yoo|you|your|ur|u|ya|dude|hello|ok|okay|play)\s+)?(?:soldier\s*boy|soldier|soldi|soldja|solger|solja|soja|solda|suraj\s*boy|suraj|search\s*boy|shoes\s*boy|soulja\s*boy|soulja|shoulda\s*boy|sol)\b\s*,?\s*'
+                natural_address_pattern = r'^(?:(?:hey|hi|hai|yo|yoo|hello|okay|ok)\s+)?(?:sir|buddy|bro)\b\s*,?\s*'
+                soldier_anywhere = r'\b(?:soldier\s*boy|soldier|soldja|solger|solja|suraj\s*boy|suraj|soulja\s*boy|soulja)\b'
+
+                jarvis_match = re.search(jarvis_pattern, text, re.IGNORECASE)
+                soldier_match = re.search(soldier_pattern, text, re.IGNORECASE)
                 natural_match = re.search(natural_address_pattern, text, re.IGNORECASE)
-                anywhere_match = re.search(r'\b(?:soldier\s*boy|soldier|soldja|solger|solja|suraj\s*boy|suraj|soulja\s*boy|soulja)\b', text, re.IGNORECASE)
+                anywhere_match = re.search(jarvis_anywhere, text, re.IGNORECASE) or re.search(soldier_anywhere, text, re.IGNORECASE)
                 now = time.time()
 
                 # Direct identity / interaction questions bypass wake word check
                 implicit_match = re.search(r'\b(?:who\s+are\s+you|who\s+are\s+u|who\s+u\s+are|what\s+can\s+you\s+do|who\s+the\s+fuck\s+are\s+you)\b', text, re.IGNORECASE)
 
-                if match or natural_match:
-                    active_match = match or natural_match
-                    address_name = "Hey Soldier" if match else "natural address"
+                if jarvis_match or soldier_match or natural_match:
+                    active_match = jarvis_match or soldier_match or natural_match
+                    address_name = "Hey JARVIS" if jarvis_match else ("Hey Soldier" if soldier_match else "natural address")
                     clean = text[active_match.end():].strip()
                     print(f"[voice listener] {address_name} match! Raw: '{text}', Clean command: '{clean}'")
                     self._emit("soldierboy_wake_word_detected", {"raw": text, "clean": clean if clean else text})
                     if clean:
-                        print(f"[voice listener] Sending voice command to Soldier Boy: '{clean}'")
+                        print(f"[voice listener] Sending voice command to assistant: '{clean}'")
                         self._emit("soldierboy_voice_detected", {"text": clean, "raw": text})
                         self._wake_window_expires = now + 20.0
                     else:
-                        print(f"[voice listener] Address only spoken ('{text}'). Opening 15s conversation window...")
+                        print(f"[voice listener] Address only spoken ('{text}'). Opening 20s conversation window...")
                         self._wake_window_expires = now + 20.0
                 elif anywhere_match:
-                    print(f"[voice listener] Anywhere wake phrase match ('{text}')! Triggering Soldier Boy command...")
+                    print(f"[voice listener] Anywhere wake phrase match ('{text}')! Triggering assistant command...")
                     self._emit("soldierboy_wake_word_detected", {"raw": text, "clean": text})
                     self._emit("soldierboy_voice_detected", {"text": text, "raw": text})
                     self._wake_window_expires = now + 20.0
                 elif implicit_match:
-                    print(f"[voice listener] Direct query match ('{text}')! Triggering Soldier Boy command...")
+                    print(f"[voice listener] Direct query match ('{text}')! Triggering assistant command...")
                     self._emit("soldierboy_wake_word_detected", {"raw": text, "clean": text})
                     self._emit("soldierboy_voice_detected", {"text": text, "raw": text})
                     self._wake_window_expires = now + 20.0
                 elif now < getattr(self, '_wake_window_expires', 0.0):
-                    print(f"[voice listener] Active conversation window! Sending follow-up command to Soldier Boy: '{text}'")
+                    print(f"[voice listener] Active conversation window! Sending follow-up command to assistant: '{text}'")
                     self._emit("soldierboy_voice_detected", {"text": text, "raw": text})
                     self._wake_window_expires = now + 20.0
                 else:
@@ -1667,21 +1765,28 @@ class SoldierBoyAPI:
                         return obj.__dict__
                     return str(obj)
                 json_str = json.dumps(data, default=_json_default)
-                js_code = f"(window.soldierboy || window.joe) && (window.soldierboy || window.joe).receive && (window.soldierboy || window.joe).receive('{event}', {json_str})"
+                js_code = f"(window.jarvis || window.soldierboy || window.joe) && (window.jarvis || window.soldierboy || window.joe).receive && (window.jarvis || window.soldierboy || window.joe).receive('{event}', {json_str})"
                 self._window.evaluate_js(js_code)
             except Exception as e:
                 print(f"[desktop] JS evaluate error for {event}: {e}")
 
 
-class SoldierBoyDesktop:
+# Backward-compatible API alias
+SoldierBoyAPI = JarvisAPI
+
+
+class JarvisDesktop:
     def launch(self):
         import shutil
 
         # Copy icons and artwork assets to frontend execution directory
-        src_icon = ROOT.parent / "assets" / "soldierboy-icon.png"
-        dst_icon = ROOT / "soldierboy-icon.png"
+        src_icon = ROOT.parent / "assets" / "logo.png"
+        if not src_icon.exists():
+            src_icon = ROOT.parent / "assets" / "soldierboy-icon.png"
+        dst_icon = ROOT / "jarvis-icon.png"
         if src_icon.exists():
             shutil.copy(src_icon, dst_icon)
+            shutil.copy(src_icon, ROOT / "soldierboy-icon.png")
 
         src_geo = ROOT.parent / "assets" / "world_outline.jpg"
         dst_geo = ROOT / "world_outline.jpg"
@@ -1700,9 +1805,11 @@ class SoldierBoyDesktop:
             except Exception as e:
                 print(f"[desktop] GTK icon notice: {e}")
 
-        api = SoldierBoyAPI()
+        api = JarvisAPI()
+        persona_name = str(api._cfg.get("persona", "jarvis")).strip().lower()
+        win_title = "J.A.R.V.I.S. — Tactical Intelligence Console" if persona_name == "jarvis" else "Soldier Boy"
         window_kwargs = {
-            "title": "Soldier Boy",
+            "title": win_title,
             "url": str(HTML_PATH),
             "js_api": api,
             "width": 1200,
@@ -1712,10 +1819,14 @@ class SoldierBoyDesktop:
         }
 
         if webview is None:
-            raise ImportError("pywebview is required to run SoldierBoyDesktop. Install pywebview or run with CLI mode.")
+            raise ImportError("pywebview is required to run JarvisDesktop. Install pywebview or run with CLI mode.")
 
         window = webview.create_window(**window_kwargs)
 
         api.set_window(window)
         api.start_background_voice_listener()
         webview.start(debug=False)
+
+
+# Backward-compatible desktop runner alias
+SoldierBoyDesktop = JarvisDesktop

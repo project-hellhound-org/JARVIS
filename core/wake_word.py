@@ -214,6 +214,7 @@ class WakeWordEngine:
             return False, ""
         clean = text.strip().lower()
         aliases = [
+            "jarvis", "hey jarvis", "yo jarvis", "ok jarvis", "okay jarvis", "jarv",
             "hey soldier", "yo soldier", "your soldier", "you soldier", "ur soldier",
             "soldier boy", "your soldier boy", "you soldier boy", "ur soldier boy",
             "buddy", "hey buddy", "bro", "hey bro"

@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Soldier Boy — OSINT Assistant</title>
-<link rel="icon" type="image/png" href="soldierboy-icon.png">
-<link rel="shortcut icon" href="soldierboy-icon.png">
+<title>J.A.R.V.I.S. — Tactical Intelligence Console</title>
+<link rel="icon" type="image/png" href="jarvis-icon.png">
+<link rel="shortcut icon" href="jarvis-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
@@ -763,8 +763,8 @@
   .msg-speaker-user { align-self: flex-end; color: var(--accent-text); margin-right: 6px; }
   .msg-speaker-soldierboy { align-self: flex-start; color: #facc15; margin-left: 2px; }
   .msg-user { align-self: flex-end; max-width: 78%; background: var(--accent-dim); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 12px 18px; border-radius: 12px; font-size: 15px; line-height: 1.6; box-shadow: var(--glass-shadow); backdrop-filter: blur(16px); }
-  .msg-status { font-size: 13px; color: var(--text-muted); font-family: var(--mono); display: flex; align-items: center; gap: 8px; padding-left: 2px; }
-  .msg-status::before { content: "›"; color: var(--accent); font-weight: bold; }
+  .msg-status { font-size: 13px; color: var(--text-muted); font-family: var(--sans); display: flex; align-items: center; gap: 8px; padding-left: 2px; }
+  .msg-status::before { display: none !important; content: "" !important; }
 
   /* UNBOXED Soldier Boy Answers — Glassmorphic Markdown Stream */
   #thread, .msg-answer, .msg-user, .msg-status, p, span, code, pre, blockquote, li {
@@ -1630,45 +1630,98 @@
   #soldierboy-task-surfaces-container { pointer-events: none !important; }
   #soldierboy-task-surfaces-container .soldierboy-task-surface { pointer-events: auto !important; }
 
-  /* Conversation floats inside the galaxy rather than sitting in a card. */
+  /* Focused Assistant Dialogue HUD directly above input bar (JARVIS / God's Eye pattern) */
   #soldierboy-chat-container {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
+    position: fixed !important;
+    bottom: 86px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(720px, 58vw) !important;
+    max-height: 42vh !important;
     margin: 0 !important;
     border: none !important;
-    border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
     overflow: hidden !important;
-    z-index: 5 !important;
+    z-index: 250 !important;
     pointer-events: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
   }
   .workspace-card-header { display: none !important; }
   #thread {
-    width: min(980px, 72vw) !important;
-    height: 100% !important;
-    margin: 0 auto !important;
-    padding: 62px 0 155px !important;
+    width: 100% !important;
+    max-height: 42vh !important;
+    margin: 0 !important;
+    padding: 6px 4px 6px !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
-    pointer-events: none !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(255, 157, 46, 0.25) transparent !important;
+    pointer-events: auto !important;
     background: transparent !important;
     border: none !important;
     outline: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
   }
   #thread::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
+    display: block !important;
+    width: 4px !important;
+    height: 4px !important;
+  }
+  #thread::-webkit-scrollbar-track {
     background: transparent !important;
   }
+  #thread::-webkit-scrollbar-thumb {
+    background: rgba(255, 157, 46, 0.25) !important;
+    border-radius: 4px !important;
+  }
   #thread > * { pointer-events: auto !important; }
-  .msg-user { max-width: 62% !important; }
-  .msg-answer { max-width: 92% !important; }
+  /* Seamless Glassy Dialogue HUD Panel */
+  .msg-user {
+    align-self: flex-start !important;
+    width: 100% !important;
+    background: rgba(20, 24, 32, 0.74) !important;
+    border: 1px solid rgba(255, 157, 46, 0.22) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 12px 12px 0 0 !important;
+    color: #F8FAFC !important;
+    padding: 10px 18px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    font-family: var(--sans) !important;
+    letter-spacing: 0.01em !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  .msg-answer {
+    align-self: flex-start !important;
+    width: 100% !important;
+    background: rgba(10, 12, 17, 0.78) !important;
+    border: 1px solid rgba(255, 157, 46, 0.22) !important;
+    border-top: none !important;
+    border-radius: 0 0 12px 12px !important;
+    padding: 14px 18px !important;
+    color: #F8FAFC !important;
+    font-size: 14.5px !important;
+    line-height: 1.62 !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.65), 0 0 24px rgba(255, 157, 46, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+    margin: 0 0 12px 0 !important;
+  }
+  .msg-answer:first-child,
+  .msg-answer + .msg-answer {
+    border-top: 1px solid rgba(255, 157, 46, 0.22) !important;
+    border-radius: 12px !important;
+  }
 
   /* Remove the old investigation framing from the default workspace. */
   #case-title, #case-sub, .case-sub-inline, #thinking-indicator { display: none !important; }
@@ -1874,10 +1927,10 @@
       </div>
 
       <div class="sidebar-foot">
-        <div class="avatar" id="user-avatar">SB</div>
+        <div class="avatar" id="user-avatar">JV</div>
         <div>
-          <div class="foot-name">Soldier Boy</div>
-          <div class="foot-sub">Partner AI</div>
+          <div class="foot-name">J.A.R.V.I.S.</div>
+          <div class="foot-sub">Autonomous Assistant</div>
         </div>
       </div>
     </nav>
@@ -1899,18 +1952,18 @@
 
           <div id="thinking-indicator">
             <div class="thinking-spinner"></div>
-            <span>Soldier Boy is analyzing context & searching targets...</span>
+            <span>J.A.R.V.I.S. is analyzing telemetry & executing directives...</span>
           </div>
         </div>
 
         <!-- RIGHT HUD ORB PANE -->
         <div id="soldierboy-hud-pane">
-          <!-- Borderless Floating Soldier Boy Galaxy HUD Canvas -->
+          <!-- Borderless Floating J.A.R.V.I.S. Galaxy HUD Canvas -->
           <div id="soldierboy-hud-wrapper">
             <canvas id="soldierboy-hud-canvas" width="480" height="480"></canvas>
             <div id="soldierboy-hud-node-tooltip"></div>
             <!-- Floating RE-CENTER HUD button (appears when HUD is panned away from center) -->
-            <button id="hud-recenter-btn" onclick="if(window.HudGalaxy) window.HudGalaxy.recenter();" title="Recenter Soldier Boy HUD" style="position:fixed; bottom:74px; right:20px; z-index:90; display:flex; align-items:center; gap:6px; background:rgba(18, 20, 24, 0.85); backdrop-filter:blur(10px); border:1px solid rgba(255, 157, 46, 0.35); border-radius:18px; padding:5px 12px; color:#FF9D2E; font-size:11px; font-weight:700; font-family:var(--mono); letter-spacing:0.05em; cursor:pointer; opacity:0; pointer-events:none; transition:opacity 0.25s ease, background 0.15s ease, border-color 0.15s ease; box-shadow:0 4px 16px rgba(0,0,0,0.5);" onmouseenter="this.style.background='rgba(255,157,46,0.18)'; this.style.borderColor='rgba(255,157,46,0.7)'" onmouseleave="this.style.background='rgba(18, 20, 24, 0.85)'; this.style.borderColor='rgba(255,157,46,0.35)'">
+            <button id="hud-recenter-btn" onclick="if(window.HudGalaxy) window.HudGalaxy.recenter();" title="Recenter J.A.R.V.I.S. HUD" style="position:fixed; bottom:74px; right:20px; z-index:90; display:flex; align-items:center; gap:6px; background:rgba(18, 20, 24, 0.85); backdrop-filter:blur(10px); border:1px solid rgba(255, 157, 46, 0.35); border-radius:18px; padding:5px 12px; color:#FF9D2E; font-size:11px; font-weight:700; font-family:var(--mono); letter-spacing:0.05em; cursor:pointer; opacity:0; pointer-events:none; transition:opacity 0.25s ease, background 0.15s ease, border-color 0.15s ease; box-shadow:0 4px 16px rgba(0,0,0,0.5);" onmouseenter="this.style.background='rgba(255,157,46,0.18)'; this.style.borderColor='rgba(255,157,46,0.7)'" onmouseleave="this.style.background='rgba(18, 20, 24, 0.85)'; this.style.borderColor='rgba(255,157,46,0.35)'">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="22" y1="12" x2="18" y2="12"></line>
@@ -1944,7 +1997,7 @@
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </span>
           </div>
-          <input type="text" id="chat-input" placeholder="Say something, bro... (e.g. search Google for NVIDIA NIM)" />
+          <input type="text" id="chat-input" placeholder="Ask J.A.R.V.I.S. anything... (or hold Space to speak)" />
           <button class="send" id="send-btn" title="Send">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
@@ -2105,7 +2158,7 @@
 <div class="overlay" id="skills-overlay">
   <div class="overlay-panel" style="width:720px; height:auto; max-height:85%;">
     <div class="overlay-head">
-      <span class="t">Soldier Boy's Skills & Command Palette</span>
+      <span class="t">J.A.R.V.I.S. Skills & Command Palette</span>
       <button class="overlay-close" id="skills-overlay-close">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -2184,7 +2237,7 @@
 <div class="overlay" id="settings-overlay">
   <div class="overlay-panel" style="width:640px; height:auto; max-height:85%;">
     <div class="overlay-head">
-      <span class="t">Soldier Boy — Settings</span>
+      <span class="t">J.A.R.V.I.S. — Settings</span>
       <button class="overlay-close" id="settings-overlay-close">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -2257,8 +2310,8 @@
             </div>
           </div>
           <div class="settings-hint">High-fidelity cloud speech synthesis key (fish.audio). Fallbacks automatically to offline local clone.</div>
-          <div class="settings-row"><label>Fish Audio Voice ID</label><input type="text" id="cfg-fish-voice" placeholder="e81ae965a9a94ed69ff05eed7e7a57c7" /></div>
-          <div class="settings-hint">Soldier Boy voice reference UUID.</div>
+          <div class="settings-row"><label>Fish Audio Voice ID</label><input type="text" id="cfg-fish-voice" placeholder="05b36da8574341d0803391491850db20" /></div>
+          <div class="settings-hint">J.A.R.V.I.S. voice reference UUID.</div>
         </div>
       </div>
 
@@ -2313,7 +2366,7 @@
 <div id="soldierboy-action-panel" class="soldierboy-panel-hidden">
   <div class="soldierboy-panel-header" style="display:flex; justify-content:space-between; align-items:center;">
     <div class="soldierboy-panel-title">
-      <span style="letter-spacing:1px; font-weight:700; font-family:var(--sans);">SOLDIER BOY AGENT SURFACE</span>
+      <span style="letter-spacing:1px; font-weight:700; font-family:var(--sans);">J.A.R.V.I.S. TACTICAL SURFACE</span>
     </div>
     <div style="display:flex; gap:8px; align-items:center;">
       <button onclick="if(TaskSurfaceManager.activeTaskId) TaskSurfaceManager.minimizeTaskSurface(TaskSurfaceManager.activeTaskId)" style="background:rgba(255,157,46,0.15); border:1px solid #FF9D2E; color:#FFB84D; font-size:9px; font-weight:700; padding:2px 6px; border-radius:3px; cursor:pointer;">[MINIMIZE]</button>
@@ -3092,7 +3145,7 @@ function applyConfigToForm(cfg) {
   $('#cfg-gemini-key').value = clean(cfg.gemini_api_key);
   $('#cfg-nvidia-key').value = clean(cfg.nvidia_api_key);
   if ($('#cfg-fish-key')) $('#cfg-fish-key').value = clean(cfg.fish_audio_api_key);
-  if ($('#cfg-fish-voice')) $('#cfg-fish-voice').value = cfg.fish_audio_voice_id || 'e81ae965a9a94ed69ff05eed7e7a57c7';
+  if ($('#cfg-fish-voice')) $('#cfg-fish-voice').value = cfg.fish_audio_voice_id || '05b36da8574341d0803391491850db20';
   if (cfg.tools) {
     Object.keys(cfg.tools).forEach((k) => {
       const el = document.querySelector(`.voice-toggle[data-tool="${k}"]`);
@@ -3112,7 +3165,7 @@ $('#settings-save').addEventListener('click', () => {
     gemini_api_key: $('#cfg-gemini-key').value,
     nvidia_api_key: $('#cfg-nvidia-key').value,
     fish_audio_api_key: $('#cfg-fish-key') ? $('#cfg-fish-key').value : '',
-    fish_audio_voice_id: $('#cfg-fish-voice') ? $('#cfg-fish-voice').value : 'e81ae965a9a94ed69ff05eed7e7a57c7',
+    fish_audio_voice_id: $('#cfg-fish-voice') ? $('#cfg-fish-voice').value : '05b36da8574341d0803391491850db20',
     tools: tools,
   };
   if (api() && api().save_config) {
@@ -4330,7 +4383,7 @@ function setHudState(state) {
       topStatusDot.style.background = '#38BDF8';
       topStatusDot.style.boxShadow = '0 0 10px #38BDF8';
     } else if (state === 'speaking') {
-      topStatusVal.textContent = 'SOLDIER BOY SPEAKING';
+      topStatusVal.textContent = 'J.A.R.V.I.S. SPEAKING';
       topStatusVal.style.color = '#FF9D2E';
       topStatusDot.style.background = '#FF9D2E';
       topStatusDot.style.boxShadow = '0 0 10px #FF9D2E';
@@ -4631,7 +4684,7 @@ async function startMicListening() {
       setHudState('listening');
       const micBtnEl = $('#mic-btn');
       if (micBtnEl) micBtnEl.classList.add('mic-recording');
-      $('#chat-input').placeholder = "Listening... say 'Hey Soldier...' or speak prompt...";
+      $('#chat-input').placeholder = "Listening... say 'Hey JARVIS...' or speak directive...";
       return;
     } catch(err) {
       console.warn('[SoldierBoySTT] WebSpeech start failed:', err);
@@ -4724,7 +4777,7 @@ async function stopMicListening() {
   }
   const micBtnEl = $('#mic-btn');
   if (micBtnEl) micBtnEl.classList.remove('mic-recording');
-  $('#chat-input').placeholder = "e.g. investigate l4zz3rj0d for me";
+  $('#chat-input').placeholder = "Ask J.A.R.V.I.S. anything... (or hold Space to speak)";
 
   if (wasNative && api() && api().stop_native_mic) {
     try {
@@ -4771,6 +4824,38 @@ if (micBtn) {
     }
   });
 }
+
+// Spacebar Push-to-Talk (instant hands-on speech trigger when text composer is not focused)
+let isSpacebarPushToTalk = false;
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !e.repeat) {
+    const activeEl = document.activeElement;
+    const isEditing = activeEl && (
+      activeEl.tagName === 'INPUT' || 
+      activeEl.tagName === 'TEXTAREA' || 
+      activeEl.isContentEditable
+    );
+    if (!isEditing && !isMicListening) {
+      e.preventDefault();
+      isSpacebarPushToTalk = true;
+      startMicListening();
+      const inputEl = $('#chat-input');
+      if (inputEl) inputEl.placeholder = "🎙️ [HOLDING SPACE] Listening to Sir... release Space to send...";
+    }
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'Space' && isSpacebarPushToTalk) {
+    e.preventDefault();
+    isSpacebarPushToTalk = false;
+    stopMicListening();
+    const inputEl = $('#chat-input');
+    if (inputEl) inputEl.placeholder = "Ask J.A.R.V.I.S. anything... (or hold Space to speak)";
+  }
+});
+
 
 let soldierboyAudioQueue = [];
 let isPlayingSoldierBoyQueue = false;
@@ -4828,7 +4913,7 @@ function enqueueSoldierBoyPcmChunk(audioB64, sampleRate, text, turnId) {
     if (text && text.trim()) {
       recentAgentTexts.push(text.trim());
       if (recentAgentTexts.length > 20) recentAgentTexts.shift();
-      showSubtitles(text, 'SOLDIER BOY SPEECH');
+      showSubtitles(text, 'J.A.R.V.I.S. SPEECH');
     }
 
     const source = ctx.createBufferSource();
@@ -5393,6 +5478,10 @@ const TaskSurfaceManager = {
       contentHtml = this.renderSystemActionSurface(task);
     } else if (task.type === 'memory_recall') {
       contentHtml = this.renderMemoryRecallSurface(task);
+    } else if (task.type === 'flight_intel' || task.type === 'flight' || queryStr.includes('airspace radar') || queryStr.includes('military radar')) {
+      contentHtml = this.renderFlightIntelSurface(task);
+    } else if (task.type === 'weather_intel' || task.type === 'weather' || queryStr.includes('weather telemetry')) {
+      contentHtml = this.renderWeatherIntelSurface(task);
     } else {
       contentHtml = this.renderGenericSurface(task);
     }
@@ -5649,6 +5738,149 @@ const TaskSurfaceManager = {
       <div style="flex:1; min-height:0; overflow-y: auto;">
         <div style="font-size:10px; color:#FF9D2E; font-weight:700; margin-bottom:6px;">MEMORIES RETRIEVED FROM AGENT STORE:</div>
         ${cardsHtml || '<div style="font-size:10.5px; color:#8A8D91;">No matching memory entries found.</div>'}
+      </div>
+    `;
+  },
+
+  renderFlightIntelSurface(task) {
+    const isRunning = task.state === 'RUNNING' || task.state === 'CREATED' || task.state === 'STARTED';
+    const findings = task.findings || [];
+    
+    let statusBadge = '';
+    if (isRunning) {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#00F0FF; font-weight:700;">
+            <span class="thinking-spinner" style="width:10px; height:10px; border-width:1.5px; border-top-color:#00F0FF;"></span>
+            <span>AIRSPACE RADAR SWEEPING...</span>
+          </div>
+          <span style="font-size:10px; color:#00F0FF; font-family:var(--mono);">ADS-B LIVE</span>
+        </div>
+      `;
+    } else {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#00F0FF; font-weight:700;">
+            <span style="color:#00F0FF;">◉</span>
+            <span>${findings.length} MILITARY SIGNATURES DETECTED</span>
+          </div>
+          <span style="font-size:10px; color:#22C55E; font-family:var(--mono);">RADAR LOCKED</span>
+        </div>
+      `;
+    }
+
+    const cardsHtml = findings.map((f, idx) => {
+      const extra = f.extra || {};
+      const callsign = extra.flight || extra.hex || (f.title ? f.title.split(' - ')[0] : '') || 'AIRCRAFT';
+      const desc = extra.desc || (f.title ? f.title.split(' - ')[1] : '') || 'Tactical Aircraft';
+      const alt = extra.alt_baro ? Number(extra.alt_baro).toLocaleString() : 'N/A';
+      const speed = extra.gs ? `${extra.gs} KTS` : 'N/A';
+      const track = extra.track ? `${extra.track}°` : 'N/A';
+      const squawk = extra.squawk || 'N/A';
+      const hex = extra.hex || '';
+
+      return `
+        <div style="background: #090B0E; border: 1px solid rgba(0, 240, 255, 0.15); border-left: 3px solid #00F0FF; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <div style="font-weight:700; color:#00F0FF; font-size:13px; font-family:var(--mono);">
+              ✈ ${this.escapeHtml(callsign)}
+              <span style="font-size:11px; color:#8A8D91; font-weight:normal; margin-left:8px;">[${this.escapeHtml(hex)}]</span>
+            </div>
+            ${hex ? `<a href="https://globe.adsb.lol/?icao=${hex}" target="_blank" style="font-size:10px; color:#FF9D2E; background:rgba(255,157,46,0.12); border:1px solid rgba(255,157,46,0.3); padding:2px 8px; border-radius:4px; text-decoration:none; font-weight:700;">TRACK ↗</a>` : ''}
+          </div>
+          <div style="font-size:11.5px; color:#E6E6E6; font-weight:600; margin-bottom:6px;">${this.escapeHtml(desc)}</div>
+          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; font-size:10.5px; font-family:var(--mono); background:rgba(255,255,255,0.02); padding:6px 8px; border-radius:4px;">
+            <div><span style="color:#6B7280;">ALT:</span> <span style="color:#E6E6E6;">${alt} FT</span></div>
+            <div><span style="color:#6B7280;">SPD:</span> <span style="color:#E6E6E6;">${speed}</span></div>
+            <div><span style="color:#6B7280;">HDG:</span> <span style="color:#E6E6E6;">${track}</span></div>
+            <div><span style="color:#6B7280;">SQK:</span> <span style="color:#E6E6E6;">${squawk}</span></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      ${statusBadge}
+      <div style="flex:1; min-height:0; overflow-y: auto; padding-right:4px;">
+        ${cardsHtml || '<div style="padding:20px; text-align:center; color:#6B7280; font-size:12px;">Airspace radar is clear. No active military transponders detected in sector.</div>'}
+      </div>
+    `;
+  },
+
+  renderWeatherIntelSurface(task) {
+    const isRunning = task.state === 'RUNNING' || task.state === 'CREATED' || task.state === 'STARTED';
+    const finding = (task.findings && task.findings[0]) || {};
+    const w = finding.extra || {};
+    const city = w.city || task.title.replace('Weather Telemetry: ', '') || 'Sector';
+    const tempF = w.temp_f !== undefined ? `${w.temp_f}°F` : '--';
+    const tempC = w.temp_c !== undefined ? `${w.temp_c}°C` : '--';
+    const feelsF = w.feels_like_f !== undefined ? `${w.feels_like_f}°F` : '--';
+    const condition = w.condition || 'Atmospheric telemetry loaded';
+    const wind = w.wind_kmh !== undefined ? `${w.wind_kmh} km/h` : '--';
+    const windDir = w.wind_dir !== undefined ? `${w.wind_dir}°` : '';
+    const humidity = w.humidity !== undefined ? `${w.humidity}%` : '--';
+    const pressure = w.pressure_hpa !== undefined ? `${w.pressure_hpa} hPa` : '--';
+    const cloudCover = w.cloud_cover !== undefined ? `${w.cloud_cover}%` : '--';
+    const precip = w.precipitation_mm !== undefined ? `${w.precipitation_mm} mm` : '0 mm';
+
+    let statusBadge = '';
+    if (isRunning) {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#38BDF8; font-weight:700;">
+            <span class="thinking-spinner" style="width:10px; height:10px; border-width:1.5px; border-top-color:#38BDF8;"></span>
+            <span>PULLING ATMOSPHERIC TELEMETRY...</span>
+          </div>
+          <span style="font-size:10px; color:#6B7280; font-family:var(--mono);">OPEN-METEO</span>
+        </div>
+      `;
+    } else {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#38BDF8; font-weight:700;">
+            <span style="color:#38BDF8;">☁</span>
+            <span>METEOROLOGICAL SENSORS ONLINE</span>
+          </div>
+          <span style="font-size:10px; color:#22C55E; font-family:var(--mono);">LIVE FEED</span>
+        </div>
+      `;
+    }
+
+    return `
+      ${statusBadge}
+      <div style="background: #090B0E; border: 1px solid rgba(56, 189, 248, 0.15); border-left: 3px solid #38BDF8; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; flex-shrink:0;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div style="font-size:16px; font-weight:700; color:#F1F5F9; font-family:var(--sans);">${this.escapeHtml(city)}</div>
+            <div style="font-size:12px; color:#38BDF8; font-weight:600; margin-top:2px;">${this.escapeHtml(condition)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:22px; font-weight:800; color:#F1F5F9; font-family:var(--mono);">${tempF}</div>
+            <div style="font-size:11px; color:#8A8D91; font-family:var(--mono);">${tempC} (Feels: ${feelsF})</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; margin-bottom:12px; flex-shrink:0;">
+        <div style="background:#090B0E; border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 12px;">
+          <div style="font-size:10px; color:#6B7280; font-family:var(--mono); font-weight:600;">WIND VELOCITY</div>
+          <div style="font-size:13px; color:#E6E6E6; font-family:var(--mono); font-weight:700; margin-top:2px;">${wind} ${windDir}</div>
+        </div>
+        <div style="background:#090B0E; border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 12px;">
+          <div style="font-size:10px; color:#6B7280; font-family:var(--mono); font-weight:600;">HUMIDITY</div>
+          <div style="font-size:13px; color:#E6E6E6; font-family:var(--mono); font-weight:700; margin-top:2px;">${humidity}</div>
+        </div>
+        <div style="background:#090B0E; border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 12px;">
+          <div style="font-size:10px; color:#6B7280; font-family:var(--mono); font-weight:600;">BAROMETRIC PRESSURE</div>
+          <div style="font-size:13px; color:#E6E6E6; font-family:var(--mono); font-weight:700; margin-top:2px;">${pressure}</div>
+        </div>
+        <div style="background:#090B0E; border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 12px;">
+          <div style="font-size:10px; color:#6B7280; font-family:var(--mono); font-weight:600;">CLOUD COVER / PRECIP</div>
+          <div style="font-size:13px; color:#E6E6E6; font-family:var(--mono); font-weight:700; margin-top:2px;">${cloudCover} • ${precip}</div>
+        </div>
+      </div>
+      <div style="font-size:11px; color:#22C55E; font-family:var(--mono); background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.2); border-radius:6px; padding:8px 12px; text-align:center;">
+        ⚡ ATMOSPHERIC CONDITIONS STABLE FOR TACTICAL DEPLOYMENT
       </div>
     `;
   },
@@ -5912,7 +6144,7 @@ function openSoldierBoyPanel(query, text, payload) {
       const clean = (text || '').replace(/[*#_`]/g, '').trim();
       contentHtml = `
         <div style="margin-top: 6px; font-size: 11.5px; color: #E6E6E6; line-height: 1.5; font-family: var(--mono); background: #08090A; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px; padding: 8px 12px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);">
-          <div style="font-weight:700; color:#FF9D2E; font-size:10px; letter-spacing:1px; margin-bottom:4px;">⚡ SOLDIER BOY ACTION PANEL OUTPUT</div>
+          <div style="font-weight:700; color:#FF9D2E; font-size:10px; letter-spacing:1px; margin-bottom:4px;">⚡ J.A.R.V.I.S. ACTION PANEL OUTPUT</div>
           <div>${clean.length > 280 ? clean.substring(0, 280) + '...' : clean}</div>
         </div>
       `;
@@ -5983,7 +6215,7 @@ function processSoldierBoyAudioQueue() {
   isPlayingSoldierBoyQueue = true;
   const item = soldierboyAudioQueue.shift();
   setHudState('speaking');
-  if (item.text) showSubtitles(item.text, 'SOLDIER BOY SPEECH');
+  if (item.text) showSubtitles(item.text, 'J.A.R.V.I.S. SPEECH');
 
   try {
     const audio = new Audio(item.src);
@@ -6025,9 +6257,10 @@ window.playJoeAudio = playSoldierBoyAudio;
 let soldierboyWakeTimer = null;
 let joeWakeTimer = null;
 
-window.soldierboy = window.joe = {
+window.jarvis = window.soldierboy = window.joe = {
   receive(event, data) {
     switch (event) {
+      case 'jarvis_audio_chunk':
       case 'soldierboy_audio_chunk':
       case 'joe_audio_chunk':
         if (data && (data.turn_id == null || Number(data.turn_id) === Number(activeSoldierBoyTtsTurn))) {
@@ -6036,7 +6269,7 @@ window.soldierboy = window.joe = {
             if (data.text && data.text.trim()) {
               recentAgentTexts.push(data.text.trim());
               if (recentAgentTexts.length > 20) recentAgentTexts.shift();
-              showSubtitles(data.text, 'SOLDIER BOY');
+              showSubtitles(data.text, 'J.A.R.V.I.S.');
               setHudState('speaking');
               const estMs = Math.max(2500, data.text.length * 85);
               if (window.nativeSpeakingTimer) clearTimeout(window.nativeSpeakingTimer);
@@ -6071,7 +6304,7 @@ window.soldierboy = window.joe = {
       case 'open_soldierboy_panel':
         if (data) {
           openSoldierBoyPanel(data.query, data.text, data.structured_payload);
-          showSubtitles(`SOLDIER BOY Live Intel: ${data.query}`, 'SOLDIER BOY SEARCH');
+          showSubtitles(`J.A.R.V.I.S. Live Intel: ${data.query}`, 'J.A.R.V.I.S. SEARCH');
         }
         break;
       case 'soldierboy_structured_json_feed':
@@ -6096,7 +6329,7 @@ window.soldierboy = window.joe = {
       case 'soldierboy_wake_word_detected':
       case 'joe_wake_word_detected':
         resetSoldierBoyAudioQueue();
-        showSubtitles('SOLDIER BOY (WAKE DETECTED) — Listening...', 'VOICE STT');
+        showSubtitles('J.A.R.V.I.S. (WAKE DETECTED) — Listening...', 'VOICE STT');
         setHudState('listening');
         break;
       case 'soldierboy_speech_started':

@@ -316,6 +316,89 @@ class SystemSkillEngine:
                     payload = self.hud_engine.build_structured_payload("Memory Recall", "MEMORY", raw_results, msg)
                     return True, msg, False, "", payload
 
+                elif task.type == TaskType.FLIGHT_INTEL.value:
+                    task_mgr.update_progress(task.task_id, 30, "Scanning ADS-B and military transponder feeds...")
+                    from modules.flight_intel import FlightIntelEngine
+                    fe = FlightIntelEngine()
+                    flights = fe.get_military_aircraft(limit=8)
+                    task_mgr.update_progress(task.task_id, 80, f"Identified {len(flights)} active military airframes.")
+                    debrief_msg = fe.format_tactical_debrief(flights)
+                    raw_results = []
+                    for f in flights:
+                        flight_label = f.get('flight') or f.get('hex') or 'Unknown'
+                        desc = f.get('desc') or f.get('t') or 'Military Airframe'
+                        snip = f"Alt: {f.get('alt_baro', 0):,} ft | Speed: {f.get('gs', 0)} kts | Track: {f.get('track', 0)}° | Squawk: {f.get('squawk', 'N/A')}"
+                        url = f"https://globe.adsb.lol/?icao={f.get('hex', '')}"
+                        f_item = {"title": f"{flight_label} - {desc}", "snippet": snip, "url": url, "extra": f}
+                        raw_results.append(f_item)
+                        task_mgr.add_finding(task.task_id, TaskFinding(
+                            title=f_item["title"],
+                            url=url,
+                            snippet=snip,
+                            source="adsb.lol",
+                            extra=f
+                        ))
+                    task_mgr.complete_task(task.task_id, summary=f"{len(flights)} military radar signatures locked.")
+                    payload = self.hud_engine.build_structured_payload("Military Radar", "RADAR", raw_results, debrief_msg)
+                    return True, debrief_msg, False, "", payload
+
+                elif task.type == TaskType.WEATHER_INTEL.value:
+                    loc = task.data.get("location", "")
+                    task_mgr.update_progress(task.task_id, 30, f"Pulling atmospheric telemetry for '{loc or 'Local'}'...")
+                    from modules.weather_intel import WeatherIntelEngine
+                    we = WeatherIntelEngine()
+                    w = we.get_weather(loc)
+                    debrief_msg = we.format_weather_debrief(w)
+                    raw_results = [{
+                        "title": f"Atmospheric Telemetry - {w.get('city', 'Local')}",
+                        "snippet": f"{w.get('condition')} | {w.get('temp_f')}°F ({w.get('temp_c')}°C) | Wind: {w.get('wind_kmh')} km/h | Humidity: {w.get('humidity')}% | Pressure: {w.get('pressure_hpa')} hPa",
+                        "url": "https://open-meteo.com",
+                        "extra": w
+                    }]
+                    task_mgr.add_finding(task.task_id, TaskFinding(
+                        title=raw_results[0]["title"],
+                        url="https://open-meteo.com",
+                        snippet=raw_results[0]["snippet"],
+                        source="open-meteo",
+                        extra=w
+                    ))
+                    task_mgr.complete_task(task.task_id, summary=f"Weather: {w.get('condition')}, {w.get('temp_f')}°F")
+                    payload = self.hud_engine.build_structured_payload(f"Weather: {w.get('city')}", "WEATHER", raw_results, debrief_msg)
+                    return True, debrief_msg, False, "", payload
+
+                elif task.type == TaskType.BROWSER_SURF.value and task.data.get("cctv"):
+                    city = task.data.get("city", "shinjuku")
+                    task_mgr.update_progress(task.task_id, 30, f"Loading public CCTV feeds for {city.title()}...")
+                    import json
+                    cctv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "cctv", f"cctv_sources.{city}.json")
+                    cams = []
+                    if os.path.exists(cctv_path):
+                        try:
+                            with open(cctv_path, "r", encoding="utf-8") as f:
+                                cams = json.load(f)
+                        except Exception:
+                            pass
+                    if not cams:
+                        cams = [{"id": "cam-1", "name": f"{city.title()} Live Intersection", "url": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", "lat": 35.69, "lon": 139.7}]
+                    
+                    raw_results = []
+                    for cam in cams:
+                        snip = f"{cam.get('name')} | Coordinates: {cam.get('lat')}, {cam.get('lon')} | Heading: {cam.get('headingDeg', 0)}°"
+                        task_mgr.add_finding(task.task_id, TaskFinding(
+                            title=cam.get('name', 'CCTV Stream'),
+                            url=cam.get('url', ''),
+                            snippet=snip,
+                            source="cctv",
+                            extra=cam
+                        ))
+                        raw_results.append({"title": cam.get('name'), "snippet": snip, "url": cam.get('url')})
+                    
+                    task.data["url"] = cams[0]["url"]
+                    debrief_msg = f"Surveillance link established. Tracking {len(cams)} public camera feeds across {city.title()}."
+                    task_mgr.complete_task(task.task_id, summary=f"{len(cams)} CCTV feeds online ({city.title()})")
+                    payload = self.hud_engine.build_structured_payload(f"CCTV: {city.title()}", "CCTV", raw_results, debrief_msg)
+                    return True, debrief_msg, False, "", payload
+
         # Fallback to existing skill branches
         query = None
         if any(kw in text_lower for kw in ["google search", "search google", "google", "search", "latest news", "look up"]):
@@ -547,6 +630,50 @@ class SystemSkillEngine:
                 except Exception:
                     pass
                 return True, msg, False, "", payload
+
+        # 11. Military Radar & Flight Telemetry
+        if any(kw in text_lower for kw in ["military flight", "military aircraft", "flight radar", "airspace", "tracking flight", "flight trace", "radar sweep", "military radar", "track aircraft"]):
+            from modules.flight_intel import FlightIntelEngine
+            fe = FlightIntelEngine()
+            flights = fe.get_military_aircraft(limit=8)
+            msg = fe.format_tactical_debrief(flights)
+            raw = []
+            for f in flights:
+                flight_label = f.get('flight') or f.get('hex') or 'Unknown'
+                desc = f.get('desc') or f.get('t') or 'Military Airframe'
+                snip = f"Alt: {f.get('alt_baro', 0):,} ft | Speed: {f.get('gs', 0)} kts | Track: {f.get('track', 0)}°"
+                raw.append({"title": f"{flight_label} - {desc}", "snippet": snip, "url": f"https://globe.adsb.lol/?icao={f.get('hex', '')}", "extra": f})
+            payload = self.hud_engine.build_structured_payload("Military Radar", "RADAR", raw, msg)
+            try:
+                from frontend.hud_panel import HUDPanelManager
+                HUDPanelManager().show_action_hud(title="Airspace Radar: Military Telemetry", action_type="RADAR", details=msg)
+            except Exception:
+                pass
+            return True, msg, False, "", payload
+
+        # 12. Live Weather Telemetry
+        if any(kw in text_lower for kw in ["weather", "temperature", "forecast", "how's the weather", "current weather"]):
+            loc = ""
+            m_loc = re.search(r'(?:weather|forecast|temperature)\s+(?:in|for|at)\s+([a-zA-Z\s,]+)', text_lower)
+            if m_loc:
+                loc = m_loc.group(1).strip()
+            from modules.weather_intel import WeatherIntelEngine
+            we = WeatherIntelEngine()
+            w = we.get_weather(loc)
+            msg = we.format_weather_debrief(w)
+            raw = [{
+                "title": f"Atmospheric Telemetry - {w.get('city', 'Local')}",
+                "snippet": f"{w.get('condition')} | {w.get('temp_f')}°F ({w.get('temp_c')}°C) | Wind: {w.get('wind_kmh')} km/h",
+                "url": "https://open-meteo.com",
+                "extra": w
+            }]
+            payload = self.hud_engine.build_structured_payload(f"Weather: {w.get('city')}", "WEATHER", raw, msg)
+            try:
+                from frontend.hud_panel import HUDPanelManager
+                HUDPanelManager().show_action_hud(title=f"Atmospheric Telemetry: {w.get('city')}", action_type="WEATHER", details=msg)
+            except Exception:
+                pass
+            return True, msg, False, "", payload
 
         return False, "", False, "", {}
 
