@@ -2,27 +2,28 @@
   <img src="assets/jarvis-banner.png" alt="J.A.R.V.I.S." width="100%"/>
 </p>
 
-<h1 align="center">J.A.R.V.I.S. : AUTONOMOUS TACTICAL PERSONAL & OSINT ASSISTANT</h1>
+<h1 align="center">J.A.R.V.I.S. : AUTONOMOUS TACTICAL OSINT SPECIALIST & INTELLIGENCE SYSTEM</h1>
 <p align="center">
-  <b>Just A Rather Very Intelligent System — Autonomous Personal AI Assistant by Project Hellhound</b>
+  <b>Just A Rather Very Intelligent System — Autonomous OSINT Specialist & Intelligence Framework by Project Hellhound</b>
   <br>
-  <i>Your all-in-one local personal assistant & OSINT intelligence powerhouse. From daily workflow automation, live web search, system task execution, and tactical voice interaction to target enumeration, identity pivoting, multi-source username scans, email intelligence, and 2D/3D topology graphs.</i>
+  <i>An authoritative, multi-source OSINT intelligence powerhouse and tactical assistant. Equipped with deep target enumeration, multi-platform username scans (300+ services), identity pivoting, email verification, domain/WHOIS mapping, historical archives, breach telemetry, real-time ADS-B military flight tracking, keyless atmospheric telemetry, and 2D/3D topology graphing. J.A.R.V.I.S. doesn't just collect data—he cross-correlates, verifies, and delivers actionable, grounded investigative intelligence.</i>
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> ·
   <a href="#installation--setup">Installation & Setup</a> ·
+  <a href="#the-osint-specialist-arsenal">OSINT Arsenal</a> ·
   <a href="#ai-model-routing">AI Routing</a> ·
   <a href="#commands">Commands</a> ·
-  <a href="#capabilities--arsenal">Capabilities</a> ·
-  <a href="#wake-word--voice">Voice & Wake Word</a> ·
+  <a href="#voice-engine">Voice Engine</a> ·
   <a href="#desktop-gui-app">Desktop GUI</a> ·
   <a href="#license">License</a>
 </p>
 
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10+-blue?style=flat-square&logo=python&logoColor=white" alt="Python Version"/></a>
-  <a href="https://github.com/project-hellhound-org/SOLDIER-BOY/releases"><img src="https://img.shields.io/badge/Release-v2.0.0-cyan?style=flat-square" alt="Release Version"/></a>
+  <a href="https://github.com/project-hellhound-org/JARVIS/releases"><img src="https://img.shields.io/badge/Release-v2.0.0--OSINT.Specialist-cyan?style=flat-square" alt="Release Version"/></a>
+  <img src="https://img.shields.io/badge/Specialization-Autonomous%20OSINT%20Specialist-blueviolet?style=flat-square" alt="Specialization"/>
   <img src="https://img.shields.io/badge/AI--Powered-Ollama%20%7C%20NVIDIA%20NIM%20%7C%20Gemini-red?style=flat-square" alt="AI Support"/>
   <img src="https://img.shields.io/badge/Voice-Fish%20Audio%20%7C%20Local%20Clone-brightgreen?style=flat-square" alt="Voice Synthesis"/>
   <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-lightgrey?style=flat-square" alt="Platform"/>
@@ -32,16 +33,21 @@
 ---
 
 > [!NOTE]
-> ### 🛡️ Persona & Protocol Notice
-> **J.A.R.V.I.S.** operates as your tactical executive assistant and intelligence officer. He manages daily queries, web research, system automation, and open-source intelligence gathering with an **intelligent, witty, articulate, and highly capable demeanor**. All operations run locally or through encrypted API bridges with zero data leaving your machine without explicit authorization.
+> ### 🛡️ Authoritative OSINT Specialist & Intelligence Protocol
+> **J.A.R.V.I.S.** operates as an elite, autonomous **OSINT specialist and intelligence officer**. Drawing upon dozens of cross-referenced intelligence sources—from global domain infrastructure and social registries to real-time ADS-B airspace feeds and breach archives—he verifies and correlates findings before drawing conclusions. His analysis is delivered with **refined British eloquence, dry wit, unflappable composure, and absolute factual grounding**.
 
 ---
 
 ## What Is This?
 
-**J.A.R.V.I.S.** is the next-generation autonomous tactical personal AI assistant and OSINT intelligence framework developed by **Project Hellhound**. Transitioned into an **all-in-one personal assistant**, J.A.R.V.I.S. handles everything—from everyday task automation, live web dorking, and system query resolution to deep target investigations, username cross-referencing, email metadata parsing, and network topology graphing.
+**J.A.R.V.I.S.** is an autonomous tactical OSINT specialist and personal intelligence framework developed by **Project Hellhound**. Built from the ground up for cybersecurity researchers, bug bounty hunters, CTF competitors, and intelligence operators, J.A.R.V.I.S. consolidates every phase of open-source reconnaissance into an automated, interactive workflow.
 
-It features **persistent memory and an automated case blackboard**—all personal tasks, research logs, discovered handles, email profiles, DNS records, IP locations, Wayback snapshots, and evidence notes are retained in isolated workspaces (`~/.jarvis/cases/<target>/` and `data/jarvis_memory.json`) so your assistant workflows seamlessly resume across sessions.
+### Why J.A.R.V.I.S. is an Authoritative OSINT Source
+Unlike passive scrapers or noisy search wrappers, J.A.R.V.I.S. acts as a true intelligence analyst:
+- **Multi-Vector Entity Pivoting**: Transition seamlessly from an email address to a username, discover associated GitHub repositories, parse commit histories for developer identities, extract PGP keys, and uncover domain infrastructure.
+- **Strict Anti-Hallucination Grounding**: All verbal debriefs, monologues, and dossier exports are bound 100% to verified scan data recorded on the persistent blackboard. Zero fabricated usernames, zero invented endpoints.
+- **Persistent Case Blackboard**: Every target investigation creates an isolated, auditable workspace (`cases/<target>/` and `data/jarvis_memory.json`) storing raw API outputs, normalized entity graphs, timestamped evidence notes, and exportable HTML dossiers.
+- **Aerial & Infrastructure Telemetry**: Integrated real-time military flight tracking (ADS-B), atmospheric weather intelligence, and public surveillance capabilities inspired by *God's Eye View*.
 
 Operate across three flexible interfaces:
 - **Desktop GUI Application**: A dedicated PyWebView/FastAPI desktop interface featuring collapsible card modules, transparent eye API key toggles, 2D/3D radial topology graphs, and hands-free microphone input (`jarvis` or `soldierboy`).
@@ -53,27 +59,49 @@ Operate across three flexible interfaces:
 ## How It Works
 
 ```
-You ──> jarvis ("Jarvis...") ──> Intent & Task Parser ──> Executive Assistant Core
-                                         │                           │
-                                         ▼                           ▼
-                              Personal Workflow Engine    OSINT & Recon Toolchain
-                              ├─ Live Web Research        ├─ Sherlock & Maigret
-                              ├─ System Automation        ├─ Holehe & Gravatar
-                              ├─ Tactical Voice Synthesis ├─ GitHub & Breach Check
-                              └─ Case Memory Blackboard   └─ EXIF, WHOIS & DNS
-                                         │
-                                         ▼ (Populates Persistent Blackboard)
-                              Jarvis Voice Engine <────── Grounding Guard
-                                         │                 (Fish Audio / Local)
-                                         ▼
-                              /export (Submission-Ready HTML Case & Task Reports)
+You ──> jarvis ("Investigate target@domain.com") ──> Intent & Task Parser ──> Tactical Core
+                                                            │                     │
+                                                            ▼                     ▼
+                                                 Personal Workflow       OSINT Recon Toolchain
+                                                 ├─ Live Web Dorking     ├─ Sherlock & Maigret
+                                                 ├─ Terminal Automation  ├─ Holehe & Gravatar
+                                                 ├─ Tactical Telemetry   ├─ GitHub & Breach Checks
+                                                 └─ Case Memory Core     └─ EXIF, WHOIS & DNS
+                                                            │
+                                                            ▼ (Correlates to Persistent Blackboard)
+                                                 Jarvis Voice Engine <── Verification Guard
+                                                            │            (Fish Audio / Local)
+                                                            ▼
+                                                 /export (Submission-Ready HTML Dossier)
 ```
 
-- **All-in-One Personal Capabilities**: Ask general questions, perform live web extractions, summarize complex documents, run system audits, or launch target investigations.
-- **Collapsible Card System**: Settings, ledgers, and maps render in responsive card components with collapsible header toggles (`▼` / `▶`) and real-time state badges.
+- **All-in-One OSINT Capabilities**: Deep target enumeration, domain profiling, breach checking, and system task automation.
+- **Collapsible Card System**: Settings, ledgers, and telemetry render in responsive card components with collapsible header toggles (`▼` / `▶`) and real-time status badges.
 - **Eye Toggle Security**: API key fields (Gemini, NVIDIA NIM, Fish Audio) feature transparent eye buttons (`👁`) for password visibility control.
-- **Hands-Free Speech Input**: Direct voice interaction paired with push-to-talk and intelligent conversational streaming.
-- **Interactive Topology Graphs**: 2D SVG radial network fallback + 3D WebGL graph populating entity connections alongside active skill nodes.
+- **Hands-Free Speech Input**: Direct voice interaction paired with Spacebar push-to-talk and intelligent conversational streaming.
+- **Interactive 2D/3D Topology Graphs**: Guaranteed 2D SVG radial network fallback + 3D WebGL graph rendering connected target entities and skills.
+
+---
+
+## The OSINT Specialist Arsenal
+
+J.A.R.V.I.S. equips operators with a comprehensive multi-discipline reconnaissance arsenal:
+
+| Category | Module | Engine / Method | Capabilities |
+| :--- | :--- | :--- | :--- |
+| **Identity & Accounts** | `sherlock` | HTTP/Async Probe | Account discovery across 300+ social and developer platforms. |
+| | `maigret` | Deep Metadata Parse | Identity aggregation, profile harvesting, and cross-site verification. |
+| | `holehe` | Mail Endpoint Check | Checks email registration across 120+ web services without notifying targets. |
+| | `gravatar` | Hash Lookup | Public avatar, bio, display name, and verified profile extraction. |
+| **Code & Developer** | `github_recon` | GitHub Public API | Repository inspection, commit email trails, and SSH/PGP key harvesting. |
+| **Domain & Network** | `dns_whois` | Socket / RDAP / DNS | Pulls A, AAAA, MX, TXT, CNAME, NS records, and registrar ownership. |
+| | `wayback` | CDX Archive Index | Historic URL enumeration, forgotten subdomains, and historical snapshots. |
+| **Media & Geo** | `exif_geo` | PIL / EXIF Parser | Extracts GPS coordinates, altitude, camera model, and timestamp metadata. |
+| **Threat & Reputation** | `abuse_ipdb` | Threat Intelligence | Evaluates IP threat scores, ISP classification, and proxy/VPN exit nodes. |
+| | `breach_directory` | Credential Telemetry | Discovers compromised account breaches and exposed data field classes. |
+| **Aerial & Telemetry** | `adsb_radar` | Keyless ADS-B | Real-time military flight tracking, altitude, callsigns, and squawk codes. |
+| | `atmospheric_intel` | Open-Meteo | Keyless real-time weather telemetry, cloud cover, and barometric pressure. |
+| **Visualization** | `2d_3d_topology` | D3 / Three.js | Radial SVG relationship fallback + 3D WebGL entity topology graph. |
 
 ---
 
@@ -110,13 +138,13 @@ J.A.R.V.I.S. features high-fidelity, low-latency conversational speech powered b
 
 #### Option A: One-Line Remote Installer
 ```bash
-curl -fsSL https://raw.githubusercontent.com/project-hellhound-org/SOLDIER-BOY/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/project-hellhound-org/JARVIS/main/install.sh | bash
 ```
 
 #### Option B: Standard Git Clone
 ```bash
-git clone https://github.com/project-hellhound-org/SOLDIER-BOY.git
-cd SOLDIER-BOY
+git clone https://github.com/project-hellhound-org/JARVIS.git
+cd JARVIS
 
 # Initialize config from template
 cp config.yaml.example config.yaml
@@ -132,9 +160,9 @@ source ~/.bashrc   # or source ~/.zshrc
 ```
 
 The automated installer will:
-- Set up an isolated Python environment (`soldier-env`).
+- Set up an isolated Python environment (`jarvis-env`).
 - Initialize `config.yaml` from template configuration.
-- Install OSINT and personal assistant toolchains (`sherlock`, `maigret`, `holehe`, `chatterbox-tts`).
+- Install OSINT toolchains (`sherlock`, `maigret`, `holehe`, `chatterbox-tts`).
 - Mount desktop application dependencies (`pywebview`).
 - Register global `jarvis` and `soldierboy` command integration.
 
@@ -178,38 +206,15 @@ All actions can be triggered via slash commands or natural language:
 | `pivot` | `/pivot`, `focus` | Pivot investigation on a discovered handle or IP | `pivot <entity>` |
 | `cases` | `/cases`, `list` | List all archived cases and saved sessions | `cases` |
 | `notes` | `/notes`, `add` | Append investigative note or task reminder | `notes <text>` |
-| `export` | `/export`, `report` | Generate offline HTML investigation & task report | `export` |
+| `export` | `/export`, `report` | Generate offline HTML investigation dossier | `export` |
 | `help` | `/?`, `info` | Display command guide and available modules | `help` |
 | `exit` | `quit` | Exit workspace | `exit` |
 
 ---
 
-## Capabilities & Arsenal
-
-J.A.R.V.I.S. combines personal assistant capabilities with specialized OSINT tools:
-
-| Module | Category | Description |
-| :--- | :--- | :--- |
-| `personal_assistant` | Workflow Core | General Q&A, system commands, document analysis, and daily task management. |
-| `voice_engine` | Audio Engine | Low-latency Fish Audio synthesis (`05b36da8574341d0803391491850db20`) with local caching. |
-| `local_voice_clone` | Audio Fallback | Zero-shot local voice synthesis powered by Chatterbox TTS. |
-| `sherlock` | Username Scan | Multi-source account discovery across 300+ platforms. |
-| `maigret` | Deep Identity | Advanced profile harvesting and metadata extraction. |
-| `holehe` | Email Intelligence | Checks registration status across 120+ web services. |
-| `gravatar` | Profile & Avatar | Public profile image, display name, and bio extraction. |
-| `github_recon` | Code Intel | Repository search, commit history, and README profile parsing. |
-| `dns_whois` | Domain Recon | Pulls A, AAAA, MX, TXT, CNAME records, and WHOIS registration. |
-| `wayback` | History Snapshots | Discovers archived URLs and historical domain snapshots. |
-| `exif_geo` | Image Metadata | Extracts GPS coordinates and camera metadata from image files. |
-| `breach_directory` | Leak Inspection | Checks exposed data breaches and compromised field types. |
-| `abuse_ipdb` | IP Reputation | Evaluates IP threat score, ISP, and proxy/VPN status. |
-| `2d_3d_graph` | Network Topology | Guaranteed 2D SVG radial fallback + 3D WebGL relationship graph. |
-
----
-
 ## Scope Policy & Legal Compliance
 
-J.A.R.V.I.S. is built for **personal productivity, authorized penetration testing, bug bounty programs, CTF challenges, and legitimate security research**.
+J.A.R.V.I.S. is built for **authorized penetration testing, bug bounty programs, CTF challenges, educational intelligence gathering, and legitimate security research**.
 - Always obtain explicit authorization before investigating external targets.
 - Users are solely responsible for ensuring compliance with all applicable local and international laws.
 
@@ -235,6 +240,5 @@ This project is licensed under the [GNU General Public License v3 (GPLv3)](LICEN
 
 <div align="center">
   <br/>
-  <sub>Built with precision and intelligence. At your service, sir.</sub>
+  <sub>Built with precision, intelligence, and absolute veracity. At your service, sir.</sub>
 </div>
-

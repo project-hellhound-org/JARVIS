@@ -75,7 +75,7 @@ cat > ~/.local/bin/soldierboy << WRAPPER
 #!/bin/bash
 source $VENV_ACTIVATE
 cd $INSTALL_DIR
-exec $VENV_BIN/python3 $INSTALL_DIR/soldierboy.py "\$@"
+exec $VENV_BIN/python3 $INSTALL_DIR/jarvis.py "\$@"
 WRAPPER
 
 chmod +x ~/.local/bin/soldierboy
@@ -86,7 +86,7 @@ if command -v sudo &>/dev/null && [ -w /usr/local/bin ]; then
 #!/bin/bash
 source $VENV_ACTIVATE
 cd $INSTALL_DIR
-exec $VENV_BIN/python3 $INSTALL_DIR/soldierboy.py \"\$@\"
+exec $VENV_BIN/python3 $INSTALL_DIR/jarvis.py \"\$@\"
 WRAPPER"
     sudo chmod +x /usr/local/bin/soldierboy
 fi
@@ -94,7 +94,7 @@ fi
 # ── Desktop entry ─────────────────────────────────────────────
 echo "  creating desktop entry..."
 
-ICON_PATH="$INSTALL_DIR/frontend/soldierboy-icon.png"
+ICON_PATH="$INSTALL_DIR/frontend/jarvis-icon.png"
 if [ ! -f "$ICON_PATH" ]; then
     ICON_PATH="$INSTALL_DIR/assets/logo.png"
 fi
@@ -109,7 +109,7 @@ Type=Application
 Name=Soldier Boy
 GenericName=OSINT Assistant
 Comment=Autonomous OSINT Assistant — zero APIs, fully local
-Exec=$VENV_BIN/python3 $INSTALL_DIR/soldierboy.py
+Exec=$VENV_BIN/python3 $INSTALL_DIR/jarvis.py
 Icon=$ICON_PATH
 Terminal=false
 Categories=Security;Network;
