@@ -52,6 +52,11 @@ from memory.lessons_store import LessonsStore
 
 ROOT = Path(__file__).parent
 HTML_PATH = ROOT / "app.html"
+GEV_DIR = ROOT.parent / "gods_eye"
+GEV_PORT = 4173
+
+import atexit
+import signal
 
 # Keywords that signal extra context beyond just the target
 _CONTEXT_SIGNALS = re.compile(
@@ -59,6 +64,81 @@ _CONTEXT_SIGNALS = re.compile(
     r"used to|might have|previously|formerly|known as)",
     re.IGNORECASE,
 )
+
+class GEVServer:
+    """Manages the God's Eye View Vite dev server as a background subprocess."""
+    _instance = None
+
+    def __init__(self, gev_dir=None, port=None):
+        self.gev_dir = str(gev_dir or GEV_DIR)
+        self.port = port or GEV_PORT
+        self.process = None
+        self._started = False
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def start(self):
+        """Start the GEV Vite dev server if not already running."""
+        if self._started and self.process and self.process.poll() is None:
+            return True
+
+        gev_path = Path(self.gev_dir)
+        if not (gev_path / "package.json").exists():
+            print(f"[GEV] God's Eye View directory not found: {self.gev_dir}")
+            return False
+
+        try:
+            env = dict(os.environ)
+            env_file = gev_path / ".env"
+            if env_file.exists():
+                for line in env_file.read_text().splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, _, v = line.partition("=")
+                        env[k.strip()] = v.strip()
+
+            self.process = subprocess.Popen(
+                ["npx", "vite", "--port", str(self.port), "--host", "127.0.0.1", "--strictPort"],
+                cwd=self.gev_dir,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=env,
+                preexec_fn=os.setsid if hasattr(os, "setsid") else None,
+            )
+            self._started = True
+            atexit.register(self.stop)
+            print(f"[GEV] God's Eye View OSINT server started on http://127.0.0.1:{self.port}")
+            return True
+        except FileNotFoundError:
+            print("[GEV] npx/node not found. Ensure Node.js 24+ is installed.")
+            return False
+        except Exception as e:
+            print(f"[GEV] Failed to start server: {e}")
+            return False
+
+    def stop(self):
+        """Terminate the GEV server process and its process group."""
+        if self.process:
+            try:
+                if hasattr(os, "killpg"):
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                else:
+                    self.process.terminate()
+            except (ProcessLookupError, OSError):
+                pass
+            self.process = None
+            self._started = False
+            print("[GEV] God's Eye View server stopped.")
+
+    def is_running(self):
+        return self._started and self.process and self.process.poll() is None
+
+    def get_url(self):
+        return f"http://127.0.0.1:{self.port}" if self.is_running() else ""
 
 
 class _StreamingPrefixFilter:
@@ -227,6 +307,13 @@ class JarvisAPI:
         except Exception:
             pass
         return {}
+
+    def get_gev_url(self) -> str:
+        """Return God's Eye View server URL, auto-starting the server if not already running."""
+        gev = GEVServer.get_instance()
+        if not gev.is_running():
+            gev.start()
+        return gev.get_url()
 
     def _on_shared_audio_chunk(self, chunk: bytes):
         """Unified audio capture callback fed directly from WakeWordEngine's active PyAudio stream."""
@@ -1880,6 +1967,12 @@ class JarvisDesktop:
 
         if webview is None:
             raise ImportError("pywebview is required to run JarvisDesktop. Install pywebview or run with CLI mode.")
+
+        # Start God's Eye View OSINT server in background
+        try:
+            GEVServer.get_instance().start()
+        except Exception as e:
+            print(f"[desktop] Notice: God's Eye View auto-start: {e}")
 
         window = webview.create_window(**window_kwargs)
 

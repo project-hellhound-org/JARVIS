@@ -22,6 +22,26 @@ from typing import Callable, Optional, Dict, Any
 # Ensure project root is in path
 sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
+from contextlib import contextmanager
+
+@contextmanager
+def no_c_stderr():
+    """Suppress C-level stderr output (e.g. libjack / libasound error spam)."""
+    sys.stderr.flush()
+    try:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        old_stderr = os.dup(2)
+        os.dup2(devnull, 2)
+        os.close(devnull)
+        try:
+            yield
+        finally:
+            sys.stderr.flush()
+            os.dup2(old_stderr, 2)
+            os.close(old_stderr)
+    except Exception:
+        yield
+
 def _patch_openwakeword_providers():
     """Align openwakeword ONNX providers with actual available system providers to avoid CUDA fallback warnings."""
     try:
@@ -130,24 +150,37 @@ class WakeWordEngine:
         try:
             import openwakeword
             from openwakeword.model import Model
+            if not target_model:
+                model_dir = Path(openwakeword.__file__).parent / "resources" / "models"
+                candidates = [
+                    model_dir / "hey_jarvis_v0.1.onnx",
+                    model_dir / "hey_jarvis.onnx",
+                ]
+                for c in candidates:
+                    if c.exists():
+                        target_model = str(c)
+                        break
+
             if target_model and os.path.exists(target_model):
-                print(f"[wake_word] Loading custom openWakeWord model: {target_model}")
-                self._model = Model(wakeword_models=[target_model], inference_framework="onnx")
+                print(f"[wake_word] Loading openWakeWord model: {target_model}")
+                self._model = Model(wakeword_model_paths=[target_model])
+                print("[wake_word] Native openWakeWord engine active for JARVIS.")
             else:
-                # Built-in or fallback listener for JARVIS
                 self._model = None
         except Exception as e:
             print(f"[wake_word] Notice: openWakeWord model init: {e}. Active via Web Speech STT.")
             self._model = None
 
-        # 2. Check microphone hardware
+        # 2. Check microphone hardware (suppress C-level JACK/ALSA stderr spam)
         try:
             import pyaudio
-            self._pyaudio = pyaudio.PyAudio()
-            device_count = self._pyaudio.get_device_count()
+            with no_c_stderr():
+                self._pyaudio = pyaudio.PyAudio()
+                device_count = self._pyaudio.get_device_count()
             has_input = False
             for i in range(device_count):
-                info = self._pyaudio.get_device_info_by_index(i)
+                with no_c_stderr():
+                    info = self._pyaudio.get_device_info_by_index(i)
                 if info.get("maxInputChannels", 0) > 0:
                     has_input = True
                     break
@@ -240,13 +273,14 @@ class WakeWordEngine:
 
         try:
             import pyaudio
-            self._audio_stream = self._pyaudio.open(
-                format=FORMAT,
-                channels=CHANNELS,
-                rate=RATE,
-                input=True,
-                frames_per_buffer=CHUNK_SIZE
-            )
+            with no_c_stderr():
+                self._audio_stream = self._pyaudio.open(
+                    format=FORMAT,
+                    channels=CHANNELS,
+                    rate=RATE,
+                    input=True,
+                    frames_per_buffer=CHUNK_SIZE
+                )
         except Exception as e:
             print(f"[wake_word] Failed to open microphone stream: {e}. Switching to browser STT.")
             self.hardware_mic_available = False

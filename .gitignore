@@ -92,3 +92,7 @@ tests/
 scripts/
 *.md
 !README.md
+
+node_modules/
+gods_eye/node_modules/
+frontend/app.html.bak

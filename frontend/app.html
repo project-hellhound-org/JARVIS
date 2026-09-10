@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg-0: #030405;
+    --bg-0: #000005;
     --bg-1: #050607;
     --bg-2: #08090A;
     --bg-raised: #0B0C0E;
@@ -761,8 +761,7 @@
   #thread { flex: 1; overflow-y: auto; min-height: 0; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; z-index: 6; }
   .msg-speaker { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: -6px; user-select: none; -webkit-user-select: none; }
   .msg-speaker-user { align-self: flex-end; color: var(--accent-text); margin-right: 6px; }
-  .msg-speaker-jarvis { align-self: flex-start; color: #facc15; margin-left: 2px; }
-  .msg-user { align-self: flex-end; max-width: 78%; background: var(--accent-dim); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 12px 18px; border-radius: 12px; font-size: 15px; line-height: 1.6; box-shadow: var(--glass-shadow); backdrop-filter: blur(16px); }
+  .msg-user { align-self: flex-end; max-width: 90%; background: transparent !important; border: none !important; color: #F8FAFC !important; padding: 8px 0 !important; border-radius: 0 !important; font-size: 14.5px !important; line-height: 1.6 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; text-shadow: 0 2px 8px rgba(0,0,0,0.9); }
   .msg-status { font-size: 13px; color: var(--text-muted); font-family: var(--sans); display: flex; align-items: center; gap: 8px; padding-left: 2px; }
   .msg-status::before { display: none !important; content: "" !important; }
 
@@ -1680,47 +1679,46 @@
     border-radius: 4px !important;
   }
   #thread > * { pointer-events: auto !important; }
-  /* Seamless Glassy Dialogue HUD Panel */
+  /* Completely Transparent Floating Dialogue HUD — No Boxes, No Borders */
   .msg-user {
     align-self: flex-start !important;
     width: 100% !important;
-    background: rgba(20, 24, 32, 0.74) !important;
-    border: 1px solid rgba(255, 157, 46, 0.22) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-    border-radius: 12px 12px 0 0 !important;
-    color: #F8FAFC !important;
-    padding: 10px 18px !important;
-    font-size: 14px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    padding: 6px 0 !important;
+    font-size: 14.5px !important;
     font-weight: 600 !important;
     font-family: var(--sans) !important;
     letter-spacing: 0.01em !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
-    margin: 0 !important;
-    display: flex !important;
-    align-items: center !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    margin: 6px 0 2px 0 !important;
+    display: block !important;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.95);
   }
   .msg-answer {
     align-self: flex-start !important;
     width: 100% !important;
-    background: rgba(10, 12, 17, 0.78) !important;
-    border: 1px solid rgba(255, 157, 46, 0.22) !important;
-    border-top: none !important;
-    border-radius: 0 0 12px 12px !important;
-    padding: 14px 18px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 4px 0 16px 0 !important;
     color: #F8FAFC !important;
-    font-size: 14.5px !important;
-    line-height: 1.62 !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.65), 0 0 24px rgba(255, 157, 46, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+    font-size: 15px !important;
+    line-height: 1.68 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
     margin: 0 0 12px 0 !important;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.95);
   }
   .msg-answer:first-child,
   .msg-answer + .msg-answer {
-    border-top: 1px solid rgba(255, 157, 46, 0.22) !important;
-    border-radius: 12px !important;
+    border: none !important;
+    border-radius: 0 !important;
   }
 
   /* Remove the old investigation framing from the default workspace. */
@@ -1794,10 +1792,17 @@
     #spatial-system-telemetry { right: 10px; gap: 8px; }
   }
 
+#starfield {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
 </style>
 </head>
 <body>
 
+<div id="starfield"></div>
 <div id="bg-layer"></div>
 <div id="bg-overlay"></div>
 
@@ -2080,75 +2085,27 @@
 
 <!-- 3D Geo Globe Overlay -->
 <div class="overlay" id="globe-overlay">
-  <div class="overlay-panel">
+  <div class="overlay-panel" style="width:95vw; height:90vh; max-width:none;">
     <div class="overlay-head">
-      <span class="t">Geo globe</span>
-      <button class="overlay-close" id="globe-overlay-close">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <span class="t">GOD'S EYE VIEW — OSINT INTELLIGENCE</span>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span id="gev-status" style="font-size:10px; font-family:var(--mono); color:#8A8D91; letter-spacing:0.05em;">INITIALIZING</span>
+        <button class="overlay-close" id="globe-overlay-close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
     </div>
-    <div class="overlay-body" id="globe-overlay-body">
-      <div class="geo-container">
-        <div class="geo-sidebar">
-          <div class="geo-sidebar-header">
-            <div class="geo-sidebar-title">Geographic Targets</div>
-          </div>
-          <div class="geo-list" id="geo-target-list"></div>
-        </div>
-        <div class="geo-viewport-container">
-          <div class="geo-controls-overlay">
-            <button class="geo-btn active" id="btn-toggle-3d">
-              <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span> 3D Globe
-            </button>
-            <button class="geo-btn" id="btn-toggle-2d">
-              <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg></span> 2D Map
-            </button>
-            <button class="geo-btn" id="btn-geo-reset">
-              <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></span> Reset View
-            </button>
-          </div>
-          
-          <div id="geo-globe-viewport" style="width: 100%; height: 100%;"></div>
-          
-          <div class="geo-flatmap" id="geo-flatmap-viewport">
-            <svg class="geo-flatmap-svg" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet">
-              <rect width="1000" height="500" fill="#0b0f19" />
-              <image id="geo-flatmap-bg-image" x="0" y="0" width="1000" height="500" opacity="0.85" preserveAspectRatio="none" />
-              
-              <!-- High-Tech World Grid Lines -->
-              <g stroke="rgba(112, 214, 255, 0.15)" stroke-width="1">
-                <line x1="0" y1="250" x2="1000" y2="250" stroke-dasharray="6,4" />
-                <line x1="500" y1="0" x2="500" y2="500" stroke-dasharray="6,4" />
-                <line x1="0" y1="125" x2="1000" y2="125" stroke-dasharray="3,3" opacity="0.4" />
-                <line x1="0" y1="375" x2="1000" y2="375" stroke-dasharray="3,3" opacity="0.4" />
-                <line x1="250" y1="0" x2="250" y2="500" stroke-dasharray="3,3" opacity="0.4" />
-                <line x1="750" y1="0" x2="750" y2="500" stroke-dasharray="3,3" opacity="0.4" />
-              </g>
-              
-              <g id="geo-flatmap-pins"></g>
-            </svg>
-          </div>
-
-          <div class="geo-details-card" id="geo-details-card">
-            <div class="geo-details-title" id="geo-details-title">Location Details</div>
-            <div class="geo-details-row">
-              <span class="geo-details-label">Type</span>
-              <span class="geo-details-value" id="geo-details-val-type">-</span>
-            </div>
-            <div class="geo-details-row">
-              <span class="geo-details-label">Coordinates</span>
-              <span class="geo-details-value" id="geo-details-val-coords">-</span>
-            </div>
-            <div class="geo-details-row" id="geo-details-row-info">
-              <span class="geo-details-label">Details</span>
-              <span class="geo-details-value" id="geo-details-val-info">-</span>
-            </div>
-            <div class="geo-details-row" id="geo-details-row-source">
-              <span class="geo-details-label">Source</span>
-              <span class="geo-details-value" id="geo-details-val-source">-</span>
-            </div>
-          </div>
-        </div>
+    <div class="overlay-body" style="padding:0; overflow:hidden; background:#000005;">
+      <iframe id="gev-iframe"
+              style="width:100%; height:100%; border:none; border-radius:0 0 8px 8px; background:#000005;"
+              allow="microphone; camera; geolocation"
+              loading="lazy"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms">
+      </iframe>
+      <div id="gev-loading" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; background:#000005; z-index:5;">
+        <div style="width:40px; height:40px; border:2px solid rgba(255,157,46,0.2); border-top-color:#FF9D2E; border-radius:50%; animation:spin 1s linear infinite;"></div>
+        <div style="font-family:var(--mono); font-size:11px; color:#FF9D2E; letter-spacing:0.1em;">LOADING GOD'S EYE VIEW</div>
+        <div style="font-family:var(--mono); font-size:10px; color:#8A8D91;">Cesium 3D Globe • Live OSINT Feeds</div>
       </div>
     </div>
   </div>
@@ -2391,10 +2348,7 @@
   </div>
 </div>
 
-<script src="three.min.js"></script>
-<script src="3d-force-graph.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 
 <script>
 // $ is used throughout as a plain document.querySelector shorthand — NOT jQuery.
@@ -2932,10 +2886,7 @@ function openGraphOverlay() {
 $('#graph-overlay-close').addEventListener('click', () => { $('#graph-overlay').classList.remove('open'); });
 $('#graph-nav').addEventListener('click', openGraphOverlay);
 
-function openGlobeOverlay() {
-  $('#globe-overlay').classList.add('open');
-  setTimeout(() => { initOrUpdateGeoMap(state.entities, []); }, 60);
-}
+// openGlobeOverlay is defined in the GEV bridge section below
 $('#globe-overlay-close').addEventListener('click', () => { $('#globe-overlay').classList.remove('open'); });
 $('#globe-nav').addEventListener('click', openGlobeOverlay);
 
@@ -7064,195 +7015,107 @@ function searchGraph(q) {
   if (tbGraphInstance) renderGraph();
 }
 
-/* ── 3D Geo Globe Engine ── */
-let geoLocations = [];
-let geoActiveTab = '3d';
-let selectedGeoItem = null;
-let geoScene, geoCamera, geoRenderer, geoGlobe, geoPointLight;
-let pinMeshes = [];
-let geoInitialized = false;
+/* ── GOD'S EYE VIEW — OSINT GLOBE BRIDGE ── */
+let gevLoaded = false;
+let gevUrl = 'http://localhost:4173';
 
-function initGeoModule() {
-  if (geoInitialized) return;
-  const container = document.getElementById('geo-globe-viewport');
-  if (!container) return;
+/**
+ * Open the God's Eye View overlay and load the iframe if needed.
+ */
+function openGlobeOverlay() {
+  $('#globe-overlay').classList.add('open');
+  const iframe = document.getElementById('gev-iframe');
+  const loading = document.getElementById('gev-loading');
+  const status = document.getElementById('gev-status');
 
-  const width = container.clientWidth || 700;
-  const height = container.clientHeight || 500;
-
-  geoScene = new THREE.Scene();
-  geoCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-  geoCamera.position.set(0, 0, 15);
-
-  geoRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  geoRenderer.setSize(width, height);
-  geoRenderer.setPixelRatio(window.devicePixelRatio);
-  container.appendChild(geoRenderer.domElement);
-
-  const sphereGeo = new THREE.SphereGeometry(5, 64, 64);
-  const globeMat = new THREE.MeshPhongMaterial({ color: 0x180a0a, specular: 0x331111, shininess: 15, transparent: true, opacity: 0.95 });
-  
-  if (api() && api().get_map_texture) {
-    api().get_map_texture().then(uri => {
-      if (uri && typeof THREE !== 'undefined') {
-        new THREE.TextureLoader().load(uri, (tex) => {
-          globeMat.map = tex; globeMat.color.setHex(0xffffff); globeMat.needsUpdate = true;
-        });
-      }
-      const bgImg = $('#geo-flatmap-bg-image');
-      if (bgImg && uri) {
-        bgImg.setAttribute('href', uri);
-        bgImg.setAttribute('opacity', '0.85');
-      }
-    });
-  }
-
-  geoGlobe = new THREE.Mesh(sphereGeo, globeMat);
-  geoScene.add(geoGlobe);
-
-  const wireframeGeo = new THREE.SphereGeometry(5.05, 32, 32);
-  const wireframeMat = new THREE.MeshBasicMaterial({ color: 0xc1272d, wireframe: true, transparent: true, opacity: 0.1 });
-  geoGlobe.add(new THREE.Mesh(wireframeGeo, wireframeMat));
-
-  geoScene.add(new THREE.AmbientLight(0xffffff, 0.45));
-  geoPointLight = new THREE.PointLight(0xffeedd, 1.2, 100);
-  geoPointLight.position.set(20, 20, 20);
-  geoScene.add(geoPointLight);
-
-  let isDragging = false, prevMouse = { x: 0, y: 0 };
-  const canvas = geoRenderer.domElement;
-  canvas.addEventListener('mousedown', (e) => { isDragging = true; prevMouse = { x: e.clientX, y: e.clientY }; });
-  canvas.addEventListener('mousemove', (e) => {
-    if (!isDragging || !geoGlobe) return;
-    const dx = e.clientX - prevMouse.x, dy = e.clientY - prevMouse.y;
-    geoGlobe.rotation.y += dx * 0.005;
-    geoGlobe.rotation.x += dy * 0.005;
-    prevMouse = { x: e.clientX, y: e.clientY };
-  });
-  window.addEventListener('mouseup', () => { isDragging = false; });
-
-  $('#btn-toggle-3d').addEventListener('click', () => switchGeoTab('3d'));
-  $('#btn-toggle-2d').addEventListener('click', () => switchGeoTab('2d'));
-  $('#btn-geo-reset').addEventListener('click', () => resetGeoCamera());
-
-  function animate() {
-    requestAnimationFrame(animate);
-    if (!isDragging && geoGlobe) geoGlobe.rotation.y += 0.0012;
-    if (geoRenderer && geoScene && geoCamera) geoRenderer.render(geoScene, geoCamera);
-  }
-  animate();
-  geoInitialized = true;
-}
-
-function switchGeoTab(tab) {
-  geoActiveTab = tab;
-  $('#btn-toggle-3d').classList.toggle('active', tab === '3d');
-  $('#btn-toggle-2d').classList.toggle('active', tab === '2d');
-  $('#geo-globe-viewport').style.display = tab === '3d' ? 'block' : 'none';
-  $('#geo-flatmap-viewport').style.display = tab === '2d' ? 'block' : 'none';
-}
-
-function resetGeoCamera() {
-  if (geoCamera) geoCamera.position.set(0, 0, 15);
-  if (geoGlobe) geoGlobe.rotation.set(0, 0, 0);
-}
-
-function latLngToVector3(latVal, lngVal, radius) {
-  const lat = parseFloat(latVal), lng = parseFloat(lngVal);
-  if (isNaN(lat) || isNaN(lng)) return new THREE.Vector3(0,0,0);
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lng + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.sin(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.cos(theta)
-  );
-}
-
-function initOrUpdateGeoMap(entities, timeline) {
-  initGeoModule();
-  geoLocations = [];
-
-  (entities || []).forEach(e => {
-    if (e.metadata && (e.metadata.lat || e.metadata.geocoded)) {
-      const g = e.metadata.geocoded || e.metadata;
-      geoLocations.push({
-        id: 'geo-' + Math.random().toString(36).substr(2, 5),
-        lat: parseFloat(g.lat || 0),
-        lng: parseFloat(g.lng || g.lon || 0),
-        type: e.type || 'location',
-        label: e.value,
-        details: e.metadata.city ? `${e.metadata.city}, ${e.metadata.country || ''}` : 'Location hit'
+  if (!gevLoaded && iframe) {
+    // Query the backend for the actual GEV URL
+    if (api() && api().get_gev_url) {
+      api().get_gev_url().then(url => {
+        if (url) gevUrl = url;
+        iframe.src = gevUrl;
+        if (status) status.textContent = 'CONNECTING';
+      }).catch(() => {
+        iframe.src = gevUrl;
       });
+    } else {
+      iframe.src = gevUrl;
     }
-  });
-
-  if (geoGlobe && pinMeshes) {
-    pinMeshes.forEach(m => geoGlobe.remove(m));
-    pinMeshes = [];
+    gevLoaded = true;
   }
 
-  renderGeoSidebar();
-
-  // Plot 3D Globe Pins
-  if (geoGlobe) {
-    geoLocations.forEach(loc => {
-      const pos = latLngToVector3(loc.lat, loc.lng, 5);
-      const pinGeo = new THREE.CylinderGeometry(0.06, 0.01, 0.8, 8);
-      pinGeo.translate(0, 0.4, 0);
-      const pinMat = new THREE.MeshPhongMaterial({ color: 0xff5a5f, emissive: 0xc1272d });
-      const mesh = new THREE.Mesh(pinGeo, pinMat);
-      mesh.position.copy(pos);
-      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), pos.clone().normalize());
-      geoGlobe.add(mesh);
-      pinMeshes.push(mesh);
+  // Listen for GEV iframe load
+  if (iframe && !iframe._gevListenerSet) {
+    iframe.addEventListener('load', () => {
+      if (loading) loading.style.display = 'none';
+      if (status) { status.textContent = 'LIVE'; status.style.color = '#4ade80'; }
     });
-  }
-
-  // Plot 2D Flatmap Pins
-  const flatmapPins = $('#geo-flatmap-pins');
-  if (flatmapPins) {
-    flatmapPins.innerHTML = geoLocations.map(loc => {
-      const x = ((loc.lng + 180) / 360) * 1000;
-      const y = ((90 - loc.lat) / 180) * 500;
-      return `
-        <g onclick="selectGeoLoc('${loc.id}')" style="cursor:pointer;">
-          <circle cx="${x}" cy="${y}" r="12" fill="rgba(255, 90, 95, 0.2)" stroke="#ff5a5f" stroke-width="1.5" />
-          <circle cx="${x}" cy="${y}" r="5" fill="#ff5a5f" />
-          <text x="${x}" y="${y + 22}" text-anchor="middle" fill="#ffddcc" font-size="10px" font-family="monospace">${esc(loc.label)}</text>
-        </g>
-      `;
-    }).join('');
+    iframe.addEventListener('error', () => {
+      if (status) { status.textContent = 'OFFLINE'; status.style.color = '#ef4444'; }
+    });
+    iframe._gevListenerSet = true;
   }
 }
 
-function renderGeoSidebar() {
-  const list = $('#geo-target-list');
-  if (!list) return;
-  if (geoLocations.length === 0) {
-    list.innerHTML = `<div style="padding:16px; font-size:11.5px; color:#7a5a5a; font-style:italic;">No geo targets found yet.</div>`;
-    return;
+/**
+ * Send a command to the GEV iframe via postMessage.
+ */
+function gevCommand(action, payload) {
+  const iframe = document.getElementById('gev-iframe');
+  if (iframe && iframe.contentWindow) {
+    iframe.contentWindow.postMessage({ source: 'jarvis', action, ...payload }, '*');
   }
-  list.innerHTML = geoLocations.map(loc => `
-    <div class="geo-item" onclick="selectGeoLoc('${loc.id}')">
-      <div class="geo-item-header">
-        <div class="geo-item-title">${esc(loc.label)}</div>
-        <span class="geo-badge ip">${esc(loc.type)}</span>
-      </div>
-      <div class="geo-item-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
-    </div>
-  `).join('');
 }
 
-function selectGeoLoc(id) {
-  const loc = geoLocations.find(x => x.id === id);
-  if (!loc) return;
-  $('#geo-details-val-coords').textContent = `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`;
-  $('#geo-details-val-type').textContent = loc.type;
-  $('#geo-details-val-info').textContent = loc.details;
-  $('#geo-details-val-source').textContent = loc.label;
-  $('#geo-details-card').classList.add('show');
+/**
+ * Fly the GEV camera to specific coordinates.
+ */
+function gevFlyTo(lat, lng, alt) {
+  gevCommand('flyTo', { lat, lng, altitude: alt || 50000 });
 }
+
+/**
+ * Toggle a GEV data layer on/off.
+ */
+function gevToggleLayer(layerName, enabled) {
+  gevCommand('toggleLayer', { layer: layerName, enabled });
+}
+
+/**
+ * Legacy compatibility: old code calls initOrUpdateGeoMap — now opens GEV.
+ */
+function initOrUpdateGeoMap(entities, timeline) {
+  openGlobeOverlay();
+  // If entities have geo data, fly to the first location
+  if (entities && entities.length > 0) {
+    for (const e of entities) {
+      if (e.metadata && (e.metadata.lat || e.metadata.geocoded)) {
+        const g = e.metadata.geocoded || e.metadata;
+        const lat = parseFloat(g.lat || 0);
+        const lng = parseFloat(g.lng || g.lon || 0);
+        if (lat || lng) {
+          setTimeout(() => gevFlyTo(lat, lng, 80000), 2000); // delay for GEV to load
+          break;
+        }
+      }
+    }
+  }
+}
+
+// Listen for messages from GEV iframe
+window.addEventListener('message', (event) => {
+  if (!event.data || event.data.source !== 'gev') return;
+  const { action, data } = event.data;
+  if (action === 'trackTarget') {
+    // GEV reports a tracked target — show in JARVIS HUD
+    console.log('[GEV Bridge] Target tracked:', data);
+  } else if (action === 'ready') {
+    const status = document.getElementById('gev-status');
+    if (status) { status.textContent = 'LIVE'; status.style.color = '#4ade80'; }
+    const loading = document.getElementById('gev-loading');
+    if (loading) loading.style.display = 'none';
+  }
+});
 
 // Automatic background voice listener trigger
 window.addEventListener('pywebviewready', () => {
@@ -7264,6 +7127,133 @@ window.addEventListener('pywebviewready', () => {
     });
   }
 });
+</script>
+<script src="three.min.js"></script>
+<script>
+// Starfield background
+let sfScene, sfCamera, sfRenderer;
+let sfClock;
+const sfRadius = 1000;
+let sfTheta = 0;
+
+// Create a soft round glow sprite texture via canvas
+function createGlowTexture() {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const half = size / 2;
+  const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.15, 'rgba(255,255,255,0.8)');
+  grad.addColorStop(0.4, 'rgba(255,255,255,0.25)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function sfInit() {
+  if (typeof THREE === 'undefined') {
+    console.error('[Starfield] Three.js is not available');
+    return;
+  }
+
+  sfScene = new THREE.Scene();
+  sfClock = new THREE.Clock();
+
+  sfCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
+  sfCamera.position.z = sfRadius;
+
+  sfRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  sfRenderer.setPixelRatio(window.devicePixelRatio);
+  sfRenderer.setSize(window.innerWidth, window.innerHeight);
+  sfRenderer.setClearColor(0x000005, 0);
+
+  const container = document.getElementById('starfield');
+  if (!container) { console.error('[Starfield] #starfield container not found'); return; }
+  container.appendChild(sfRenderer.domElement);
+
+  const glowTex = createGlowTexture();
+
+  // Helper: distribute points uniformly on a spherical shell
+  function buildLayer(count, rMin, rSpan, color, size, opacity) {
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const i3 = i * 3;
+      const r = rMin + Math.random() * rSpan;
+      const azimuth = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      positions[i3]     = r * Math.sin(phi) * Math.cos(azimuth);
+      positions[i3 + 1] = r * Math.sin(phi) * Math.sin(azimuth);
+      positions[i3 + 2] = r * Math.cos(phi);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+      size: size,
+      color: color,
+      map: glowTex,
+      transparent: true,
+      opacity: opacity,
+      sizeAttenuation: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false
+    });
+    return new THREE.Points(geo, mat);
+  }
+
+  // Far layer: 3200 white stars
+  sfScene.add(buildLayer(3200, 900, 1400, 0xffffff, 1.3, 0.75));
+  // Near layer: 650 faint blue stars
+  sfScene.add(buildLayer(650, 700, 1600, 0x9fc8ff, 2.6, 0.55));
+  // Bright accent layer: ~40 slightly brighter glow stars
+  sfScene.add(buildLayer(40, 600, 1800, 0xddeeff, 4.0, 0.35));
+
+  window.addEventListener('resize', sfOnResize);
+
+  console.log('[Starfield] Initialized with', 3200 + 650 + 40, 'stars');
+
+  // Start animation
+  sfAnimate();
+}
+
+function sfOnResize() {
+  if (!sfCamera || !sfRenderer) return;
+  sfCamera.aspect = window.innerWidth / window.innerHeight;
+  sfCamera.updateProjectionMatrix();
+  sfRenderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function sfAnimate() {
+  requestAnimationFrame(sfAnimate);
+  // Pause rotation when tab is hidden
+  if (document.hidden) { sfClock.getDelta(); return; }
+
+  const delta = sfClock.getDelta();
+  sfTheta += 0.035 * delta; // 0.035 rad/s ~ 3 min per revolution
+  sfCamera.position.x = sfRadius * Math.sin(sfTheta);
+  sfCamera.position.y = 0;
+  sfCamera.position.z = sfRadius * Math.cos(sfTheta);
+  sfCamera.lookAt(0, 0, 0);
+  sfRenderer.render(sfScene, sfCamera);
+}
+
+// Three.js is loaded by the preceding <script src="three.min.js"> tag
+if (typeof THREE !== 'undefined') {
+  // DOM may already be ready or not — handle both
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    sfInit();
+  } else {
+    window.addEventListener('DOMContentLoaded', sfInit);
+  }
+} else {
+  console.error('[Starfield] THREE not available after script load');
+}
 </script>
 </body>
 </html>

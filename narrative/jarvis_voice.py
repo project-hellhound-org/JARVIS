@@ -681,10 +681,19 @@ class JarvisVoice:
         clean = re.sub(r'\{\s*\"(?:skill_triggered|action|target|status|findings_so_far)\"[\s\S]*?\}', '', clean, flags=re.IGNORECASE)
         # Remove raw URLs
         clean = re.sub(r'https?://\S+', '', clean)
+        clean = re.sub(r'www\.\S+', '', clean)
+        clean = re.sub(r'\b\w+\.(?:com|org|net|edu|gov|mil|int|co\.uk|ca|de|fr|jp|au|us|ru|ch|it|nl|se|no|dk|fi|pl|be|at|pt|gr|ie|hu|cz|sk|si|hr|bg|ro|lv|lt|ee|cy|mt|is|li|lu|mc|sm|va|ad|mc)\b', '', clean, flags=re.IGNORECASE)
+        # Temperature unit conversion
+        clean = re.sub(r'(\d+(?:\.\d+)?)\s*°?\s*C\b', r'\1 degrees Celsius', clean)
+        clean = re.sub(r'(\d+(?:\.\d+)?)\s*°?\s*F\b', r'\1 degrees Fahrenheit', clean)
+        clean = re.sub(r'\b(\d+(?:\.\d+)?)\s*celsius\b', r'\1 degrees Celsius', clean, flags=re.IGNORECASE)
+        clean = re.sub(r'\b(\d+(?:\.\d+)?)\s*fahrenheit\b', r'\1 degrees Fahrenheit', clean, flags=re.IGNORECASE)
         # Strip stage directions, roleplay actions, asterisks and parentheticals (*grins*, *cracks knuckles*, (chuckles), etc.)
         clean = re.sub(r'\*[^*]+\*', '', clean)
         clean = re.sub(r'\([^)]*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks|leans|snort)[^)]*\)', '', clean, flags=re.IGNORECASE)
-        clean = re.sub(r'\s+([.,!?;:])', r'\1', clean)
+        # Add natural pauses around punctuation for more human-like speech
+        clean = re.sub(r'([.!?])\s*', r'\1 ', clean)
+        clean = re.sub(r'([,;:])\s*', r'\1 ', clean)
         # Replace snake_case underscores with spaces (e.g. open_app -> open app)
         clean = re.sub(r'(\w+)_(\w+)', r'\1 \2', clean)
         clean = clean.replace('_', ' ')
@@ -716,9 +725,9 @@ class JarvisVoice:
         # Ultra-low latency TTS config:
         # - chunk_length=100: start generating audio after 100 chars (default 200)
         # - latency='balanced': Fish Audio's actual low-latency inference mode (~300ms TTFA)
-        # - prosody speed=1.05: subtle speedup for snappier JARVIS delivery
+        # - prosody speed=0.85: slower speed for natural, butler-like delivery (was 1.05)
         # - sample_rate=24000: halves PCM payload for faster network transfer, still excellent quality
-        prosody_cfg = Prosody(speed=1.05) if Prosody is not None else None
+        prosody_cfg = Prosody(speed=0.85) if Prosody is not None else None
         config = TTSConfig(
             format="pcm",
             sample_rate=24000,
@@ -755,7 +764,6 @@ class JarvisVoice:
                 err_str = str(ws_err).lower()
                 is_connection_error = any(k in err_str for k in ["ssl", "record_layer", "connection", "reset", "broken pipe", "eof", "timeout"])
                 if is_connection_error and attempt == 0:
-                    print(f"[jarvis_voice] Fish WebSocket connection error (retrying with fresh client): {ws_err}")
                     self._fish_stream_client = None  # force fresh client
                     continue
                 raise
