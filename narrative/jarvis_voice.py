@@ -15,10 +15,15 @@ try:
         from fishaudio import WebSocketOptions
     except Exception:
         from fishaudio.types import WebSocketOptions
+    try:
+        from fishaudio.types import Prosody
+    except Exception:
+        Prosody = None
 except Exception:
     FishAudio = None
     TTSConfig = None
     WebSocketOptions = None
+    Prosody = None
 from typing import List, Dict, Optional
 from core.target_model import Target
 
@@ -708,11 +713,19 @@ class JarvisVoice:
         def text_stream():
             yield clean_text
 
+        # Ultra-low latency TTS config:
+        # - chunk_length=100: start generating audio after 100 chars (default 200)
+        # - latency='balanced': Fish Audio's actual low-latency inference mode (~300ms TTFA)
+        # - prosody speed=1.05: subtle speedup for snappier JARVIS delivery
+        # - sample_rate=24000: halves PCM payload for faster network transfer, still excellent quality
+        prosody_cfg = Prosody(speed=1.05) if Prosody is not None else None
         config = TTSConfig(
             format="pcm",
-            sample_rate=44100,
-            latency="normal",
+            sample_rate=24000,
+            latency="balanced",
+            chunk_length=100,
             reference_id=self.fish_audio_voice_id,
+            prosody=prosody_cfg,
         )
 
         kwargs = {
@@ -736,7 +749,7 @@ class JarvisVoice:
                 audio_stream = self._fish_stream_client.tts.stream_websocket(text_stream(), **kwargs)
                 for chunk in audio_stream:
                     if chunk:
-                        yield chunk, 44100
+                        yield chunk, 24000
                 return  # success
             except Exception as ws_err:
                 err_str = str(ws_err).lower()

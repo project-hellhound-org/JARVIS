@@ -25,7 +25,7 @@ _DESTRUCTIVE_PATTERNS = [
     re.compile(r"\bdd\s+if=.*?of=/dev/([shn]|nvme)", re.I),
     re.compile(r":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:", re.I),  # Fork bomb
     re.compile(r"\bchmod\s+-[a-zA-Z]*R\s+777\s+/(?:\s|$)", re.I),
-    re.compile(r">\s*/dev/(?:sd[a-z]|nvme\d+n\d+|null)", re.I),
+    re.compile(r">\s*/dev/(?:sd[a-z]|nvme\d+n\d+|vd[a-z]|hd[a-z]|loop\d+)", re.I),
     re.compile(r"\bshutdown\b|\breboot\b|\binit\s+0\b", re.I),
 ]
 

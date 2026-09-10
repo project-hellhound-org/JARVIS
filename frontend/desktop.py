@@ -624,7 +624,7 @@ class JarvisAPI:
             return None
         try:
             proc = subprocess.run(
-                ["ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "44100", "-ac", "1", "pipe:1"],
+                ["ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "24000", "-ac", "1", "pipe:1"],
                 input=audio_bytes,
                 capture_output=True,
                 timeout=10.0,
@@ -1143,21 +1143,25 @@ class JarvisAPI:
                         clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
                         queue_spoken_text(clean_sentence)
                     return
-                # 2. Clause boundary (,;:—) — split when buffer is long enough
-                #    for natural-sounding speech (>60 chars). Gives much faster
-                #    time-to-first-speech for complex sentences.
-                if len(sentence_buffer) > 60:
-                    clause_m = re.search(r'([,;:\u2014]+)\s', sentence_buffer)
-                    if clause_m and clause_m.start() > 25:
-                        sentence = sentence_buffer[:clause_m.end()].strip()
-                        sentence_buffer = sentence_buffer[clause_m.end():]
-                        if len(sentence) > 3:
-                            clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
-                            queue_spoken_text(clean_sentence)
+
+                # 2. Fast First-Phrase / Clause Boundary:
+                # If this is the FIRST phrase (sent_count == 0), split at the very first
+                # comma, colon, or dash once we have 14+ chars (e.g. "Certainly, Sir," or "Executing that now, Sir,").
+                # This achieves sub-400ms time-to-first-audio while LLM is still streaming!
+                # For subsequent phrases, split after 45+ chars at clause breaks.
+                min_len = 14 if sent_count == 0 else 45
+                clause_m = re.search(r'([,;:\u2014\-]+)\s', sentence_buffer)
+                if clause_m and clause_m.end() >= min_len:
+                    sentence = sentence_buffer[:clause_m.end()].strip()
+                    sentence_buffer = sentence_buffer[clause_m.end():]
+                    if len(sentence) > 3:
+                        clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
+                        queue_spoken_text(clean_sentence)
                     return
-                # 3. Safety: if LLM produces >150 chars without any punctuation,
-                #    flush at the last space to prevent indefinite buffering.
-                if len(sentence_buffer) > 150:
+
+                # 3. Safety: if LLM produces text without punctuation, flush at word boundary
+                max_buf = 70 if sent_count == 0 else 120
+                if len(sentence_buffer) > max_buf:
                     last_space = sentence_buffer.rfind(' ', 0, len(sentence_buffer) - 1)
                     if last_space > 20:
                         sentence = sentence_buffer[:last_space].strip()

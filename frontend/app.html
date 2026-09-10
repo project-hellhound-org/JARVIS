@@ -4825,23 +4825,39 @@ if (micBtn) {
   });
 }
 
-// Spacebar Push-to-Talk (instant hands-on speech trigger when text composer is not focused)
+// Spacebar Push-to-Talk (instant hands-on speech trigger)
 let isSpacebarPushToTalk = false;
 
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'Space' && !e.repeat) {
-    const activeEl = document.activeElement;
-    const isEditing = activeEl && (
-      activeEl.tagName === 'INPUT' || 
-      activeEl.tagName === 'TEXTAREA' || 
-      activeEl.isContentEditable
-    );
-    if (!isEditing && !isMicListening) {
+  if (e.code === 'Space') {
+    // If already in push-to-talk mode, always prevent repeated Space events from inserting characters
+    if (isSpacebarPushToTalk) {
       e.preventDefault();
-      isSpacebarPushToTalk = true;
-      startMicListening();
-      const inputEl = $('#chat-input');
-      if (inputEl) inputEl.placeholder = "🎙️ [HOLDING SPACE] Listening to Sir... release Space to send...";
+      return;
+    }
+
+    if (!e.repeat) {
+      const activeEl = document.activeElement;
+      const chatInput = $('#chat-input');
+      const isEditingOther = activeEl && activeEl !== chatInput && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.isContentEditable
+      );
+      // If user typed actual text (letters, numbers), space should act as a normal spacebar
+      const chatHasText = chatInput && activeEl === chatInput && chatInput.value.trim().length > 0;
+
+      if (!isEditingOther && !chatHasText) {
+        e.preventDefault();
+        isSpacebarPushToTalk = true;
+        if (chatInput) {
+          chatInput.value = ''; // Clean any stray whitespace
+          chatInput.placeholder = "🎙️ [HOLDING SPACE] Listening to Sir... release Space to send...";
+        }
+        if (!isMicListening) {
+          startMicListening();
+        }
+      }
     }
   }
 });
@@ -4850,9 +4866,12 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'Space' && isSpacebarPushToTalk) {
     e.preventDefault();
     isSpacebarPushToTalk = false;
-    stopMicListening();
     const inputEl = $('#chat-input');
-    if (inputEl) inputEl.placeholder = "Ask J.A.R.V.I.S. anything... (or hold Space to speak)";
+    if (inputEl) {
+      inputEl.value = ''; // ensure clean input for transcription
+      inputEl.placeholder = "Ask J.A.R.V.I.S. anything... (or hold Space to speak)";
+    }
+    stopMicListening();
   }
 });
 
