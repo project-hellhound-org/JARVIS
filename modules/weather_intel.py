@@ -82,7 +82,7 @@ class WeatherIntelEngine:
         # 2. Try Open-Meteo Geocoding API
         try:
             url = f'https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(loc_clean)}&count=1&language=en&format=json'
-            req = urllib.request.Request(url, headers={'User-Agent': 'SoldierBoy-WeatherIntel/2.0'})
+            req = urllib.request.Request(url, headers={'User-Agent': 'JARVIS-WeatherIntel/2.0'})
             with urllib.request.urlopen(req, timeout=4) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
                 results = data.get('results', [])
@@ -129,7 +129,7 @@ class WeatherIntelEngine:
         )
 
         try:
-            req = urllib.request.Request(url, headers={'User-Agent': 'SoldierBoy-WeatherIntel/2.0'})
+            req = urllib.request.Request(url, headers={'User-Agent': 'JARVIS-WeatherIntel/2.0'})
             with urllib.request.urlopen(req, timeout=5) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
                 curr = data.get('current', {})
@@ -171,7 +171,7 @@ class WeatherIntelEngine:
 
     def format_weather_debrief(self, w: Dict[str, Any]) -> str:
         """
-        Format authentic Soldier Boy weather debrief.
+        Format authentic J.A.R.V.I.S. weather debrief.
         """
         city = w.get('city', 'Current Sector')
         cond = w.get('condition', 'Overcast')

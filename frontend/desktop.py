@@ -46,7 +46,7 @@ except ImportError:
 from core.target_model import Target
 from core.case_brief import CaseBrief, parse_brief_with_slm
 from core.wake_word import WakeWordEngine
-from narrative.jarvis_voice import JarvisVoice, SoldierBoyVoice
+from narrative.jarvis_voice import JarvisVoice, JarvisVoice
 from narrative.session_memory import SessionMemory
 from memory.lessons_store import LessonsStore
 
@@ -62,8 +62,8 @@ _CONTEXT_SIGNALS = re.compile(
 
 
 class _StreamingPrefixFilter:
-    CANDIDATES = ("JARVIS:", "J.A.R.V.I.S.:", "SOLDIER BOY:", "SOLDIERBOY:", "SOLDIER-BOY:", "ASSISTANT:", "AI:")
-    CLEAN_REGEX = re.compile(r'^\s*(?:JARVIS|J\.A\.R\.V\.I\.S\.|SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', re.IGNORECASE)
+    CANDIDATES = ("JARVIS:", "J.A.R.V.I.S.:", "ASSISTANT:", "AI:")
+    CLEAN_REGEX = re.compile(r'^\s*(?:JARVIS|J\.A\.R\.V\.I\.S\.|ASSISTANT|AI)\s*:\s*', re.IGNORECASE)
 
     def __init__(self, on_chunk):
         self.on_chunk = on_chunk
@@ -248,12 +248,12 @@ class JarvisAPI:
         print(f"[desktop] openWakeWord triggered ('{phrase}'). Opening STT command capture window.")
         now = time.time()
         self._wake_window_expires = now + 20.0
-        self._emit("soldierboy_wake_word_detected", {"raw": phrase, "clean": ""})
+        self._emit("jarvis_wake_word_detected", {"raw": phrase, "clean": ""})
 
     def _on_vad_speech_ended(self):
         print("[desktop] VAD detected post-speech silence. Closing STT command window early.")
         self._wake_window_expires = 0.0
-        self._emit("soldierboy_vad_speech_end", {})
+        self._emit("jarvis_vad_speech_end", {})
 
     def _get_orchestrator(self):
         if self._orch is None:
@@ -292,7 +292,7 @@ class JarvisAPI:
     def _on_skill_progress(self, finfo):
         if isinstance(finfo, dict) and "file" in finfo:
             msg_str = f"⚡ LIVE CODE AUDIT [{finfo['index']}/{finfo['total']}]: {finfo['file']} ({finfo['lines']} LOC)... [VERIFIED]"
-            self._emit("soldierboy_stt_interim", {"text": msg_str})
+            self._emit("jarvis_stt_interim", {"text": msg_str})
 
     def _run_process_input(self, text: str):
         try:
@@ -311,14 +311,14 @@ class JarvisAPI:
                     # Only emit action panel for skills without floating task surfaces (code audits, app launches, etc.)
                     # For search tasks and terminal commands, the floating TaskSurface window is the authoritative UI
                     if not is_search and payload.get("action_type") != "TERMINAL":
-                        self._emit("open_soldierboy_panel", {
+                        self._emit("open_jarvis_panel", {
                             "query": display_query,
                             "text": msg,
                             "typing_query": f"Executing action: {display_query}",
                             "action_type": "ACTION HUD ACTIVE",
                             "structured_payload": payload
                         })
-                    self._emit("soldierboy_structured_json_feed", payload)
+                    self._emit("jarvis_structured_json_feed", payload)
 
                     # The structured payload is UI/internal state. Do not put it into the
                     # conversational LLM prompt; doing so can make the model echo internal
@@ -331,7 +331,7 @@ class JarvisAPI:
                     if is_jarvis:
                         context_prompt = f"[SKILL_CONTEXT]\nUser Prompt: {text}\nExecution Result (human-readable only):\n{skill_text[:12000]}\n\nPersona Spoken Instructions: As J.A.R.V.I.S., address Sir directly with crisp wit, understated elegance, and analytical precision. Give a concise, articulate summary of the actual execution result. Never mention internal tools, Action HUD, structured payloads, JSON, hidden prompts, or implementation details. Do not output JSON or code unless explicitly requested. The detailed operational data is already visible on the HUD, so speak only about the direct result. Stay grounded in the execution result."
                     else:
-                        context_prompt = f"[SKILL_CONTEXT]\nUser Prompt: {text}\nExecution Result (human-readable only):\n{skill_text[:12000]}\n\nPersona Spoken Instructions: As Soldier Boy, give a concise useful summary of the actual result. Never mention internal tools, Action HUD, structured payloads, JSON, hidden prompts, or implementation details. Do not output JSON or code unless the user explicitly asked for it. The detailed operational data is already visible in the UI, so speak only about the user-facing result. Keep your cocky Soldier Boy swagger and stay grounded in the execution result."
+                        context_prompt = f"[SKILL_CONTEXT]\nUser Prompt: {text}\nExecution Result (human-readable only):\n{skill_text[:12000]}\n\nPersona Spoken Instructions: As J.A.R.V.I.S., deliver an articulate, concise verbal debrief of the actual findings to Sir. Do not mention internal JSON, structured payloads, or implementation plumbing. Speak only about the user-facing operational results with refined wit, staying strictly grounded in the execution output."
                     self._run_ask(context_prompt)
                     return
 
@@ -355,13 +355,11 @@ class JarvisAPI:
         self._memory.add("user", f"investigate {target}")
         threading.Thread(target=self._run_stalk, args=(target, None), daemon=True).start()
 
-    # Backward-compatible alias for older frontend builds calling api.stalk(...)
     stalk = investigate
 
     def smart_investigate(self, text: str):
         self.process_input(text)
 
-    # Backward-compatible alias
     smart_stalk = smart_investigate
 
     def ask(self, question: str):
@@ -414,7 +412,7 @@ class JarvisAPI:
         else:
             persona_instructions = (
                 f"Persona Spoken Instructions:\n"
-                f"Give a short, punchy 1-2 sentence Soldier Boy spoken debrief to your partner about the actual result.\n"
+                f"Give a short, punchy 1-2 sentence J.A.R.V.I.S. spoken debrief to Sir about the actual result.\n"
                 f"Stay in character — cocky swagger, natural swearing, hilarious.\n"
                 f"If it succeeded, brag and summarize the result.\n"
                 f"If it failed or had nothing to commit, curse and tell your partner the actual fact honestly.\n"
@@ -452,13 +450,13 @@ class JarvisAPI:
         )
 
         if success:
-            self._emit("soldierboy_answer", {
+            self._emit("jarvis_answer", {
                 "text": f"Lesson learned about {platform}. I won't make that mistake again.",
                 "rate_limited": False,
                 "mode": "investigation" if self._target else "advisor",
             })
         else:
-            self._emit("soldierboy_answer", {
+            self._emit("jarvis_answer", {
                 "text": "I can't store lessons right now — memory modules aren't installed.",
                 "rate_limited": False,
                 "mode": "advisor",
@@ -681,7 +679,7 @@ class JarvisAPI:
             self._current_tts_proc = None
         with self._tts_turn_lock:
             self._tts_turn_id += 1
-        self._emit("soldierboy_interrupt_speech", {})
+        self._emit("jarvis_interrupt_speech", {})
         return True
 
     def save_config(self, cfg: dict):
@@ -735,7 +733,7 @@ class JarvisAPI:
         evidence_items = []
         try:
             case_slug = self._target.primary.replace("@", "_").replace(".", "_")
-            evidence_dir = Path.home() / ".soldierboy" / "cases" / case_slug / "evidence"
+            evidence_dir = Path.home() / ".jarvis" / "cases" / case_slug / "evidence"
             if not evidence_dir.exists():
                 evidence_dir = Path.home() / ".joe" / "cases" / case_slug / "evidence"
             if evidence_dir.exists():
@@ -933,7 +931,7 @@ class JarvisAPI:
 
             audio_b64 = self._voice.synthesize_speech_b64(sentence)
             if audio_b64:
-                self._emit("soldierboy_audio_chunk", {"audio": audio_b64, "text": sentence})
+                self._emit("jarvis_audio_chunk", {"audio": audio_b64, "text": sentence})
         except Exception as e:
             print(f"[desktop] Sentence TTS streaming error: {e}")
 
@@ -944,7 +942,7 @@ class JarvisAPI:
             self._tts_turn_id += 1
             tts_turn_id = self._tts_turn_id
 
-        self._emit("soldierboy_stream_start", {"turn_id": tts_turn_id})
+        self._emit("jarvis_stream_start", {"turn_id": tts_turn_id})
         sentence_buffer = ""
         tts_text_queue = queue.Queue()
         tts_audio_queue = queue.Queue(maxsize=15)
@@ -997,7 +995,7 @@ class JarvisAPI:
                                     continue
                                 streamed = True
                                 tts_state["emitted"] = True
-                                self._emit("soldierboy_pcm_audio_chunk", {
+                                self._emit("jarvis_pcm_audio_chunk", {
                                     "audio": base64.b64encode(pcm_bytes).decode("ascii"),
                                     "sample_rate": sample_rate,
                                     "text": sentence if first else "",
@@ -1045,7 +1043,7 @@ class JarvisAPI:
                             continue
                     tts_state["emitted"] = True
                     # Emit to UI immediately
-                    self._emit("soldierboy_audio_chunk", {
+                    self._emit("jarvis_audio_chunk", {
                         "audio": item["audio_b64"],
                         "text": item["sentence"],
                         "turn_id": turn,
@@ -1072,7 +1070,7 @@ class JarvisAPI:
             nonlocal sent_count
             if not text:
                 return
-            clean = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', text, flags=re.IGNORECASE).strip()
+            clean = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', text, flags=re.IGNORECASE).strip()
             # Strip roleplay stage directions and action asterisks (*grins*, *cracks knuckles*, etc.)
             clean = re.sub(r'\*[^*]+\*', '', clean)
             clean = re.sub(r'\([^)]*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks|leans|snort)[^)]*\)', '', clean, flags=re.IGNORECASE)
@@ -1091,7 +1089,7 @@ class JarvisAPI:
 
         def emit_clean_chunk(tok: str):
             nonlocal sentence_buffer, sent_count
-            self._emit("soldierboy_stream_chunk", {"chunk": tok})
+            self._emit("jarvis_stream_chunk", {"chunk": tok})
             if self._voice:
                 sentence_buffer += tok
                 # Python 3.14 safe sentence boundary matching
@@ -1126,7 +1124,7 @@ class JarvisAPI:
         # Flush any remaining sentence buffer
         if sentence_buffer.strip() and self._voice:
             frag = sentence_buffer.strip()
-            frag = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', frag, flags=re.IGNORECASE).strip()
+            frag = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', frag, flags=re.IGNORECASE).strip()
             if len(frag) > 2:
                 queue_spoken_text(frag)
 
@@ -1134,12 +1132,12 @@ class JarvisAPI:
         # simulate word-by-word text streaming on screen AND enqueue clean spoken sentences for local voice engine!
         if sent_count == 0 and result.get("text"):
             raw_text = result["text"]
-            raw_text = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', raw_text, flags=re.IGNORECASE).strip()
+            raw_text = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', raw_text, flags=re.IGNORECASE).strip()
             # 1. Simulate streaming text on screen word-by-word
             words = raw_text.split(' ')
             for i, w in enumerate(words):
                 token = w + (" " if i < len(words) - 1 else "")
-                self._emit("soldierboy_stream_chunk", {"chunk": token})
+                self._emit("jarvis_stream_chunk", {"chunk": token})
                 time.sleep(0.003)  # 3ms ultra-fast word typing effect
 
             # 2. Extract clean printable sentences for speech synthesis
@@ -1169,7 +1167,7 @@ class JarvisAPI:
                 synth_thread.join(timeout=2.0)
                 if not tts_state["emitted"] and result.get("text"):
                     fallback_text = self._voice._sanitize_text_for_speech(result.get("text", "")) if self._voice else result.get("text", "")
-                    self._emit("soldierboy_tts_browser_fallback", {"text": fallback_text, "turn_id": tts_turn_id})
+                    self._emit("jarvis_tts_browser_fallback", {"text": fallback_text, "turn_id": tts_turn_id})
 
         # Post-hoc grounding check audit on full assembled LLM response text
         if self._target and result.get("text"):
@@ -1178,11 +1176,11 @@ class JarvisAPI:
                 _, warnings = verify_grounding(result["text"], self._target)
                 if warnings:
                     print(f"[desktop] Grounding audit warning for active case {self._target.primary}: {warnings}")
-                    self._emit("soldierboy_grounding_warning", {"warnings": warnings, "target": self._target.primary})
+                    self._emit("jarvis_grounding_warning", {"warnings": warnings, "target": self._target.primary})
             except Exception as e:
                 print(f"[desktop] Post-hoc grounding check audit notice: {e}")
 
-        self._emit("soldierboy_answer", {
+        self._emit("jarvis_answer", {
             "text": result.get("text", "Done."),
             "audio": None,
             "rate_limited": result.get("rate_limited", False),
@@ -1202,7 +1200,7 @@ class JarvisAPI:
                 if isinstance(result.get("panel_payload"), dict) else False
             )
             if not is_search_result:
-                self._emit("open_soldierboy_panel", {
+                self._emit("open_jarvis_panel", {
                     "query": result.get("search_query", ""),
                     "text": result["text"],
                     "structured_payload": result.get("panel_payload", {})
@@ -1215,19 +1213,19 @@ class JarvisAPI:
         """Export current investigation target findings to a standalone HTML report."""
         if not self._target:
             msg = "No active investigation case loaded to export."
-            self._emit("soldierboy_answer", {"text": msg, "mode": "advisor"})
+            self._emit("jarvis_answer", {"text": msg, "mode": "advisor"})
             return msg
         try:
             from exporters.html_report import generate
             report_path = generate(self._target)
             msg = f"HTML investigation report generated successfully at: {report_path}"
             print(f"[desktop] {msg}")
-            self._emit("soldierboy_answer", {"text": f"Report exported for {self._target.primary}. Saved to: {report_path}", "mode": "investigation"})
+            self._emit("jarvis_answer", {"text": f"Report exported for {self._target.primary}. Saved to: {report_path}", "mode": "investigation"})
             return str(report_path)
         except Exception as e:
             err_msg = f"Failed to export report: {e}"
             print(f"[desktop] {err_msg}")
-            self._emit("soldierboy_answer", {"text": err_msg, "mode": "advisor"})
+            self._emit("jarvis_answer", {"text": err_msg, "mode": "advisor"})
             return err_msg
 
     def pick_image(self):
@@ -1268,21 +1266,21 @@ class JarvisAPI:
             print(f"[desktop] save_dropped_image error: {e}")
 
     def submit_image(self, image_path: str, prompt: str):
-        """Analyze an attached image with prompt via SoldierBoyVoice multimodal AI."""
+        """Analyze an attached image with prompt via JarvisVoice multimodal AI."""
         print(f"\n[desktop] Submitting image prompt: {prompt} (image: {image_path})")
         threading.Thread(target=self._run_submit_image, args=(image_path, prompt), daemon=True).start()
 
     def _run_submit_image(self, image_path: str, prompt: str):
-        self._emit("soldierboy_stream_start", {})
+        self._emit("jarvis_stream_start", {})
         def on_token(chunk: str):
-            self._emit("soldierboy_stream_chunk", {"chunk": chunk})
+            self._emit("jarvis_stream_chunk", {"chunk": chunk})
 
         full_prompt = prompt if prompt else "Analyze this image in detail and tell me what you observe from an OSINT investigator perspective."
         result = self._voice.chat(full_prompt, self._target, on_token=on_token, image_path=image_path)
         if result.get("rate_limited"):
             self._emit("rate_limited", {})
 
-        self._emit("soldierboy_answer", {
+        self._emit("jarvis_answer", {
             "text": result["text"],
             "audio": None,
             "rate_limited": result.get("rate_limited", False),
@@ -1329,9 +1327,9 @@ class JarvisAPI:
             text = "Investigation aborted. You pulled me away. But I remember what we found so far."
             used_gemini = False
         else:
-            self._emit("soldierboy_stream_start", {})
+            self._emit("jarvis_stream_start", {})
             def on_token(chunk: str):
-                self._emit("soldierboy_stream_chunk", {"chunk": chunk})
+                self._emit("jarvis_stream_chunk", {"chunk": chunk})
 
             result = self._voice.closing_monologue(target, on_token=on_token)
             text = result["text"]
@@ -1340,7 +1338,7 @@ class JarvisAPI:
             if result.get("rate_limited"):
                 self._emit("rate_limited", {})
 
-        self._memory.add("soldierboy", text)
+        self._memory.add("jarvis", text)
         self._emit("investigation_done", {
             "target": target.to_dict(),
             "monologue": text,
@@ -1411,7 +1409,7 @@ class JarvisAPI:
         if hasattr(self, '_mic_proc') and self._mic_proc and self._mic_proc.poll() is None:
             return {"success": True, "recording": True}
 
-        wav_path = "/tmp/soldierboy_mic_rec.wav"
+        wav_path = "/tmp/jarvis_mic_rec.wav"
         if os.path.exists(wav_path):
             try:
                 os.remove(wav_path)
@@ -1468,7 +1466,7 @@ class JarvisAPI:
         finally:
             self._mic_proc = None
 
-        wav_path = "/tmp/soldierboy_mic_rec.wav"
+        wav_path = "/tmp/jarvis_mic_rec.wav"
         if not os.path.exists(wav_path) or os.path.getsize(wav_path) == 0:
             return {"success": False, "error": "No audio captured from microphone"}
 
@@ -1529,7 +1527,7 @@ class JarvisAPI:
 
         try:
             while getattr(self, '_bg_voice_active', False):
-                # Never record Soldier Boy's own TTS as a new command.
+                # Never record J.A.R.V.I.S.'s own TTS as a new command.
                 if time.time() < getattr(self, '_tts_playback_until', 0.0):
                     pcm_buffer.clear(); pre_roll.clear()
                     is_speaking = False; silence_chunks = 0; speech_start_count = 0
@@ -1574,7 +1572,7 @@ class JarvisAPI:
                             f"[voice listener] Voice detected (Energy: {energy:.1f} > "
                             f"Threshold: {threshold:.1f}) -> LISTENING"
                         )
-                        self._emit("soldierboy_speech_started", {})
+                        self._emit("jarvis_speech_started", {})
                     if is_speaking:
                         pcm_buffer.append(raw_chunk)
                 else:
@@ -1598,7 +1596,7 @@ class JarvisAPI:
                                     args=(captured_pcm,), daemon=True
                                 ).start()
                             else:
-                                self._emit("soldierboy_speech_ended", {})
+                                self._emit("jarvis_speech_ended", {})
 
                 if is_speaking and len(pcm_buffer) >= max_turn_chunks:
                     print("[voice listener] Speech reached safety ceiling; transcribing current turn.")
@@ -1626,14 +1624,14 @@ class JarvisAPI:
                     except Exception: pass
 
     def _process_captured_speech(self, pcm_bytes: bytes):
-        """Transcribe captured speech and trigger HUD / SoldierBoyVoice response."""
+        """Transcribe captured speech and trigger HUD / JarvisVoice response."""
         # 1. Ignore audio captured while TTS was playing back
         if time.time() < getattr(self, '_tts_playback_until', 0.0):
             print("[voice listener] Captured audio ignored: TTS audio was active during recording.")
-            self._emit("soldierboy_speech_ended", {})
+            self._emit("jarvis_speech_ended", {})
             return
 
-        wav_path = f"/tmp/soldierboy_speech_{int(time.time()*1000)}.wav"
+        wav_path = f"/tmp/jarvis_speech_{int(time.time()*1000)}.wav"
         try:
             with wave.open(wav_path, 'wb') as wf:
                 wf.setnchannels(1)
@@ -1653,7 +1651,7 @@ class JarvisAPI:
             if text:
                 print(f"[voice listener] Recognized text: '{text}'")
 
-                # 2. Filter out self-echo (mic picking up Soldier Boy's own voice)
+                # 2. Filter out self-echo (mic picking up J.A.R.V.I.S.'s own voice)
                 rec_clean = re.sub(r'[^\w\s]', '', text.lower()).strip()
                 is_self_echo = False
                 for past_resp in getattr(self, '_recent_agent_responses', []):
@@ -1672,82 +1670,77 @@ class JarvisAPI:
                             break
 
                 if is_self_echo:
-                    print(f"[voice listener] Self-echo suppressed (recognized text matches Soldier Boy response): '{text}'")
-                    self._emit("soldierboy_speech_ended", {})
+                    print(f"[voice listener] Self-echo suppressed (recognized text matches J.A.R.V.I.S. response): '{text}'")
+                    self._emit("jarvis_speech_ended", {})
                     return
 
                 # Check for explicit Stop commands first
                 stop_pattern = r'\b(?:stop|shut\s*up|be\s*quiet|quiet|hush|silence|cancel)\b'
                 if re.search(stop_pattern, text, re.IGNORECASE):
                     print(f"[voice listener] Stop command detected: '{text}'")
-                    self._emit("soldierboy_stop_command", {"text": text})
+                    self._emit("jarvis_stop_command", {"text": text})
                     self._wake_window_expires = 0.0
                     return
 
-                # Wake word patterns: J.A.R.V.I.S. + Soldier Boy + natural addressing
+                # Wake word patterns: J.A.R.V.I.S. + J.A.R.V.I.S. + natural addressing
                 # Explicit/natural assistant addressing. These are intentionally
                 # PREFIX-only so ordinary speech such as "my buddy called me"
                 # cannot wake the assistant.
-                jarvis_pattern = r'^(?:(?:hey|hi|hai|yo|yoo|hello|ok|okay)\s+)?(?:jarvis|jarv|service|javis|jarvises)\b\s*,?\s*'
-                jarvis_anywhere = r'\b(?:jarvis|jarv)\b'
-                soldier_pattern = r'^(?:(?:hey|hi|hai|yo|yoo|you|your|ur|u|ya|dude|hello|ok|okay|play)\s+)?(?:soldier\s*boy|soldier|soldi|soldja|solger|solja|soja|solda|suraj\s*boy|suraj|search\s*boy|shoes\s*boy|soulja\s*boy|soulja|shoulda\s*boy|sol)\b\s*,?\s*'
-                natural_address_pattern = r'^(?:(?:hey|hi|hai|yo|yoo|hello|okay|ok)\s+)?(?:sir|buddy|bro)\b\s*,?\s*'
-                soldier_anywhere = r'\b(?:soldier\s*boy|soldier|soldja|solger|solja|suraj\s*boy|suraj|soulja\s*boy|soulja)\b'
-
+                # Wake word patterns: J.A.R.V.I.S.
+                jarvis_pattern = r'^(?:(?:hey|hi|hai|yo|yoo|hello|ok|okay)\\s+)?(?:jarvis|jarv|javis)\\b\\s*,?\\s*'
+                jarvis_anywhere = r'\\b(?:jarvis|jarv)\\b'
                 jarvis_match = re.search(jarvis_pattern, text, re.IGNORECASE)
-                soldier_match = re.search(soldier_pattern, text, re.IGNORECASE)
-                natural_match = re.search(natural_address_pattern, text, re.IGNORECASE)
-                anywhere_match = re.search(jarvis_anywhere, text, re.IGNORECASE) or re.search(soldier_anywhere, text, re.IGNORECASE)
+                anywhere_match = re.search(jarvis_anywhere, text, re.IGNORECASE) 
                 now = time.time()
 
                 # Direct identity / interaction questions bypass wake word check
-                implicit_match = re.search(r'\b(?:who\s+are\s+you|who\s+are\s+u|who\s+u\s+are|what\s+can\s+you\s+do|who\s+the\s+fuck\s+are\s+you)\b', text, re.IGNORECASE)
+                implicit_match = re.search(r'\\b(?:who\\s+are\\s+you|who\\s+are\\s+u|who\\s+u\\s+are|what\\s+can\\s+you\\s+do|who\\s+the\\s+fuck\\s+are\\s+you)\\b', text, re.IGNORECASE)
 
-                if jarvis_match or soldier_match or natural_match:
-                    active_match = jarvis_match or soldier_match or natural_match
-                    address_name = "Hey JARVIS" if jarvis_match else ("Hey Soldier" if soldier_match else "natural address")
+                if jarvis_match:
+                    active_match = jarvis_match
+                    address_name = "Hey JARVIS"
                     clean = text[active_match.end():].strip()
                     print(f"[voice listener] {address_name} match! Raw: '{text}', Clean command: '{clean}'")
-                    self._emit("soldierboy_wake_word_detected", {"raw": text, "clean": clean if clean else text})
+                    self._emit("jarvis_wake_word_detected", {"raw": text, "clean": clean if clean else text})
                     if clean:
                         print(f"[voice listener] Sending voice command to assistant: '{clean}'")
-                        self._emit("soldierboy_voice_detected", {"text": clean, "raw": text})
+                        self._emit("jarvis_voice_detected", {"text": clean, "raw": text})
                         self._wake_window_expires = now + 20.0
                     else:
                         print(f"[voice listener] Address only spoken ('{text}'). Opening 20s conversation window...")
                         self._wake_window_expires = now + 20.0
                 elif anywhere_match:
                     print(f"[voice listener] Anywhere wake phrase match ('{text}')! Triggering assistant command...")
-                    self._emit("soldierboy_wake_word_detected", {"raw": text, "clean": text})
-                    self._emit("soldierboy_voice_detected", {"text": text, "raw": text})
+                    self._emit("jarvis_wake_word_detected", {"raw": text, "clean": text})
+                    self._emit("jarvis_voice_detected", {"text": text, "raw": text})
                     self._wake_window_expires = now + 20.0
                 elif implicit_match:
                     print(f"[voice listener] Direct query match ('{text}')! Triggering assistant command...")
-                    self._emit("soldierboy_wake_word_detected", {"raw": text, "clean": text})
-                    self._emit("soldierboy_voice_detected", {"text": text, "raw": text})
+                    self._emit("jarvis_wake_word_detected", {"raw": text, "clean": text})
+                    self._emit("jarvis_voice_detected", {"text": text, "raw": text})
                     self._wake_window_expires = now + 20.0
                 elif now < getattr(self, '_wake_window_expires', 0.0):
                     print(f"[voice listener] Active conversation window! Sending follow-up command to assistant: '{text}'")
-                    self._emit("soldierboy_voice_detected", {"text": text, "raw": text})
+                    self._emit("jarvis_voice_detected", {"text": text, "raw": text})
                     self._wake_window_expires = now + 20.0
                 else:
                     print(f"[voice listener] No wake word detected in ambient audio: '{text}'")
-                    self._emit("soldierboy_speech_ended", {})
+                    self._emit("jarvis_speech_ended", {})
             else:
                 print("[voice listener] Audio transcribed to empty text.")
-                self._emit("soldierboy_speech_ended", {})
+                self._emit("jarvis_speech_ended", {})
 
         except sr.UnknownValueError:
             print("[voice listener] Audio was unintelligible.")
-            self._emit("soldierboy_speech_ended", {})
+            self._emit("jarvis_speech_ended", {})
         except sr.RequestError as req_err:
             print(f"[voice listener] Google Speech Recognition API error: {req_err}")
-            self._emit("soldierboy_speech_ended", {})
+            self._emit("jarvis_speech_ended", {})
         except Exception as e:
             import traceback
             print(f"[desktop] Processing error: {e}")
             traceback.print_exc()
-            self._emit("soldierboy_speech_ended", {})
+            self._emit("jarvis_speech_ended", {})
         finally:
             if os.path.exists(wav_path):
                 try:
@@ -1765,14 +1758,12 @@ class JarvisAPI:
                         return obj.__dict__
                     return str(obj)
                 json_str = json.dumps(data, default=_json_default)
-                js_code = f"(window.jarvis || window.soldierboy || window.joe) && (window.jarvis || window.soldierboy || window.joe).receive && (window.jarvis || window.soldierboy || window.joe).receive('{event}', {json_str})"
+                js_code = f"(window.jarvis || window.joe) && (window.jarvis || window.joe).receive && (window.jarvis || window.joe).receive('{event}', {json_str})"
                 self._window.evaluate_js(js_code)
             except Exception as e:
                 print(f"[desktop] JS evaluate error for {event}: {e}")
 
 
-# Backward-compatible API alias
-SoldierBoyAPI = JarvisAPI
 
 
 class JarvisDesktop:
@@ -1782,11 +1773,11 @@ class JarvisDesktop:
         # Copy icons and artwork assets to frontend execution directory
         src_icon = ROOT.parent / "assets" / "logo.png"
         if not src_icon.exists():
-            src_icon = ROOT.parent / "assets" / "soldierboy-icon.png"
+            src_icon = ROOT.parent / "assets" / "jarvis-icon.png"
         dst_icon = ROOT / "jarvis-icon.png"
         if src_icon.exists():
             shutil.copy(src_icon, dst_icon)
-            shutil.copy(src_icon, ROOT / "soldierboy-icon.png")
+            shutil.copy(src_icon, ROOT / "jarvis-icon.png")
 
         src_geo = ROOT.parent / "assets" / "world_outline.jpg"
         dst_geo = ROOT / "world_outline.jpg"
@@ -1807,7 +1798,7 @@ class JarvisDesktop:
 
         api = JarvisAPI()
         persona_name = str(api._cfg.get("persona", "jarvis")).strip().lower()
-        win_title = "J.A.R.V.I.S. — Tactical Intelligence Console" if persona_name == "jarvis" else "Soldier Boy"
+        win_title = "J.A.R.V.I.S. — Tactical Intelligence Console"
         window_kwargs = {
             "title": win_title,
             "url": str(HTML_PATH),
@@ -1828,5 +1819,3 @@ class JarvisDesktop:
         webview.start(debug=False)
 
 
-# Backward-compatible desktop runner alias
-SoldierBoyDesktop = JarvisDesktop

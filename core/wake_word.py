@@ -1,10 +1,10 @@
 # core/wake_word.py
 """
-Local openWakeWord engine & VAD command-window management for Soldier Boy.
+Local openWakeWord engine & VAD command-window management for J.A.R.V.I.S.
 Features:
-- Continuous 100% on-device CPU prediction for 'Hey Soldier' / 'Hey Dean' (ONNX).
+- Continuous on-device CPU prediction for "Hey JARVIS" / "JARVIS".
 - Hardware mic detection with graceful fallback to browser Web Speech API.
-- Voice Activity Detection (VAD) for 1.2s post-speech silence early-closing (30s safety cap).
+- Voice Activity Detection (VAD) for post-speech silence handling.
 """
 
 import os
@@ -68,21 +68,21 @@ class WakeWordEngine:
         audio_chunk_callback: Optional[Callable[[bytes], None]] = None,
         model_path: Optional[str] = None,
         threshold: float = 0.35,
-        silence_timeout_sec: float = 3.2,
-        max_window_sec: float = 30.0
+        silence_timeout_sec: float = 0.8,
+        max_window_sec: float = 12.0
     ):
         self.on_wake_detected = on_wake_detected
         self.on_speech_ended = on_speech_ended
         self.audio_chunk_callback = audio_chunk_callback
 
-        # Load dynamic VAD settings to prevent cutting off mid-sentence speech
+        # Load dynamic VAD settings
         vad_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "vad_settings.json")
         loaded_silence = silence_timeout_sec
         if os.path.exists(vad_file):
             try:
                 with open(vad_file, "r") as f:
                     vdata = json.load(f)
-                    loaded_silence = max(3.2, float(vdata.get("speech_hangover_ms", 3200)) / 1000.0)
+                    loaded_silence = max(0.6, float(vdata.get("speech_hangover_ms", 800)) / 1000.0)
             except Exception:
                 pass
 
@@ -121,36 +121,29 @@ class WakeWordEngine:
     def _init_engine(self, model_path: Optional[str]):
         """Initialize openWakeWord model and check microphone hardware."""
         _patch_openwakeword_providers()
-        # 1. Check custom ONNX model path or default openWakeWord models
         target_model = model_path
         if not target_model:
-            custom_soldier_path = Path(__file__).parent.parent / "data" / "models" / "hey_soldier.onnx"
-            custom_dean_path = Path(__file__).parent.parent / "data" / "models" / "hey_dean.onnx"
-            custom_joe_path = Path(__file__).parent.parent / "data" / "models" / "hey_joe.onnx"
-            if custom_soldier_path.exists():
-                target_model = str(custom_soldier_path)
-            elif custom_dean_path.exists():
-                target_model = str(custom_dean_path)
-            elif custom_joe_path.exists():
-                target_model = str(custom_joe_path)
+            custom_jarvis_path = Path(__file__).parent.parent / "data" / "models" / "hey_jarvis.onnx"
+            if custom_jarvis_path.exists():
+                target_model = str(custom_jarvis_path)
 
         try:
             import openwakeword
             from openwakeword.model import Model
             if target_model and os.path.exists(target_model):
                 print(f"[wake_word] Loading custom openWakeWord model: {target_model}")
-                self._model = Model(wakeword_model_paths=[target_model])
+                self._model = Model(wakeword_models=[target_model], inference_framework="onnx")
             else:
-                print("[wake_word] Custom wake word ONNX model not found; using openWakeWord base ONNX engine for 'Hey Soldier'.")
-                self._model = Model()
+                # Built-in or fallback listener for JARVIS
+                self._model = None
         except Exception as e:
-            print(f"[wake_word] Notice: openwakeword module not loaded ({e}).")
+            print(f"[wake_word] Notice: openWakeWord model init: {e}. Active via Web Speech STT.")
+            self._model = None
 
-        # 2. Check PyAudio / microphone hardware availability
+        # 2. Check microphone hardware
         try:
             import pyaudio
             self._pyaudio = pyaudio.PyAudio()
-            # Try finding an active input device
             device_count = self._pyaudio.get_device_count()
             has_input = False
             for i in range(device_count):
@@ -161,7 +154,7 @@ class WakeWordEngine:
             
             if has_input:
                 self.hardware_mic_available = True
-                print("[wake_word] Hardware microphone detected and ready for openWakeWord.")
+                print("[wake_word] Hardware microphone detected and ready for JARVIS.")
             else:
                 print("[wake_word] No audio input hardware found. Delegating wake word to Web Speech API.")
                 self.fallback_to_web_speech = True
@@ -172,7 +165,7 @@ class WakeWordEngine:
     def start(self):
         """Start background microphone listening thread if hardware is present."""
         if not self.hardware_mic_available or not self._model:
-            print("[wake_word] Engine running in browser Web Speech API fallback mode.")
+            print("[wake_word] Engine running in browser Web Speech API fallback mode for JARVIS.")
             return
 
         self.running = True
@@ -207,42 +200,22 @@ class WakeWordEngine:
 
     def check_stt_text_for_wake_or_aliases(self, text: str) -> tuple[bool, str]:
         """
-        Check incoming raw STT transcription against registered wake aliases and custom phrases.
+        Check incoming raw STT transcription against registered JARVIS wake aliases.
         Returns (matched: bool, phrase: str)
         """
         if not text:
             return False, ""
         clean = text.strip().lower()
         aliases = [
-            "jarvis", "hey jarvis", "yo jarvis", "ok jarvis", "okay jarvis", "jarv",
-            "hey soldier", "yo soldier", "your soldier", "you soldier", "ur soldier",
-            "soldier boy", "your soldier boy", "you soldier boy", "ur soldier boy",
-            "buddy", "hey buddy", "bro", "hey bro"
+            "jarvis", "hey jarvis", "yo jarvis", "ok jarvis", "okay jarvis", "jarv", "hi jarvis"
         ]
 
-        # Conservative phonetic fallbacks retained for the Soldier identity only.
-        mishears = ["chow", "show", "suraj"]
-        for m in mishears:
-            if clean.startswith(m) or f"hey {m}" in clean or f"yo {m}" in clean:
-                try:
-                    from modules.self_upgrade import SoldierBoySelfUpgrade
-                    upgrader = SoldierBoySelfUpgrade()
-                    msg = upgrader.trigger_auto_retrain_if_needed(f"misheard_{m}_as_soldier")
-                    if msg:
-                        print(f"[wake_word] {msg}")
-                except Exception:
-                    pass
-                return True, "Hey Soldier"
-
         for alias in aliases:
-            if alias in ("buddy", "hey buddy", "bro", "hey bro"):
-                if re.match(rf'^{re.escape(alias)}\b', clean):
-                    return True, alias.title()
-            elif clean.startswith(alias):
+            if clean.startswith(alias):
                 return True, alias.title()
         return False, ""
 
-    def trigger_wake_event(self, trigger_phrase: str = "Hey Soldier"):
+    def trigger_wake_event(self, trigger_phrase: str = "Hey JARVIS"):
         """Programmatically trigger a wake detection event (e.g. from STT regex fallback)."""
         now = time.time()
         self.is_window_active = True
@@ -281,7 +254,7 @@ class WakeWordEngine:
             return
 
         import numpy as np
-        print("[wake_word] Continuous openWakeWord background listener active ('Hey Soldier').")
+        print("[wake_word] Continuous openWakeWord background listener active (JARVIS).")
 
         while self.running:
             try:
@@ -303,8 +276,8 @@ class WakeWordEngine:
                     prediction = self._model.predict(audio_int16)
                     for model_name, score in prediction.items():
                         if score >= self.threshold:
-                            print(f"[wake_word] 'Hey Soldier' detected via openWakeWord! Score: {score:.3f} >= {self.threshold:.3f}")
-                            self.trigger_wake_event("Hey Soldier")
+                            print(f"[wake_word] JARVIS detected! Score: {score:.3f} >= {self.threshold:.3f}")
+                            self.trigger_wake_event("Hey JARVIS")
                             break
                         elif score >= 0.20:
                             print(f"[wake_word] Candidate voice detected: {score:.3f} (threshold: {self.threshold:.3f})")
@@ -314,20 +287,15 @@ class WakeWordEngine:
                     elapsed = now - self.window_start_time
                     rms = self._compute_rms(data)
 
-                    # Speech detection threshold (RMS > 180.0 = speech; tuned for natural conversational volume)
                     if rms > 180.0:
                         self.last_speech_time = now
                         self.has_detected_speech_in_window = True
 
                     silence_duration = now - self.last_speech_time
 
-                    # Close window if:
-                    # a) Speech was detected and followed by the configured natural-pause timeout
-                    # b) Maximum window ceiling (30s) reached
                     if (self.has_detected_speech_in_window and silence_duration >= self.silence_timeout_sec) or (elapsed >= self.max_window_sec):
-                        print(f"[wake_word] VAD early-closing command window (silence: {silence_duration:.1f}s, total: {elapsed:.1f}s).")
                         self.is_window_active = False
-                        self._wake_cooldown_until = time.time() + 2.5
+                        self._wake_cooldown_until = time.time() + 2.0
                         if self._model:
                             try:
                                 self._model.reset()

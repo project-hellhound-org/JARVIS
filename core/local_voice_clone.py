@@ -1,7 +1,7 @@
 # core/local_voice_clone.py
 """
-100% Local Zero-Shot Voice Cloning Engine for Soldier Boy.
-Synthesizes speech matching Soldier Boy's vocal timbre from assets/soldierboy_reference.wav.
+100% Local Zero-Shot Voice Cloning Engine for J.A.R.V.I.S..
+Synthesizes speech matching J.A.R.V.I.S.'s vocal timbre from assets/jarvis_reference.wav.
 Runs entirely on-device (CPU/GPU) with zero external API calls or credit limits.
 """
 
@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Optional
 
 DOWNLOADS_DIR = Path.home() / "Downloads"
-DOWNLOADS_REF_WAV = DOWNLOADS_DIR / "soldierboy_reference.wav"
-REFERENCE_WAV_PATH = Path(__file__).parent.parent / "assets" / "soldierboy_reference.wav"
+DOWNLOADS_REF_WAV = DOWNLOADS_DIR / "jarvis_reference.wav"
+REFERENCE_WAV_PATH = Path(__file__).parent.parent / "assets" / "jarvis_reference.wav"
 LEGACY_REFERENCE_WAV_PATH = Path(__file__).parent.parent / "assets" / "joe_reference.wav"
 
 
@@ -26,7 +26,7 @@ class LocalVoiceClone:
         elif DOWNLOADS_DIR.exists():
             for ext in ["*.wav", "*.mp3", "*.m4a"]:
                 for f in DOWNLOADS_DIR.glob(ext):
-                    if "soldier" in f.name.lower() or "the boys" in f.name.lower():
+                    if "jarvis" in f.name.lower():
                         downloads_voice = str(f)
                         break
                 if downloads_voice:

@@ -4,14 +4,14 @@ import shutil
 import subprocess
 import urllib.parse
 import webbrowser
-from core.soldierboy_memory import SoldierBoyMemory
+from core.jarvis_memory import JarvisMemory
 from core.structured_hud_engine import StructuredHUDEngine
 
 SKILLS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "skills")
 
 class SystemSkillEngine:
     def __init__(self):
-        self.memory = SoldierBoyMemory()
+        self.memory = JarvisMemory()
         self.hud_engine = StructuredHUDEngine()
         os.makedirs(SKILLS_DIR, exist_ok=True)
 
@@ -207,8 +207,8 @@ class SystemSkillEngine:
 
         # Dynamic self-upgrade memory logger
         try:
-            from core.soldierboy_memory import SoldierBoyMemory
-            mem = SoldierBoyMemory()
+            from core.jarvis_memory import JarvisMemory
+            mem = JarvisMemory()
             mem.log_speech_pattern(f"Active skill requested: '{text}'")
         except Exception:
             pass
@@ -488,7 +488,7 @@ class SystemSkillEngine:
             if "reschedule" in text_lower:
                 msg = cal.reschedule_event("Sync", "16:00", "16:30")
             else:
-                msg = cal.format_soldierboy_reminders()
+                msg = cal.format_jarvis_reminders()
             raw = [{"title": "Calendar Agenda", "snippet": msg, "url": "data/calendar.json"}]
             payload = self.hud_engine.build_structured_payload("Calendar Intel", "CALENDAR", raw, msg)
             try:
@@ -519,7 +519,7 @@ class SystemSkillEngine:
                 msg = nav.format_nearby_food_response("tacos")
             elif "route" in text_lower or "direction" in text_lower or "nav" in text_lower:
                 route = nav.get_route_directions("HQ")
-                msg = f"Route set for {route['destination']}. {route['soldierboy_prompts'][1]}"
+                msg = f"Route set for {route['destination']}. {route['jarvis_prompts'][1]}"
             else:
                 msg = nav.format_nearby_food_response("coffee")
             raw = [{"title": "Navigation Directions", "snippet": msg, "url": "data/maps_nav.json"}]
@@ -549,8 +549,8 @@ class SystemSkillEngine:
 
         # 7. Self-Upgrade & Code Mistake Audit
         if any(kw in text_lower for kw in ["audit code", "inspect code", "audit files", "self upgrade", "level up", "rollback skill", "skill metrics", "upgarded", "upgraded", "codebase", "what are good", "what is new"]):
-            from modules.self_upgrade import SoldierBoySelfUpgrade
-            upgrader = SoldierBoySelfUpgrade()
+            from modules.self_upgrade import JarvisSelfUpgrade
+            upgrader = JarvisSelfUpgrade()
             if "rollback" in text_lower:
                 msg = upgrader.rollback_skill("navigation_boost")
                 raw = [{"title": "Skill Rollback Executed", "snippet": msg, "url": "data/skills_config.json"}]
@@ -564,7 +564,7 @@ class SystemSkillEngine:
                     type_="terminal",
                     title="LIVE CODE AUDIT: REPOSITORY SELF-CHECK",
                     data={
-                        "command": "soldierboy audit --repository",
+                        "command": "jarvis audit --repository",
                         "stdout": "⚡ Initializing codebase self-inspection...\n"
                     }
                 )

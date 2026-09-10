@@ -1,6 +1,6 @@
 # core/system_commander.py
 """
-Soldier Boy Autonomous System Commander ("JARVIS" Engine).
+J.A.R.V.I.S. Autonomous System Commander ("JARVIS" Engine).
 Executes shell commands, native security tools, diagnostics, and scripts
 with real-time output capture, safety guardrails, and TaskSurface integration.
 """

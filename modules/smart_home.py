@@ -1,6 +1,6 @@
 # modules/smart_home.py
 """
-Smart Home & IoT Controls Module for Soldier Boy.
+Smart Home & IoT Controls Module for J.A.R.V.I.S..
 Provides controls for lights, thermostat, locks, and arrival routines ("I'm home, you beautiful bastard").
 """
 

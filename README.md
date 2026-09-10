@@ -50,7 +50,7 @@ Unlike passive scrapers or noisy search wrappers, J.A.R.V.I.S. acts as a true in
 - **Aerial & Infrastructure Telemetry**: Integrated real-time military flight tracking (ADS-B), atmospheric weather intelligence, and public surveillance capabilities inspired by *God's Eye View*.
 
 Operate across three flexible interfaces:
-- **Desktop GUI Application**: A dedicated PyWebView/FastAPI desktop interface featuring collapsible card modules, transparent eye API key toggles, 2D/3D radial topology graphs, and hands-free microphone input (`jarvis` or `soldierboy`).
+- **Desktop GUI Application**: A dedicated PyWebView/FastAPI desktop interface featuring collapsible card modules, transparent eye API key toggles, 2D/3D radial topology graphs, and hands-free microphone input (`jarvis`).
 - **Interactive Terminal**: An interactive terminal environment with real-time monologue streaming, live progress feedback, and inline command execution (`jarvis --cli`).
 - **Headless CLI Runner**: Direct one-line command execution for automated scripts and headless task triggers (`jarvis investigate <target>`).
 
@@ -164,7 +164,7 @@ The automated installer will:
 - Initialize `config.yaml` from template configuration.
 - Install OSINT toolchains (`sherlock`, `maigret`, `holehe`, `chatterbox-tts`).
 - Mount desktop application dependencies (`pywebview`).
-- Register global `jarvis` and `soldierboy` command integration.
+- Register global `jarvis` command integration.
 
 ---
 
@@ -174,7 +174,6 @@ The automated installer will:
 Launch the desktop application with collapsible cards and interactive 2D/3D topology graph:
 ```bash
 jarvis
-# (Legacy alias also supported: soldierboy)
 ```
 
 ### 2. Interactive Terminal

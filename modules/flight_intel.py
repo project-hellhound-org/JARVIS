@@ -91,7 +91,7 @@ class FlightIntelEngine:
     """
     Real-time Airspace & Military Radar Intelligence Engine.
     Queries adsb.lol / OpenSky feeds for live military tracking,
-    extracts flight trajectories, and feeds real-time telemetry into Soldier Boy HUD.
+    extracts flight trajectories, and feeds real-time telemetry into J.A.R.V.I.S. HUD.
     """
     def __init__(self):
         self.cache_ttl = 15
@@ -113,7 +113,7 @@ class FlightIntelEngine:
             req = urllib.request.Request(
                 ADSB_MIL_URL,
                 headers={
-                    'User-Agent': 'SoldierBoy-AirspaceMonitor/2.0 (Tactical Recon HUD)',
+                    'User-Agent': 'JARVIS-AirspaceMonitor/2.0 (Tactical Recon HUD)',
                     'Accept': 'application/json'
                 }
             )
@@ -162,7 +162,7 @@ class FlightIntelEngine:
         try:
             req = urllib.request.Request(
                 url,
-                headers={'User-Agent': 'SoldierBoy-AirspaceMonitor/2.0'}
+                headers={'User-Agent': 'JARVIS-AirspaceMonitor/2.0'}
             )
             with urllib.request.urlopen(req, timeout=4) as resp:
                 return json.loads(resp.read().decode('utf-8'))
@@ -171,7 +171,7 @@ class FlightIntelEngine:
 
     def format_tactical_debrief(self, flights: List[Dict[str, Any]]) -> str:
         """
-        Generate Soldier Boy spoken briefing on active military targets.
+        Generate J.A.R.V.I.S. spoken briefing on active military targets.
         """
         if not flights:
             return 'Airspace radar is clear, partner. No military signatures pinged right now.'

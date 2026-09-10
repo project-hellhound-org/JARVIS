@@ -1,8 +1,8 @@
 # modules/inbox_intel.py
 """
-Read-Only Inbox & Messaging Scanner Module for Soldier Boy.
+Read-Only Inbox & Messaging Scanner Module for J.A.R.V.I.S..
 Scans inbox for urgent messages (flight delays, boss panic texts, "WE NEED TO TALK", critical alerts)
-and provides instant Soldier Boy TL;DR summaries.
+and provides instant J.A.R.V.I.S. TL;DR summaries.
 """
 
 import os
@@ -33,7 +33,7 @@ class InboxIntelManager:
                     "id": "msg_101",
                     "sender": "Boss <vought_boss@company.com>",
                     "subject": "WE NEED TO TALK - Q3 Review",
-                    "snippet": "Soldier, drop what you are doing. We need to talk about the budget deployment ASAP before the 4 PM sync.",
+                    "snippet": "Sir, urgent update. We need to talk about the budget deployment ASAP before the 4 PM sync.",
                     "date": now_str,
                     "unread": True,
                     "urgent": True
@@ -51,7 +51,7 @@ class InboxIntelManager:
                     "id": "msg_103",
                     "sender": "GitHub Security <no-reply@github.com>",
                     "subject": "Security Alert: Secret token detected in commit",
-                    "snippet": "We detected an exposed API token in repository soldierboy-core. Immediate revocation recommended.",
+                    "snippet": "We detected an exposed API token in repository jarvis-core. Immediate revocation recommended.",
                     "date": now_str,
                     "unread": True,
                     "urgent": True
@@ -123,7 +123,7 @@ class InboxIntelManager:
         self._save(messages)
 
     def get_tldr_summary(self) -> str:
-        """Generate a sharp, profane Soldier Boy TL;DR of urgent inbox items."""
+        """Generate a sharp, profane J.A.R.V.I.S. TL;DR of urgent inbox items."""
         urgent = self.scan_urgent()
         if not urgent:
             return "Inbox is clear of emergency shit right now, partner. No panic texts or flight delays."

@@ -18,9 +18,9 @@ env/
 tools/
 .venv/
 joe-env/
-soldier-env/
+jarvis-env/
 
-# Soldier Boy case files — don't commit investigations
+# J.A.R.V.I.S. case files
 cases/
 /*.txt
 !requirements.txt
@@ -57,7 +57,6 @@ generate_joe_sample.py
 test_chatterbox_clone.py
 listen_joe_voice.py
 joe_voice_sample.wav
-soldierboy_voice_sample.*
 jarvis_voice_sample.*
 
 # PyInstaller
@@ -85,13 +84,11 @@ api_keys*
 # Backup files & temporary local data
 *.zip
 data/
-!data/models/hey_soldier.onnx
 memory/
 scratch/
 
 # Development, testing & internal training scripts
 tests/
 scripts/
-soldierboy_project_overview.md
 *.md
 !README.md

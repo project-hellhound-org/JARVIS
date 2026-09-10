@@ -1,8 +1,8 @@
 # modules/cloud_docs.py
 """
-Cloud & File Document Access Module for Soldier Boy.
+Cloud & File Document Access Module for J.A.R.V.I.S..
 Searches local workspace & cloud drives (Google Drive, Dropbox) for hidden/forgotten files
-(e.g., 'Final_Final_REALLYFINAL_v3.pdf'), and reads key points aloud in Soldier Boy voice.
+(e.g., 'Final_Final_REALLYFINAL_v3.pdf'), and reads key points aloud in J.A.R.V.I.S. voice.
 """
 
 import os
@@ -43,7 +43,7 @@ class CloudDocumentManager:
                     "source": "Dropbox",
                     "file_type": "md",
                     "title": "Hellhound Pentest & Voice AI System Architecture",
-                    "summary": "Covers Soldier Boy voice engine pipeline, local zero-shot TTS fallback, system skill execution engine, and OSINT correlation graph.",
+                    "summary": "Covers J.A.R.V.I.S. voice engine pipeline, local zero-shot TTS fallback, system skill execution engine, and OSINT correlation graph.",
                     "key_points": [
                         "Dual-engine LLM routing (NVIDIA NIM / Gemini primary, local SLM fallback).",
                         "Fish Audio TTS with zero-shot local voice clone fallback.",
@@ -107,7 +107,7 @@ class CloudDocumentManager:
         return [m[1] for m in matches]
 
     def get_document_summary(self, query: str) -> str:
-        """Find a document and format key points summary in Soldier Boy voice."""
+        """Find a document and format key points summary in J.A.R.V.I.S. voice."""
         results = self.search_documents(query)
         if not results:
             return f"Searched your Google Drive & Dropbox, partner — couldn't find any report or PDF matching '{query}'."

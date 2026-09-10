@@ -53,8 +53,8 @@ class JarvisMemory:
                 "trigger": "audit code"
             },
             {
-                "name": "soldierboy_action_hud",
-                "description": "Soldier Boy-style holographic action HUD, multi-card findings grid, breaking news badges, sentiment color coding, and raw JSON schema toggle",
+                "name": "jarvis_action_hud",
+                "description": "J.A.R.V.I.S. holographic action HUD, multi-card findings grid, breaking news badges, sentiment color coding, and raw JSON schema toggle",
                 "trigger": "open panel"
             }
         ]
@@ -72,7 +72,7 @@ class JarvisMemory:
                 "user_speech_patterns": [
                     "User prefers concise, witty, energetic, swearing voice responses.",
                     "The user/operator is NOT Dean. Refer to the user as 'bruh', 'buddy', or 'partner'.",
-                    "STT mishears 'Soldier' as 'joke', 'joh', 'zho', 'jarvis', 'chow', 'show', 'suraj'."
+                    "STT acoustic tuning for JARVIS wake recognition."
                 ],
                 "failures_and_lessons": [
                     "Speech recognition of target usernames is error-prone; trigger target dialog modal when intent is 'investigate' without clean target."
@@ -96,7 +96,7 @@ class JarvisMemory:
             with open(self.filepath, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            print(f"[SoldierBoyMemory] Error loading memory: {e}")
+            print(f"[JarvisMemory] Error loading memory: {e}")
             return {}
 
     def log_speech_pattern(self, note: str):
@@ -141,8 +141,8 @@ class JarvisMemory:
         return f"""PERSISTENT MEMORY & LEARNED SKILLS:
 - User Speech Habits:\n- {patterns}
 - Learned Lessons & Fixes:\n- {lessons}
-- Available Learned Skills: {skills} (open_app, google_search, calendar_intel, inbox_intel, maps_nav, cloud_docs, smart_home, self_upgrade, soldierboy_action_hud)
-- Holographic Panel Capability: Wired and active. When user asks to open the action panel or view search/audit findings, open_soldierboy_panel and soldierboy_structured_json_feed render dynamic multi-card overlays in the Action HUD."""
+- Available Learned Skills: {skills} (open_app, google_search, calendar_intel, inbox_intel, maps_nav, cloud_docs, smart_home, self_upgrade, jarvis_action_hud)
+- Holographic Panel Capability: Wired and active. When user asks to open the action panel or view search/audit findings, open_jarvis_panel and jarvis_structured_json_feed render dynamic multi-card overlays in the Action HUD."""
 
     def _save(self, data):
         try:
@@ -151,7 +151,4 @@ class JarvisMemory:
         except Exception as e:
             print(f"[JarvisMemory] Error saving memory: {e}")
 
-
-# Backward-compatible alias
-SoldierBoyMemory = JarvisMemory
 

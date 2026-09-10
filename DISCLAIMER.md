@@ -1,6 +1,6 @@
 # Legal Disclaimer
 
-Soldier Boy is intended for authorized security research, penetration testing,
+J.A.R.V.I.S. is intended for authorized security research, penetration testing,
 bug bounty hunting, and CTF challenges only.
 
 By using this tool you agree that:

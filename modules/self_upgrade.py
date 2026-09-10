@@ -1,6 +1,6 @@
 # modules/self_upgrade.py
 """
-Self-Upgrade & Auto-Learning Engine for Soldier Boy.
+Self-Upgrade & Auto-Learning Engine for J.A.R.V.I.S..
 Provides code/mistake self-inspection, performance feedback logging,
 editable skill template tuning, versioned rollback, auto-retrain triggers,
 and non-intrusive level-up self-notifications.
@@ -20,7 +20,7 @@ BACKUPS_DIR = BASE_DIR / "data" / "skill_backups"
 LOGS_FILE = BASE_DIR / "data" / "performance_feedback.json"
 
 
-class SoldierBoySelfUpgrade:
+class JarvisSelfUpgrade:
     def __init__(self):
         os.makedirs(TEMPLATES_DIR, exist_ok=True)
         os.makedirs(BACKUPS_DIR, exist_ok=True)
@@ -116,7 +116,7 @@ class SoldierBoySelfUpgrade:
             "modules/cloud_docs.py (Cloud & Local File Finder)",
             "modules/smart_home.py (IoT Lights, Temp, Door Lock)",
             "modules/self_upgrade.py (Code Inspection & Skill Rollback)",
-            "frontend/hud_panel.py (Soldier Boy Action HUD Panel Overlay)",
+            "frontend/hud_panel.py (J.A.R.V.I.S. Action HUD Panel Overlay)",
             "scripts/train_voice_phrases.py (Voice Command Deep Training)"
         ]
 
@@ -205,7 +205,7 @@ class SoldierBoySelfUpgrade:
         return None
 
     def format_level_up_whisper(self) -> str:
-        """Non-intrusive Soldier Boy spoken level-up whisper."""
+        """Non-intrusive J.A.R.V.I.S. spoken level-up whisper."""
         logs = self._load_logs()
         recent = logs.get("recent_level_ups", [])
         if recent:

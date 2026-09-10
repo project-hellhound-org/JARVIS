@@ -1,4 +1,4 @@
-# Soldier Boy — configuration
+# J.A.R.V.I.S. — configuration
 # Copy this file to config.yaml and fill in your values
 # NEVER commit config.yaml — it contains secrets
 
@@ -33,7 +33,7 @@ fish_audio_voice_id: 05b36da8574341d0803391491850db20
 assets_dir: assets
 cases_dir: cases
 persona: jarvis
-soldierboy_image: jarvis-banner.png
+jarvis_banner: jarvis-banner.png
 
 tools:
   sherlock: true

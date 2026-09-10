@@ -329,7 +329,7 @@ async def _get_user_profile(target, username, on_find, original_query=""):
     try:
         async with httpx.AsyncClient(
             timeout=10,
-            headers={"User-Agent": "SoldierBoy-OSINT"}
+            headers={"User-Agent": "JARVIS-OSINT"}
         ) as client:
             r = await client.get(f"https://api.github.com/users/{username}")
             if r.status_code == 200:
@@ -427,7 +427,7 @@ async def _search_commits(target, query, on_find, original_query=""):
         async with httpx.AsyncClient(
             timeout=10,
             headers={
-                "User-Agent": "SoldierBoy-OSINT",
+                "User-Agent": "JARVIS-OSINT",
                 "Accept": "application/vnd.github.cloak-preview, application/vnd.github.v3.text-match+json"
             }
         ) as client:
@@ -562,7 +562,7 @@ async def _search_code(target, query, on_find, original_query=""):
         async with httpx.AsyncClient(
             timeout=10,
             headers={
-                "User-Agent": "SoldierBoy-OSINT",
+                "User-Agent": "JARVIS-OSINT",
                 "Accept": "application/vnd.github.v3.text-match+json"
             }
         ) as client:
@@ -708,7 +708,7 @@ async def _parse_profile_readme(target, username, on_find, original_query=""):
     try:
         async with httpx.AsyncClient(
             timeout=10,
-            headers={"User-Agent": "SoldierBoy-OSINT"}
+            headers={"User-Agent": "JARVIS-OSINT"}
         ) as client:
             r = await client.get(url_main)
             if r.status_code != 200:

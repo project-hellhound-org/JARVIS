@@ -2,7 +2,7 @@
 set -e
 
 echo ""
-echo "  installing soldier boy..."
+echo "  installing J.A.R.V.I.S...."
 echo ""
 
 # ── Python Environment ────────────────────────────────────────
@@ -17,10 +17,10 @@ if [ -n "$VIRTUAL_ENV" ]; then
     echo "  using active virtual environment: $VIRTUAL_ENV"
     VENV_ACTIVATE="$VIRTUAL_ENV/bin/activate"
 else
-    if [ -f "$INSTALL_DIR/soldier-env/bin/activate" ]; then
-        echo "  using existing local virtual environment: soldier-env"
-        source "$INSTALL_DIR/soldier-env/bin/activate"
-        VENV_ACTIVATE="$INSTALL_DIR/soldier-env/bin/activate"
+    if [ -f "$INSTALL_DIR/jarvis-env/bin/activate" ]; then
+        echo "  using existing local virtual environment: jarvis-env"
+        source "$INSTALL_DIR/jarvis-env/bin/activate"
+        VENV_ACTIVATE="$INSTALL_DIR/jarvis-env/bin/activate"
     elif [ -f "$INSTALL_DIR/joe-env/bin/activate" ]; then
         echo "  using existing local virtual environment: joe-env"
         source "$INSTALL_DIR/joe-env/bin/activate"
@@ -30,7 +30,7 @@ else
         source "$INSTALL_DIR/venv/bin/activate"
         VENV_ACTIVATE="$INSTALL_DIR/venv/bin/activate"
     else
-        VENV_DIR="$INSTALL_DIR/soldier-env"
+        VENV_DIR="$INSTALL_DIR/jarvis-env"
         echo "  setting up new virtual environment in $VENV_DIR..."
         # Note: --system-site-packages is required so pywebview can inherit system-level GTK (gi/PyGObject) bindings
         python3 -m venv --system-site-packages "$VENV_DIR"
@@ -53,7 +53,7 @@ echo "  installing playwright chromium..."
 # ── Ollama Check (Optional — Local Fallback) ──────────────────
 echo ""
 echo "  ─────────────────────────────────────────────────────────"
-echo "  Soldier Boy uses NVIDIA NIM or Gemini API for primary"
+echo "  J.A.R.V.I.S. uses NVIDIA NIM or Gemini API for primary"
 echo "  inference. No local models are automatically downloaded."
 echo "  ─────────────────────────────────────────────────────────"
 echo ""
@@ -65,30 +65,30 @@ else
 fi
 
 # ── System & User Commands ─────────────────────────────────────
-echo "  registering soldierboy command wrapper..."
+echo "  registering jarvis command wrapper..."
 
 # Clean up legacy joe wrappers if present
 rm -f ~/.local/bin/joe 2>/dev/null || true
 
 mkdir -p ~/.local/bin
-cat > ~/.local/bin/soldierboy << WRAPPER
+cat > ~/.local/bin/jarvis << WRAPPER
 #!/bin/bash
 source $VENV_ACTIVATE
 cd $INSTALL_DIR
 exec $VENV_BIN/python3 $INSTALL_DIR/jarvis.py "\$@"
 WRAPPER
 
-chmod +x ~/.local/bin/soldierboy
+chmod +x ~/.local/bin/jarvis
 
 if command -v sudo &>/dev/null && [ -w /usr/local/bin ]; then
     sudo rm -f /usr/local/bin/joe 2>/dev/null || true
-    sudo bash -c "cat > /usr/local/bin/soldierboy << 'WRAPPER'
+    sudo bash -c "cat > /usr/local/bin/jarvis << 'WRAPPER'
 #!/bin/bash
 source $VENV_ACTIVATE
 cd $INSTALL_DIR
 exec $VENV_BIN/python3 $INSTALL_DIR/jarvis.py \"\$@\"
 WRAPPER"
-    sudo chmod +x /usr/local/bin/soldierboy
+    sudo chmod +x /usr/local/bin/jarvis
 fi
 
 # ── Desktop entry ─────────────────────────────────────────────
@@ -102,23 +102,23 @@ fi
 mkdir -p ~/.local/share/applications
 rm -f ~/.local/share/applications/joe-goldberg.desktop
 
-cat > ~/.local/share/applications/soldierboy.desktop << EOF
+cat > ~/.local/share/applications/jarvis.desktop << EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Soldier Boy
+Name=J.A.R.V.I.S.
 GenericName=OSINT Assistant
 Comment=Autonomous OSINT Assistant — zero APIs, fully local
 Exec=$VENV_BIN/python3 $INSTALL_DIR/jarvis.py
 Icon=$ICON_PATH
 Terminal=false
 Categories=Security;Network;
-Keywords=osint;recon;investigation;security;pentest;soldier;
+Keywords=osint;recon;investigation;security;pentest;jarvis;
 StartupNotify=true
-StartupWMClass=SoldierBoy
+StartupWMClass=JARVIS
 EOF
 
-chmod +x ~/.local/share/applications/soldierboy.desktop
+chmod +x ~/.local/share/applications/jarvis.desktop
 
 # Refresh desktop application menu
 if command -v update-desktop-database &> /dev/null; then
@@ -155,9 +155,9 @@ systemctl --user start ollama.service 2>/dev/null
 
 # ── Done ──────────────────────────────────────────────────────
 echo ""
-echo "  ✓ soldierboy installed"
-echo "  ✓ system command registered — run: soldierboy"
-echo "  ✓ desktop icon created — search 'Soldier Boy' in your application menu"
+echo "  ✓ jarvis installed"
+echo "  ✓ system command registered — run: jarvis"
+echo "  ✓ desktop icon created — search 'J.A.R.V.I.S.' in your application menu"
 echo "  ✓ ollama configured to start automatically on login"
 echo ""
 echo "  ─────────────────────────────────────────────────────────"
@@ -192,6 +192,6 @@ esac
 
 echo ""
 echo "  To make narration work from the desktop icon too, also set:"
-echo "  sudo nano /usr/local/bin/soldierboy"
+echo "  sudo nano /usr/local/bin/jarvis"
 echo "  Add: export GEMINI_API_KEY=\"your_key_here\" (below the shebang)"
 echo ""

@@ -12,7 +12,7 @@ from rich.panel import Panel
 from core.orchestrator import Orchestrator
 from core.target_model import Target, Entity
 from core.case_brief import CaseBrief, parse_brief_with_slm, plan_investigation
-from narrative.jarvis_voice import JarvisVoice, SoldierBoyVoice
+from narrative.jarvis_voice import JarvisVoice
 from narrative.session_memory import SessionMemory
 from memory.lessons_store import LessonsStore
 
@@ -89,7 +89,6 @@ def print_jarvis_quote(quote: str):
         expand=False
     ))
 
-print_soldierboy_quote = print_jarvis_quote
 print_joe_quote = print_jarvis_quote
 
 
@@ -315,7 +314,7 @@ class JarvisCLI:
             elif cmd == "help":
                 show_help()
             else:
-                # Check for false-positive commands before passing to Soldier Boy
+                # Check for false-positive commands before passing to J.A.R.V.I.S.
                 fp_platform, fp_context = _parse_fp_command(text)
                 if fp_platform is not None or any(p.match(text.strip()) for p in _FP_PATTERNS):
                     self._handle_false_positive(fp_platform, fp_context)
@@ -337,7 +336,7 @@ class JarvisCLI:
             parsed_input = parse(target_str)
             plan = plan_investigation(brief_text, target_str, parsed_input.target_type)
             if plan.reasoning:
-                print_soldierboy_quote(plan.reasoning)
+                print_jarvis_quote(plan.reasoning)
             
             # If plan did not yield hints, fall back to default parser
             if not plan.extra_hints:
@@ -381,7 +380,7 @@ class JarvisCLI:
             result = self.voice.chat(question, self.current_target)
 
         self.memory.add("user", question)
-        self.memory.add("soldierboy", result["text"])
+        self.memory.add("jarvis", result["text"])
 
         if result.get("rate_limited"):
             console.print(f"\n  [{C_ORANGE}]  ⚠ Rate limited — using local SLM[/]")
@@ -442,7 +441,6 @@ class JarvisCLI:
 
 
 # Backward-compatible alias
-SoldierBoyCLI = JarvisCLI
 
 
 def run(initial_target: str = None):

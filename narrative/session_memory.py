@@ -47,9 +47,9 @@ class SessionMemory:
             print(f"[SessionMemory] Error saving persistent history: {e}")
 
     def add(self, role: str, content: str, target: Optional[str] = None):
-        """Append a message. role = 'user' | 'soldierboy'"""
-        if role == "soldierboy" and content:
-            content = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', content, flags=re.IGNORECASE).strip()
+        """Append a message. role = 'user' | 'jarvis'"""
+        if role == "jarvis" and content:
+            content = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', content, flags=re.IGNORECASE).strip()
         entry = {
             "role": role,
             "content": content,
@@ -77,8 +77,8 @@ class SessionMemory:
     def to_text(self, n: int = 12) -> str:
         lines = []
         for m in self.last_n(n):
-            role_label = "User" if m.get("role") == "user" else "Soldier Boy"
-            clean_content = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', m.get("content", ""), flags=re.IGNORECASE).strip()
+            role_label = "User" if m.get("role") == "user" else "J.A.R.V.I.S."
+            clean_content = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', m.get("content", ""), flags=re.IGNORECASE).strip()
             lines.append(f"{role_label}: {clean_content}")
         return "\n".join(lines)
 

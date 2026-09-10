@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────
-#  SOLDIER BOY — Updater v2.0 (Cinematic)
+#  J.A.R.V.I.S. — Updater v2.0 (Cinematic)
 #  Pulls the latest changes from Git and refreshes the installation.
 # ─────────────────────────────────────────────────────────────────────
 
@@ -122,5 +122,5 @@ if [ -f "install.sh" ]; then
 fi
 
 echo ""
-echo -e "  ${GRN}${BLD}Update complete.${RST} SOLDIER BOY is now on the latest version.\n"
+echo -e "  ${GRN}${BLD}Update complete.${RST} J.A.R.V.I.S. is now on the latest version.\n"
 echo ""

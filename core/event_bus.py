@@ -48,7 +48,7 @@ class EventBus:
         # Forward over PyWebview bridge
         if self._bridge_callback:
             try:
-                self._bridge_callback("soldierboy_task_event", {
+                self._bridge_callback("jarvis_task_event", {
                     "event": event_name,
                     "payload": payload
                 })

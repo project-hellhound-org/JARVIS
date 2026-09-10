@@ -1,6 +1,6 @@
 # core/structured_hud_engine.py
 """
-Structured HUD & JSON Data Engine for Soldier Boy (Action Panel Integration).
+Structured HUD & JSON Data Engine for J.A.R.V.I.S. (Action Panel Integration).
 Provides standardized JSON output schema, search cache management, sentiment/breaking tagging,
 priority ranking, error handling fallbacks, and live frontend payload feeds.
 """
@@ -77,7 +77,7 @@ class SearchCacheManager:
 
 class StructuredHUDEngine:
     """
-    Central Soldier Boy-style structured data generator and payload router for Soldier Boy interface panels.
+    Central J.A.R.V.I.S. structured data generator and payload router for J.A.R.V.I.S. interface panels.
     """
     def __init__(self):
         self.cache = SearchCacheManager()
@@ -132,7 +132,7 @@ class StructuredHUDEngine:
         error_msg: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Build a standardized, consistent Soldier Boy-style JSON schema payload.
+        Build a standardized, consistent J.A.R.V.I.S. JSON schema payload.
         """
         if error_msg:
             return {

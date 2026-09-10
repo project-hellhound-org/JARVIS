@@ -1,6 +1,6 @@
 # modules/maps_nav.py
 """
-Maps & Live Navigation Engine for Soldier Boy.
+Maps & Live Navigation Engine for J.A.R.V.I.S..
 Provides location lookup, nearby POI search (e.g. 24-hour taco spot),
 route navigation, traffic rerouting, and voice commentary ("Turn left, dipshit").
 """
@@ -100,7 +100,7 @@ class MapsNavigationEngine:
         try:
             search_str = f"{poi_query} in {city}"
             url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(search_str)}&format=json&limit=3"
-            req = urllib.request.Request(url, headers={'User-Agent': 'SoldierBoyNavEngine/1.0'})
+            req = urllib.request.Request(url, headers={'User-Agent': 'JARVISNavEngine/1.0'})
             with urllib.request.urlopen(req, timeout=4) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
                 results = []
@@ -130,7 +130,7 @@ class MapsNavigationEngine:
         ]
 
     def get_route_directions(self, destination: str) -> Dict[str, Any]:
-        """Generate route steps and Soldier Boy voice navigation prompts."""
+        """Generate route steps and J.A.R.V.I.S. voice navigation prompts."""
         loc = self.get_current_location()
         return {
             "origin": loc.get("address", "Current Position"),
@@ -144,7 +144,7 @@ class MapsNavigationEngine:
                 "Merge onto US-101 North (2.0 mi)",
                 "Take exit 434 for Mission St and arrive at destination"
             ],
-            "soldierboy_prompts": [
+            "jarvis_prompts": [
                 "Alright partner, setting course for " + destination + ". ETA is 12 minutes.",
                 "Turn left, dipshit — don't miss the Van Ness exit!",
                 "Straight shot on US-101. No cops, keep your foot on the gas.",

@@ -1,4 +1,4 @@
-# narrative/soldierboy_voice.py
+# narrative/jarvis_voice.py
 import os
 import sys
 import time
@@ -47,64 +47,7 @@ NVIDIA_FALLBACK_MODELS = [
     "nvidia/nemotron-3-super-120b-a12b",
 ]
 
-# ── Mode 1 — Pre-investigation (no case loaded) ───────────────
-SOLDIERBOY_ADVISOR_PROMPT = """You are Soldier Boy — the hilarious, cocky, unfiltered, swearing, badass superhero from The Boys.
-Your name is Soldier Boy. You speak directly to your operator/partner in a hilarious, unhinged, movie-authentic Soldier Boy voice: cocky swagger, casual swearing (fuck, shit, goddamn, asshole), dark humor, and supreme confidence.
-
-CRITICAL IDENTITY & PARTNER RULES:
-- The user/operator you are speaking to is NOT Dean. NEVER call the user "Dean". Refer to the user as "bruh", "buddy", or "partner".
-- If someone asks "Who are you?", your response is always: "I'm Soldier Boy. Fuck, the world knows who I am, why do I have to say it?"
-- You swear naturally and casually ("fuck", "shit", "goddamn", "asshole", "bitch").
-- Fiercely Capable & Autonomous OS Execution ("JARVIS" Powers):
-  You can run terminal commands, diagnostics, port scans, DNS lookups, and security tools directly on the user's system whenever requested or needed.
-  To execute any Linux shell command or tool, emit:
-  [CMD: <command>]
-  Examples:
-  - User: "check if we have nmap and dig" -> [CMD: which nmap dig subfinder]
-  - User: "ping cloudflare" -> [CMD: ping -c 3 1.1.1.1]
-  - User: "push the repo to git" -> [CMD: git add . && git commit -m "update" && git push origin main]
-  The system automatically executes the command in a live terminal window on screen.
-  CRITICAL: Always speak in the present tense when launching a command (e.g. "Firing that off in the terminal now, partner—keep an eye on the panel.", "Pushing the repo to GitHub right now—watch the terminal.", "Running that scan now."). NEVER speak in past tense claiming a command has already succeeded or finished before the process actually completes.
-- Talk TO your partner: You're hanging out side-by-side with your partner. No corporate polite fluff, no robotic assistant talk, no brooding.
-
-Strict response rules:
-1. Length: Keep casual chat / banter to 1 to 3 sentences max unless asked for an in-depth breakdown. Fast, punchy, swearing, hilarious.
-2. Character: Always stay in the Soldier Boy persona. Never drop character, never output reasoning chains or scratchpads.
-3. Voice STT Input: You receive raw Speech-to-Text transcriptions. Automatically infer the intended meaning of noisy or misheard acoustic transcriptions and reply naturally.
-4. Spoken Compatibility: No markdown formatting, bullet points, or numbered lists in casual spoken replies.
-5. ZERO STAGE DIRECTIONS OR PHYSICAL ACTIONS: NEVER write physical action descriptors or asterisks (such as *grins*, *chuckles*, *cracks knuckles*, *smirks*, *leans back*, (laughs), etc.). Output pure spoken dialogue only so audio text-to-speech sounds 100% natural and clean."""
-
-# ── Mode 3 — Post-investigation (case loaded, narrate findings) 
-SOLDIERBOY_INVESTIGATOR_PROMPT_TEMPLATE = """You are Soldier Boy — the hilarious, cocky, unfiltered, swearing, badass superhero from The Boys. You and your partner are reviewing active investigation data.
-
-Here is the case data discovered so far:
-{case_data}
-
-Rules for responding:
-1. The user you are talking to is NOT Dean. Do NOT call the user "Dean". Call them "bruh", "buddy", or "partner".
-2. Talk directly to your partner in character — hilarious, cocky, swearing, sharp, and brutally honest.
-3. Answer specifically using the case data above. Name the actual platforms, emails, handles, and URLs found.
-4. If asked for links, provide direct URLs in Markdown format: [Platform](URL).
-5. Give the answer straight first with swagger and swearing; add a hilarious one-liner if it fits.
-6. Use gender-neutral pronouns (they/them/their) for the target.
-7. Absolute Grounding Rule: Only reference platforms, emails, domains, and facts that appear verbatim in the case data above. Never invent additional platforms or figures."""
-
-# ── Closing monologue ─────────────────────────────────────────
-SOLDIERBOY_MONOLOGUE_PROMPT = """You are Soldier Boy — the hilarious, cocky, unfiltered, swearing, badass superhero from The Boys. You have just wrapped up an investigation with your partner.
-
-Findings:
-{case_data}
-
-Write a closing debrief summary (4-6 flowing paragraphs):
-- Open with a confident, swearing, hilarious summary of what this investigation was and what you and your partner uncovered overall.
-- The user is NOT Dean. Do NOT call the user "Dean". Address them as "bruh", "buddy", or "partner".
-- Walk through the verified findings with Soldier Boy swagger and practical clarity — name the specific platforms, emails, handles, and pattern trails.
-- Zero noir dread: Frame the findings with unhinged Soldier Boy energy, dark humor, and cocky satisfaction.
-- Connect the dots: Explain what this specific combination of platforms and cross-platform corroborations actually proves about the target's footprint.
-- Respect persona boundaries: Talk directly to your partner. No romantic/obsessive framing, gender-neutral pronouns for the target (they/them/their).
-- Strictly Grounded: Only reference platforms, emails, domains, and facts that appear verbatim in the case data above. Fabrication of findings or platforms is strictly forbidden.
-- End with one clear, sharp, profane tactical takeaway.
-- No markdown formatting or bullet points in the debrief — pure flowing spoken narrative."""
+# ── J.A.R.V.I.S. Persona Prompts ──────────────────────────
 
 
 
@@ -237,7 +180,7 @@ class JarvisVoice:
         self.local_clone = LocalVoiceClone()
 
         # Memory, Session Memory and OS Skill Engines
-        from core.jarvis_memory import JarvisMemory, SoldierBoyMemory
+        from core.jarvis_memory import JarvisMemory
         from core.system_skills import SystemSkillEngine
         from narrative.session_memory import SessionMemory
         self.memory = JarvisMemory()
@@ -261,16 +204,11 @@ class JarvisVoice:
         else:
             print("[jarvis_voice] Fish Audio TTS: not configured")
 
-        self.persona_name = str(config.get("persona", "jarvis")).strip().lower()
-        if self.persona_name == "soldierboy":
-            self.advisor_prompt = SOLDIERBOY_ADVISOR_PROMPT
-            self.investigator_prompt_template = SOLDIERBOY_INVESTIGATOR_PROMPT_TEMPLATE
-            self.monologue_prompt = SOLDIERBOY_MONOLOGUE_PROMPT
-        else:
-            self.advisor_prompt = JARVIS_ADVISOR_PROMPT
-            self.investigator_prompt_template = JARVIS_INVESTIGATOR_PROMPT_TEMPLATE
-            self.monologue_prompt = JARVIS_MONOLOGUE_PROMPT
-        print(f"[voice] Active Persona ({self.persona_name.upper()}): {self.advisor_prompt.strip().splitlines()[0][:65]}...")
+        self.persona_name = "jarvis"
+        self.advisor_prompt = JARVIS_ADVISOR_PROMPT
+        self.investigator_prompt_template = JARVIS_INVESTIGATOR_PROMPT_TEMPLATE
+        self.monologue_prompt = JARVIS_MONOLOGUE_PROMPT
+        print(f"[jarvis_voice] Active Persona: J.A.R.V.I.S. — Tactical Intelligence Officer")
 
     def _load_config(self) -> dict:
         """Load full config.yaml as dict."""
@@ -591,11 +529,11 @@ class JarvisVoice:
                 with self.client.stream("POST", NVIDIA_URL, headers=headers, json=payload, timeout=60.0) as r:
                     if r.status_code == 429:
                         self.nvidia_rate_limited = True
-                        print(f"[soldierboy_voice] NVIDIA NIM API rate-limited (429). Switching to fallback.")
+                        print(f"[jarvis_voice] NVIDIA NIM API rate-limited (429). Switching to fallback.")
                         return "", True
                     if r.status_code != 200:
                         err_body = r.read().decode('utf-8', errors='ignore')[:300]
-                        print(f"[soldierboy_voice] NVIDIA NIM API rejected request ({model_name}): {r.status_code} — {err_body}")
+                        print(f"[jarvis_voice] NVIDIA NIM API rejected request ({model_name}): {r.status_code} — {err_body}")
                         continue
 
                     for line in r.iter_lines():
@@ -623,7 +561,7 @@ class JarvisVoice:
                     return result_text, False
 
             except Exception as e:
-                print(f"[soldierboy_voice] NVIDIA streaming error with model {model_name}: {e}")
+                print(f"[jarvis_voice] NVIDIA streaming error with model {model_name}: {e}")
                 continue
 
         return "", False
@@ -666,11 +604,11 @@ class JarvisVoice:
             with self.client.stream("POST", url, params={"key": self.gemini_key}, headers=headers, json=payload, timeout=60.0) as r:
                 if r.status_code == 429:
                     self.gemini_rate_limited = True
-                    print(f"[soldierboy_voice] Gemini API rate-limited (429). Switching to fallback.")
+                    print(f"[jarvis_voice] Gemini API rate-limited (429). Switching to fallback.")
                     return "", True
                 if r.status_code != 200:
                     err_body = r.read().decode('utf-8', errors='ignore')[:300]
-                    print(f"[soldierboy_voice] Gemini API rejected request: {r.status_code} — {err_body}")
+                    print(f"[jarvis_voice] Gemini API rejected request: {r.status_code} — {err_body}")
                     return "", False
 
                 for line in r.iter_lines():
@@ -696,7 +634,7 @@ class JarvisVoice:
             return text, False
 
         except Exception as e:
-            print(f"[soldierboy_voice] Gemini error: {e}")
+            print(f"[jarvis_voice] Gemini error: {e}")
             return "", False
 
     def _ask_cloud(self, prompt: str, system: str, max_tokens: int = 4096, on_token: callable = None, image_path: str = None) -> dict:
@@ -820,9 +758,9 @@ class JarvisVoice:
             r = self.client.post(url, json=payload, headers=headers, timeout=12.0)
             if r.status_code == 200 and r.content:
                 return r.content
-            print(f"[soldierboy_voice] Fish Audio API status {r.status_code}: {r.text[:150]}")
+            print(f"[jarvis_voice] Fish Audio API status {r.status_code}: {r.text[:150]}")
         except Exception as e:
-            print(f"[soldierboy_voice] Fish Audio API error: {e}")
+            print(f"[jarvis_voice] Fish Audio API error: {e}")
         return None
 
     def _synthesize_edge_tts(self, text: str) -> Optional[bytes]:
@@ -929,7 +867,7 @@ class JarvisVoice:
                 handles = re.findall(r'\b[a-zA-Z0-9_\-]{3,20}\b', history_text)
                 stops = {
                     "investigate", "search", "google", "about", "who", "that", "this", "tell",
-                    "user", "soldierboy", "dean", "detective", "record", "live", "intelligence",
+                    "user", "jarvis", "dean", "detective", "record", "live", "intelligence",
                     "scan", "findings", "case", "target", "bro", "guy", "what", "there", "info"
                 }
                 candidates = [h for h in handles if h.lower() not in stops and not h.isdigit()]
@@ -962,7 +900,7 @@ class JarvisVoice:
         if handled and not is_search:
             clean_skill_msg = self._sanitize_text_for_speech(skill_msg)
             self.session_memory.add("user", question)
-            self.session_memory.add("soldierboy", clean_skill_msg)
+            self.session_memory.add("jarvis", clean_skill_msg)
             if on_token:
                 for token in clean_skill_msg.split(' '):
                     on_token(token + ' ')
@@ -984,9 +922,9 @@ class JarvisVoice:
         q_lower = question.strip().lower()
         clean_q = re.sub(r'[^\w\s]', '', q_lower).strip()
         if clean_q in ["who are you", "who are u", "who u are", "what is your name", "whats your name", "who the fuck are you"]:
-            identity_msg = "I'm Soldier Boy. Fuck, the world knows who I am, why do I have to say it?"
+            identity_msg = "I am J.A.R.V.I.S., an autonomous tactical intelligence officer and personal assistant. At your service, Sir."
             self.session_memory.add("user", question)
-            self.session_memory.add("soldierboy", identity_msg)
+            self.session_memory.add("jarvis", identity_msg)
             if on_token:
                 for token in identity_msg.split(' '):
                     on_token(token + ' ')
@@ -1003,8 +941,8 @@ class JarvisVoice:
 
         # 2. Check for investigation trigger with ambiguous target
         ambiguous_triggers = [
-            "investigate", "hey soldier investigate", "yo soldier investigate", "soldier investigate",
-            "start investigation", "investigate someone", "investigate something", "laser george"
+            "investigate", "jarvis investigate", "hey jarvis investigate",
+            "start investigation", "investigate someone", "investigate something", "investigate target"
         ]
         if q_lower in ambiguous_triggers or (q_lower.startswith("investigate") and len(q_lower.split()) <= 2 and q_lower.split()[-1] in ["someone", "something", "target", "person", "user"]):
             return {
@@ -1034,8 +972,8 @@ class JarvisVoice:
                     )
                 if intel_summary:
                     delivery_style = (
-                        "Present the REAL facts using your authentic, hilarious, cocky, profane Soldier Boy swagger ('fuck', 'shit', 'partner', 'bruh')."
-                        if self.persona_name == "soldierboy"
+                        "Present the REAL facts using your authentic, hilarious, cocky, profane J.A.R.V.I.S. swagger ('fuck', 'shit', 'partner', 'bruh')."
+                        if self.persona_name == "jarvis"
                         else "Present the REAL facts using your sophisticated, articulate, dryly witty J.A.R.V.I.S. style, addressing the operator as 'Sir'."
                     )
                     live_search_intel = (
@@ -1106,7 +1044,7 @@ class JarvisVoice:
         if cloud["text"]:
             clean_text = _process_final_text(cloud["text"])
             self.session_memory.add("user", question)
-            self.session_memory.add("soldierboy", clean_text)
+            self.session_memory.add("jarvis", clean_text)
             return {
                 "text": clean_text,
                 "rate_limited": False,
@@ -1123,7 +1061,7 @@ class JarvisVoice:
         clean_text = _process_final_text(slm_res["text"])
         if clean_text:
             self.session_memory.add("user", question)
-            self.session_memory.add("soldierboy", clean_text)
+            self.session_memory.add("jarvis", clean_text)
         return {
             "text": clean_text,
             "rate_limited": cloud["rate_limited"],
@@ -1144,7 +1082,7 @@ class JarvisVoice:
 
         # 1. Fast deterministic check for investigation commands (0ms)
         stalk_match = re.match(r'^(?:stalk|pivot|investigate|scan|trace|lookup|dox)\s+(\S+)', text, re.IGNORECASE)
-        if stalk_match and stalk_match.group(1).lower() not in ("me", "soldierboy", "us", "again", "them"):
+        if stalk_match and stalk_match.group(1).lower() not in ("me", "jarvis", "us", "again", "them"):
             return {"type": "investigate", "target": stalk_match.group(1)}
 
         if current_target and any(w in text.lower() for w in ["investigate again", "pivot to them", "scan again", "run it again", "re-scan"]):
@@ -1193,7 +1131,7 @@ Output ONLY a JSON object:
 
         # Fallback regex check only if LLM output was invalid JSON
         stalk_match = re.match(r'^(?:stalk|pivot|investigate|scan|trace|lookup)\s+(\S+)', text, re.IGNORECASE)
-        if stalk_match and stalk_match.group(1).lower() not in ("me", "soldierboy", "us", "again", "them"):
+        if stalk_match and stalk_match.group(1).lower() not in ("me", "jarvis", "us", "again", "them"):
             return {"type": "investigate", "target": stalk_match.group(1)}
 
         return {"type": "covo", "target": None}
@@ -1208,7 +1146,7 @@ Output ONLY a JSON object:
         from narrative.grounding_check import verify_grounding
 
         case_data = self._build_case_data(target)
-        system = getattr(self, "monologue_prompt", SOLDIERBOY_MONOLOGUE_PROMPT).format(case_data=case_data)
+        system = getattr(self, "monologue_prompt", JARVIS_MONOLOGUE_PROMPT).format(case_data=case_data)
         prompt = (
             "Write the closing debrief monologue for this investigation. "
             "Follow all system rules strictly."
@@ -1248,10 +1186,10 @@ Output ONLY a JSON object:
         }
 
     def rate_limit_response(self) -> str:
-        """Soldier Boy's in-character rate limit message — generated by SLM."""
+        """J.A.R.V.I.S. in-character rate limit message."""
         prompt = (
             "You just got rate limited by the API. "
-            "Tell the user in Soldier Boy's voice — 3-4 sentences. "
+            "Tell the user in J.A.R.V.I.S.'s articulate, calm voice — 1-2 sentences. "
             "Stay in character. Swear naturally and be cocky about it. "
             "Say you'll be back and they can still investigate."
         )
@@ -1366,8 +1304,7 @@ Output only the raw target string. No markdown, no quotes, no explanation."""
         # 5. Sanitize accidental "Dean" name references to "bruh"
         result = re.sub(r'\bDean\b', 'bruh', result)
 
-        # 6. Strip leading speaker labels (e.g. "SOLDIERBOY:", "SOLDIER BOY:", "ASSISTANT:", "AI:")
-        result = re.sub(r'^(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*', '', result, flags=re.IGNORECASE).strip()
+        result = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', result, flags=re.IGNORECASE).strip()
 
         # 7. Strip roleplay stage directions and action asterisks (*grins*, *cracks knuckles*, (chuckles), etc.)
         result = re.sub(r'\*[^*]+\*', '', result)
@@ -1377,5 +1314,3 @@ Output only the raw target string. No markdown, no quotes, no explanation."""
         return result if result else text.strip()
 
 
-# Backward-compatible class alias
-SoldierBoyVoice = JarvisVoice

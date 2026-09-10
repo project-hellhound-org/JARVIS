@@ -5,7 +5,7 @@ setup(
     name="jarvis",
     version="2.0.0",
     description="J.A.R.V.I.S. — Tactical Personal & OSINT Assistant",
-    py_modules=["jarvis", "soldierboy"],          
+    py_modules=["jarvis"],          
     packages=find_packages(),
     python_requires=">=3.10",
     install_requires=[
@@ -19,7 +19,6 @@ setup(
     entry_points={
         "console_scripts": [
             "jarvis=jarvis:main",
-            "soldierboy=jarvis:main",
         ],
     },
 )

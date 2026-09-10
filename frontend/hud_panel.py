@@ -1,9 +1,9 @@
 # frontend/hud_panel.py
 """
-Soldier Boy Action HUD Panel Overlay Generator.
-Creates live visual pop-up cards and HTML overlay displays whenever Soldier Boy
+J.A.R.V.I.S. Action HUD Panel Overlay Generator.
+Creates live visual pop-up cards and HTML overlay displays whenever J.A.R.V.I.S.
 searches the web, opens an app, checks calendar/inbox, inspects code, or modifies configs.
-Includes Soldier Boy's spoken dialogue: "Here, see the screen, partner — I found this!"
+Includes J.A.R.V.I.S.'s spoken dialogue: "Here, see the screen, partner — I found this!"
 """
 
 import os
@@ -31,7 +31,7 @@ class HUDPanelManager:
         auto_open_browser: bool = False
     ) -> Dict[str, Any]:
         """
-        Generate a live Soldier Boy HUD action card and save HUD overlay state.
+        Generate a live J.A.R.V.I.S. HUD action card and save HUD overlay state.
         """
         hud_data = {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -62,13 +62,13 @@ class HUDPanelManager:
         return hud_data
 
     def render_html_hud(self, data: Dict[str, Any]):
-        """Render a sleek, Soldier Boy-style cyberpunk dark-mode HTML HUD overlay panel."""
+        """Render a sleek, J.A.R.V.I.S.-style cyberpunk dark-mode HTML HUD overlay panel."""
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOLDIER BOY — ACTION HUD</title>
+    <title>J.A.R.V.I.S. — ACTION HUD</title>
     <style>
         body {{
             background-color: #0b0f19;
@@ -143,7 +143,7 @@ class HUDPanelManager:
 <body>
     <div class="hud-card">
         <div class="hud-header">
-            <div class="hud-title">⚡ SOLDIER BOY ACTION HUD</div>
+            <div class="hud-title">⚡ J.A.R.V.I.S. ACTION HUD</div>
             <div class="hud-badge">{data.get('action_type', 'ACTION')}</div>
         </div>
         <div class="hud-body">

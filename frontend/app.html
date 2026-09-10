@@ -69,10 +69,10 @@
     --accent-text: #FCA5A5;
     --border-active: rgba(239, 68, 68, 0.55);
   }
-  body.mode-osint #soldierboy-hud-canvas {
+  body.mode-osint #jarvis-hud-canvas {
     filter: drop-shadow(0 0 28px rgba(239, 68, 68, 0.35));
   }
-  body.mode-osint #soldierboy-top-bar {
+  body.mode-osint #jarvis-top-bar {
     border-bottom: 1px solid rgba(239, 68, 68, 0.35) !important;
     background: rgba(14, 4, 4, 0.94) !important;
   }
@@ -120,7 +120,7 @@
   }
 
   /* Phase 1 Top Bar */
-  #soldierboy-top-bar {
+  #jarvis-top-bar {
     height: 42px; min-height: 42px;
     background: rgba(5, 6, 7, 0.92);
     backdrop-filter: blur(20px) saturate(140%);
@@ -156,7 +156,7 @@
   .top-bar-action-btn:hover { background: #0E1012; border-color: rgba(255, 157, 46, 0.3); color: #E6E6E6; }
 
   /* Body Container (Nav Overlay + Main Workspace) */
-  #soldierboy-body-container {
+  #jarvis-body-container {
     flex: 1; display: flex;
     min-height: 0; overflow: hidden;
     position: relative;
@@ -217,7 +217,7 @@
   .nav-rail-quick-actions { display: flex; flex-direction: column; gap: 2px; flex: none; overflow-y: visible; margin-bottom: 8px; }
 
   /* Main Workspace (Full Width 100%, No Sidebar Margin) */
-  #soldierboy-main-workspace {
+  #jarvis-main-workspace {
     flex: 1; display: flex; flex-direction: column;
     min-width: 0; min-height: 0;
     margin-left: 0;
@@ -239,7 +239,7 @@
   }
 
   /* Chat Conversation Container (Floating Subordinate Instrument) */
-  #soldierboy-chat-container {
+  #jarvis-chat-container {
     flex: 1; display: flex; flex-direction: column;
     min-width: 0; min-height: 0;
     background: rgba(4, 5, 6, 0.10);
@@ -261,7 +261,7 @@
   .case-sub-inline { font-size: 11px; color: #8A8D91; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* Right HUD Orb Pane (Seamless Spatial Layer - No Box Borders) */
-  #soldierboy-hud-pane {
+  #jarvis-hud-pane {
     width: 420px; min-width: 420px;
     background: transparent;
     border: none;
@@ -270,8 +270,8 @@
     position: relative; overflow: visible;
   }
 
-  /* Reposition soldierboy-hud-wrapper to fit cleanly inside #soldierboy-hud-pane */
-  #soldierboy-hud-pane #soldierboy-hud-wrapper {
+  /* Reposition jarvis-hud-wrapper to fit cleanly inside #jarvis-hud-pane */
+  #jarvis-hud-pane #jarvis-hud-wrapper {
     position: relative !important;
     top: auto !important; right: auto !important;
     transform: none !important;
@@ -282,7 +282,7 @@
   }
 
   /* Full-Viewport Spatial Task Windows Overlay Canvas */
-  #soldierboy-task-surfaces-container {
+  #jarvis-task-surfaces-container {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -293,7 +293,7 @@
   }
 
   /* Individual Spatial Task Window */
-  .soldierboy-task-surface {
+  .jarvis-task-surface {
     position: absolute;
     pointer-events: auto; /* Explicitly interactive */
     display: flex;
@@ -310,20 +310,20 @@
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     user-select: text;
   }
-  .soldierboy-task-surface.active-window {
+  .jarvis-task-surface.active-window {
     border-color: rgba(255, 157, 46, 0.40);
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.9), 0 0 24px rgba(255, 157, 46, 0.14);
   }
-  .soldierboy-task-surface.is-dragging {
+  .jarvis-task-surface.is-dragging {
     opacity: 0.92;
     transition: none !important;
   }
-  .soldierboy-task-surface.is-resizing {
+  .jarvis-task-surface.is-resizing {
     transition: none !important;
   }
 
   /* Draggable Window Header */
-  .soldierboy-window-header {
+  .jarvis-window-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -336,22 +336,22 @@
     flex-shrink: 0;
     pointer-events: auto;
   }
-  .soldierboy-window-header:active {
+  .jarvis-window-header:active {
     cursor: grabbing;
   }
-  .soldierboy-window-title-wrap {
+  .jarvis-window-title-wrap {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
     pointer-events: none;
   }
-  .soldierboy-window-dot {
+  .jarvis-window-dot {
     color: #FF9D2E;
     font-size: 11px;
     flex-shrink: 0;
   }
-  .soldierboy-window-title {
+  .jarvis-window-title {
     font-weight: 700;
     font-size: 11px;
     letter-spacing: 0.06em;
@@ -361,20 +361,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .soldierboy-window-time {
+  .jarvis-window-time {
     font-size: 9.5px;
     color: #8A8D91;
     font-family: var(--mono);
     flex-shrink: 0;
   }
-  .soldierboy-window-controls {
+  .jarvis-window-controls {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
     pointer-events: auto;
   }
-  .soldierboy-win-btn {
+  .jarvis-win-btn {
     background: #0B0C0E;
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: #8A8D91;
@@ -389,23 +389,23 @@
     transition: all 0.15s ease;
     pointer-events: auto;
   }
-  .soldierboy-win-btn:hover {
+  .jarvis-win-btn:hover {
     color: #E6E6E6;
     border-color: rgba(255, 157, 46, 0.4);
     background: #121417;
   }
-  .soldierboy-win-btn.close {
+  .jarvis-win-btn.close {
     background: rgba(239, 68, 68, 0.15);
     border-color: rgba(239, 68, 68, 0.3);
     color: #EF4444;
   }
-  .soldierboy-win-btn.close:hover {
+  .jarvis-win-btn.close:hover {
     background: #EF4444;
     color: #FFFFFF;
   }
 
   /* Window Scrollable Body */
-  .soldierboy-window-body {
+  .jarvis-window-body {
     flex: 1;
     overflow-y: auto;
     padding: 14px 16px;
@@ -418,36 +418,36 @@
   }
 
   /* Subtle Window Resize Handles (Edges & Corners) */
-  .soldierboy-resize-handle {
+  .jarvis-resize-handle {
     position: absolute;
     pointer-events: auto;
     z-index: 10;
   }
-  .soldierboy-resize-r {
+  .jarvis-resize-r {
     top: 0; right: 0; width: 6px; height: 100%; cursor: ew-resize;
   }
-  .soldierboy-resize-b {
+  .jarvis-resize-b {
     bottom: 0; left: 0; width: 100%; height: 6px; cursor: ns-resize;
   }
-  .soldierboy-resize-l {
+  .jarvis-resize-l {
     top: 0; left: 0; width: 6px; height: 100%; cursor: ew-resize;
   }
-  .soldierboy-resize-t {
+  .jarvis-resize-t {
     top: 0; left: 0; width: 100%; height: 6px; cursor: ns-resize;
   }
-  .soldierboy-resize-br {
+  .jarvis-resize-br {
     bottom: 0; right: 0; width: 12px; height: 12px; cursor: nwse-resize;
   }
-  .soldierboy-resize-bl {
+  .jarvis-resize-bl {
     bottom: 0; left: 0; width: 12px; height: 12px; cursor: nesw-resize;
   }
-  .soldierboy-resize-tr {
+  .jarvis-resize-tr {
     top: 0; right: 0; width: 12px; height: 12px; cursor: nesw-resize;
   }
-  .soldierboy-resize-tl {
+  .jarvis-resize-tl {
     top: 0; left: 0; width: 12px; height: 12px; cursor: nwse-resize;
   }
-  .soldierboy-resize-br::after {
+  .jarvis-resize-br::after {
     content: '';
     position: absolute;
     bottom: 3px;
@@ -457,19 +457,19 @@
     border-right: 1.5px solid rgba(255, 255, 255, 0.2);
     border-bottom: 1.5px solid rgba(255, 255, 255, 0.2);
   }
-  .soldierboy-task-surface.active-window .soldierboy-resize-br::after {
+  .jarvis-task-surface.active-window .jarvis-resize-br::after {
     border-color: rgba(255, 157, 46, 0.5);
   }
 
   /* Reserved Minimized Tasks Bar */
-  #soldierboy-minimized-tasks-bar {
+  #jarvis-minimized-tasks-bar {
     position: absolute; bottom: 85px; right: 20px;
     z-index: 250; display: flex; gap: 8px; flex-wrap: wrap;
     max-width: 480px; pointer-events: auto;
   }
 
   /* Voice / Input Footer Region (Bottom Center of Workspace) */
-  #soldierboy-input-bar {
+  #jarvis-input-bar {
     position: absolute;
     bottom: 14px;
     left: 50%;
@@ -486,7 +486,7 @@
   }
 
   /* Interactive Floating Star Universe Canvas — Right Middle Engine */
-  #soldierboy-hud-wrapper {
+  #jarvis-hud-wrapper {
     position: absolute;
     top: 50%;
     right: 20px;
@@ -501,10 +501,10 @@
     background: transparent;
     border: none;
   }
-  #soldierboy-hud-wrapper:active {
+  #jarvis-hud-wrapper:active {
     cursor: grabbing;
   }
-  #soldierboy-hud-canvas {
+  #jarvis-hud-canvas {
     width: 480px;
     height: 480px;
     display: block;
@@ -513,10 +513,10 @@
     filter: drop-shadow(0 0 30px rgba(255, 157, 46, 0.20));
     transition: transform 0.1s ease, filter 0.25s ease;
   }
-  #soldierboy-hud-canvas.listening {
-    animation: soldierboy-pulse 1.8s ease-in-out infinite alternate;
+  #jarvis-hud-canvas.listening {
+    animation: jarvis-pulse 1.8s ease-in-out infinite alternate;
   }
-  #soldierboy-hud-floating-status {
+  #jarvis-hud-floating-status {
     position: absolute;
     bottom: 10px;
     left: 50%;
@@ -539,46 +539,46 @@
     display: none;
     z-index: 99 !important;
   }
-  #soldierboy-hud-floating-status.idle {
+  #jarvis-hud-floating-status.idle {
     display: none !important;
     opacity: 0 !important;
   }
-  #soldierboy-hud-floating-status.listening {
+  #jarvis-hud-floating-status.listening {
     display: block !important;
     opacity: 1 !important;
     color: #FF9D2E;
     border-color: rgba(255, 157, 46, 0.45);
     box-shadow: 0 0 16px rgba(255, 157, 46, 0.25);
   }
-  #soldierboy-hud-floating-status.speaking {
+  #jarvis-hud-floating-status.speaking {
     display: block !important;
     opacity: 1 !important;
     color: #FFB84D;
     border-color: rgba(255, 184, 77, 0.45);
     box-shadow: 0 0 16px rgba(255, 184, 77, 0.25);
   }
-  #soldierboy-hud-floating-status.thinking {
+  #jarvis-hud-floating-status.thinking {
     display: block !important;
     opacity: 1 !important;
     color: #D98224;
     border-color: rgba(217, 130, 36, 0.4);
     box-shadow: 0 0 16px rgba(217, 130, 36, 0.2);
   }
-  #soldierboy-hud-floating-status.interrupted {
+  #jarvis-hud-floating-status.interrupted {
     display: block !important;
     opacity: 1 !important;
     color: #ef4444;
     border-color: rgba(239, 68, 68, 0.5);
     box-shadow: 0 0 16px rgba(239, 68, 68, 0.25);
   }
-  #soldierboy-hud-floating-status.task_active {
+  #jarvis-hud-floating-status.task_active {
     display: block !important;
     opacity: 1 !important;
     color: #FF9D2E;
     border-color: rgba(255, 157, 46, 0.45);
     box-shadow: 0 0 16px rgba(255, 157, 46, 0.25);
   }
-  #soldierboy-hud-node-tooltip {
+  #jarvis-hud-node-tooltip {
     position: fixed !important;
     top: 0;
     left: 0;
@@ -601,14 +601,14 @@
     align-items: center;
     gap: 8px;
   }
-  #soldierboy-hud-node-tooltip.hud-node-tooltip-visible {
+  #jarvis-hud-node-tooltip.hud-node-tooltip-visible {
     opacity: 1;
   }
   @keyframes statusPulse {
     0% { transform: translateX(-50%) scale(1); }
     100% { transform: translateX(-50%) scale(1.1); }
   }
-  @keyframes soldierboy-pulse {
+  @keyframes jarvis-pulse {
     0% { transform: scale(1.0); }
     100% { transform: scale(1.03); }
   }
@@ -761,12 +761,12 @@
   #thread { flex: 1; overflow-y: auto; min-height: 0; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; z-index: 6; }
   .msg-speaker { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: -6px; user-select: none; -webkit-user-select: none; }
   .msg-speaker-user { align-self: flex-end; color: var(--accent-text); margin-right: 6px; }
-  .msg-speaker-soldierboy { align-self: flex-start; color: #facc15; margin-left: 2px; }
+  .msg-speaker-jarvis { align-self: flex-start; color: #facc15; margin-left: 2px; }
   .msg-user { align-self: flex-end; max-width: 78%; background: var(--accent-dim); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 12px 18px; border-radius: 12px; font-size: 15px; line-height: 1.6; box-shadow: var(--glass-shadow); backdrop-filter: blur(16px); }
   .msg-status { font-size: 13px; color: var(--text-muted); font-family: var(--sans); display: flex; align-items: center; gap: 8px; padding-left: 2px; }
   .msg-status::before { display: none !important; content: "" !important; }
 
-  /* UNBOXED Soldier Boy Answers — Glassmorphic Markdown Stream */
+  /* UNBOXED J.A.R.V.I.S. Answers — Glassmorphic Markdown Stream */
   #thread, .msg-answer, .msg-user, .msg-status, p, span, code, pre, blockquote, li {
     user-select: text !important;
     -webkit-user-select: text !important;
@@ -1055,8 +1055,8 @@
     font-size: 14px !important;
   }
 
-  /* Holographic Soldier Boy Action Panel Overlay */
-  #soldierboy-action-panel {
+  /* Holographic J.A.R.V.I.S. Action Panel Overlay */
+  #jarvis-action-panel {
     position: fixed;
     top: 85px;
     left: 50%;
@@ -1075,12 +1075,12 @@
     font-family: var(--mono);
     color: #E6E6E6;
   }
-  #soldierboy-action-panel.soldierboy-panel-hidden {
+  #jarvis-action-panel.jarvis-panel-hidden {
     opacity: 0;
     transform: translate(-50%, -30px) scale(0.92);
     pointer-events: none;
   }
-  .soldierboy-panel-header {
+  .jarvis-panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1088,7 +1088,7 @@
     padding-bottom: 8px;
     margin-bottom: 10px;
   }
-  .soldierboy-panel-title {
+  .jarvis-panel-title {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1096,20 +1096,20 @@
     color: #FF9D2E;
     text-shadow: 0 0 8px rgba(255, 157, 46, 0.3);
   }
-  .soldierboy-panel-close-btn {
+  .jarvis-panel-close-btn {
     cursor: pointer;
     font-size: 13px;
     color: #8A8D91;
     transition: color 0.2s;
   }
-  .soldierboy-panel-close-btn:hover {
+  .jarvis-panel-close-btn:hover {
     color: #ef4444;
   }
-  .soldierboy-panel-body {
+  .jarvis-panel-body {
     position: relative;
     overflow: hidden;
   }
-  .soldierboy-scan-line {
+  .jarvis-scan-line {
     position: absolute;
     top: 0;
     left: 0;
@@ -1117,16 +1117,16 @@
     height: 2px;
     background: linear-gradient(90deg, transparent, #FF9D2E, transparent);
     box-shadow: 0 0 10px rgba(255, 157, 46, 0.4);
-    animation: soldierboy-scan 2s linear infinite;
+    animation: jarvis-scan 2s linear infinite;
   }
-  @keyframes soldierboy-scan {
+  @keyframes jarvis-scan {
     0% { top: 0; opacity: 0.8; }
     50% { opacity: 1; }
     100% { top: 100%; opacity: 0.2; }
   }
 
   /* Live Sub-Conscious Stream & Voice Telemetry Subtitle Ribbon */
-  #soldierboy-hud-subtitles,
+  #jarvis-hud-subtitles,
   #joe-hud-subtitles {
     position: fixed;
     bottom: 84px;
@@ -1147,15 +1147,15 @@
     z-index: 1000;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  #soldierboy-hud-subtitles.soldierboy-subtitles-hidden,
-  #soldierboy-hud-subtitles.joe-subtitles-hidden,
+  #jarvis-hud-subtitles.jarvis-subtitles-hidden,
+  #jarvis-hud-subtitles.joe-subtitles-hidden,
   #joe-hud-subtitles.joe-subtitles-hidden,
-  #joe-hud-subtitles.soldierboy-subtitles-hidden {
+  #joe-hud-subtitles.jarvis-subtitles-hidden {
     opacity: 0;
     pointer-events: none;
     transform: translate(-50%, 12px);
   }
-  .soldierboy-subtitles-tag,
+  .jarvis-subtitles-tag,
   .joe-subtitles-tag {
     font-size: 9.5px;
     font-family: var(--mono);
@@ -1169,7 +1169,7 @@
     white-space: nowrap;
     text-shadow: 0 0 6px rgba(255, 157, 46, 0.3);
   }
-  .soldierboy-subtitles-text,
+  .jarvis-subtitles-text,
   .joe-subtitles-text {
     font-size: 13px;
     font-family: var(--sans);
@@ -1220,7 +1220,7 @@
     color: #55595E;
     margin-top: 4px;
   }
-  .soldierboy-query-box {
+  .jarvis-query-box {
     background: rgba(255, 157, 46, 0.08);
     border-left: 3px solid #FF9D2E;
     padding: 8px 10px;
@@ -1229,7 +1229,7 @@
     margin-bottom: 10px;
     color: #E6E6E6;
   }
-  .soldierboy-status-box {
+  .jarvis-status-box {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1237,15 +1237,15 @@
     letter-spacing: 1px;
     color: #8A8D91;
   }
-  .soldierboy-pulse-dot {
+  .jarvis-pulse-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background: #FF9D2E;
     box-shadow: 0 0 8px rgba(255, 157, 46, 0.6);
-    animation: soldierboy-pulse-dot 1s ease-in-out infinite alternate;
+    animation: jarvis-pulse-dot 1s ease-in-out infinite alternate;
   }
-  @keyframes soldierboy-pulse-dot {
+  @keyframes jarvis-pulse-dot {
     0% { transform: scale(0.8); opacity: 0.5; }
     100% { transform: scale(1.4); opacity: 1; }
   }
@@ -1498,7 +1498,7 @@
   .geo-flatmap-svg { width: 100%; height: 100%; background: #030405; }
 
   /* ================================================================
-     SOLDIER-BOY SPATIAL DESKTOP — GALAXY-FIRST WORKSPACE
+     J.A.R.V.I.S. SPATIAL DESKTOP — GALAXY-FIRST WORKSPACE
      The banner artwork is intentionally not used as the desktop
      background. The galaxy owns the workspace; the banner remains
      available as a branding asset for README/GitHub use.
@@ -1506,7 +1506,7 @@
   #bg-layer, #bg-overlay { display: none !important; }
   body { background: #030405 !important; }
 
-  #soldierboy-top-bar {
+  #jarvis-top-bar {
     position: absolute !important;
     inset: 0 !important;
     width: 100% !important;
@@ -1542,8 +1542,8 @@
   .top-bar-brand, .top-bar-center, #export-report-btn { display: none !important; }
   .top-bar-right { margin-left: auto; }
 
-  #soldierboy-body-container { position: relative !important; }
-  #soldierboy-main-workspace { position: relative !important; background: transparent !important; }
+  #jarvis-body-container { position: relative !important; }
+  #jarvis-main-workspace { position: relative !important; background: transparent !important; }
 
   /* Full-window galaxy layer */
   #workspace-content-grid {
@@ -1557,7 +1557,7 @@
     overflow: hidden !important;
     z-index: 1 !important;
   }
-  #soldierboy-hud-pane {
+  #jarvis-hud-pane {
     position: absolute !important;
     inset: 0 !important;
     width: 100% !important;
@@ -1568,7 +1568,7 @@
     overflow: hidden !important;
     pointer-events: none !important;
   }
-  #soldierboy-hud-pane #soldierboy-hud-wrapper {
+  #jarvis-hud-pane #jarvis-hud-wrapper {
     position: absolute !important;
     inset: 0 !important;
     width: 100% !important;
@@ -1578,7 +1578,7 @@
     display: block !important;
     pointer-events: none !important;
   }
-  #soldierboy-hud-canvas {
+  #jarvis-hud-canvas {
     position: absolute !important;
     inset: 0 !important;
     width: 100% !important;
@@ -1587,15 +1587,15 @@
     pointer-events: auto !important;
     cursor: grab !important;
   }
-  #soldierboy-hud-node-tooltip { z-index: 99999 !important; pointer-events: none !important; }
-  #soldierboy-hud-floating-status, #ekg-container { display: none !important; }
+  #jarvis-hud-node-tooltip { z-index: 99999 !important; pointer-events: none !important; }
+  #jarvis-hud-floating-status, #ekg-container { display: none !important; }
 
   /* Spatial interaction: the galaxy canvas must receive pointer input. The chat
      layer only captures events on actual message content, leaving empty space
      available for orbit/zoom. */
-  #soldierboy-hud-pane, #soldierboy-hud-wrapper { pointer-events: none !important; }
-  #soldierboy-hud-canvas { pointer-events: auto !important; touch-action: none !important; }
-  #soldierboy-chat-container { pointer-events: none !important; }
+  #jarvis-hud-pane, #jarvis-hud-wrapper { pointer-events: none !important; }
+  #jarvis-hud-canvas { pointer-events: auto !important; touch-action: none !important; }
+  #jarvis-chat-container { pointer-events: none !important; }
   #thread { pointer-events: none !important; }
   #thread > * { pointer-events: auto !important; }
 
@@ -1605,33 +1605,33 @@
 
   /* Remove the old transient HUD status pill entirely. State belongs to the
      animation itself; there is no floating LISTENING/SPEAKING badge. */
-  #soldierboy-hud-floating-status, #ekg-container { display: none !important; }
+  #jarvis-hud-floating-status, #ekg-container { display: none !important; }
 
   /* FINAL SPATIAL WORKSPACE OVERRIDES */
   #bg-layer, #bg-overlay { display: none !important; }
   body { background: #010204 !important; }
-  #soldierboy-hud-pane, #soldierboy-hud-wrapper { pointer-events: none !important; }
-  #soldierboy-hud-canvas {
+  #jarvis-hud-pane, #jarvis-hud-wrapper { pointer-events: none !important; }
+  #jarvis-hud-canvas {
     pointer-events: auto !important;
     touch-action: none !important;
     cursor: grab !important;
   }
-  #soldierboy-hud-canvas:active { cursor: grabbing !important; }
-  #soldierboy-chat-container, #thread { pointer-events: none !important; }
+  #jarvis-hud-canvas:active { cursor: grabbing !important; }
+  #jarvis-chat-container, #thread { pointer-events: none !important; }
   #thread > * { pointer-events: auto !important; }
   /* Empty conversation space must never steal galaxy gestures. Only actual chat items receive input. */
   #thread { pointer-events: none !important; }
   #thread > * { pointer-events: auto !important; }
-  #soldierboy-hud-floating-status, #ekg-container { display: none !important; }
+  #jarvis-hud-floating-status, #ekg-container { display: none !important; }
   #spatial-galaxy-meta, #spatial-system-telemetry { display: none !important; }
 
   /* Let task windows live in the galaxy without blocking it when they are not
      actually under the pointer. Their own surfaces remain interactive. */
-  #soldierboy-task-surfaces-container { pointer-events: none !important; }
-  #soldierboy-task-surfaces-container .soldierboy-task-surface { pointer-events: auto !important; }
+  #jarvis-task-surfaces-container { pointer-events: none !important; }
+  #jarvis-task-surfaces-container .jarvis-task-surface { pointer-events: auto !important; }
 
   /* Focused Assistant Dialogue HUD directly above input bar (JARVIS / God's Eye pattern) */
-  #soldierboy-chat-container {
+  #jarvis-chat-container {
     position: fixed !important;
     bottom: 86px !important;
     left: 50% !important;
@@ -1725,7 +1725,7 @@
 
   /* Remove the old investigation framing from the default workspace. */
   #case-title, #case-sub, .case-sub-inline, #thinking-indicator { display: none !important; }
-  #soldierboy-input-bar {
+  #jarvis-input-bar {
     z-index: 300 !important;
     width: min(720px, 58vw) !important;
     bottom: 22px !important;
@@ -1785,12 +1785,12 @@
   #spatial-galaxy-meta .meta-value { color: rgba(225,226,228,.78); }
 
   /* Task windows float over the galaxy and remain the authoritative detail layer. */
-  #soldierboy-task-surfaces-container { z-index: 200 !important; }
-  #soldierboy-minimized-tasks-bar { z-index: 250 !important; }
+  #jarvis-task-surfaces-container { z-index: 200 !important; }
+  #jarvis-minimized-tasks-bar { z-index: 250 !important; }
 
   @media (max-width: 900px) {
     #thread { width: min(900px, 86vw) !important; }
-    #soldierboy-input-bar { width: min(720px, 82vw) !important; }
+    #jarvis-input-bar { width: min(720px, 82vw) !important; }
     #spatial-system-telemetry { right: 10px; gap: 8px; }
   }
 
@@ -1818,7 +1818,7 @@
   </div>
 
   <!-- 1. TOP APPLICATION BAR -->
-  <header id="soldierboy-top-bar">
+  <header id="jarvis-top-bar">
     <div class="top-bar-left">
       <button class="top-bar-menu-btn" id="sidebar-toggle-btn" onclick="toggleSidebarExpanded()" title="Toggle Navigation Menu">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1856,7 +1856,7 @@
   </header>
 
   <!-- BODY CONTAINER (NAV RAIL + MAIN WORKSPACE) -->
-  <div id="soldierboy-body-container">
+  <div id="jarvis-body-container">
 
     <!-- 2. LEFT NAVIGATION OVERLAY MENU (ID="sidebar" for full JS backwards compatibility) -->
     <nav id="sidebar">
@@ -1936,13 +1936,13 @@
     </nav>
 
     <!-- 3. MAIN WORKSPACE -->
-    <main id="soldierboy-main-workspace">
+    <main id="jarvis-main-workspace">
 
       <!-- WORKSPACE CONTENT GRID (CHAT + HUD ORB PANE) -->
       <div id="workspace-content-grid">
         
         <!-- CHAT CONVERSATION CONTAINER CARD -->
-        <div id="soldierboy-chat-container">
+        <div id="jarvis-chat-container">
           <div class="workspace-card-header" aria-hidden="true">
             <span class="card-header-title" id="case-title"></span>
             <span class="case-sub-inline" id="case-sub"></span>
@@ -1957,11 +1957,11 @@
         </div>
 
         <!-- RIGHT HUD ORB PANE -->
-        <div id="soldierboy-hud-pane">
+        <div id="jarvis-hud-pane">
           <!-- Borderless Floating J.A.R.V.I.S. Galaxy HUD Canvas -->
-          <div id="soldierboy-hud-wrapper">
-            <canvas id="soldierboy-hud-canvas" width="480" height="480"></canvas>
-            <div id="soldierboy-hud-node-tooltip"></div>
+          <div id="jarvis-hud-wrapper">
+            <canvas id="jarvis-hud-canvas" width="480" height="480"></canvas>
+            <div id="jarvis-hud-node-tooltip"></div>
             <!-- Floating RE-CENTER HUD button (appears when HUD is panned away from center) -->
             <button id="hud-recenter-btn" onclick="if(window.HudGalaxy) window.HudGalaxy.recenter();" title="Recenter J.A.R.V.I.S. HUD" style="position:fixed; bottom:74px; right:20px; z-index:90; display:flex; align-items:center; gap:6px; background:rgba(18, 20, 24, 0.85); backdrop-filter:blur(10px); border:1px solid rgba(255, 157, 46, 0.35); border-radius:18px; padding:5px 12px; color:#FF9D2E; font-size:11px; font-weight:700; font-family:var(--mono); letter-spacing:0.05em; cursor:pointer; opacity:0; pointer-events:none; transition:opacity 0.25s ease, background 0.15s ease, border-color 0.15s ease; box-shadow:0 4px 16px rgba(0,0,0,0.5);" onmouseenter="this.style.background='rgba(255,157,46,0.18)'; this.style.borderColor='rgba(255,157,46,0.7)'" onmouseleave="this.style.background='rgba(18, 20, 24, 0.85)'; this.style.borderColor='rgba(255,157,46,0.35)'">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1978,13 +1978,13 @@
       </div>
 
       <!-- 4. RESERVED TASK SURFACE AREA -->
-      <div id="soldierboy-task-surfaces-container"></div>
+      <div id="jarvis-task-surfaces-container"></div>
 
       <!-- 5. RESERVED MINIMIZED TASK AREA -->
-      <div id="soldierboy-minimized-tasks-bar"></div>
+      <div id="jarvis-minimized-tasks-bar"></div>
 
       <!-- 6. VOICE / INPUT FOOTER REGION -->
-      <footer id="soldierboy-input-bar">
+      <footer id="jarvis-input-bar">
         <div id="hint">/skills &nbsp;/email &nbsp;/ip &nbsp;/github &nbsp;/wayback &nbsp;— or ask in plain language</div>
         <div id="composer">
           <button id="attach-btn" title="Attach screenshot">
@@ -2205,9 +2205,9 @@
     </div>
   </div>
 <!-- Live Sub-Conscious Stream & Voice Telemetry Subtitle Ribbon -->
-<div id="soldierboy-hud-subtitles" class="soldierboy-subtitles-hidden">
-  <div class="soldierboy-subtitles-tag" id="soldierboy-subtitle-tag">LIVE TELEMETRY</div>
-  <div class="soldierboy-subtitles-text" id="soldierboy-subtitle-text">Listening... say "Hey Soldier..."</div>
+<div id="jarvis-hud-subtitles" class="jarvis-subtitles-hidden">
+  <div class="jarvis-subtitles-tag" id="jarvis-subtitle-tag">LIVE TELEMETRY</div>
+  <div class="jarvis-subtitles-text" id="jarvis-subtitle-text">Listening... say "Hey JARVIS..."</div>
 </div>
 
 <!-- Visual Evidence Screenshot Drawer Overlay -->
@@ -2362,28 +2362,28 @@
   </div>
 </div>
 
-<!-- Holographic Soldier Boy Action Panel Overlay -->
-<div id="soldierboy-action-panel" class="soldierboy-panel-hidden">
-  <div class="soldierboy-panel-header" style="display:flex; justify-content:space-between; align-items:center;">
-    <div class="soldierboy-panel-title">
+<!-- Holographic J.A.R.V.I.S. Action Panel Overlay -->
+<div id="jarvis-action-panel" class="jarvis-panel-hidden">
+  <div class="jarvis-panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="jarvis-panel-title">
       <span style="letter-spacing:1px; font-weight:700; font-family:var(--sans);">J.A.R.V.I.S. TACTICAL SURFACE</span>
     </div>
     <div style="display:flex; gap:8px; align-items:center;">
       <button onclick="if(TaskSurfaceManager.activeTaskId) TaskSurfaceManager.minimizeTaskSurface(TaskSurfaceManager.activeTaskId)" style="background:rgba(255,157,46,0.15); border:1px solid #FF9D2E; color:#FFB84D; font-size:9px; font-weight:700; padding:2px 6px; border-radius:3px; cursor:pointer;">[MINIMIZE]</button>
-      <span class="soldierboy-panel-close-btn" onclick="if(TaskSurfaceManager.activeTaskId) TaskSurfaceManager.closeTaskSurface(TaskSurfaceManager.activeTaskId); else closeSoldierBoyPanel();" style="cursor:pointer; font-weight:700; color:#8A8D91;">✕</span>
+      <span class="jarvis-panel-close-btn" onclick="if(TaskSurfaceManager.activeTaskId) TaskSurfaceManager.closeTaskSurface(TaskSurfaceManager.activeTaskId); else closeJarvisPanel();" style="cursor:pointer; font-weight:700; color:#8A8D91;">✕</span>
     </div>
   </div>
-  <div class="soldierboy-panel-body">
-    <div class="soldierboy-scan-line"></div>
-    <div class="soldierboy-query-box">
+  <div class="jarvis-panel-body">
+    <div class="jarvis-scan-line"></div>
+    <div class="jarvis-query-box">
       <span style="color:#8A8D91; font-weight:700; margin-right:6px;">QUERY:</span>
-      <span id="soldierboy-query-text" style="color:#E6E6E6; font-weight:600;">Searching Google...</span>
+      <span id="jarvis-query-text" style="color:#E6E6E6; font-weight:600;">Searching Google...</span>
     </div>
-    <div class="soldierboy-status-box">
-      <span class="soldierboy-pulse-dot"></span>
-      <span id="soldierboy-status-text">SCANNING GOOGLE INDEX & READING OUT FINDINGS...</span>
+    <div class="jarvis-status-box">
+      <span class="jarvis-pulse-dot"></span>
+      <span id="jarvis-status-text">SCANNING GOOGLE INDEX & READING OUT FINDINGS...</span>
     </div>
-    <div class="soldierboy-results-preview" id="soldierboy-results-preview" style="margin-top:10px; padding-top:8px; border-top:1px dashed rgba(255, 255, 255, 0.08);">
+    <div class="jarvis-results-preview" id="jarvis-results-preview" style="margin-top:10px; padding-top:8px; border-top:1px dashed rgba(255, 255, 255, 0.08);">
       <div style="font-size:11px; color:#FFB84D; font-family:var(--mono);">
         Live search window opened in desktop browser
       </div>
@@ -2409,7 +2409,7 @@ if (typeof marked !== 'undefined' && marked.setOptions) {
 }
 
 /* =====================================================================
-   Soldier Boy Frontend Logic — Clean Markdown & Structured Ledger
+   J.A.R.V.I.S. Frontend Logic — Clean Markdown & Structured Ledger
    ===================================================================== */
 
 const state = {
@@ -2446,7 +2446,7 @@ if (thread) {
     const target = document.elementFromPoint(e.clientX, e.clientY);
     if (!target) return;
     // Check if wheel occurred over chat thread or its messages
-    if (target.closest('#thread, #soldierboy-chat-container')) {
+    if (target.closest('#thread, #jarvis-chat-container')) {
       const hud = window.HudGalaxy;
       // Do not scroll thread if the cursor is directly above the HUD constellation
       if (hud && typeof hud.isPointerOverHud === 'function' && hud.isPointerOverHud(e.clientX, e.clientY)) {
@@ -2505,7 +2505,7 @@ function showThinking(show) {
 
 function cleanSpeakerPrefix(text) {
   if (!text) return "";
-  let clean = text.replace(/^(\s*(?:SOLDIER\s*BOY|SOLDIERBOY|SOLDIER-BOY|ASSISTANT|AI)\s*:\s*)/i, '');
+  let clean = text.replace(/^(\s*(?:ASSISTANT|AI)\s*:\s*)/i, '');
   // Strip execution directives so they never display in chat text
   clean = clean.replace(/\[CMD(?::|\s)[^\]]*\]/gi, '');
   clean = clean.replace(/\[CMD(?::|\s)[^\]]*$/gi, '');
@@ -2685,10 +2685,10 @@ function startStreamingAnswer() {
 function updateStreamingChunk(chunkText) {
   if (!currentStreamingElem) return;
   streamingBuffer += chunkText;
-  soldierboyAudioEnergy = Math.min(255, soldierboyAudioEnergy + 55 + Math.random() * 35);
+  jarvisAudioEnergy = Math.min(255, jarvisAudioEnergy + 55 + Math.random() * 35);
   const display = cleanSpeakerPrefix(streamingBuffer);
   if (display && display.trim().length > 0) {
-    if (soldierboyHudState === 'thinking') setHudState('speaking');
+    if (jarvisHudState === 'thinking') setHudState('speaking');
     if (typeof marked !== 'undefined' && marked.parse) {
       currentStreamingElem.innerHTML = marked.parse(display) + '<span class="cursor-blink">▌</span>';
     } else {
@@ -3046,20 +3046,20 @@ if ($('#evidence-export-btn')) {
 let subtitleHideTimer = null;
 
 function showSubtitles(text, tag = 'LIVE TELEMETRY') {
-  const sub = $('#soldierboy-hud-subtitles') || $('#joe-hud-subtitles');
-  const tagEl = $('#soldierboy-subtitle-tag') || $('#joe-subtitle-tag');
-  const textEl = $('#soldierboy-subtitle-text') || $('#joe-subtitle-text');
+  const sub = $('#jarvis-hud-subtitles') || $('#joe-hud-subtitles');
+  const tagEl = $('#jarvis-subtitle-tag') || $('#joe-subtitle-tag');
+  const textEl = $('#jarvis-subtitle-text') || $('#joe-subtitle-text');
   if (!sub || !text) return;
 
   if (tagEl) tagEl.textContent = tag.toUpperCase();
   if (textEl) textEl.textContent = text;
 
-  sub.classList.remove('soldierboy-subtitles-hidden');
+  sub.classList.remove('jarvis-subtitles-hidden');
   sub.classList.remove('joe-subtitles-hidden');
 
   if (subtitleHideTimer) clearTimeout(subtitleHideTimer);
   subtitleHideTimer = setTimeout(() => {
-    sub.classList.add('soldierboy-subtitles-hidden');
+    sub.classList.add('jarvis-subtitles-hidden');
     sub.classList.add('joe-subtitles-hidden');
   }, 6000);
 }
@@ -3209,12 +3209,12 @@ function renderCaseList(cases) {
 }
 
 function setCaseHeader(name, sub, risk) {
-  $('#case-title').textContent = name || 'SOLDIER BOY';
+  $('#case-title').textContent = name || 'J.A.R.V.I.S.';
   $('#case-sub').textContent = sub || '';
   $('#risk-chip').textContent = risk != null ? `risk ${risk}` : 'risk —';
   const exportBtn = $('#export-report-btn');
   if (exportBtn) {
-    exportBtn.style.display = (name && name !== 'SOLDIER BOY' && name !== 'Hello, You.') ? 'inline-flex' : 'none';
+    exportBtn.style.display = (name && name !== 'J.A.R.V.I.S.' && name !== 'Hello, You.') ? 'inline-flex' : 'none';
   }
 }
 
@@ -3235,7 +3235,7 @@ function renderCaseHistory(rt) {
   let hasAnswer = false;
   if (rt.timeline && rt.timeline.length > 0) {
     rt.timeline.forEach((item) => {
-      if (item.event === 'closing_monologue' || item.event === 'soldierboy_answer' || item.event === 'joe_answer') {
+      if (item.event === 'closing_monologue' || item.event === 'jarvis_answer' || item.event === 'joe_answer') {
         if (item.data && item.data.text) {
           addAnswer(item.data.text);
           hasAnswer = true;
@@ -3262,7 +3262,7 @@ let lastSendTime = 0;
 let lastSentText = '';
 
 function handleSend() {
-  resetSoldierBoyAudioQueue();
+  resetJarvisAudioQueue();
   const input = $('#chat-input');
   const text = input.value.trim();
   if (!text && !state.pendingImagePath) return;
@@ -3413,24 +3413,24 @@ function safeSetStorage(key, val) {
 }
 
 /* =====================================================================
-   SOLDIER-BOY — LIVING 3D OPERATIONAL GALAXY HUD ENGINE
+   J.A.R.V.I.S. — LIVING 3D OPERATIONAL GALAXY HUD ENGINE
    ===================================================================== */
-let soldierboyCanvas = null;
-let soldierboyCtx = null;
-let soldierboyHudState = 'idle'; // 'idle' | 'listening' | 'speaking' | 'thinking' | 'interrupted' | 'task_active'
-let soldierboyAudioEnergy = 0;
+let jarvisCanvas = null;
+let jarvisCtx = null;
+let jarvisHudState = 'idle'; // 'idle' | 'listening' | 'speaking' | 'thinking' | 'interrupted' | 'task_active'
+let jarvisAudioEnergy = 0;
 let audioContext = null;
 let audioAnalyser = null;
 let audioDataArray = null;
-let soldierboyHudColorTheme = 'orange';
+let jarvisHudColorTheme = 'orange';
 
 // Backward compatibility bindings for legacy HUD state
 try {
-  Object.defineProperty(window, 'joeCanvas', { get: () => soldierboyCanvas, set: (v) => { soldierboyCanvas = v; }, configurable: true });
-  Object.defineProperty(window, 'joeCtx', { get: () => soldierboyCtx, set: (v) => { soldierboyCtx = v; }, configurable: true });
-  Object.defineProperty(window, 'joeHudState', { get: () => soldierboyHudState, set: (v) => { soldierboyHudState = v; }, configurable: true });
-  Object.defineProperty(window, 'joeAudioEnergy', { get: () => soldierboyAudioEnergy, set: (v) => { soldierboyAudioEnergy = v; }, configurable: true });
-  Object.defineProperty(window, 'joeHudColorTheme', { get: () => soldierboyHudColorTheme, set: (v) => { soldierboyHudColorTheme = v; }, configurable: true });
+  Object.defineProperty(window, 'joeCanvas', { get: () => jarvisCanvas, set: (v) => { jarvisCanvas = v; }, configurable: true });
+  Object.defineProperty(window, 'joeCtx', { get: () => jarvisCtx, set: (v) => { jarvisCtx = v; }, configurable: true });
+  Object.defineProperty(window, 'joeHudState', { get: () => jarvisHudState, set: (v) => { jarvisHudState = v; }, configurable: true });
+  Object.defineProperty(window, 'joeAudioEnergy', { get: () => jarvisAudioEnergy, set: (v) => { jarvisAudioEnergy = v; }, configurable: true });
+  Object.defineProperty(window, 'joeHudColorTheme', { get: () => jarvisHudColorTheme, set: (v) => { jarvisHudColorTheme = v; }, configurable: true });
 } catch(e){}
 
 const HudGalaxy = {
@@ -3472,7 +3472,7 @@ const HudGalaxy = {
   shockwaveRadius: 0,
   shockwaveActive: false,
 
-  // Palette: SOLDIER-BOY Identity (Amber/Orange dominant, secondary nodes deliberately muted)
+  // Palette: J.A.R.V.I.S. Identity (Amber/Orange dominant, secondary nodes deliberately muted)
   palette: {
     SYSTEM:       { fill: '#FF9D2E', glow: 'rgba(255, 157, 46, 0.85)', stroke: 'rgba(255, 215, 150, 0.95)', size: 9 },
     TASK:         { fill: '#D98224', glow: 'rgba(217, 130, 36, 0.85)', stroke: 'rgba(255, 184, 77, 0.95)', size: 7.5 },
@@ -3488,7 +3488,7 @@ const HudGalaxy = {
   init(canvas) {
     this.canvas = canvas;
     if (canvas) this.ctx = canvas.getContext('2d');
-    this.tooltipElem = document.getElementById('soldierboy-hud-node-tooltip') || document.getElementById('joe-hud-node-tooltip');
+    this.tooltipElem = document.getElementById('jarvis-hud-node-tooltip') || document.getElementById('joe-hud-node-tooltip');
     this.initStars();
     this.initAmbientNodes();
     this.bindEvents();
@@ -3520,7 +3520,7 @@ const HudGalaxy = {
     this.links = [];
 
     this.addNode({
-      id: 'node_core', type: 'SYSTEM', label: 'SOLDIER-BOY CORE', state: 'idle',
+      id: 'node_core', type: 'SYSTEM', label: 'J.A.R.V.I.S. CORE', state: 'idle',
       x: 0, y: 0, z: 0, size: 12, isCore: true
     });
 
@@ -3848,7 +3848,7 @@ const HudGalaxy = {
     });
 
     // Responsive Canvas Resize Observer
-    const pane = document.getElementById('soldierboy-hud-pane');
+    const pane = document.getElementById('jarvis-hud-pane');
     if (window.ResizeObserver && pane) {
       new ResizeObserver(() => this.resize()).observe(pane);
     }
@@ -3878,7 +3878,7 @@ const HudGalaxy = {
     if (typeof document !== 'undefined' && document.elementFromPoint) {
       const target = document.elementFromPoint(clientX, clientY);
       if (target) {
-        if (target.closest('#soldierboy-input-bar, .soldierboy-task-surface, #sidebar, #soldierboy-action-panel, .msg-user, .msg-answer, .msg-bubble')) {
+        if (target.closest('#jarvis-input-bar, .jarvis-task-surface, #sidebar, #jarvis-action-panel, .msg-user, .msg-answer, .msg-bubble')) {
           return false;
         }
       }
@@ -3974,7 +3974,7 @@ const HudGalaxy = {
 
   showTooltipForNode(node) {
     if (!this.tooltipElem) {
-      this.tooltipElem = document.getElementById('soldierboy-hud-node-tooltip') || document.getElementById('joe-hud-node-tooltip');
+      this.tooltipElem = document.getElementById('jarvis-hud-node-tooltip') || document.getElementById('joe-hud-node-tooltip');
     }
     if (!this.tooltipElem) return;
 
@@ -4014,7 +4014,7 @@ const HudGalaxy = {
 
   hideTooltip() {
     if (!this.tooltipElem) {
-      this.tooltipElem = document.getElementById('soldierboy-hud-node-tooltip') || document.getElementById('joe-hud-node-tooltip');
+      this.tooltipElem = document.getElementById('jarvis-hud-node-tooltip') || document.getElementById('joe-hud-node-tooltip');
     }
     if (this.tooltipElem) {
       this.tooltipElem.classList.remove('hud-node-tooltip-visible');
@@ -4324,23 +4324,23 @@ window.setAppMode = setAppMode;
 window.toggleAppMode = toggleAppMode;
 
 function setHudColorTheme(colorTheme) {
-  soldierboyHudColorTheme = 'orange';
-  safeSetStorage('soldierboy_hud_color', 'orange');
+  jarvisHudColorTheme = 'orange';
+  safeSetStorage('jarvis_hud_color', 'orange');
   safeSetStorage('joe_hud_color', 'orange');
 
-  if (!soldierboyCanvas) soldierboyCanvas = document.getElementById('soldierboy-hud-canvas') || document.getElementById('joe-hud-canvas');
-  if (soldierboyCanvas) {
-    soldierboyCanvas.style.filter = 'none';
+  if (!jarvisCanvas) jarvisCanvas = document.getElementById('jarvis-hud-canvas') || document.getElementById('joe-hud-canvas');
+  if (jarvisCanvas) {
+    jarvisCanvas.style.filter = 'none';
   }
   if (window.HudGalaxy) {
     window.HudGalaxy.setColorTheme('orange');
   }
 }
 
-function initSoldierBoyHud() {
-  soldierboyCanvas = document.getElementById('soldierboy-hud-canvas') || document.getElementById('joe-hud-canvas');
-  if (soldierboyCanvas) soldierboyCtx = soldierboyCanvas.getContext('2d');
-  HudGalaxy.init(soldierboyCanvas);
+function initJarvisHud() {
+  jarvisCanvas = document.getElementById('jarvis-hud-canvas') || document.getElementById('joe-hud-canvas');
+  if (jarvisCanvas) jarvisCtx = jarvisCanvas.getContext('2d');
+  HudGalaxy.init(jarvisCanvas);
   setHudState('idle');
 
   const toggleBtn = document.getElementById('hud-color-toggle');
@@ -4350,20 +4350,20 @@ function initSoldierBoyHud() {
       toggleHudColorTheme();
     };
   }
-  setHudColorTheme(soldierboyHudColorTheme);
+  setHudColorTheme(jarvisHudColorTheme);
 
-  requestAnimationFrame(drawSoldierBoyHud);
+  requestAnimationFrame(drawJarvisHud);
 }
-function initJoeHud() { return initSoldierBoyHud(); }
-window.initSoldierBoyHud = initSoldierBoyHud;
-window.initJoeHud = initSoldierBoyHud;
+function initJoeHud() { return initJarvisHud(); }
+window.initJarvisHud = initJarvisHud;
+window.initJoeHud = initJarvisHud;
 
 function setHudState(state) {
-  soldierboyHudState = state;
+  jarvisHudState = state;
   if (window.HudGalaxy) {
     HudGalaxy.setState(state);
   }
-  const floatingStatus = document.getElementById('soldierboy-hud-floating-status') || document.getElementById('joe-hud-floating-status');
+  const floatingStatus = document.getElementById('jarvis-hud-floating-status') || document.getElementById('joe-hud-floating-status');
   if (floatingStatus) {
     floatingStatus.className = state;
     if (state === 'listening') floatingStatus.textContent = 'LISTENING...';
@@ -4411,47 +4411,47 @@ function setHudState(state) {
   }
 }
 
-function drawSoldierBoyHud() {
-  if (!soldierboyCanvas) soldierboyCanvas = document.getElementById('soldierboy-hud-canvas') || document.getElementById('joe-hud-canvas');
-  if (!soldierboyCanvas) {
-    requestAnimationFrame(drawSoldierBoyHud);
+function drawJarvisHud() {
+  if (!jarvisCanvas) jarvisCanvas = document.getElementById('jarvis-hud-canvas') || document.getElementById('joe-hud-canvas');
+  if (!jarvisCanvas) {
+    requestAnimationFrame(drawJarvisHud);
     return;
   }
 
   // Real audio frequency reactive energy for TTS speech & microphone input
-  if (soldierboyHudState === 'speaking' && window.ttsAnalyser && window.ttsDataArray) {
+  if (jarvisHudState === 'speaking' && window.ttsAnalyser && window.ttsDataArray) {
     window.ttsAnalyser.getByteFrequencyData(window.ttsDataArray);
     let sum = 0;
     for (let i = 0; i < window.ttsDataArray.length; i++) sum += window.ttsDataArray[i];
     const avg = sum / window.ttsDataArray.length;
-    soldierboyAudioEnergy = Math.max(16, avg * 1.8);
-  } else if (soldierboyHudState === 'listening' && audioAnalyser && audioDataArray) {
+    jarvisAudioEnergy = Math.max(16, avg * 1.8);
+  } else if (jarvisHudState === 'listening' && audioAnalyser && audioDataArray) {
     audioAnalyser.getByteFrequencyData(audioDataArray);
     let sum = 0;
     for (let i = 0; i < audioDataArray.length; i++) sum += audioDataArray[i];
     const avg = sum / audioDataArray.length;
-    soldierboyAudioEnergy = Math.max(14, avg * 1.6);
-  } else if (soldierboyHudState === 'listening') {
-    soldierboyAudioEnergy = Math.max(soldierboyAudioEnergy * 0.90, 85 + Math.sin(Date.now() / 45) * 55 + Math.random() * 40);
-  } else if (soldierboyHudState === 'speaking') {
-    // Dynamic vibrant speech energy rhythm when Soldier Boy speaks or model streams tokens
-    soldierboyAudioEnergy = Math.max(soldierboyAudioEnergy * 0.92, 55 + Math.sin(Date.now() / 40) * 40 + Math.random() * 30);
-  } else if (soldierboyHudState === 'thinking') {
-    soldierboyAudioEnergy = 45 + Math.sin(Date.now() / 65) * 35;
-  } else if (soldierboyHudState === 'task_active' || soldierboyHudState === 'processing') {
-    soldierboyAudioEnergy = 75 + Math.sin(Date.now() / 40) * 40;
-  } else if (soldierboyHudState === 'interrupted') {
-    soldierboyAudioEnergy = 110 + Math.sin(Date.now() / 20) * 40;
+    jarvisAudioEnergy = Math.max(14, avg * 1.6);
+  } else if (jarvisHudState === 'listening') {
+    jarvisAudioEnergy = Math.max(jarvisAudioEnergy * 0.90, 85 + Math.sin(Date.now() / 45) * 55 + Math.random() * 40);
+  } else if (jarvisHudState === 'speaking') {
+    // Dynamic vibrant speech energy rhythm when J.A.R.V.I.S. speaks or model streams tokens
+    jarvisAudioEnergy = Math.max(jarvisAudioEnergy * 0.92, 55 + Math.sin(Date.now() / 40) * 40 + Math.random() * 30);
+  } else if (jarvisHudState === 'thinking') {
+    jarvisAudioEnergy = 45 + Math.sin(Date.now() / 65) * 35;
+  } else if (jarvisHudState === 'task_active' || jarvisHudState === 'processing') {
+    jarvisAudioEnergy = 75 + Math.sin(Date.now() / 40) * 40;
+  } else if (jarvisHudState === 'interrupted') {
+    jarvisAudioEnergy = 110 + Math.sin(Date.now() / 20) * 40;
   } else {
-    soldierboyAudioEnergy = 8 + Math.sin(Date.now() / 800) * 4;
+    jarvisAudioEnergy = 8 + Math.sin(Date.now() / 800) * 4;
   }
 
-  HudGalaxy.render(soldierboyAudioEnergy);
-  requestAnimationFrame(drawSoldierBoyHud);
+  HudGalaxy.render(jarvisAudioEnergy);
+  requestAnimationFrame(drawJarvisHud);
 }
-function drawJoeHud() { return drawSoldierBoyHud(); }
-window.drawSoldierBoyHud = drawSoldierBoyHud;
-window.drawJoeHud = drawSoldierBoyHud;
+function drawJoeHud() { return drawJarvisHud(); }
+window.drawJarvisHud = drawJarvisHud;
+window.drawJoeHud = drawJarvisHud;
 
 /* ---------- Real-Time EKG Heartbeat Waveform Line Canvas Renderer ---------- */
 let ekgCanvas = null;
@@ -4508,7 +4508,7 @@ function drawEkgWaveform() {
   ekgCtx.clearRect(0, 0, width, height);
 
   // 1. Draw EKG Grid
-  const isOrange = (soldierboyHudColorTheme === 'orange');
+  const isOrange = (jarvisHudColorTheme === 'orange');
   ekgCtx.strokeStyle = isOrange ? 'rgba(255, 140, 40, 0.08)' : 'rgba(112, 214, 255, 0.08)';
   ekgCtx.lineWidth = 1;
   const gridSize = 14;
@@ -4527,14 +4527,14 @@ function drawEkgWaveform() {
 
   // 2. Advance Phase (Speed = 0 when idle so pulse line is completely flat and dead)
   let speed = 0;
-  if (soldierboyHudState === 'listening') speed = 0.020;
-  else if (soldierboyHudState === 'thinking') speed = 0.026;
-  else if (soldierboyHudState === 'speaking') speed = 0.022;
+  if (jarvisHudState === 'listening') speed = 0.020;
+  else if (jarvisHudState === 'thinking') speed = 0.026;
+  else if (jarvisHudState === 'speaking') speed = 0.022;
 
   if (speed > 0) {
     ekgPhase = (ekgPhase + speed) % 1.0;
   }
-  const nextSample = getEkgHeightAtPhase(ekgPhase, soldierboyHudState, soldierboyAudioEnergy);
+  const nextSample = getEkgHeightAtPhase(ekgPhase, jarvisHudState, jarvisAudioEnergy);
 
   ekgBuffer.shift();
   ekgBuffer.push(nextSample);
@@ -4577,11 +4577,11 @@ function drawEkgWaveform() {
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    initSoldierBoyHud();
+    initJarvisHud();
     requestAnimationFrame(drawEkgWaveform);
   });
 } else {
-  initSoldierBoyHud();
+  initJarvisHud();
   requestAnimationFrame(drawEkgWaveform);
 }
 
@@ -4613,10 +4613,10 @@ async function startMicListening() {
         addStatusLine("Microphone recording started...");
         return;
       } else if (res && res.error) {
-        console.warn('[SoldierBoySTT] Native mic start error:', res.error);
+        console.warn('[JarvisSTT] Native mic start error:', res.error);
       }
     } catch (e) {
-      console.warn('[SoldierBoySTT] Native mic start failed, trying WebSpeech/MediaRecorder:', e);
+      console.warn('[JarvisSTT] Native mic start failed, trying WebSpeech/MediaRecorder:', e);
     }
   }
 
@@ -4632,8 +4632,8 @@ async function startMicListening() {
 
         speechRecognizer.onresult = (event) => {
           // If TTS is currently playing audio through speakers, ignore STT to prevent feedback loop
-          if (isPlayingSoldierBoyQueue || currentSoldierBoyAudioElement || Date.now() < ttsPlaybackEndTime) {
-            console.log('[SoldierBoySTT] Muted during active TTS playback (self-echo suppression)');
+          if (isPlayingJarvisQueue || currentJarvisAudioElement || Date.now() < ttsPlaybackEndTime) {
+            console.log('[JarvisSTT] Muted during active TTS playback (self-echo suppression)');
             return;
           }
 
@@ -4644,20 +4644,20 @@ async function startMicListening() {
           fullText = fullText.trim();
           if (!fullText) return;
 
-          // Self-echo check: Suppress transcript if it matches recent Soldier Boy speech
+          // Self-echo check: Suppress transcript if it matches recent J.A.R.V.I.S. speech
           const cleanRec = fullText.toLowerCase().replace(/[^\w\s]/g, '').trim();
           for (const pastText of recentAgentTexts) {
             const cleanPast = pastText.toLowerCase().replace(/[^\w\s]/g, '').trim();
             if (cleanPast && (cleanPast.includes(cleanRec) || cleanRec.includes(cleanPast))) {
-              console.log('[SoldierBoySTT] Self-echo transcript suppressed:', fullText);
+              console.log('[JarvisSTT] Self-echo transcript suppressed:', fullText);
               return;
             }
           }
 
           let wasWake = false;
-          if (fullText.toLowerCase().includes('hey soldier') || fullText.toLowerCase().includes('soldier')) {
+          if (fullText.toLowerCase().includes('hey jarvis') || fullText.toLowerCase().includes('jarvis')) {
             wasWake = true;
-            fullText = fullText.replace(/hey soldier,?/gi, '').replace(/soldier,?/gi, '').trim();
+            fullText = fullText.replace(/hey jarvis,?/gi, '').replace(/jarvis,?/gi, '').trim();
           }
 
           if (fullText) $('#chat-input').value = fullText;
@@ -4671,7 +4671,7 @@ async function startMicListening() {
           }
         };
         speechRecognizer.onerror = (e) => {
-          console.warn('[SoldierBoySTT] WebSpeech error:', e);
+          console.warn('[JarvisSTT] WebSpeech error:', e);
           stopMicListening();
         };
         speechRecognizer.onend = () => {
@@ -4687,7 +4687,7 @@ async function startMicListening() {
       $('#chat-input').placeholder = "Listening... say 'Hey JARVIS...' or speak directive...";
       return;
     } catch(err) {
-      console.warn('[SoldierBoySTT] WebSpeech start failed:', err);
+      console.warn('[JarvisSTT] WebSpeech start failed:', err);
     }
   }
 
@@ -4708,7 +4708,7 @@ async function startMicListening() {
       source.connect(audioAnalyser);
       audioDataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
     } catch(e) {
-      console.warn('[SoldierBoySTT] AudioContext setup warning:', e);
+      console.warn('[JarvisSTT] AudioContext setup warning:', e);
     }
 
     audioChunks = [];
@@ -4738,7 +4738,7 @@ async function startMicListening() {
               addStatusLine(`Audio transcription: ${res.error}`);
             }
           } catch(err) {
-            console.error('[SoldierBoySTT] Python transcribe RPC error:', err);
+            console.error('[JarvisSTT] Python transcribe RPC error:', err);
           }
         }
         setHudState('idle');
@@ -4756,7 +4756,7 @@ async function startMicListening() {
     if (micBtnEl) micBtnEl.classList.add('mic-recording');
     $('#chat-input').placeholder = "Listening... speak now...";
   } catch (err) {
-    console.error('[SoldierBoySTT] Mic access error:', err);
+    console.error('[JarvisSTT] Mic access error:', err);
     addStatusLine("Microphone input restricted or unavailable.");
     isMicListening = false;
     setHudState('idle');
@@ -4794,7 +4794,7 @@ async function stopMicListening() {
         addStatusLine(`Voice input: ${res.error}`);
       }
     } catch (e) {
-      console.warn('[SoldierBoySTT] stop_native_mic RPC error:', e);
+      console.warn('[JarvisSTT] stop_native_mic RPC error:', e);
     }
   }
 
@@ -4857,44 +4857,44 @@ window.addEventListener('keyup', (e) => {
 });
 
 
-let soldierboyAudioQueue = [];
-let isPlayingSoldierBoyQueue = false;
-let currentSoldierBoyAudioElement = null;
+let jarvisAudioQueue = [];
+let isPlayingJarvisQueue = false;
+let currentJarvisAudioElement = null;
 let hasReceivedAudioChunk = false;
-let soldierBoyPanelTimer = null;
+let jarvisPanelTimer = null;
 let recentAgentTexts = [];
 let ttsPlaybackEndTime = 0;
-let soldierboyPcmContext = null;
-let soldierboyPcmNextStartTime = 0;
-let soldierboyPcmGeneration = 0;
-let activeSoldierBoyTtsTurn = 0;
+let jarvisPcmContext = null;
+let jarvisPcmNextStartTime = 0;
+let jarvisPcmGeneration = 0;
+let activeJarvisTtsTurn = 0;
 
-function stopSoldierBoyPcmStream() {
-  soldierboyPcmGeneration++;
-  soldierboyPcmNextStartTime = 0;
-  if (soldierboyPcmContext) {
-    try { soldierboyPcmContext.close(); } catch(e) {}
-    soldierboyPcmContext = null;
+function stopJarvisPcmStream() {
+  jarvisPcmGeneration++;
+  jarvisPcmNextStartTime = 0;
+  if (jarvisPcmContext) {
+    try { jarvisPcmContext.close(); } catch(e) {}
+    jarvisPcmContext = null;
   }
 }
 
-function ensureSoldierBoyPcmContext() {
-  if (!soldierboyPcmContext || soldierboyPcmContext.state === 'closed') {
+function ensureJarvisPcmContext() {
+  if (!jarvisPcmContext || jarvisPcmContext.state === 'closed') {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return null;
-    soldierboyPcmContext = new Ctx();
+    jarvisPcmContext = new Ctx();
   }
-  if (soldierboyPcmContext.state === 'suspended') {
-    soldierboyPcmContext.resume().catch(() => {});
+  if (jarvisPcmContext.state === 'suspended') {
+    jarvisPcmContext.resume().catch(() => {});
   }
-  return soldierboyPcmContext;
+  return jarvisPcmContext;
 }
 
-function enqueueSoldierBoyPcmChunk(audioB64, sampleRate, text, turnId) {
+function enqueueJarvisPcmChunk(audioB64, sampleRate, text, turnId) {
   if (!audioB64) return;
-  if (turnId != null && Number(turnId) !== Number(activeSoldierBoyTtsTurn)) return;
-  const generation = soldierboyPcmGeneration;
-  const ctx = ensureSoldierBoyPcmContext();
+  if (turnId != null && Number(turnId) !== Number(activeJarvisTtsTurn)) return;
+  const generation = jarvisPcmGeneration;
+  const ctx = ensureJarvisPcmContext();
   if (!ctx) return false;
 
   try {
@@ -4922,8 +4922,8 @@ function enqueueSoldierBoyPcmChunk(audioB64, sampleRate, text, turnId) {
     const now = ctx.currentTime;
     // Keep chunks ordered; if generation stalls, resume immediately rather than
     // playing old audio over a newer answer.
-    const startAt = Math.max(now + 0.01, soldierboyPcmNextStartTime);
-    soldierboyPcmNextStartTime = startAt + buffer.duration;
+    const startAt = Math.max(now + 0.01, jarvisPcmNextStartTime);
+    jarvisPcmNextStartTime = startAt + buffer.duration;
     ttsPlaybackEndTime = Math.max(
       ttsPlaybackEndTime,
       Date.now() + Math.max(250, (startAt - now + buffer.duration) * 1000)
@@ -4931,40 +4931,40 @@ function enqueueSoldierBoyPcmChunk(audioB64, sampleRate, text, turnId) {
     source.onended = () => {
       try { source.disconnect(); } catch(e) {}
     };
-    if (generation !== soldierboyPcmGeneration) return false;
+    if (generation !== jarvisPcmGeneration) return false;
     source.start(startAt);
-    isPlayingSoldierBoyQueue = true;
+    isPlayingJarvisQueue = true;
     setHudState('speaking');
     return true;
   } catch (e) {
-    console.warn('[SoldierBoyPCM] chunk playback error:', e);
+    console.warn('[JarvisPCM] chunk playback error:', e);
     return false;
   }
 }
-window.enqueueSoldierBoyPcmChunk = enqueueSoldierBoyPcmChunk;
+window.enqueueJarvisPcmChunk = enqueueJarvisPcmChunk;
 
 // Backward compatibility bindings for audio queue
 try {
-  Object.defineProperty(window, 'joeAudioQueue', { get: () => soldierboyAudioQueue, set: (v) => { soldierboyAudioQueue = v; }, configurable: true });
-  Object.defineProperty(window, 'isPlayingJoeQueue', { get: () => isPlayingSoldierBoyQueue, set: (v) => { isPlayingSoldierBoyQueue = v; }, configurable: true });
-  Object.defineProperty(window, 'currentJoeAudioElement', { get: () => currentSoldierBoyAudioElement, set: (v) => { currentSoldierBoyAudioElement = v; }, configurable: true });
+  Object.defineProperty(window, 'joeAudioQueue', { get: () => jarvisAudioQueue, set: (v) => { jarvisAudioQueue = v; }, configurable: true });
+  Object.defineProperty(window, 'isPlayingJoeQueue', { get: () => isPlayingJarvisQueue, set: (v) => { isPlayingJarvisQueue = v; }, configurable: true });
+  Object.defineProperty(window, 'currentJoeAudioElement', { get: () => currentJarvisAudioElement, set: (v) => { currentJarvisAudioElement = v; }, configurable: true });
 } catch(e){}
 
-function resetSoldierBoyAudioQueue() {
-  stopSoldierBoyPcmStream();
-  soldierboyAudioQueue = [];
-  isPlayingSoldierBoyQueue = false;
-  if (currentSoldierBoyAudioElement) {
+function resetJarvisAudioQueue() {
+  stopJarvisPcmStream();
+  jarvisAudioQueue = [];
+  isPlayingJarvisQueue = false;
+  if (currentJarvisAudioElement) {
     try {
-      currentSoldierBoyAudioElement.pause();
-      currentSoldierBoyAudioElement.currentTime = 0;
+      currentJarvisAudioElement.pause();
+      currentJarvisAudioElement.currentTime = 0;
     } catch(e){}
-    currentSoldierBoyAudioElement = null;
+    currentJarvisAudioElement = null;
   }
 }
-function resetJoeAudioQueue() { return resetSoldierBoyAudioQueue(); }
-window.resetSoldierBoyAudioQueue = resetSoldierBoyAudioQueue;
-window.resetJoeAudioQueue = resetSoldierBoyAudioQueue;
+function resetJoeAudioQueue() { return resetJarvisAudioQueue(); }
+window.resetJarvisAudioQueue = resetJarvisAudioQueue;
+window.resetJoeAudioQueue = resetJarvisAudioQueue;
 
 const TaskSurfaceManager = {
   tasks: {},
@@ -4977,7 +4977,7 @@ const TaskSurfaceManager = {
   resizeState: null,
 
   init() {
-    this.containerElem = document.getElementById('soldierboy-task-surfaces-container');
+    this.containerElem = document.getElementById('jarvis-task-surfaces-container');
     this.createMinimizedBar();
 
     // Global pointer listeners for smooth, unconstrained drag and resize outside window element
@@ -4990,20 +4990,20 @@ const TaskSurfaceManager = {
   },
 
   createMinimizedBar() {
-    let bar = document.getElementById('soldierboy-minimized-tasks-bar');
+    let bar = document.getElementById('jarvis-minimized-tasks-bar');
     if (!bar) {
       bar = document.createElement('div');
-      bar.id = 'soldierboy-minimized-tasks-bar';
-      const workspace = document.getElementById('soldierboy-main-workspace') || document.body;
+      bar.id = 'jarvis-minimized-tasks-bar';
+      const workspace = document.getElementById('jarvis-main-workspace') || document.body;
       workspace.appendChild(bar);
     }
     this.minimizedBarElem = bar;
   },
 
   getWorkspaceBounds() {
-    const ws = document.getElementById('soldierboy-main-workspace') || document.body;
+    const ws = document.getElementById('jarvis-main-workspace') || document.body;
     const rect = ws.getBoundingClientRect();
-    const inputBar = document.getElementById('soldierboy-input-bar');
+    const inputBar = document.getElementById('jarvis-input-bar');
     let composerTop = rect.height - 85;
     if (inputBar) {
       const ibRect = inputBar.getBoundingClientRect();
@@ -5062,7 +5062,7 @@ const TaskSurfaceManager = {
     const elem = document.getElementById(`task-surface-${taskId}`);
     if (elem) {
       elem.style.zIndex = task.zIndex;
-      document.querySelectorAll('.soldierboy-task-surface').forEach(el => el.classList.remove('active-window'));
+      document.querySelectorAll('.jarvis-task-surface').forEach(el => el.classList.remove('active-window'));
       elem.classList.add('active-window');
     }
     if (window.HudGalaxy) {
@@ -5240,7 +5240,7 @@ const TaskSurfaceManager = {
     }
     this.bringToFront(taskId);
     this.applyWindowBounds(elem, task);
-    const maxBtn = elem.querySelector('.soldierboy-win-btn.maximize');
+    const maxBtn = elem.querySelector('.jarvis-win-btn.maximize');
     if (maxBtn) {
       maxBtn.title = task.is_maximized ? 'Restore' : 'Maximize';
       maxBtn.textContent = task.is_maximized ? '❐' : '□';
@@ -5420,12 +5420,12 @@ const TaskSurfaceManager = {
   renderTaskSurface(task) {
     this.activeTaskId = task.task_id;
     
-    if (typeof setHudState === 'function' && soldierboyHudState !== 'speaking' && soldierboyHudState !== 'listening') {
+    if (typeof setHudState === 'function' && jarvisHudState !== 'speaking' && jarvisHudState !== 'listening') {
       setHudState('task_active');
     }
 
     if (!this.containerElem) {
-      this.containerElem = document.getElementById('soldierboy-task-surfaces-container');
+      this.containerElem = document.getElementById('jarvis-task-surfaces-container');
     }
 
     if (task.x == null || task.y == null) {
@@ -5450,7 +5450,7 @@ const TaskSurfaceManager = {
     if (!surfaceElem) {
       surfaceElem = document.createElement('div');
       surfaceElem.id = `task-surface-${task.task_id}`;
-      surfaceElem.className = 'soldierboy-task-surface';
+      surfaceElem.className = 'jarvis-task-surface';
       surfaceElem.setAttribute('data-task-id', task.task_id);
       surfaceElem.addEventListener('pointerdown', () => this.bringToFront(task.task_id));
       if (this.containerElem) {
@@ -5492,33 +5492,33 @@ const TaskSurfaceManager = {
 
     surfaceElem.innerHTML = `
       <!-- DRAGGABLE WINDOW HEADER -->
-      <div class="soldierboy-window-header" onpointerdown="TaskSurfaceManager.startDrag(event, '${task.task_id}')">
-        <div class="soldierboy-window-title-wrap">
-          <span class="soldierboy-window-dot">◉</span>
-          <span class="soldierboy-window-title">${surfaceTitle}</span>
-          <span class="soldierboy-window-time">${timeStr}</span>
+      <div class="jarvis-window-header" onpointerdown="TaskSurfaceManager.startDrag(event, '${task.task_id}')">
+        <div class="jarvis-window-title-wrap">
+          <span class="jarvis-window-dot">◉</span>
+          <span class="jarvis-window-title">${surfaceTitle}</span>
+          <span class="jarvis-window-time">${timeStr}</span>
         </div>
-        <div class="soldierboy-window-controls">
-          <button class="soldierboy-win-btn" onclick="TaskSurfaceManager.minimizeTaskSurface('${task.task_id}')" title="Minimize">—</button>
-          <button class="soldierboy-win-btn maximize" onclick="TaskSurfaceManager.toggleMaximize('${task.task_id}')" title="${task.is_maximized ? 'Restore' : 'Maximize'}">${task.is_maximized ? '❐' : '□'}</button>
-          <button class="soldierboy-win-btn close" onclick="TaskSurfaceManager.closeTaskSurface('${task.task_id}')" title="Close">✕</button>
+        <div class="jarvis-window-controls">
+          <button class="jarvis-win-btn" onclick="TaskSurfaceManager.minimizeTaskSurface('${task.task_id}')" title="Minimize">—</button>
+          <button class="jarvis-win-btn maximize" onclick="TaskSurfaceManager.toggleMaximize('${task.task_id}')" title="${task.is_maximized ? 'Restore' : 'Maximize'}">${task.is_maximized ? '❐' : '□'}</button>
+          <button class="jarvis-win-btn close" onclick="TaskSurfaceManager.closeTaskSurface('${task.task_id}')" title="Close">✕</button>
         </div>
       </div>
 
       <!-- WINDOW BODY -->
-      <div class="soldierboy-window-body">
+      <div class="jarvis-window-body">
         ${contentHtml}
       </div>
 
       <!-- 8-DIRECTION RESIZE HANDLES -->
-      <div class="soldierboy-resize-handle soldierboy-resize-r" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'r')"></div>
-      <div class="soldierboy-resize-handle soldierboy-resize-b" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'b')"></div>
-      <div class="soldierboy-resize-handle soldierboy-resize-l" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'l')"></div>
-      <div class="soldierboy-resize-handle soldierboy-resize-t" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 't')"></div>
-      <div class="soldierboy-resize-handle soldierboy-resize-br" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'br')"></div>
-      <div class="soldierboy-resize-handle soldierboy-resize-bl" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'bl')"></div>
-      <div class="soldierboy-resize-handle soldierboy-resize-tr" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'tr')"></div>
-      <div class="soldierboy-resize-handle soldierboy-resize-tl" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'tl')"></div>
+      <div class="jarvis-resize-handle jarvis-resize-r" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'r')"></div>
+      <div class="jarvis-resize-handle jarvis-resize-b" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'b')"></div>
+      <div class="jarvis-resize-handle jarvis-resize-l" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'l')"></div>
+      <div class="jarvis-resize-handle jarvis-resize-t" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 't')"></div>
+      <div class="jarvis-resize-handle jarvis-resize-br" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'br')"></div>
+      <div class="jarvis-resize-handle jarvis-resize-bl" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'bl')"></div>
+      <div class="jarvis-resize-handle jarvis-resize-tr" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'tr')"></div>
+      <div class="jarvis-resize-handle jarvis-resize-tl" onpointerdown="TaskSurfaceManager.startResize(event, '${task.task_id}', 'tl')"></div>
     `;
 
     this.updateMinimizedChips();
@@ -5680,7 +5680,7 @@ const TaskSurfaceManager = {
           <span style="color:#FF9D2E; font-weight:700;">$</span>
           <span style="color:#F1F5F9; font-weight:600;">${this.escapeHtml(cmd)}</span>
         </div>
-        <button onclick="navigator.clipboard && navigator.clipboard.writeText(this.closest('.soldierboy-task-surface').querySelector('pre').textContent)" style="background:rgba(255,157,46,0.12); border:1px solid rgba(255,157,46,0.4); color:#FFB84D; font-family:'Inter', sans-serif; font-size:11px; font-weight:700; padding:4px 10px; border-radius:4px; cursor:pointer; flex-shrink:0;">
+        <button onclick="navigator.clipboard && navigator.clipboard.writeText(this.closest('.jarvis-task-surface').querySelector('pre').textContent)" style="background:rgba(255,157,46,0.12); border:1px solid rgba(255,157,46,0.4); color:#FFB84D; font-family:'Inter', sans-serif; font-size:11px; font-weight:700; padding:4px 10px; border-radius:4px; cursor:pointer; flex-shrink:0;">
           COPY
         </button>
       </div>
@@ -6056,32 +6056,32 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-let soldierBoyTypewriterInterval = null;
+let jarvisTypewriterInterval = null;
 
-function openSoldierBoyPanel(query, text, payload) {
-  const popup = $('#soldierboy-action-panel');
+function openJarvisPanel(query, text, payload) {
+  const popup = $('#jarvis-action-panel');
   if (!popup) return;
 
-  popup.classList.remove('soldierboy-panel-hidden');
+  popup.classList.remove('jarvis-panel-hidden');
 
-  const queryElem = $('#soldierboy-query-text');
-  const previewElem = $('#soldierboy-results-preview');
-  const statusElem = $('#soldierboy-status-text');
+  const queryElem = $('#jarvis-query-text');
+  const previewElem = $('#jarvis-results-preview');
+  const statusElem = $('#jarvis-status-text');
 
   if (statusElem) statusElem.textContent = 'STARK HUD — LIVE STRUCTURED JSON INTEL STREAM';
 
   // Typewriter effect
   if (queryElem) {
-    if (soldierBoyTypewriterInterval) clearInterval(soldierBoyTypewriterInterval);
+    if (jarvisTypewriterInterval) clearInterval(jarvisTypewriterInterval);
     queryElem.textContent = '';
     const fullText = (query || 'SYSTEM_SKILL()').toUpperCase();
     let charIdx = 0;
-    soldierBoyTypewriterInterval = setInterval(() => {
+    jarvisTypewriterInterval = setInterval(() => {
       if (charIdx < fullText.length) {
         queryElem.textContent += fullText[charIdx];
         charIdx++;
       } else {
-        clearInterval(soldierBoyTypewriterInterval);
+        clearInterval(jarvisTypewriterInterval);
       }
     }, 15);
   }
@@ -6132,10 +6132,10 @@ function openSoldierBoyPanel(query, text, payload) {
               { } RAW JSON SCHEMA
             </button>
           </div>
-          <div id="soldierboy-findings-grid" style="max-height: 240px; overflow-y: auto;">
+          <div id="jarvis-findings-grid" style="max-height: 240px; overflow-y: auto;">
             ${findingsCardsHtml}
           </div>
-          <div id="soldierboy-raw-json-block" style="display:none; max-height: 240px; overflow-y: auto; background:#050607; border:1px solid rgba(255, 255, 255, 0.08); padding:8px; border-radius:6px; font-size:10px; color:#E6E6E6; white-space:pre-wrap;">
+          <div id="jarvis-raw-json-block" style="display:none; max-height: 240px; overflow-y: auto; background:#050607; border:1px solid rgba(255, 255, 255, 0.08); padding:8px; border-radius:6px; font-size:10px; color:#E6E6E6; white-space:pre-wrap;">
             ${JSON.stringify(payload, null, 2)}
           </div>
         </div>
@@ -6152,13 +6152,13 @@ function openSoldierBoyPanel(query, text, payload) {
     previewElem.innerHTML = contentHtml;
   }
 
-  if (soldierBoyPanelTimer) clearTimeout(soldierBoyPanelTimer);
+  if (jarvisPanelTimer) clearTimeout(jarvisPanelTimer);
   // NO AUTO CLOSE TIMER — Panels persist until minimized to chips or closed by user
 }
 
 function toggleRawJsonView() {
-  const grid = $('#soldierboy-findings-grid');
-  const jsonBlock = $('#soldierboy-raw-json-block');
+  const grid = $('#jarvis-findings-grid');
+  const jsonBlock = $('#jarvis-raw-json-block');
   if (grid && jsonBlock) {
     if (jsonBlock.style.display === 'none') {
       jsonBlock.style.display = 'block';
@@ -6170,13 +6170,13 @@ function toggleRawJsonView() {
   }
 }
 
-function closeSoldierBoyPanel() {
-  const popup = $('#soldierboy-action-panel');
-  if (popup) popup.classList.add('soldierboy-panel-hidden');
-  if (soldierBoyPanelTimer) clearTimeout(soldierBoyPanelTimer);
+function closeJarvisPanel() {
+  const popup = $('#jarvis-action-panel');
+  if (popup) popup.classList.add('jarvis-panel-hidden');
+  if (jarvisPanelTimer) clearTimeout(jarvisPanelTimer);
 }
 
-function enqueueSoldierBoyAudio(audioData, text) {
+function enqueueJarvisAudio(audioData, text) {
   // Always stop any browser robot speech synthesis immediately if it was active
   if ('speechSynthesis' in window) {
     try { window.speechSynthesis.cancel(); } catch(e){}
@@ -6194,76 +6194,76 @@ function enqueueSoldierBoyAudio(audioData, text) {
       const isWav = audioData.startsWith('UklGR');
       src = `data:audio/${isWav ? 'wav' : 'mp3'};base64,` + audioData;
     }
-    soldierboyAudioQueue.push({ src, text });
-    if (!isPlayingSoldierBoyQueue) {
-      processSoldierBoyAudioQueue();
+    jarvisAudioQueue.push({ src, text });
+    if (!isPlayingJarvisQueue) {
+      processJarvisAudioQueue();
     }
   }
 }
-function enqueueJoeAudio(audioData, text) { return enqueueSoldierBoyAudio(audioData, text); }
-window.enqueueSoldierBoyAudio = enqueueSoldierBoyAudio;
-window.enqueueJoeAudio = enqueueSoldierBoyAudio;
+function enqueueJoeAudio(audioData, text) { return enqueueJarvisAudio(audioData, text); }
+window.enqueueJarvisAudio = enqueueJarvisAudio;
+window.enqueueJoeAudio = enqueueJarvisAudio;
 
-function processSoldierBoyAudioQueue() {
-  if (soldierboyAudioQueue.length === 0) {
-    isPlayingSoldierBoyQueue = false;
-    currentSoldierBoyAudioElement = null;
+function processJarvisAudioQueue() {
+  if (jarvisAudioQueue.length === 0) {
+    isPlayingJarvisQueue = false;
+    currentJarvisAudioElement = null;
     setHudState('idle');
     return;
   }
 
-  isPlayingSoldierBoyQueue = true;
-  const item = soldierboyAudioQueue.shift();
+  isPlayingJarvisQueue = true;
+  const item = jarvisAudioQueue.shift();
   setHudState('speaking');
   if (item.text) showSubtitles(item.text, 'J.A.R.V.I.S. SPEECH');
 
   try {
     const audio = new Audio(item.src);
     audio.volume = 1.0;
-    currentSoldierBoyAudioElement = audio;
+    currentJarvisAudioElement = audio;
 
     let hasEnded = false;
     const onFinished = () => {
       if (hasEnded) return;
       hasEnded = true;
-      currentSoldierBoyAudioElement = null;
-      processSoldierBoyAudioQueue();
+      currentJarvisAudioElement = null;
+      processJarvisAudioQueue();
     };
 
     audio.onended = onFinished;
     audio.onerror = onFinished;
 
     audio.play().catch(err => {
-      console.warn('[SoldierBoyAudio] Play queue error:', err);
+      console.warn('[JarvisAudio] Play queue error:', err);
       onFinished();
     });
   } catch(e) {
-    processSoldierBoyAudioQueue();
+    processJarvisAudioQueue();
   }
 }
-function processJoeAudioQueue() { return processSoldierBoyAudioQueue(); }
-window.processSoldierBoyAudioQueue = processSoldierBoyAudioQueue;
-window.processJoeAudioQueue = processSoldierBoyAudioQueue;
+function processJoeAudioQueue() { return processJarvisAudioQueue(); }
+window.processJarvisAudioQueue = processJarvisAudioQueue;
+window.processJoeAudioQueue = processJarvisAudioQueue;
 
-function playSoldierBoyAudio(text, audioData) {
+function playJarvisAudio(text, audioData) {
   if (audioData) {
-    enqueueSoldierBoyAudio(audioData, text);
+    enqueueJarvisAudio(audioData, text);
   }
 }
-function playJoeAudio(text, audioData) { return playSoldierBoyAudio(text, audioData); }
-window.playSoldierBoyAudio = playSoldierBoyAudio;
-window.playJoeAudio = playSoldierBoyAudio;
+function playJoeAudio(text, audioData) { return playJarvisAudio(text, audioData); }
+window.playJarvisAudio = playJarvisAudio;
+window.playJoeAudio = playJarvisAudio;
 
-let soldierboyWakeTimer = null;
+let jarvisWakeTimer = null;
 let joeWakeTimer = null;
 
-window.jarvis = window.soldierboy = window.joe = {
+window.jarvis = window.joe = {
   receive(event, data) {
     switch (event) {
       case 'jarvis_audio_chunk':
-      case 'soldierboy_audio_chunk':
+      case 'jarvis_audio_chunk':
       case 'joe_audio_chunk':
-        if (data && (data.turn_id == null || Number(data.turn_id) === Number(activeSoldierBoyTtsTurn))) {
+        if (data && (data.turn_id == null || Number(data.turn_id) === Number(activeJarvisTtsTurn))) {
           if (data.native_played) {
             hasReceivedAudioChunk = true;
             if (data.text && data.text.trim()) {
@@ -6274,17 +6274,17 @@ window.jarvis = window.soldierboy = window.joe = {
               const estMs = Math.max(2500, data.text.length * 85);
               if (window.nativeSpeakingTimer) clearTimeout(window.nativeSpeakingTimer);
               window.nativeSpeakingTimer = setTimeout(() => {
-                if (soldierboyHudState === 'speaking') {
+                if (jarvisHudState === 'speaking') {
                   setHudState('idle');
                 }
               }, estMs);
             }
           } else if (data.audio) {
-            enqueueSoldierBoyAudio(data.audio, data.text);
+            enqueueJarvisAudio(data.audio, data.text);
           }
         }
         break;
-      case 'soldierboy_task_event':
+      case 'jarvis_task_event':
         if (data && data.event && data.payload) {
           TaskSurfaceManager.handleEvent(data.event, data.payload);
         }
@@ -6294,75 +6294,75 @@ window.jarvis = window.soldierboy = window.joe = {
           setAppMode(data.mode);
         }
         break;
-      case 'soldierboy_interrupt_speech':
+      case 'jarvis_interrupt_speech':
       case 'joe_interrupt_speech':
         if (window.nativeSpeakingTimer) clearTimeout(window.nativeSpeakingTimer);
-        resetSoldierBoyAudioQueue();
+        resetJarvisAudioQueue();
         setHudState('interrupted');
         showSubtitles('BARGE-IN DETECTED — Speech interrupted.', 'VOICE CONTROL');
         break;
-      case 'open_soldierboy_panel':
+      case 'open_jarvis_panel':
         if (data) {
-          openSoldierBoyPanel(data.query, data.text, data.structured_payload);
+          openJarvisPanel(data.query, data.text, data.structured_payload);
           showSubtitles(`J.A.R.V.I.S. Live Intel: ${data.query}`, 'J.A.R.V.I.S. SEARCH');
         }
         break;
-      case 'soldierboy_structured_json_feed':
+      case 'jarvis_structured_json_feed':
         if (data && data.topic) {
           console.log('[STARK HUD] Received structured JSON feed:', data);
         }
         break;
-      case 'soldierboy_stt_interim':
+      case 'jarvis_stt_interim':
       case 'joe_stt_interim':
         if (data && data.text) showSubtitles(data.text, 'VOICE STT (RECORDING)');
         break;
-      case 'soldierboy_stt_final':
+      case 'jarvis_stt_final':
       case 'joe_stt_final':
         if (data && data.text) showSubtitles(data.text, 'VOICE COMMAND');
         break;
-      case 'soldierboy_stop_command':
+      case 'jarvis_stop_command':
       case 'joe_stop_command':
-        resetSoldierBoyAudioQueue();
+        resetJarvisAudioQueue();
         setHudState('idle');
         showSubtitles('STOP COMMAND DETECTED — Voice playback cancelled.', 'VOICE CONTROL');
         break;
-      case 'soldierboy_wake_word_detected':
+      case 'jarvis_wake_word_detected':
       case 'joe_wake_word_detected':
-        resetSoldierBoyAudioQueue();
+        resetJarvisAudioQueue();
         showSubtitles('J.A.R.V.I.S. (WAKE DETECTED) — Listening...', 'VOICE STT');
         setHudState('listening');
         break;
-      case 'soldierboy_speech_started':
+      case 'jarvis_speech_started':
       case 'joe_speech_started':
-        if (soldierboyHudState === 'idle') {
+        if (jarvisHudState === 'idle') {
           setHudState('listening');
         }
         break;
 
-      case 'soldierboy_vad_speech_end':
+      case 'jarvis_vad_speech_end':
       case 'joe_vad_speech_end':
-      case 'soldierboy_speech_ended':
+      case 'jarvis_speech_ended':
       case 'joe_speech_ended':
-        if (soldierboyHudState === 'listening') {
-          if (soldierboyWakeTimer) clearTimeout(soldierboyWakeTimer);
+        if (jarvisHudState === 'listening') {
+          if (jarvisWakeTimer) clearTimeout(jarvisWakeTimer);
           if (joeWakeTimer) clearTimeout(joeWakeTimer);
           setHudState('idle');
           showSubtitles('VAD post-speech silence detected. Window closed.', 'TELEMETRY');
         }
         break;
 
-      case 'soldierboy_grounding_warning':
+      case 'jarvis_grounding_warning':
       case 'joe_grounding_warning':
         if (data && data.warnings && data.warnings.length > 0) {
           showSubtitles(`⚠️ GROUNDING AUDIT: ${data.warnings.join(' | ')}`, 'GROUNDING AUDIT');
         }
         break;
 
-      case 'soldierboy_voice_detected':
+      case 'jarvis_voice_detected':
       case 'joe_voice_detected':
-        if (soldierboyWakeTimer) clearTimeout(soldierboyWakeTimer);
+        if (jarvisWakeTimer) clearTimeout(jarvisWakeTimer);
         if (joeWakeTimer) clearTimeout(joeWakeTimer);
-        resetSoldierBoyAudioQueue();
+        resetJarvisAudioQueue();
         if (data && (data.text || data.raw)) {
           const cleanText = (data.text || data.raw).trim();
           showSubtitles(cleanText, 'INPUT COMMAND');
@@ -6408,48 +6408,48 @@ window.jarvis = window.soldierboy = window.joe = {
         if (data.monologue) {
           finalizeStreamingAnswer(data.monologue);
         }
-        playSoldierBoyAudio(data.monologue, data.audio);
+        playJarvisAudio(data.monologue, data.audio);
         break;
 
-      case 'soldierboy_stream_start':
+      case 'jarvis_stream_start':
       case 'joe_stream_start':
         // A new answer supersedes any previous speech immediately.
-        resetSoldierBoyAudioQueue();
+        resetJarvisAudioQueue();
         if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch(e) {} }
         hasReceivedAudioChunk = false;
-        activeSoldierBoyTtsTurn = Number(data?.turn_id || (activeSoldierBoyTtsTurn + 1));
+        activeJarvisTtsTurn = Number(data?.turn_id || (activeJarvisTtsTurn + 1));
         setHudState('speaking');
         startStreamingAnswer();
         break;
 
-      case 'soldierboy_pcm_audio_chunk':
+      case 'jarvis_pcm_audio_chunk':
         if (data && data.audio) {
           hasReceivedAudioChunk = true;
-          enqueueSoldierBoyPcmChunk(data.audio, data.sample_rate || 44100, data.text || '', data.turn_id);
+          enqueueJarvisPcmChunk(data.audio, data.sample_rate || 44100, data.text || '', data.turn_id);
         }
         break;
 
-      case 'soldierboy_stream_chunk':
+      case 'jarvis_stream_chunk':
       case 'joe_stream_chunk':
         updateStreamingChunk(data.chunk);
         break;
 
-      case 'soldierboy_tts_browser_fallback':
-        if (data && data.text && (data.turn_id == null || Number(data.turn_id) === Number(activeSoldierBoyTtsTurn)) && 'speechSynthesis' in window) {
+      case 'jarvis_tts_browser_fallback':
+        if (data && data.text && (data.turn_id == null || Number(data.turn_id) === Number(activeJarvisTtsTurn)) && 'speechSynthesis' in window) {
           try {
             const utterance = new SpeechSynthesisUtterance(data.text);
             utterance.rate = 1.0;
             utterance.pitch = 0.9;
             utterance.onstart = () => setHudState('speaking');
-            utterance.onend = () => { if (soldierboyHudState === 'speaking') setHudState('idle'); };
-            utterance.onerror = () => { if (soldierboyHudState === 'speaking') setHudState('idle'); };
+            utterance.onend = () => { if (jarvisHudState === 'speaking') setHudState('idle'); };
+            utterance.onerror = () => { if (jarvisHudState === 'speaking') setHudState('idle'); };
             window.speechSynthesis.cancel();
             window.speechSynthesis.speak(utterance);
-          } catch(e) { console.warn('[SoldierBoyTTS] browser fallback failed:', e); }
+          } catch(e) { console.warn('[JarvisTTS] browser fallback failed:', e); }
         }
         break;
 
-      case 'soldierboy_answer':
+      case 'jarvis_answer':
       case 'joe_answer':
         showThinking(false);
         setHudState('idle');
@@ -6461,7 +6461,7 @@ window.jarvis = window.soldierboy = window.joe = {
         } else if (data.text) {
           streamTextToThread(data.text);
         }
-        playSoldierBoyAudio(data.text, data.audio);
+        playJarvisAudio(data.text, data.audio);
         break;
 
       case 'error':
@@ -6772,7 +6772,7 @@ function render3DCanvasGraph(container, data) {
   const cx = width / 2;
   const cy = height / 2;
   const nodes = (data && data.nodes) ? data.nodes : [];
-  const root = nodes.find(n => n.type === 'target') || nodes[0] || { value: state.activeCase || 'SOLDIER BOY' };
+  const root = nodes.find(n => n.type === 'target') || nodes[0] || { value: state.activeCase || 'J.A.R.V.I.S.' };
   const children = nodes.filter(n => n !== root);
 
   let rotX = -0.12;
@@ -6861,7 +6861,7 @@ function render3DCanvasGraph(container, data) {
     }
     ctx.globalAlpha = 1;
 
-    const energy = Math.max(0, Math.min(1, Number(window.__soldierVoiceEnergy || 0)));
+    const energy = Math.max(0, Math.min(1, Number(window.__jarvisVoiceEnergy || 0)));
     for (const p of projected) {
       const pulse = p.isRoot ? 1 + energy * 0.16 + Math.sin(time * 0.006) * energy * 0.025 : 1;
       const r = (p.isRoot ? 22 : 8.5) * p.scale * pulse;
@@ -7234,9 +7234,9 @@ function selectGeoLoc(id) {
 window.addEventListener('pywebviewready', () => {
   if (api() && api().start_background_voice_listener) {
     api().start_background_voice_listener().then(res => {
-      console.log('[SoldierBoyVoice] Automatic background voice listener initialized:', res);
+      console.log('[JarvisVoice] Automatic background voice listener initialized:', res);
     }).catch(err => {
-      console.warn('[SoldierBoyVoice] Background voice listener error:', err);
+      console.warn('[JarvisVoice] Background voice listener error:', err);
     });
   }
 });

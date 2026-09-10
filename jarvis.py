@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# soldierboy.py
+# jarvis.py
 import sys
 import os
 from pathlib import Path
@@ -10,8 +10,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # If running inside 'point-break' environment which lacks GTK bindings, switch to system python3
-if "point-break" in sys.executable and os.path.exists("/usr/bin/python3") and "SOLDIERBOY_SYS_EXEC" not in os.environ:
-    os.environ["SOLDIERBOY_SYS_EXEC"] = "1"
+if "point-break" in sys.executable and os.path.exists("/usr/bin/python3") and "JARVIS_SYS_EXEC" not in os.environ:
+    os.environ["JARVIS_SYS_EXEC"] = "1"
     os.execv("/usr/bin/python3", ["/usr/bin/python3"] + sys.argv)
 
 # Now safe to import everything else

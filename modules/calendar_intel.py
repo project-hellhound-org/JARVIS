@@ -1,8 +1,8 @@
 # modules/calendar_intel.py
 """
-Calendar & Scheduling Intel Module for Soldier Boy.
+Calendar & Scheduling Intel Module for J.A.R.V.I.S..
 Provides event management, double-booking conflict detection, auto-rescheduling,
-and Soldier Boy persona reminders ("Hey, dumbass, you got a meeting in 5").
+and J.A.R.V.I.S. persona reminders ("Hey, dumbass, you got a meeting in 5").
 """
 
 import os
@@ -129,8 +129,8 @@ class CalendarIntelManager:
             return f"Rescheduled meeting '{event_query}' to {new_start} - {new_end}."
         return f"Could not find event matching '{event_query}' to reschedule."
 
-    def format_soldierboy_reminders(self) -> str:
-        """Format calendar alerts in authentic Soldier Boy voice."""
+    def format_jarvis_reminders(self) -> str:
+        """Format calendar alerts in authentic J.A.R.V.I.S. voice."""
         upcoming = self.get_upcoming_events(limit=3)
         conflicts = self.check_conflicts()
         now = datetime.now()
