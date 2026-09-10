@@ -1796,13 +1796,16 @@ class JarvisAPI:
                 wf.writeframes(pcm_bytes)
 
             recognizer = sr.Recognizer()
+            text = ""
             with sr.AudioFile(wav_path) as source:
                 audio_data = recognizer.record(source)
                 try:
                     text = recognizer.recognize_google(audio_data, language="en-IN").strip()
-                except sr.UnknownValueError:
-                    # Retry the same captured audio with the generic English model.
-                    text = recognizer.recognize_google(audio_data, language="en-US").strip()
+                except Exception:
+                    try:
+                        text = recognizer.recognize_google(audio_data, language="en-US").strip()
+                    except Exception:
+                        text = ""
 
             if text:
                 print(f"[voice listener] Recognized text: '{text}'")
@@ -1978,6 +1981,27 @@ class JarvisDesktop:
 
         api.set_window(window)
         api.start_background_voice_listener()
+
+        # Patch pywebview PyQt6 permission policy enum bug (int vs QWebEnginePage.PermissionPolicy)
+        try:
+            import webview.platforms.qt as qt_mod
+            from qtpy.QtWebEngineWidgets import QWebEnginePage
+            policy_cls = getattr(QWebEnginePage, "PermissionPolicy", None)
+            granted = getattr(policy_cls, "PermissionGrantedByUser", 1) if policy_cls else 1
+            denied = getattr(policy_cls, "PermissionDeniedByUser", 2) if policy_cls else 2
+
+            def _safe_onFeaturePermissionRequested(self, url, feature):
+                feat_name = getattr(feature, "name", str(feature))
+                if "Audio" in feat_name or "Video" in feat_name or "Geolocation" in feat_name:
+                    self.setFeaturePermission(url, feature, granted)
+                else:
+                    self.setFeaturePermission(url, feature, denied)
+
+            if hasattr(qt_mod, "BrowserView") and hasattr(qt_mod.BrowserView, "WebPage"):
+                qt_mod.BrowserView.WebPage.onFeaturePermissionRequested = _safe_onFeaturePermissionRequested
+        except Exception as e:
+            print(f"[desktop] Qt permission patch notice: {e}")
+
         webview.start(gui="qt", debug=False)
 
 
