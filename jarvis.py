@@ -14,6 +14,12 @@ if "point-break" in sys.executable and os.path.exists("/usr/bin/python3") and "J
     os.environ["JARVIS_SYS_EXEC"] = "1"
     os.execv("/usr/bin/python3", ["/usr/bin/python3"] + sys.argv)
 
+# Prevent Fontconfig error: Cannot load default config file: No such file: (null)
+if "FONTCONFIG_PATH" not in os.environ:
+    os.environ["FONTCONFIG_PATH"] = "/etc/fonts"
+if "FONTCONFIG_FILE" not in os.environ and os.path.exists("/etc/fonts/fonts.conf"):
+    os.environ["FONTCONFIG_FILE"] = "/etc/fonts/fonts.conf"
+
 # Now safe to import everything else
 def boot_checks():
     issues = []

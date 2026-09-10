@@ -8,6 +8,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="three.min.js"></script>
+<script>
+  if (typeof THREE === 'undefined') {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\\/script>');
+  }
+</script>
 <style>
   :root {
     --bg-0: #000005;
@@ -1503,7 +1509,7 @@
      available as a branding asset for README/GitHub use.
      ================================================================ */
   #bg-layer, #bg-overlay { display: none !important; }
-  body { background: #030405 !important; }
+  html, body { background: transparent !important; }
 
   #jarvis-top-bar {
     position: absolute !important;
@@ -1795,8 +1801,20 @@
 #starfield {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
   pointer-events: none;
+  overflow: hidden;
+  background: #000005;
+}
+#starfield canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none;
+  display: block;
 }
 </style>
 </head>
@@ -7127,9 +7145,6 @@ window.addEventListener('pywebviewready', () => {
     });
   }
 });
-</script>
-<script src="three.min.js"></script>
-<script>
 // Starfield background
 let sfScene, sfCamera, sfRenderer;
 let sfClock;
@@ -7168,13 +7183,14 @@ function sfInit() {
   sfCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
   sfCamera.position.z = sfRadius;
 
-  sfRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  sfRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   sfRenderer.setPixelRatio(window.devicePixelRatio);
   sfRenderer.setSize(window.innerWidth, window.innerHeight);
-  sfRenderer.setClearColor(0x000005, 0);
+  sfRenderer.setClearColor(0x000005, 1.0);
 
   const container = document.getElementById('starfield');
   if (!container) { console.error('[Starfield] #starfield container not found'); return; }
+  container.innerHTML = '';
   container.appendChild(sfRenderer.domElement);
 
   const glowTex = createGlowTexture();
@@ -7207,12 +7223,15 @@ function sfInit() {
     return new THREE.Points(geo, mat);
   }
 
-  // Far layer: 3200 white stars
+  // Far layer: 3200 points, rMin 900, rSpan 1400, colour 0xffffff, size 1.3, opacity 0.75
   sfScene.add(buildLayer(3200, 900, 1400, 0xffffff, 1.3, 0.75));
-  // Near layer: 650 faint blue stars
+  // Near layer: 650 points, rMin 700, rSpan 1600, colour 0x9fc8ff, size 2.6, opacity 0.55
   sfScene.add(buildLayer(650, 700, 1600, 0x9fc8ff, 2.6, 0.55));
-  // Bright accent layer: ~40 slightly brighter glow stars
-  sfScene.add(buildLayer(40, 600, 1800, 0xddeeff, 4.0, 0.35));
+  // Bright accent layer: a few dozen slightly brighter stars with a soft additive glow
+  sfScene.add(buildLayer(48, 600, 1800, 0xddeeff, 3.8, 0.45));
+  // Subtle distant nebula glow blobs
+  sfScene.add(buildLayer(8, 2200, 600, 0x162447, 55.0, 0.08));
+  sfScene.add(buildLayer(6, 2400, 800, 0x1f1535, 70.0, 0.06));
 
   window.addEventListener('resize', sfOnResize);
 

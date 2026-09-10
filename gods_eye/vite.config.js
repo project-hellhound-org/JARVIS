@@ -7488,8 +7488,7 @@ function keySetupEndpoint() {
     // cache, and the surface must never be framed (clickjacking a same-origin
     // REMOVE/replace past the Origin check).
     res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self' http://localhost:* http://127.0.0.1:* file: *");
     res.end(JSON.stringify(payload));
   };
   // Which store this launch owns. A Pinokio-managed launch (marker set by
@@ -7780,8 +7779,7 @@ export default defineConfig(({ mode }) => {
       // Host/Origin check. These headers apply to everything this dev server
       // serves, which is what makes that attack impossible rather than unlikely.
       headers: {
-        'X-Frame-Options': 'DENY',
-        'Content-Security-Policy': "frame-ancestors 'none'",
+        'Content-Security-Policy': "frame-ancestors 'self' http://localhost:* http://127.0.0.1:* file: *",
       },
     },
     // Expose selected API keys to the browser via import.meta.env.*
