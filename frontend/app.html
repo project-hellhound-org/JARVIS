@@ -1604,9 +1604,9 @@
   #thread { pointer-events: none !important; }
   #thread > * { pointer-events: auto !important; }
 
-  /* Deep-space field: no banner, no colored wash. */
+  /* Deep-space field: transparent body allows Three.js #starfield canvas to show through */
   #bg-layer, #bg-overlay { display: none !important; }
-  body { background: #010204 !important; }
+  body { background: transparent !important; }
 
   /* Remove the old transient HUD status pill entirely. State belongs to the
      animation itself; there is no floating LISTENING/SPEAKING badge. */
@@ -1614,7 +1614,7 @@
 
   /* FINAL SPATIAL WORKSPACE OVERRIDES */
   #bg-layer, #bg-overlay { display: none !important; }
-  body { background: #010204 !important; }
+  body { background: transparent !important; }
   #jarvis-hud-pane, #jarvis-hud-wrapper { pointer-events: none !important; }
   #jarvis-hud-canvas {
     pointer-events: auto !important;
@@ -1927,7 +1927,7 @@
           <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></span>View Case Graph
         </button>
         <button class="nav-btn" id="globe-nav">
-          <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>View Geo Globe
+          <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>God's Eye View
         </button>
         <button class="nav-btn" id="evidence-nav">
           <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>Evidence Gallery
@@ -2752,7 +2752,7 @@ function renderSummaryCard(rt) {
     </table>
     <div class="summary-actions">
       <button class="summary-btn" onclick="openGraphOverlay()"><span>◆</span>View 3D Case Graph</button>
-      <button class="summary-btn" onclick="openGlobeOverlay()"><span>◎</span>View Geo Globe</button>
+      <button class="summary-btn" onclick="openGlobeOverlay()"><span>◎</span>God's Eye View</button>
     </div>
   `;
 
@@ -4044,18 +4044,7 @@ const HudGalaxy = {
       coreNode.screenScale = viewScale;
     }
 
-    // 1. FIXED DEEP-SPACE STARFIELD. These stars never orbit with the nodes.
-    for (let i = 0; i < this.stars.length; i++) {
-      const s = this.stars[i];
-      const px = s.u * width;
-      const py = s.v * height;
-      const alpha = Math.max(0.10, Math.min(1.0,
-        s.baseAlpha + Math.sin(now * s.twinkleSpeed + s.twinklePhase) * 0.08));
-      ctx.beginPath();
-      ctx.arc(px, py, s.size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(232, 238, 246, ${alpha})`;
-      ctx.fill();
-    }
+    // Deep-space starfield is rendered by Three.js in #starfield, leaving this canvas transparent for constellation nodes only.
 
     // 2. UPDATE & PROJECT NODES
     const projectedNodes = [];
@@ -7146,10 +7135,8 @@ window.addEventListener('pywebviewready', () => {
   }
 });
 // Starfield background
-let sfScene, sfCamera, sfRenderer;
+let sfScene, sfCamera, sfRenderer, sfGroup;
 let sfClock;
-const sfRadius = 1000;
-let sfTheta = 0;
 
 // Create a soft round glow sprite texture via canvas
 function createGlowTexture() {
@@ -7161,8 +7148,8 @@ function createGlowTexture() {
   const half = size / 2;
   const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
   grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.15, 'rgba(255,255,255,0.8)');
-  grad.addColorStop(0.4, 'rgba(255,255,255,0.25)');
+  grad.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.25)');
   grad.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
@@ -7176,15 +7163,18 @@ function sfInit() {
     console.error('[Starfield] Three.js is not available');
     return;
   }
+  if (sfRenderer) return; // already initialized
 
   sfScene = new THREE.Scene();
   sfClock = new THREE.Clock();
+  sfGroup = new THREE.Group();
+  sfScene.add(sfGroup);
 
-  sfCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
-  sfCamera.position.z = sfRadius;
+  sfCamera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 1, 4000);
+  sfCamera.position.set(0, 0, 0);
 
   sfRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-  sfRenderer.setPixelRatio(window.devicePixelRatio);
+  sfRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   sfRenderer.setSize(window.innerWidth, window.innerHeight);
   sfRenderer.setClearColor(0x000005, 1.0);
 
@@ -7195,7 +7185,7 @@ function sfInit() {
 
   const glowTex = createGlowTexture();
 
-  // Helper: distribute points uniformly on a spherical shell
+  // Helper: distribute points uniformly on a spherical shell centered at viewer
   function buildLayer(count, rMin, rSpan, color, size, opacity) {
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -7223,21 +7213,19 @@ function sfInit() {
     return new THREE.Points(geo, mat);
   }
 
-  // Far layer: 3200 points, rMin 900, rSpan 1400, colour 0xffffff, size 1.3, opacity 0.75
-  sfScene.add(buildLayer(3200, 900, 1400, 0xffffff, 1.3, 0.75));
-  // Near layer: 650 points, rMin 700, rSpan 1600, colour 0x9fc8ff, size 2.6, opacity 0.55
-  sfScene.add(buildLayer(650, 700, 1600, 0x9fc8ff, 2.6, 0.55));
-  // Bright accent layer: a few dozen slightly brighter stars with a soft additive glow
-  sfScene.add(buildLayer(48, 600, 1800, 0xddeeff, 3.8, 0.45));
-  // Subtle distant nebula glow blobs
-  sfScene.add(buildLayer(8, 2200, 600, 0x162447, 55.0, 0.08));
-  sfScene.add(buildLayer(6, 2400, 800, 0x1f1535, 70.0, 0.06));
+  // 1. Dense field of small white stars (far shell)
+  sfGroup.add(buildLayer(3600, 700, 1500, 0xffffff, 2.2, 0.85));
+  // 2. Sparser layer of larger, faintly blue stars closer to camera for subtle parallax
+  sfGroup.add(buildLayer(750, 250, 550, 0x9fc8ff, 3.8, 0.70));
+  // 3. A few dozen slightly brighter stars with soft additive glow
+  sfGroup.add(buildLayer(54, 300, 900, 0xddeeff, 6.5, 0.55));
+  // 4. Very faint large nebula-like glow blobs far away (subtle deep blue & violet)
+  sfGroup.add(buildLayer(6, 1200, 500, 0x162447, 90.0, 0.07));
+  sfGroup.add(buildLayer(4, 1400, 600, 0x221338, 110.0, 0.05));
 
   window.addEventListener('resize', sfOnResize);
 
-  console.log('[Starfield] Initialized with', 3200 + 650 + 40, 'stars');
-
-  // Start animation
+  console.log('[Starfield] Initialized rotating 3D galaxy with 4400+ stars');
   sfAnimate();
 }
 
@@ -7250,29 +7238,35 @@ function sfOnResize() {
 
 function sfAnimate() {
   requestAnimationFrame(sfAnimate);
-  // Pause rotation when tab is hidden
   if (document.hidden) { sfClock.getDelta(); return; }
 
   const delta = sfClock.getDelta();
-  sfTheta += 0.035 * delta; // 0.035 rad/s ~ 3 min per revolution
-  sfCamera.position.x = sfRadius * Math.sin(sfTheta);
-  sfCamera.position.y = 0;
-  sfCamera.position.z = sfRadius * Math.cos(sfTheta);
-  sfCamera.lookAt(0, 0, 0);
-  sfRenderer.render(sfScene, sfCamera);
+  // ~1 full turn (2*PI rad) every 3 minutes (180s) => ~0.0349 rad/s
+  const speed = 0.0349;
+  if (sfGroup) {
+    sfGroup.rotation.y += speed * delta;
+    sfGroup.rotation.x += (speed * 0.18) * delta;
+  }
+  if (sfRenderer && sfScene && sfCamera) {
+    sfRenderer.render(sfScene, sfCamera);
+  }
 }
 
-// Three.js is loaded by the preceding <script src="three.min.js"> tag
+// Auto-trigger initialization across all browser lifecycles
 if (typeof THREE !== 'undefined') {
-  // DOM may already be ready or not — handle both
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     sfInit();
   } else {
     window.addEventListener('DOMContentLoaded', sfInit);
   }
 } else {
-  console.error('[Starfield] THREE not available after script load');
+  window.addEventListener('load', () => {
+    if (typeof THREE !== 'undefined') sfInit();
+  });
 }
+window.addEventListener('pywebviewready', () => {
+  if (typeof THREE !== 'undefined' && !sfRenderer) sfInit();
+});
 </script>
 </body>
 </html>
