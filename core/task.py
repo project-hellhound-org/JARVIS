@@ -24,6 +24,8 @@ class TaskType(str, Enum):
     INVESTIGATION = "investigation"
     FLIGHT_INTEL = "flight_intel"
     WEATHER_INTEL = "weather_intel"
+    TRAFFIC_INTEL = "traffic_intel"
+    MAPS_NAV = "maps_nav"
     GENERIC_SKILL = "generic_skill"
 
 @dataclass

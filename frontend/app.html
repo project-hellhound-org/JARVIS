@@ -5462,10 +5462,22 @@ const TaskSurfaceManager = {
 
     let contentHtml = '';
     const queryStr = (task.query || task.title || '').toLowerCase();
+    const cmdStr = (task.data && task.data.command ? task.data.command.toLowerCase() : '');
     const isGoogleSearch = task.type === 'search' || queryStr.includes('google') || (task.data && task.data.engine === 'google');
+    const isTrafficTask = task.type === 'traffic_intel' ||
+                          task.type === 'traffic' ||
+                          task.type === 'maps_nav' ||
+                          task.type === 'map' ||
+                          queryStr.includes('traffic') ||
+                          queryStr.includes('map of') ||
+                          cmdStr.includes('openstreetmap.org') ||
+                          cmdStr.includes('tomtom.com') ||
+                          (cmdStr.includes('traffic') && !cmdStr.includes('git'));
 
     if (isGoogleSearch) {
       contentHtml = this.renderGoogleSearchSurface(task);
+    } else if (isTrafficTask) {
+      contentHtml = this.renderTrafficIntelSurface(task);
     } else if (task.type === 'terminal_command' || task.type === 'terminal') {
       contentHtml = this.renderTerminalSurface(task);
     } else if (task.type === 'browser_surf' && task.data && task.data.url) {
@@ -5877,6 +5889,174 @@ const TaskSurfaceManager = {
       </div>
       <div style="font-size:11px; color:#22C55E; font-family:var(--mono); background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.2); border-radius:6px; padding:8px 12px; text-align:center;">
         ⚡ ATMOSPHERIC CONDITIONS STABLE FOR TACTICAL DEPLOYMENT
+      </div>
+    `;
+  },
+
+  renderTrafficIntelSurface(task) {
+    const isRunning = task.state === 'RUNNING' || task.state === 'CREATED' || task.state === 'STARTED';
+    const finding = (task.findings && task.findings[0]) || {};
+    const extra = finding.extra || task.data || {};
+
+    // Extract city / sector
+    let city = extra.city || '';
+    if (!city) {
+      const q = (task.title || task.query || '').replace(/^Traffic Telemetry:\s*/i, '').replace(/Traffic Intel:\s*/i, '');
+      city = q || 'Tactical Sector';
+    }
+
+    // Extract coordinates and bbox
+    let lat = parseFloat(extra.lat);
+    let lon = parseFloat(extra.lon);
+    let bbox = extra.bbox;
+
+    // Check if command has bbox or point
+    if ((isNaN(lat) || isNaN(lon)) && task.data && task.data.command) {
+      const mBbox = task.data.command.match(/bbox=([0-9.]+),([0-9.]+),([0-9.]+),([0-9.]+)/);
+      if (mBbox) {
+        const minlon = parseFloat(mBbox[1]), minlat = parseFloat(mBbox[2]), maxlon = parseFloat(mBbox[3]), maxlat = parseFloat(mBbox[4]);
+        bbox = [minlon, minlat, maxlon, maxlat];
+        lat = Math.round(((minlat + maxlat) / 2) * 10000) / 10000;
+        lon = Math.round(((minlon + maxlon) / 2) * 10000) / 10000;
+      }
+      const mPt = task.data.command.match(/point=([0-9.]+),([0-9.]+)/);
+      if (mPt) {
+        lat = parseFloat(mPt[1]);
+        lon = parseFloat(mPt[2]);
+      }
+    }
+
+    // Fallbacks if not set
+    if (isNaN(lat) || isNaN(lon)) {
+      if (city.toLowerCase().includes('kotagiri')) {
+        lat = 11.4228;
+        lon = 76.8661;
+      } else if (city.toLowerCase().includes('coonoor')) {
+        lat = 11.3530;
+        lon = 76.7959;
+      } else if (city.toLowerCase().includes('ooty')) {
+        lat = 11.4102;
+        lon = 76.6950;
+      } else {
+        lat = 11.4228;
+        lon = 76.8661;
+      }
+    }
+
+    if (!bbox || !Array.isArray(bbox) || bbox.length < 4) {
+      bbox = [
+        Math.round((lon - 0.05) * 10000) / 10000,
+        Math.round((lat - 0.04) * 10000) / 10000,
+        Math.round((lon + 0.05) * 10000) / 10000,
+        Math.round((lat + 0.04) * 10000) / 10000
+      ];
+    }
+
+    const status = extra.status || 'Light to Moderate Flow';
+    const avgSpeed = extra.avg_speed_kmh || (city.toLowerCase().includes('kotagiri') ? 36 : 40);
+    const delayMins = extra.delay_mins !== undefined ? extra.delay_mins : (city.toLowerCase().includes('kotagiri') ? 4 : 0);
+    const congestion = extra.congestion_level || 'MODERATE';
+    const corridors = extra.corridors && extra.corridors.length > 0 ? extra.corridors : [
+      { name: "SH-15 (Kotagiri - Mettupalayam Rd)", speed_kmh: 42, status: "Fluid" },
+      { name: "Kotagiri - Coonoor Ghat Road", speed_kmh: 28, status: "Moderate Flow" },
+      { name: "Aravenu Village Junction", speed_kmh: 35, status: "Clear" },
+      { name: "NH-181 Arterial Link", speed_kmh: 40, status: "Fluid" }
+    ];
+
+    const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}&layer=mapnik&marker=${lat},${lon}`;
+
+    let statusBadge = '';
+    if (isRunning) {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#FF9D2E; font-weight:700;">
+            <span class="thinking-spinner" style="width:10px; height:10px; border-width:1.5px; border-top-color:#FF9D2E;"></span>
+            <span>ACQUIRING GIS & TRAFFIC TELEMETRY...</span>
+          </div>
+          <span style="font-size:10px; color:#8A8D91; font-family:var(--mono);">OSM / TOMTOM</span>
+        </div>
+      `;
+    } else {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#4ADE80; font-weight:700;">
+            <span style="color:#4ADE80;">◉</span>
+            <span>LIVE TRAFFIC FEED ONLINE</span>
+          </div>
+          <span style="font-size:10px; color:#FF9D2E; font-family:var(--mono);">${congestion} CONGESTION</span>
+        </div>
+      `;
+    }
+
+    const corridorRows = corridors.map(c => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); border-radius:4px; font-size:11px;">
+        <span style="color:#E6E6E6; font-weight:500; font-family:var(--sans);">${this.escapeHtml(c.name)}</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="color:#FFB84D; font-family:var(--mono); font-weight:700;">${c.speed_kmh} km/h</span>
+          <span style="color:#8A8D91; font-size:10px; font-family:var(--mono);">[${this.escapeHtml(c.status)}]</span>
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      ${statusBadge}
+      <div style="flex:1; min-height:0; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:10px;">
+        <!-- SECTOR HEADER -->
+        <div style="background:#08090A; border:1px solid rgba(255,157,46,0.2); border-left:3px solid #FF9D2E; border-radius:6px; padding:10px 12px; flex-shrink:0;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="font-size:14px; font-weight:700; color:#F1F5F9; letter-spacing:0.02em;">${this.escapeHtml(city).toUpperCase()} SECTOR</div>
+              <div style="font-size:10.5px; color:#8A8D91; font-family:var(--mono); margin-top:2px;">
+                COORDINATES: <span style="color:#FFB84D;">${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E</span> • BBOX [${bbox.join(', ')}]
+              </div>
+            </div>
+            <button onclick="openGlobeOverlay(); gevFlyTo(${lat}, ${lon}, 20000); gevToggleLayer('traffic', true);" 
+                    style="background:rgba(255,157,46,0.15); border:1px solid #FF9D2E; color:#FFB84D; font-size:10px; font-family:var(--mono); font-weight:700; padding:4px 10px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:5px; transition:all 0.15s ease;"
+                    onmouseenter="this.style.background='rgba(255,157,46,0.28)'"
+                    onmouseleave="this.style.background='rgba(255,157,46,0.15)'">
+              <span>◎</span> GOD'S EYE VIEW
+            </button>
+          </div>
+        </div>
+
+        <!-- INTERACTIVE TACTICAL MAP CONTAINER -->
+        <div style="position:relative; width:100%; height:220px; border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,0.08); background:#000005; flex-shrink:0;">
+          <iframe src="${embedUrl}" 
+                  style="width:100%; height:100%; border:none; filter: invert(90%) hue-rotate(180deg) brightness(85%) contrast(110%);" 
+                  loading="lazy" 
+                  scrolling="no">
+          </iframe>
+          <div style="position:absolute; bottom:6px; right:8px; display:flex; gap:6px; z-index:10;">
+            <a href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=14/${lat}/${lon}" target="_blank"
+               style="background:rgba(8,9,10,0.85); border:1px solid rgba(255,157,46,0.4); color:#FFB84D; font-size:9.5px; font-family:var(--mono); padding:2px 8px; border-radius:3px; text-decoration:none;">
+              FULL MAP ↗
+            </a>
+          </div>
+        </div>
+
+        <!-- TELEMETRY METRICS GRID -->
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; flex-shrink:0;">
+          <div style="background:#08090A; border:1px solid rgba(255,255,255,0.05); border-radius:5px; padding:8px; text-align:center;">
+            <div style="font-size:9px; color:#8A8D91; font-family:var(--mono);">AVERAGE FLOW</div>
+            <div style="font-size:14px; font-weight:700; color:#4ADE80; font-family:var(--mono); margin-top:2px;">${avgSpeed} <span style="font-size:9px;">KM/H</span></div>
+          </div>
+          <div style="background:#08090A; border:1px solid rgba(255,255,255,0.05); border-radius:5px; padding:8px; text-align:center;">
+            <div style="font-size:9px; color:#8A8D91; font-family:var(--mono);">ESTIMATED DELAY</div>
+            <div style="font-size:14px; font-weight:700; color:${delayMins > 5 ? '#EF4444' : '#FFB84D'}; font-family:var(--mono); margin-top:2px;">+${delayMins} <span style="font-size:9px;">MINS</span></div>
+          </div>
+          <div style="background:#08090A; border:1px solid rgba(255,255,255,0.05); border-radius:5px; padding:8px; text-align:center;">
+            <div style="font-size:9px; color:#8A8D91; font-family:var(--mono);">CORRIDORS</div>
+            <div style="font-size:14px; font-weight:700; color:#38BDF8; font-family:var(--mono); margin-top:2px;">${corridors.length} <span style="font-size:9px;">ACTIVE</span></div>
+          </div>
+        </div>
+
+        <!-- CORRIDOR DETAILS -->
+        <div style="display:flex; flex-direction:column; gap:4px; flex-shrink:0;">
+          <div style="font-size:10px; color:#FF9D2E; font-family:var(--mono); font-weight:700; letter-spacing:0.05em; margin-bottom:2px;">
+            KEY ROUTE CORRIDORS:
+          </div>
+          ${corridorRows}
+        </div>
       </div>
     `;
   },

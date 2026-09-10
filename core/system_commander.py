@@ -169,13 +169,36 @@ class SystemCommander:
                 print(f"[SystemCommander] Debounced duplicate command task within 4s: {cmd_key}")
                 return prev_task
 
-        task_title = title or f"Command: {cmd[:30]}"
+        cmd_lower = cmd.lower()
+        is_traffic_query = any(k in cmd_lower for k in ["openstreetmap.org", "tomtom.com", "traffic/services", "/map?bbox="])
+
+        task_data = {"command": cmd, "output_lines": []}
+        if is_traffic_query:
+            task_type = TaskType.TRAFFIC_INTEL.value
+            task_title = title or "Traffic & GIS Telemetry"
+            m_bbox = re.search(r'bbox=([0-9.]+),([0-9.]+),([0-9.]+),([0-9.]+)', cmd)
+            if m_bbox:
+                minlon, minlat, maxlon, maxlat = map(float, m_bbox.groups())
+                task_data["bbox"] = [minlon, minlat, maxlon, maxlat]
+                task_data["lat"] = round((minlat + maxlat) / 2, 4)
+                task_data["lon"] = round((minlon + maxlon) / 2, 4)
+            m_pt = re.search(r'point=([0-9.]+),([0-9.]+)', cmd)
+            if m_pt:
+                lat, lon = map(float, m_pt.groups())
+                task_data["lat"] = lat
+                task_data["lon"] = lon
+                task_data["bbox"] = [round(lon - 0.05, 4), round(lat - 0.04, 4), round(lon + 0.05, 4), round(lat + 0.04, 4)]
+        else:
+            task_type = TaskType.TERMINAL_COMMAND.value
+            task_title = title or f"Command: {cmd[:30]}"
+
         task = self.task_manager.create_task(
-            type_=TaskType.TERMINAL_COMMAND.value,
+            type_=task_type,
             title=task_title,
-            data={"command": cmd, "output_lines": []}
+            data=task_data
         )
         self._recent_tasks[cmd_key] = (now, task)
+
 
         def _worker():
             self.task_manager.update_progress(task.task_id, 10, f"Executing: {cmd[:40]}...")
@@ -211,13 +234,36 @@ class SystemCommander:
                 "success": res["success"],
             }
 
+            if is_traffic_query:
+                try:
+                    from modules.maps_nav import MapsNavigationEngine
+                    nav = MapsNavigationEngine()
+                    tloc = "Kotagiri"
+                    if "kotagiri" in cmd_lower:
+                        tloc = "Kotagiri"
+                    elif "coonoor" in cmd_lower:
+                        tloc = "Coonoor"
+                    elif "ooty" in cmd_lower:
+                        tloc = "Ooty"
+                    tdata = nav.get_traffic_intel(tloc)
+                    if task_data.get("lat") and task_data.get("lon"):
+                        tdata["lat"] = task_data["lat"]
+                        tdata["lon"] = task_data["lon"]
+                    if task_data.get("bbox"):
+                        tdata["bbox"] = task_data["bbox"]
+                        tdata["osm_embed_url"] = f"https://www.openstreetmap.org/export/embed.html?bbox={tdata['bbox'][0]},{tdata['bbox'][1]},{tdata['bbox'][2]},{tdata['bbox'][3]}&layer=mapnik&marker={tdata['lat']},{tdata['lon']}"
+                    task_extra.update(tdata)
+                except Exception as ex:
+                    print(f"[SystemCommander] Traffic metadata attachment warning: {ex}")
+
             # Add finding for output
             self.task_manager.add_finding(task.task_id, TaskFinding(
-                title=f"Exit {res['exit_code']} ({res['elapsed_sec']}s)",
+                title=f"{'Traffic Telemetry' if is_traffic_query else 'Exit'} {res['exit_code']} ({res['elapsed_sec']}s)",
                 snippet=res["stdout"][:500] if res["stdout"] else res["stderr"][:500],
-                source="terminal",
+                source="traffic_intel" if is_traffic_query else "terminal",
                 extra=task_extra
             ))
+
 
             summary = f"Process finished with exit code {res['exit_code']} in {res['elapsed_sec']}s"
             if res["success"]:

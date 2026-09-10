@@ -366,6 +366,31 @@ class SystemSkillEngine:
                     payload = self.hud_engine.build_structured_payload(f"Weather: {w.get('city')}", "WEATHER", raw_results, debrief_msg)
                     return True, debrief_msg, False, "", payload
 
+                elif task.type in (TaskType.TRAFFIC_INTEL.value, TaskType.MAPS_NAV.value):
+                    loc = task.data.get("location", "")
+                    task_mgr.update_progress(task.task_id, 30, f"Querying traffic telemetry and GIS nodes for '{loc or 'Local Sector'}'...")
+                    from modules.maps_nav import MapsNavigationEngine
+                    nav = MapsNavigationEngine()
+                    traffic_data = nav.get_traffic_intel(loc)
+                    task_mgr.update_progress(task.task_id, 80, f"Traffic telemetry verified: {traffic_data.get('status', 'Nominal')}")
+                    debrief_msg = nav.format_traffic_debrief(traffic_data)
+                    raw_results = [{
+                        "title": f"Traffic Intelligence — {traffic_data.get('city', 'Sector')}",
+                        "snippet": f"Flow: {traffic_data.get('status')} | Avg Speed: {traffic_data.get('avg_speed_kmh')} km/h | Delay: +{traffic_data.get('delay_mins')} mins",
+                        "url": traffic_data.get("osm_embed_url", ""),
+                        "extra": traffic_data
+                    }]
+                    task_mgr.add_finding(task.task_id, TaskFinding(
+                        title=raw_results[0]["title"],
+                        url=traffic_data.get("osm_embed_url", ""),
+                        snippet=raw_results[0]["snippet"],
+                        source="OpenStreetMap/TomTom",
+                        extra=traffic_data
+                    ))
+                    task_mgr.complete_task(task.task_id, summary=f"Traffic: {traffic_data.get('status')}, {traffic_data.get('avg_speed_kmh')} km/h")
+                    payload = self.hud_engine.build_structured_payload(f"Traffic Intel: {traffic_data.get('city')}", "MAPS", raw_results, debrief_msg)
+                    return True, debrief_msg, False, "", payload
+
                 elif task.type == TaskType.BROWSER_SURF.value and task.data.get("cctv"):
                     city = task.data.get("city", "shinjuku")
                     task_mgr.update_progress(task.task_id, 30, f"Loading public CCTV feeds for {city.title()}...")
@@ -511,25 +536,47 @@ class SystemSkillEngine:
                 pass
             return True, msg, False, "", payload
 
-        # 5. Maps, Navigation & Late Night POI
-        if any(kw in text_lower for kw in ["taco", "hangry", "food", "navigation", "reroute", "directions", "turn left", "nearest gas", "nearest coffee"]):
+        # 5. Maps, Navigation & Traffic Intel
+        if any(kw in text_lower for kw in ["traffic", "traffic situation", "traffic condition", "congestion", "road condition", "taco", "hangry", "food", "navigation", "reroute", "directions", "turn left", "nearest gas", "nearest coffee", "map of"]):
             from modules.maps_nav import MapsNavigationEngine
             nav = MapsNavigationEngine()
-            if "taco" in text_lower or "hangry" in text_lower or "food" in text_lower:
+            if any(k in text_lower for k in ["traffic", "congestion", "road condition"]):
+                loc = ""
+                m_loc = re.search(r'(?:traffic\s+(?:situation|condition|update)?\s+(?:in|for|at|around)?|where\s+is)\s+([a-zA-Z\s,]+)', text_lower)
+                if m_loc:
+                    loc = m_loc.group(1).strip()
+                if not loc:
+                    m_in = re.search(r'\bin\s+([a-zA-Z\s]+)$', text_lower)
+                    if m_in:
+                        loc = m_in.group(1).strip()
+                loc_clean = re.sub(r'[?!.,]+$', '', loc).strip()
+                tdata = nav.get_traffic_intel(loc_clean)
+                msg = nav.format_traffic_debrief(tdata)
+                raw = [{
+                    "title": f"Traffic Telemetry — {tdata.get('city')}",
+                    "snippet": f"Status: {tdata.get('status')} | Speed: {tdata.get('avg_speed_kmh')} km/h | Delay: +{tdata.get('delay_mins')}m",
+                    "url": tdata.get("osm_embed_url", ""),
+                    "extra": tdata
+                }]
+            elif "taco" in text_lower or "hangry" in text_lower or "food" in text_lower:
                 msg = nav.format_nearby_food_response("tacos")
+                raw = [{"title": "Navigation Directions", "snippet": msg, "url": "data/maps_nav.json"}]
             elif "route" in text_lower or "direction" in text_lower or "nav" in text_lower:
                 route = nav.get_route_directions("HQ")
                 msg = f"Route set for {route['destination']}. {route['jarvis_prompts'][1]}"
+                raw = [{"title": "Navigation Directions", "snippet": msg, "url": "data/maps_nav.json"}]
             else:
                 msg = nav.format_nearby_food_response("coffee")
-            raw = [{"title": "Navigation Directions", "snippet": msg, "url": "data/maps_nav.json"}]
-            payload = self.hud_engine.build_structured_payload("Maps Navigation", "MAPS", raw, msg)
+                raw = [{"title": "Navigation Directions", "snippet": msg, "url": "data/maps_nav.json"}]
+
+            payload = self.hud_engine.build_structured_payload("Maps & Traffic Intel", "MAPS", raw, msg)
             try:
                 from frontend.hud_panel import HUDPanelManager
-                HUDPanelManager().show_action_hud(title="Maps & Navigation Intel", action_type="MAPS", details=msg)
+                HUDPanelManager().show_action_hud(title="Maps & Traffic Intel", action_type="MAPS", details=msg)
             except Exception:
                 pass
             return True, msg, False, "", payload
+
 
         # 6. Cloud Docs & File Search
         if any(kw in text_lower for kw in ["find file", "find document", "pdf", "report", "final_final", "read document", "buried file"]):

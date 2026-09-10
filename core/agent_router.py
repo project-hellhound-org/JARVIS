@@ -201,6 +201,31 @@ class AgentRouter:
             ack = f"Scanning atmospheric telemetry for {loc.title()}, partner." if loc else "Pulling live atmospheric telemetry for our sector."
             return True, ack, task, "weather_intel"
 
+        # ── 8B. Check for Live Traffic & GIS Map Telemetry ────────
+        if any(kw in text_lower for kw in [
+            "traffic", "traffic situation", "traffic condition", "traffic update",
+            "traffic in", "road condition", "congestion", "map of", "show map", "gis map", "street traffic"
+        ]):
+            loc = ""
+            m_loc = re.search(r'(?:traffic\s+(?:situation|condition|update|status)?\s+(?:in|for|at|around)?|map\s+(?:of|for|around)|where\s+is)\s+([a-zA-Z\s,]+)', text_lower)
+            if m_loc:
+                loc = m_loc.group(1).strip()
+            if not loc:
+                m_in = re.search(r'\bin\s+([a-zA-Z\s]+)$', text_lower)
+                if m_in:
+                    loc = m_in.group(1).strip()
+            loc_clean = re.sub(r'^(?:the|a)\s+', '', loc, flags=re.I).strip()
+            # Clean trailing question marks or punctuation
+            loc_clean = re.sub(r'[?!.,]+$', '', loc_clean).strip()
+            display_loc = loc_clean.title() if loc_clean else "Local Sector"
+            task = self.task_manager.create_task(
+                type_=TaskType.TRAFFIC_INTEL.value,
+                title=f"Traffic Telemetry: {display_loc}",
+                data={"location": loc_clean, "query": text_strip}
+            )
+            ack = f"Querying live traffic telemetry and GIS nodes for {display_loc}, Sir."
+            return True, ack, task, "traffic_intel"
+
         # ── 9. Check for CCTV Surveillance Feeds ──────────────────
         if any(kw in text_lower for kw in ["cctv", "traffic cam", "security camera", "public camera", "surveillance camera"]):
             city = "shinjuku" if any(w in text_lower for w in ["tokyo", "shinjuku", "japan"]) else "austin"
@@ -212,3 +237,4 @@ class AgentRouter:
             return True, f"Connecting to live public CCTV surveillance feeds for {city.title()}.", task, "cctv_intel"
 
         return False, "", None, ""
+
