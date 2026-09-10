@@ -48,10 +48,13 @@ def main():
 
     print("[*] Playing audio...")
     players = [
-        ["aplay", "-q", str(output_file)],
         ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", str(output_file)],
-        ["vlc", "--intf", "dummy", "--play-and-exit", str(output_file)]
+        ["mpv", "--no-video", "--really-quiet", str(output_file)],
+        ["cvlc", "--play-and-exit", "-I", "dummy", str(output_file)],
+        ["vlc", "--intf", "dummy", "--play-and-exit", str(output_file)],
     ]
+    if ext == "wav":
+        players.append(["aplay", "-q", str(output_file)])
 
     played = False
     for cmd in players:
