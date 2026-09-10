@@ -700,8 +700,7 @@ class JarvisVoice:
         if not clean_text:
             return
 
-        if self._fish_stream_client is None:
-            self._fish_stream_client = FishAudio(api_key=self.fish_audio_key)
+        # Client initialization is handled inside the retry loop below.
 
         # One complete sentence/phrase per WebSocket session. This is deliberately
         # phrase-level, not token-level. Fish generates and returns PCM chunks while
@@ -712,7 +711,7 @@ class JarvisVoice:
         config = TTSConfig(
             format="pcm",
             sample_rate=44100,
-            latency="balanced",
+            latency="normal",
             reference_id=self.fish_audio_voice_id,
         )
 
@@ -727,10 +726,26 @@ class JarvisVoice:
         if WebSocketOptions is not None:
             kwargs["ws_options"] = WebSocketOptions(keepalive_ping_timeout_seconds=60.0)
 
-        audio_stream = self._fish_stream_client.tts.stream_websocket(text_stream(), **kwargs)
-        for chunk in audio_stream:
-            if chunk:
-                yield chunk, 44100
+        # Auto-recover from stale/broken WebSocket sessions (SSL failures, timeouts).
+        # Retry once with a fresh client before giving up.
+        for attempt in range(2):
+            try:
+                if self._fish_stream_client is None:
+                    self._fish_stream_client = FishAudio(api_key=self.fish_audio_key)
+
+                audio_stream = self._fish_stream_client.tts.stream_websocket(text_stream(), **kwargs)
+                for chunk in audio_stream:
+                    if chunk:
+                        yield chunk, 44100
+                return  # success
+            except Exception as ws_err:
+                err_str = str(ws_err).lower()
+                is_connection_error = any(k in err_str for k in ["ssl", "record_layer", "connection", "reset", "broken pipe", "eof", "timeout"])
+                if is_connection_error and attempt == 0:
+                    print(f"[jarvis_voice] Fish WebSocket connection error (retrying with fresh client): {ws_err}")
+                    self._fish_stream_client = None  # force fresh client
+                    continue
+                raise
 
 
     def _synthesize_fish_audio(self, text: str) -> Optional[bytes]:

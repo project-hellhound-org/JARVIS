@@ -613,6 +613,28 @@ class JarvisAPI:
         tasks = get_task_manager().list_tasks()
         return [t.to_dict() if hasattr(t, "to_dict") else t for t in tasks]
 
+    def _decode_audio_to_pcm(self, audio_bytes: bytes) -> bytes | None:
+        """Decode MP3/WAV audio bytes to raw 16-bit 44.1kHz mono PCM via ffmpeg.
+
+        Used by the TTS fallback path so REST API audio goes through the same
+        browser Web Audio channel as Fish Audio's WebSocket PCM streaming,
+        preventing dual-playback overlap.
+        """
+        if not audio_bytes or not shutil.which("ffmpeg"):
+            return None
+        try:
+            proc = subprocess.run(
+                ["ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "44100", "-ac", "1", "pipe:1"],
+                input=audio_bytes,
+                capture_output=True,
+                timeout=10.0,
+            )
+            if proc.returncode == 0 and proc.stdout:
+                return proc.stdout
+        except Exception as e:
+            print(f"[desktop] ffmpeg PCM decode error: {e}")
+        return None
+
     def _play_audio_natively(self, audio_bytes: bytes, suffix: str = ".mp3", wait: bool = True):
         """Direct native playback of speech bytes on Linux via mpg123, ffplay, or aplay.
         When wait=True, blocks until the current sentence finishes speaking so subsequent
@@ -1024,18 +1046,26 @@ class JarvisAPI:
                             with self._tts_turn_lock:
                                 still_current = self._tts_turn_id == tts_turn_id
                             if still_current and audio_bytes:
-                                is_wav = audio_bytes.startswith(b"RIFF")
-                                suffix = ".wav" if is_wav else ".mp3"
-                                mime = "audio/wav" if is_wav else "audio/mp3"
-                                b64 = base64.b64encode(audio_bytes).decode("ascii")
-                                audio_b64 = f"data:{mime};base64,{b64}"
-                                tts_audio_queue.put({
-                                    "sentence": sentence,
-                                    "audio_bytes": audio_bytes,
-                                    "audio_b64": audio_b64,
-                                    "suffix": suffix,
-                                    "turn_id": tts_turn_id,
-                                })
+                                # Decode MP3/WAV → raw PCM so audio goes through the SAME
+                                # browser Web Audio channel as streamed PCM. This prevents
+                                # the dual-playback overlap (browser + native speakers).
+                                pcm_bytes = self._decode_audio_to_pcm(audio_bytes)
+                                if pcm_bytes:
+                                    tts_state["emitted"] = True
+                                    self._emit("jarvis_pcm_audio_chunk", {
+                                        "audio": base64.b64encode(pcm_bytes).decode("ascii"),
+                                        "sample_rate": 44100,
+                                        "text": sentence,
+                                        "turn_id": tts_turn_id,
+                                    })
+                                else:
+                                    # ffmpeg decode failed; fall back to native playback
+                                    # but stop browser PCM first to prevent overlap.
+                                    self._emit("jarvis_stop_pcm", {})
+                                    is_wav = audio_bytes.startswith(b"RIFF")
+                                    suffix = ".wav" if is_wav else ".mp3"
+                                    tts_state["emitted"] = True
+                                    self._play_audio_natively(audio_bytes, suffix=suffix, wait=True)
                 except Exception as e:
                     print(f"[desktop] TTS synthesis pipeline error: {e}")
                 finally:
@@ -1103,7 +1133,8 @@ class JarvisAPI:
             self._emit("jarvis_stream_chunk", {"chunk": tok})
             if self._voice:
                 sentence_buffer += tok
-                # Python 3.14 safe sentence boundary matching
+                # Fast sentence boundary: trigger TTS as early as possible.
+                # 1. Full sentence end (.!?\n) — always split immediately.
                 m = re.search(r'([.!?\n]+)', sentence_buffer)
                 if m:
                     sentence = sentence_buffer[:m.end()].strip()
@@ -1111,6 +1142,29 @@ class JarvisAPI:
                     if len(sentence) > 3:
                         clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
                         queue_spoken_text(clean_sentence)
+                    return
+                # 2. Clause boundary (,;:—) — split when buffer is long enough
+                #    for natural-sounding speech (>60 chars). Gives much faster
+                #    time-to-first-speech for complex sentences.
+                if len(sentence_buffer) > 60:
+                    clause_m = re.search(r'([,;:\u2014]+)\s', sentence_buffer)
+                    if clause_m and clause_m.start() > 25:
+                        sentence = sentence_buffer[:clause_m.end()].strip()
+                        sentence_buffer = sentence_buffer[clause_m.end():]
+                        if len(sentence) > 3:
+                            clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
+                            queue_spoken_text(clean_sentence)
+                    return
+                # 3. Safety: if LLM produces >150 chars without any punctuation,
+                #    flush at the last space to prevent indefinite buffering.
+                if len(sentence_buffer) > 150:
+                    last_space = sentence_buffer.rfind(' ', 0, len(sentence_buffer) - 1)
+                    if last_space > 20:
+                        sentence = sentence_buffer[:last_space].strip()
+                        sentence_buffer = sentence_buffer[last_space:]
+                        if len(sentence) > 3:
+                            clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
+                            queue_spoken_text(clean_sentence)
 
         prefix_filter = _StreamingPrefixFilter(emit_clean_chunk)
 

@@ -6429,6 +6429,11 @@ window.jarvis = window.joe = {
         }
         break;
 
+      case 'jarvis_stop_pcm':
+        // Backend requests stop of browser PCM before switching to native playback
+        stopJarvisPcmStream();
+        break;
+
       case 'jarvis_stream_chunk':
       case 'joe_stream_chunk':
         updateStreamingChunk(data.chunk);
