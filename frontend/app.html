@@ -2489,7 +2489,21 @@ function cleanSpeakerPrefix(text) {
   return clean.replace(/[ \t]+/g, ' ').trimStart();
 }
 
+let currentStatusLineEl = null;
+
+function clearStatusLines() {
+  if (currentStatusLineEl && currentStatusLineEl.isConnected) {
+    currentStatusLineEl.remove();
+  }
+  currentStatusLineEl = null;
+  if (thread) {
+    const statuses = thread.querySelectorAll('.msg-status');
+    statuses.forEach(s => s.remove());
+  }
+}
+
 function addUserMessage(text) {
+  clearStatusLines();
   const el = document.createElement('div');
   el.className = 'msg-user';
   el.textContent = text;
@@ -2498,10 +2512,13 @@ function addUserMessage(text) {
 }
 
 function addStatusLine(text) {
-  const el = document.createElement('div');
-  el.className = 'msg-status';
-  el.textContent = text;
-  thread.appendChild(el);
+  if (!thread) return;
+  if (!currentStatusLineEl || !currentStatusLineEl.isConnected) {
+    currentStatusLineEl = document.createElement('div');
+    currentStatusLineEl.className = 'msg-status';
+    thread.appendChild(currentStatusLineEl);
+  }
+  currentStatusLineEl.textContent = text;
   scrollThreadToBottom();
 }
 
@@ -2562,6 +2579,7 @@ function showCopySuccess(btn) {
 }
 
 function addAnswer(text) {
+  clearStatusLines();
   const clean = cleanSpeakerPrefix(text);
   const el = document.createElement('div');
   el.className = 'msg-answer';
@@ -2578,6 +2596,7 @@ function addAnswer(text) {
 
 function streamTextToThread(text, onComplete) {
   if (!text) return;
+  clearStatusLines();
   text = cleanSpeakerPrefix(text);
   showThinking(false);
   setHudState('speaking');
@@ -4689,7 +4708,7 @@ async function startMicListening() {
               let text = res.text.trim();
               if (text) {
                 $('#chat-input').value = text;
-                addStatusLine(`Transcribed: "${text}"`);
+                clearStatusLines();
                 handleSend();
               }
             } else if (res && res.error) {
@@ -4745,7 +4764,7 @@ async function stopMicListening() {
         let text = res.text.trim();
         if (text) {
           $('#chat-input').value = text;
-          addStatusLine(`Transcribed: "${text}"`);
+          clearStatusLines();
           handleSend();
         }
       } else if (res && res.error) {
@@ -7213,15 +7232,15 @@ function sfInit() {
     return new THREE.Points(geo, mat);
   }
 
-  // 1. Dense field of small white stars (far shell)
-  sfGroup.add(buildLayer(3600, 700, 1500, 0xffffff, 2.2, 0.85));
-  // 2. Sparser layer of larger, faintly blue stars closer to camera for subtle parallax
-  sfGroup.add(buildLayer(750, 250, 550, 0x9fc8ff, 3.8, 0.70));
-  // 3. A few dozen slightly brighter stars with soft additive glow
-  sfGroup.add(buildLayer(54, 300, 900, 0xddeeff, 6.5, 0.55));
+  // 1. Dense field of small white stars (far shell - 12,500 stars)
+  sfGroup.add(buildLayer(12500, 500, 1800, 0xffffff, 2.2, 0.88));
+  // 2. Sparser layer of larger, faintly blue stars closer to camera for subtle parallax (2,500 stars)
+  sfGroup.add(buildLayer(2500, 200, 650, 0x9fc8ff, 3.6, 0.72));
+  // 3. A few dozen slightly brighter stars with soft additive glow (80 accent stars)
+  sfGroup.add(buildLayer(80, 250, 950, 0xddeeff, 6.5, 0.60));
   // 4. Very faint large nebula-like glow blobs far away (subtle deep blue & violet)
-  sfGroup.add(buildLayer(6, 1200, 500, 0x162447, 90.0, 0.07));
-  sfGroup.add(buildLayer(4, 1400, 600, 0x221338, 110.0, 0.05));
+  sfGroup.add(buildLayer(8, 1200, 600, 0x14223d, 90.0, 0.08));
+  sfGroup.add(buildLayer(6, 1400, 700, 0x24143d, 110.0, 0.06));
 
   window.addEventListener('resize', sfOnResize);
 
