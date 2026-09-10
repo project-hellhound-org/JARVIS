@@ -1805,7 +1805,7 @@ class JarvisDesktop:
                 Gtk.Window.set_default_icon(pixbuf)
                 print(f"[desktop] Bound GTK window & taskbar icon: {dst_icon}")
             except Exception as e:
-                print(f"[desktop] GTK icon notice: {e}")
+                pass
 
         api = JarvisAPI()
         persona_name = str(api._cfg.get("persona", "jarvis")).strip().lower()
@@ -1827,6 +1827,6 @@ class JarvisDesktop:
 
         api.set_window(window)
         api.start_background_voice_listener()
-        webview.start(debug=False)
+        webview.start(gui="qt", debug=False)
 
 
