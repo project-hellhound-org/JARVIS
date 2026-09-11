@@ -48,8 +48,20 @@ class SessionMemory:
 
     def add(self, role: str, content: str, target: Optional[str] = None):
         """Append a message. role = 'user' | 'jarvis'"""
-        if role == "jarvis" and content:
+        if not content or not str(content).strip():
+            return
+        # Never pollute conversation history with raw internal prompts, debriefs, or skill contexts
+        if role == "user":
+            stripped = str(content).lstrip()
+            if stripped.startswith(("[COMMAND_DEBRIEF]", "[SKILL_CONTEXT]", "[GEOSPATIAL TELEMETRY]")):
+                m = re.search(r'User (?:Prompt|Question):\s*([^\n]+)', stripped, re.IGNORECASE)
+                if m:
+                    content = m.group(1).strip()
+                else:
+                    return
+        elif role == "jarvis" and content:
             content = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', content, flags=re.IGNORECASE).strip()
+
         entry = {
             "role": role,
             "content": content,

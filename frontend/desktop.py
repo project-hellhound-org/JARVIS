@@ -352,6 +352,9 @@ class JarvisAPI:
             print(f"[desktop] Background wake engine init notice: {e}")
 
     def _on_wake_word_detected(self, phrase: str):
+        if time.time() < getattr(self, '_tts_playback_until', 0.0):
+            print(f"[desktop] openWakeWord triggered ('{phrase}') during active TTS playback — suppressed to prevent acoustic echo loop.")
+            return
         print(f"[desktop] openWakeWord triggered ('{phrase}'). Opening STT command capture window.")
         now = time.time()
         self._wake_window_expires = now + 20.0
@@ -387,6 +390,14 @@ class JarvisAPI:
             print(f"[desktop] SystemCommander debrief hook error: {e}")
 
     def process_input(self, text: str):
+        norm = re.sub(r'[^\w\s]', '', text or '').strip().lower()
+        now = time.time()
+        last_text, last_time = getattr(self, '_last_input_seen', ('', 0.0))
+        if norm and norm == last_text and (now - last_time) < 2.5:
+            print(f"[desktop] Debouncing duplicate input '{text}' received within {now - last_time:.2f}s")
+            return
+        self._last_input_seen = (norm, now)
+
         print(f"\n[desktop] Unified AI input received: {text}")
         if self._wake_engine:
             try:
@@ -575,6 +586,11 @@ class JarvisAPI:
         ).start()
 
     def _run_command_debrief_task(self, cmd: str, res: dict, task_id: str):
+        cmd_stripped = (cmd or "").strip()
+        if not cmd_stripped or cmd_stripped.startswith(("echo ", "echo\t", "printf ")):
+            print(f"[desktop] Skipping debrief for trivial echo command: `{cmd}`")
+            return
+
         # Wait a moment for initial dispatch monologue to commence
         time.sleep(0.6)
 
@@ -1246,6 +1262,8 @@ class JarvisAPI:
                                     continue
                                 streamed = True
                                 tts_state["emitted"] = True
+                                chunk_dur = len(pcm_bytes) / float(sample_rate * 2)
+                                self._tts_playback_until = max(self._tts_playback_until, time.time() + chunk_dur + 0.5)
                                 self._emit("jarvis_pcm_audio_chunk", {
                                     "audio": base64.b64encode(pcm_bytes).decode("ascii"),
                                     "sample_rate": sample_rate,
@@ -1270,6 +1288,8 @@ class JarvisAPI:
                                 pcm_bytes = self._decode_audio_to_pcm(audio_bytes)
                                 if pcm_bytes:
                                     tts_state["emitted"] = True
+                                    chunk_dur = len(pcm_bytes) / float(24000 * 2)
+                                    self._tts_playback_until = max(self._tts_playback_until, time.time() + chunk_dur + 0.5)
                                     self._emit("jarvis_pcm_audio_chunk", {
                                         "audio": base64.b64encode(pcm_bytes).decode("ascii"),
                                         "sample_rate": 24000,
@@ -1283,6 +1303,8 @@ class JarvisAPI:
                                     is_wav = audio_bytes.startswith(b"RIFF")
                                     suffix = ".wav" if is_wav else ".mp3"
                                     tts_state["emitted"] = True
+                                    dur = max(2.0, len(audio_bytes) / 32000.0)
+                                    self._tts_playback_until = max(self._tts_playback_until, time.time() + dur + 0.5)
                                     self._play_audio_natively(audio_bytes, suffix=suffix, wait=True)
                 except Exception as e:
                     print(f"[desktop] TTS synthesis pipeline error: {e}")

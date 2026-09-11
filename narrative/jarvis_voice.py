@@ -131,6 +131,8 @@ def extract_cmd_directive(text: str) -> tuple[Optional[str], str]:
     if end_idx != -1:
         cmd_to_run = text[cmd_start:end_idx].strip()
         cleaned_text = (text[:start_idx] + text[end_idx+1:]).strip()
+        if not cmd_to_run or len(cmd_to_run) < 3 or cmd_to_run.startswith(("echo ", "echo\t", "printf ")):
+            return None, cleaned_text
         return cmd_to_run, cleaned_text
     return None, text
 

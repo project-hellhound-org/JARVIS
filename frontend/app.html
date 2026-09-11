@@ -8238,12 +8238,8 @@ const SpatialNav = {
       return;
     }
 
-    // When centered on Globe (Screen 2), clicking the Earth sphere rotates the Earth
-    if (this.currentX > 550 && e.clientX > window.innerWidth * 0.18 && e.clientX < window.innerWidth * 0.82 && e.clientY > 60 && e.clientY < window.innerHeight - 60 && !e.target.closest('#spatial-globe-hud')) {
-      this.isGlobeInteracting = true;
-      this.lastGlobeX = e.clientX;
-      this.lastGlobeY = e.clientY;
-      isFocusingCoordinate = false;
+    // When on Globe screen (Screen 2), let Cesium canvas handle 3D orbit/pan/zoom
+    if (this.currentX > 550 && e.target.closest('#cesium-spatial-wrapper')) {
       return;
     }
 
@@ -8258,16 +8254,6 @@ const SpatialNav = {
   },
 
   onPointerMove(e) {
-    if (this.isGlobeInteracting && earthMesh) {
-      const dx = e.clientX - this.lastGlobeX;
-      const dy = e.clientY - this.lastGlobeY;
-      this.lastGlobeX = e.clientX;
-      this.lastGlobeY = e.clientY;
-      earthMesh.rotation.y += dx * 0.005;
-      earthMesh.rotation.x = Math.max(-0.8, Math.min(0.8, earthMesh.rotation.x + dy * 0.005));
-      return;
-    }
-
     if (!this.isDragging) return;
 
     const dx = e.clientX - this.dragStartX;
@@ -8360,16 +8346,11 @@ const SpatialNav = {
       }
     }
 
-    // Synchronize Three.js earthMesh with Cesium globe to avoid visual clash
-    if (earthMesh) {
-      earthMesh.visible = (ratio <= 0.85);
-    }
-    if (atmosMesh) {
-      atmosMesh.visible = (ratio <= 0.85);
-    }
-    if (beaconPin) {
-      beaconPin.visible = (ratio <= 0.85);
-    }
+    // Three.js earthMesh disabled permanently in favor of Cesium 3D Globe
+    if (earthMesh) earthMesh.visible = false;
+    if (atmosMesh) atmosMesh.visible = false;
+    if (beaconPin) beaconPin.visible = false;
+    if (globeGroup) globeGroup.visible = false;
 
     const btnHud = document.getElementById('dock-btn-hud');
     const btnGlobe = document.getElementById('dock-btn-globe');
@@ -8632,89 +8613,20 @@ function sfInit() {
 
   globeGroup = new THREE.Group();
   globeGroup.position.set(globeX, globeY, globeZ);
+  globeGroup.visible = false; // Primary 3D Earth is rendered exclusively by Cesium; Three.js globe disabled to eliminate GPU lag & dual-globe clash
   sfScene.add(globeGroup);
 
-  function createProceduralEarthTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#061324';
-    ctx.fillRect(0, 0, 1024, 512);
-
-    // Lat/Long tactical grid
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.12)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x < 1024; x += 64) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 512); ctx.stroke();
-    }
-    for (let y = 0; y < 512; y += 32) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1024, y); ctx.stroke();
-    }
-
-    // Tactical continents silhouette
-    ctx.fillStyle = '#14344d';
-    ctx.beginPath(); ctx.ellipse(280, 200, 110, 150, 0.2, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(620, 180, 150, 110, -0.1, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(590, 310, 80, 120, 0.1, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(830, 330, 60, 45, 0, 0, Math.PI * 2); ctx.fill();
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.needsUpdate = true;
-    return tex;
-  }
-
-  const texLoader = new THREE.TextureLoader();
-  const earthGeo = new THREE.SphereGeometry(globeRadius, 64, 64);
-  const earthMat = new THREE.MeshStandardMaterial({
-    map: createProceduralEarthTexture(),
-    roughness: 0.65,
-    metalness: 0.15,
-    emissive: new THREE.Color(0x0e1b30),
-    emissiveIntensity: 0.9
-  });
+  const earthGeo = new THREE.SphereGeometry(globeRadius, 16, 16);
+  const earthMat = new THREE.MeshBasicMaterial({ color: 0x061324, visible: false });
   earthMesh = new THREE.Mesh(earthGeo, earthMat);
+  earthMesh.visible = false;
   globeGroup.add(earthMesh);
 
-  // Upgrade dynamically with NASA Blue Marble, night lights, and bump map
-  texLoader.load('assets/textures/earth-blue-marble.jpg', (tex) => {
-    earthMat.map = tex;
-    earthMat.needsUpdate = true;
-  }, undefined, () => {});
-
-  texLoader.load('assets/textures/earth-topology.png', (tex) => {
-    earthMat.bumpMap = tex;
-    earthMat.bumpScale = 3.2;
-    earthMat.needsUpdate = true;
-  }, undefined, () => {});
-
-  texLoader.load('assets/textures/earth-night.jpg', (tex) => {
-    earthMat.emissiveMap = tex;
-    earthMat.needsUpdate = true;
-  }, undefined, () => {});
-
-  // Atmospheric Fresnel Rim Glow
-  const atmosGeo = new THREE.SphereGeometry(globeRadius * 1.035, 48, 48);
-  const atmosMat = new THREE.ShaderMaterial({
-    vertexShader: `
-      varying vec3 vNormal;
-      void main() {
-        vNormal = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      varying vec3 vNormal;
-      void main() {
-        float intensity = pow(0.68 - dot(vNormal, vec3(0, 0, 1.0)), 2.6);
-        gl_FragColor = vec4(0.18, 0.65, 1.0, 1.0) * intensity * 1.5;
-      }
-    `,
-    blending: THREE.AdditiveBlending,
-    side: THREE.BackSide,
-    transparent: true
-  });
+  // Atmospheric Fresnel Rim Glow (disabled in favor of Cesium atmosphere)
+  const atmosGeo = new THREE.SphereGeometry(globeRadius * 1.035, 16, 16);
+  const atmosMat = new THREE.MeshBasicMaterial({ visible: false });
   atmosMesh = new THREE.Mesh(atmosGeo, atmosMat);
+  atmosMesh.visible = false;
   globeGroup.add(atmosMesh);
 
   // Earth rendered clean and pristine without obstructing orbit rings
@@ -8812,7 +8724,8 @@ function sfAnimate() {
   // Update spatial camera & HTML HUD parallax
   SpatialNav.update(delta);
 
-  if (sfRenderer && sfScene && sfCamera) {
+  // Pause Three.js rendering when focused on Screen 2 (Cesium) to cut GPU/VRAM load
+  if (sfRenderer && sfScene && sfCamera && SpatialNav.currentX <= 800) {
     sfRenderer.render(sfScene, sfCamera);
   }
 }
@@ -8880,7 +8793,7 @@ function initCesiumGlobe() {
     scene.globe.enableLighting = false;
     scene.globe.atmosphereBrightnessShift = 0.25;
     scene.globe.atmosphereHueShift = 0.05;
-    scene.globe.atmosphereSaturationShift = 0.15;
+    scene.globe.atmosphereSaturationShift = 0.55;
 
     // Keyless High-Resolution Satellite Imagery (ESRI World Imagery + OSM Fallback)
     async function loadCesiumImagery() {
@@ -8910,8 +8823,12 @@ function initCesiumGlobe() {
 
       if (imageryProvider && cesiumViewer && !cesiumViewer.isDestroyed()) {
         cesiumViewer.imageryLayers.removeAll();
-        cesiumViewer.imageryLayers.addImageryProvider(imageryProvider);
-        console.log('[Cesium] Satellite imagery provider active');
+        const baseLayer = cesiumViewer.imageryLayers.addImageryProvider(imageryProvider);
+        baseLayer.saturation = 1.75;
+        baseLayer.contrast = 1.35;
+        baseLayer.brightness = 1.08;
+        baseLayer.gamma = 0.90;
+        console.log('[Cesium] Satellite imagery provider active with enhanced photorealistic vibrance');
       }
     }
     loadCesiumImagery();
@@ -9119,31 +9036,56 @@ window.setEarthVisualStyle = function(styleName) {
   if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return;
   const scene = window.cesiumViewer.scene;
   const globe = scene.globe;
+  const baseLayer = (window.cesiumViewer.imageryLayers && window.cesiumViewer.imageryLayers.length > 0) ? window.cesiumViewer.imageryLayers.get(0) : null;
 
   if (styleName === 'satellite') {
     globe.enableLighting = false;
     globe.baseColor = Cesium.Color.fromCssColorString('#061324');
     globe.atmosphereBrightnessShift = 0.25;
     globe.atmosphereHueShift = 0.05;
-    globe.atmosphereSaturationShift = 0.15;
+    globe.atmosphereSaturationShift = 0.55;
+    if (baseLayer) {
+      baseLayer.saturation = 1.75;
+      baseLayer.contrast = 1.35;
+      baseLayer.brightness = 1.08;
+      baseLayer.gamma = 0.90;
+    }
   } else if (styleName === 'flir') {
     globe.enableLighting = false;
     globe.baseColor = Cesium.Color.fromCssColorString('#02140a');
     globe.atmosphereBrightnessShift = -0.2;
     globe.atmosphereHueShift = 0.35; // Phosphor green
     globe.atmosphereSaturationShift = 0.85;
+    if (baseLayer) {
+      baseLayer.saturation = 0.15;
+      baseLayer.contrast = 1.6;
+      baseLayer.brightness = 0.95;
+      baseLayer.gamma = 1.0;
+    }
   } else if (styleName === 'cyber') {
     globe.enableLighting = false;
     globe.baseColor = Cesium.Color.fromCssColorString('#010814');
     globe.atmosphereBrightnessShift = 0.1;
     globe.atmosphereHueShift = -0.15; // Cyan HUD
     globe.atmosphereSaturationShift = 0.6;
+    if (baseLayer) {
+      baseLayer.saturation = 0.3;
+      baseLayer.contrast = 1.45;
+      baseLayer.brightness = 0.9;
+      baseLayer.gamma = 1.0;
+    }
   } else if (styleName === 'terminator') {
     globe.enableLighting = true; // Dynamic Sun/Earth day/night shadow terminator
     globe.baseColor = Cesium.Color.fromCssColorString('#02060d');
     globe.atmosphereBrightnessShift = 0.2;
     globe.atmosphereHueShift = 0.0;
-    globe.atmosphereSaturationShift = 0.1;
+    globe.atmosphereSaturationShift = 0.2;
+    if (baseLayer) {
+      baseLayer.saturation = 1.65;
+      baseLayer.contrast = 1.30;
+      baseLayer.brightness = 1.05;
+      baseLayer.gamma = 0.92;
+    }
   }
   scene.requestRender();
 };
