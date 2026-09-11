@@ -56,14 +56,67 @@ class WeatherIntelEngine:
     def __init__(self):
         self.cache_ttl = 300  # 5 minutes
         self._cache: Dict[str, Any] = {}
+        self._local_sector_cache: Optional[Dict[str, Any]] = None
+
+    def _resolve_local_sector(self) -> Dict[str, Any]:
+        """
+        Resolve user's actual local sector.
+        1. Check config.yaml for home_sector
+        2. Fast IP geolocation probe with cached result
+        3. Fallback to Kotagiri, Nilgiris, Tamil Nadu, India (11.4228, 76.8661)
+        """
+        if self._local_sector_cache:
+            return self._local_sector_cache
+
+        # 1. Check config.yaml
+        try:
+            import yaml
+            if os.path.exists('config.yaml'):
+                with open('config.yaml', 'r') as f:
+                    cfg = yaml.safe_load(f) or {}
+                    hs = cfg.get('home_sector')
+                    if isinstance(hs, dict) and 'lat' in hs and 'lon' in hs:
+                        res = {
+                            'city': hs.get('city', 'Kotagiri'),
+                            'lat': float(hs['lat']),
+                            'lon': float(hs['lon']),
+                            'country': hs.get('country', 'IN')
+                        }
+                        self._local_sector_cache = res
+                        return res
+        except Exception:
+            pass
+
+        # 2. Fast IP Geolocation Probe (1.8s timeout)
+        try:
+            req = urllib.request.Request('https://ipapi.co/json/', headers={'User-Agent': 'JARVIS-OSINT/2.0'})
+            with urllib.request.urlopen(req, timeout=1.8) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                if data.get('latitude') and data.get('longitude'):
+                    city = data.get('city') or data.get('region') or 'Local Sector'
+                    res = {
+                        'city': city,
+                        'lat': float(data['latitude']),
+                        'lon': float(data['longitude']),
+                        'country': data.get('country_name') or data.get('country') or 'IN'
+                    }
+                    self._local_sector_cache = res
+                    return res
+        except Exception:
+            pass
+
+        # 3. Default fallback: Home Sector Kotagiri, Nilgiris
+        res = {'city': 'Kotagiri', 'lat': 11.4228, 'lon': 76.8661, 'country': 'IN'}
+        self._local_sector_cache = res
+        return res
 
     def resolve_location(self, location_query: str) -> Optional[Dict[str, Any]]:
         """
         Resolve location name to lat/lon using local gazetteer or Open-Meteo geocoding.
         """
-        loc_clean = location_query.strip()
-        if not loc_clean:
-            return {'city': 'New York', 'lat': 40.7128, 'lon': -74.0060, 'country': 'US'}
+        loc_clean = location_query.strip().lower()
+        if not loc_clean or loc_clean in ('local', 'here', 'my location', 'current location', 'home', 'our sector', 'local sector'):
+            return self._resolve_local_sector()
 
         # 1. Try local gazetteer
         try:
