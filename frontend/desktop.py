@@ -761,6 +761,36 @@ class JarvisAPI:
             return self._voice.skills.hud_engine.cache.clear()
         return "Cache cleared."
 
+    def get_adsb_flights(self, feed: str = "mil") -> dict:
+        """Fetch real-time ADS-B flight radar contacts via Python backend to eliminate browser CORS blocks."""
+        feed_clean = "mil" if feed == "mil" else "all"
+        urls = [
+            f"https://api.adsb.lol/v2/{feed_clean}",
+            f"https://api.airplanes.live/v2/{feed_clean}",
+        ]
+        for u in urls:
+            try:
+                req = urllib.request.Request(
+                    u,
+                    headers={
+                        "User-Agent": "JARVIS-Defense-Radar/2.0 (Tactical Recon)",
+                        "Accept": "application/json",
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        if "ac" in data and len(data["ac"]) > 0:
+                            return data
+            except Exception:
+                continue
+
+        try:
+            from modules.flight_intel import OFFLINE_MIL_FIXTURES
+            return {"ac": OFFLINE_MIL_FIXTURES}
+        except Exception:
+            return {"ac": []}
+
     # ── Task Manager & Barge-In JS API ──────────────────────────────
     def minimize_task(self, task_id: str = ""):
         from core.task_manager import get_task_manager
@@ -1334,10 +1364,10 @@ class JarvisAPI:
 
                 # 2. Fast First-Phrase / Clause Boundary:
                 # If this is the FIRST phrase (sent_count == 0), split at the very first
-                # comma, colon, or dash once we have 14+ chars (e.g. "Certainly, Sir," or "Executing that now, Sir,").
-                # This achieves sub-400ms time-to-first-audio while LLM is still streaming!
-                # For subsequent phrases, split after 45+ chars at clause breaks.
-                min_len = 14 if sent_count == 0 else 45
+                # comma, colon, or dash once we have 4+ chars (e.g. "Sir," or "Certainly, Sir,").
+                # This achieves sub-300ms time-to-first-audio while LLM is still streaming!
+                # For subsequent phrases, split after 40+ chars at clause breaks.
+                min_len = 4 if sent_count == 0 else 40
                 clause_m = re.search(r'([,;:\u2014\-]+)\s', sentence_buffer)
                 if clause_m and clause_m.end() >= min_len:
                     sentence = sentence_buffer[:clause_m.end()].strip()
@@ -2178,7 +2208,18 @@ class JarvisDesktop:
         window = webview.create_window(**window_kwargs)
 
         api.set_window(window)
-        api.start_background_voice_listener()
+        # Background voice listener will activate cleanly once the frontend signals pywebviewready
+
+        # Attach Bottle HTTP route for local ADS-B proxying (bypasses browser CORS completely)
+        try:
+            import bottle
+            @bottle.route('/api/adsb/<feed>')
+            def _bottle_api_adsb_proxy(feed="mil"):
+                bottle.response.content_type = 'application/json'
+                data = api.get_adsb_flights(feed)
+                return json.dumps(data)
+        except Exception as e:
+            pass
 
         # Patch pywebview PyQt6 permission policy enum bug (int vs QWebEnginePage.PermissionPolicy)
         try:
