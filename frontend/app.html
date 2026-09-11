@@ -8,6 +8,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="cesium/Widgets/widgets.css">
+<script>
+  window.CESIUM_BASE_URL = 'cesium/';
+</script>
+<script src="cesium/Cesium.js"></script>
 <script src="three.min.js"></script>
 <script>
   if (typeof THREE === 'undefined') {
@@ -2131,11 +2136,36 @@ body {
   background: rgba(255, 157, 46, 0.28);
   border-color: #FF9D2E;
 }
+
+#cesium-spatial-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: calc((var(--spatial-ratio, 0) - 0.25) * 1.33);
+  transform: translate3d(calc((1 - var(--spatial-ratio, 0)) * 400px), 0, 0);
+  transition: opacity 0.25s ease;
+}
+
+#cesiumContainer {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
 </style>
 </head>
 <body>
 
 <div id="starfield"></div>
+<div id="cesium-spatial-wrapper">
+  <div id="cesiumContainer"></div>
+</div>
 <div id="bg-layer"></div>
 <div id="bg-overlay"></div>
 
@@ -2200,6 +2230,7 @@ body {
       3D Earth Globe rendered in space. Drag with mouse to rotate Earth; scroll wheel to zoom into orbit.
     </div>
     <div class="globe-hud-btn-row">
+      <button class="globe-hud-btn" style="border-color:rgba(0,240,255,0.4); color:#00F0FF;" onclick="window.resetGlobeOrbitView()">ORBIT VIEW</button>
       <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(11.4228, 76.8661, 'Kotagiri')">KOTAGIRI</button>
       <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(11.3530, 76.7959, 'Coonoor')">COONOOR</button>
       <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(11.4102, 76.6950, 'Ooty')">OOTY</button>
@@ -7942,6 +7973,23 @@ const SpatialNav = {
       }
     }
 
+    // Cesium pointer-events: active when focused on Globe screen (ratio > 0.45)
+    const cesiumWrap = document.getElementById('cesium-spatial-wrapper');
+    if (cesiumWrap) {
+      cesiumWrap.style.pointerEvents = ratio > 0.45 ? 'auto' : 'none';
+    }
+
+    // Synchronize Three.js earthMesh with Cesium globe to avoid visual clash
+    if (earthMesh) {
+      earthMesh.visible = (ratio <= 0.85);
+    }
+    if (atmosMesh) {
+      atmosMesh.visible = (ratio <= 0.85);
+    }
+    if (beaconPin) {
+      beaconPin.visible = (ratio <= 0.85);
+    }
+
     const btnHud = document.getElementById('dock-btn-hud');
     const btnGlobe = document.getElementById('dock-btn-globe');
     if (btnHud && btnGlobe) {
@@ -8021,6 +8069,26 @@ window.focusGlobeCoordinates = function(lat, lon, label) {
     lbl.innerHTML = `TARGET: <span style="color:#FFB84D;">${(label || 'SECTOR').toUpperCase()}</span> • ${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E`;
   }
 
+  // Smoothly fly Cesium 3D World Terrain camera to the target sector at tactical 35-degree angle
+  if (window.cesiumViewer && typeof Cesium !== 'undefined' && !window.cesiumViewer.isDestroyed()) {
+    window.cesiumViewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(lon, lat, 14000),
+      orientation: {
+        heading: Cesium.Math.toRadians(0),
+        pitch: Cesium.Math.toRadians(-35),
+        roll: 0.0
+      },
+      duration: 2.2
+    });
+
+    if (window.cesiumBeacon) {
+      window.cesiumBeacon.position = Cesium.Cartesian3.fromDegrees(lon, lat, 500);
+      if (window.cesiumBeacon.label) {
+        window.cesiumBeacon.label.text = `TARGET: ${(label || 'SECTOR').toUpperCase()}`;
+      }
+    }
+  }
+
   if (beaconPin && earthMesh) {
     if (beaconPin.parent !== earthMesh) {
       if (beaconPin.parent) beaconPin.parent.remove(beaconPin);
@@ -8030,6 +8098,20 @@ window.focusGlobeCoordinates = function(lat, lon, label) {
     beaconPin.position.copy(pos);
     beaconPin.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pos.clone().normalize());
     beaconPin.visible = true;
+  }
+};
+
+window.resetGlobeOrbitView = function() {
+  if (window.cesiumViewer && typeof Cesium !== 'undefined' && !window.cesiumViewer.isDestroyed()) {
+    window.cesiumViewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(76.8661, 11.4228, 22000000),
+      orientation: {
+        heading: Cesium.Math.toRadians(0),
+        pitch: Cesium.Math.toRadians(-90),
+        roll: 0.0
+      },
+      duration: 2.0
+    });
   }
 };
 
@@ -8345,21 +8427,175 @@ function sfAnimate() {
   }
 }
 
-// Auto-trigger initialization across all browser lifecycles
-if (typeof THREE !== 'undefined') {
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    sfInit();
-  } else {
-    window.addEventListener('DOMContentLoaded', sfInit);
+// God's Eye Cesium 3D World Terrain Engine
+let cesiumViewer = null;
+
+function initCesiumGlobe() {
+  if (typeof Cesium === 'undefined') {
+    setTimeout(initCesiumGlobe, 300);
+    return;
   }
-} else {
-  window.addEventListener('load', () => {
-    if (typeof THREE !== 'undefined') sfInit();
-  });
+  if (cesiumViewer) return;
+
+  const container = document.getElementById('cesiumContainer');
+  if (!container) return;
+
+  try {
+    cesiumViewer = new Cesium.Viewer('cesiumContainer', {
+      animation: false,
+      baseLayerPicker: false,
+      baseLayer: false,
+      fullscreenButton: false,
+      geocoder: false,
+      homeButton: false,
+      infoBox: false,
+      sceneModePicker: false,
+      selectionIndicator: false,
+      timeline: false,
+      navigationHelpButton: false,
+      navigationInstructionsInitiallyVisible: false,
+      scene3DOnly: true,
+      creditContainer: document.createElement('div'),
+      contextOptions: {
+        webgl: {
+          alpha: true,
+          preserveDrawingBuffer: true
+        }
+      },
+      orderIndependentTranslucency: false
+    });
+
+    window.cesiumViewer = cesiumViewer;
+
+    const scene = cesiumViewer.scene;
+    scene.backgroundColor = Cesium.Color.TRANSPARENT;
+    if (scene.skyBox) scene.skyBox.show = false;
+    if (scene.sun) scene.sun.show = true;
+    if (scene.moon) scene.moon.show = false;
+
+    // Tactical globe base appearance
+    scene.globe.show = true;
+    scene.globe.baseColor = Cesium.Color.fromCssColorString('#061324');
+    scene.globe.enableLighting = false;
+    scene.globe.atmosphereBrightnessShift = 0.25;
+    scene.globe.atmosphereHueShift = 0.05;
+    scene.globe.atmosphereSaturationShift = 0.15;
+
+    // Keyless High-Resolution Satellite Imagery (ESRI World Imagery + OSM Fallback)
+    async function loadCesiumImagery() {
+      let imageryProvider = null;
+      try {
+        if (Cesium.ArcGisMapServerImageryProvider && Cesium.ArcGisMapServerImageryProvider.fromUrl) {
+          imageryProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+            'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+            { enablePickFeatures: false }
+          );
+        }
+      } catch (e1) {
+        console.warn('[Cesium] ArcGis World Imagery unavailable, falling back to OSM:', e1?.message || e1);
+      }
+
+      if (!imageryProvider) {
+        try {
+          if (Cesium.OpenStreetMapImageryProvider && Cesium.OpenStreetMapImageryProvider.fromUrl) {
+            imageryProvider = await Cesium.OpenStreetMapImageryProvider.fromUrl('https://tile.openstreetmap.org/');
+          } else if (Cesium.OpenStreetMapImageryProvider) {
+            imageryProvider = new Cesium.OpenStreetMapImageryProvider({ url: 'https://tile.openstreetmap.org/' });
+          }
+        } catch (e2) {
+          console.warn('[Cesium] OSM Imagery fallback error:', e2?.message || e2);
+        }
+      }
+
+      if (imageryProvider && cesiumViewer && !cesiumViewer.isDestroyed()) {
+        cesiumViewer.imageryLayers.removeAll();
+        cesiumViewer.imageryLayers.addImageryProvider(imageryProvider);
+        console.log('[Cesium] Satellite imagery provider active');
+      }
+    }
+    loadCesiumImagery();
+
+    // Keyless Re:Earth 3D Terrain mesh (with graceful fallback to default ellipsoid)
+    async function loadCesiumTerrain() {
+      try {
+        if (Cesium.CesiumTerrainProvider && Cesium.CesiumTerrainProvider.fromUrl) {
+          const tp = await Cesium.CesiumTerrainProvider.fromUrl('https://terrain.reearth.land/cesium-mesh/ellipsoid');
+          if (cesiumViewer && !cesiumViewer.isDestroyed()) {
+            cesiumViewer.terrainProvider = tp;
+            console.log('[Cesium] Keyless Re:Earth 3D terrain active');
+          }
+        }
+      } catch (err) {
+        console.log('[Cesium] Using default WGS84 ellipsoid terrain');
+      }
+    }
+    loadCesiumTerrain();
+
+    // Initial God's Eye orbital view centered on South Asia / Kotagiri (11.4228° N, 76.8661° E)
+    cesiumViewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(76.8661, 11.4228, 22000000),
+      orientation: {
+        heading: Cesium.Math.toRadians(0),
+        pitch: Cesium.Math.toRadians(-90),
+        roll: 0.0
+      }
+    });
+
+    // Tactical target beacon entity (always visible with disableDepthTestDistance)
+    window.cesiumBeacon = cesiumViewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(76.8661, 11.4228, 500),
+      point: {
+        pixelSize: 14,
+        color: Cesium.Color.fromCssColorString('#00F0FF'),
+        outlineColor: Cesium.Color.fromCssColorString('#FF9D2E'),
+        outlineWidth: 3,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      },
+      label: {
+        text: 'TARGET: KOTAGIRI SECTOR',
+        font: 'bold 12px JetBrains Mono, monospace',
+        fillColor: Cesium.Color.fromCssColorString('#FFB84D'),
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -20),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      }
+    });
+
+    // Double-click on Cesium terrain drops inspection pin & updates HUD
+    const handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
+    handler.setInputAction((click) => {
+      const ray = scene.camera.getPickRay(click.position);
+      const position = scene.globe.pick(ray, scene);
+      if (position) {
+        const cartographic = Cesium.Cartographic.fromCartesian(position);
+        const lat = Cesium.Math.toDegrees(cartographic.latitude);
+        const lon = Cesium.Math.toDegrees(cartographic.longitude);
+        window.focusGlobeCoordinates(lat, lon, 'INSPECTED SECTOR');
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+
+    console.log('[Cesium] God\'s Eye 3D World Terrain Viewer initialized successfully');
+  } catch (e) {
+    console.error('[Cesium] Viewer initialization error:', e);
+  }
 }
-window.addEventListener('pywebviewready', () => {
-  if (typeof THREE !== 'undefined' && !sfRenderer) sfInit();
-});
+
+// Auto-trigger initialization across all browser lifecycles
+function bootVisuals() {
+  if (typeof THREE !== 'undefined') sfInit();
+  initCesiumGlobe();
+}
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  bootVisuals();
+} else {
+  window.addEventListener('DOMContentLoaded', bootVisuals);
+  window.addEventListener('load', bootVisuals);
+}
+window.addEventListener('pywebviewready', bootVisuals);
 </script>
 </body>
 </html>

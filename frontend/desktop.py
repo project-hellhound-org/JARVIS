@@ -2217,25 +2217,6 @@ class JarvisDesktop:
             if hasattr(qt_mod, "BrowserView") and hasattr(qt_mod.BrowserView, "WebPage"):
                 qt_mod.BrowserView.WebPage.onFeaturePermissionRequested = _safe_onFeaturePermissionRequested
                 qt_mod.BrowserView.WebPage.javaScriptConsoleMessage = _terminal_javaScriptConsoleMessage
-
-            # Disable user gesture requirement for audio/video playback in Qt WebEngine
-            try:
-                from qtpy.QtWebEngineCore import QWebEngineSettings
-            except Exception:
-                try:
-                    from PyQt6.QtWebEngineCore import QWebEngineSettings
-                except Exception:
-                    QWebEngineSettings = None
-            if QWebEngineSettings:
-                try:
-                    settings = QWebEngineSettings.defaultSettings()
-                    attr = getattr(getattr(QWebEngineSettings, "WebAttribute", None), "PlaybackRequiresUserGesture", None)
-                    if attr is not None:
-                        settings.setAttribute(attr, False)
-                    elif hasattr(QWebEngineSettings, "PlaybackRequiresUserGesture"):
-                        settings.setAttribute(QWebEngineSettings.PlaybackRequiresUserGesture, False)
-                except Exception as sett_err:
-                    print(f"[desktop] PlaybackRequiresUserGesture patch notice: {sett_err}")
         except Exception as e:
             print(f"[desktop] Qt permission/console patch notice: {e}")
 
