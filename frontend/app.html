@@ -9563,7 +9563,9 @@ function initGlobeIntelligence(viewer) {
   }
 
   function computeCameraFrustum(cam) {
-    const ground = cam.groundAltM || 0;
+    const terrainSample = (viewer.scene && viewer.scene.globe) ? viewer.scene.globe.getHeight(Cesium.Cartographic.fromDegrees(cam.lon, cam.lat)) : undefined;
+    const hasTerrain = Number.isFinite(terrainSample) && terrainSample > 0;
+    const ground = hasTerrain ? terrainSample : (cam.groundAltM && cam.groundAltM > 0 ? cam.groundAltM : 15);
     const mountAlt = ground + (cam.mountHeightM || 28);
     const R = cam.rangeM || 700;
     const pitchRad = Cesium.Math.toRadians(cam.pitchDeg || -18);
@@ -9592,6 +9594,8 @@ function initGlobeIntelligence(viewer) {
     };
 
     return {
+      halfW,
+      halfH,
       mount: { lat: cam.lat, lon: cam.lon, alt: mountAlt },
       capCenter: { lat: capLL.lat, lon: capLL.lon, alt: capAlt },
       corners: {
@@ -9603,9 +9607,45 @@ function initGlobeIntelligence(viewer) {
     };
   }
 
+  // God's Eye Local ENU to ECEF View Frame
+  function frustumFrameEcef(camera, atPos) {
+    const h = Cesium.Math.toRadians(camera.headingDeg || 0);
+    const p = Cesium.Math.toRadians(camera.pitchDeg || -18);
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(atPos);
+    const rot = Cesium.Matrix4.getMatrix3(enu, new Cesium.Matrix3());
+    const dirEnu = new Cesium.Cartesian3(
+      Math.sin(h) * Math.cos(p),
+      Math.cos(h) * Math.cos(p),
+      Math.sin(p)
+    );
+    const upEnu = new Cesium.Cartesian3(
+      -Math.sin(p) * Math.sin(h),
+      -Math.sin(p) * Math.cos(h),
+      Math.cos(p)
+    );
+    return {
+      dir: Cesium.Matrix3.multiplyByVector(rot, dirEnu, new Cesium.Cartesian3()),
+      up: Cesium.Matrix3.multiplyByVector(rot, upEnu, new Cesium.Cartesian3()),
+    };
+  }
+
+  // God's Eye Monitor Plane ECEF Orientation Quaternion
+  function planeOrientationFor(camera, capCenterPos) {
+    const frame = frustumFrameEcef(camera, capCenterPos);
+    const right = Cesium.Cartesian3.cross(frame.dir, frame.up, new Cesium.Cartesian3());
+    const normal = Cesium.Cartesian3.negate(frame.dir, new Cesium.Cartesian3());
+    const m = new Cesium.Matrix3(
+      right.x, frame.up.x, normal.x,
+      right.y, frame.up.y, normal.y,
+      right.z, frame.up.z, normal.z
+    );
+    return Cesium.Quaternion.fromRotationMatrix(m);
+  }
+
   CCTV_CAMERAS.forEach(cam => {
     const geom = computeCameraFrustum(cam);
     const posMount = Cesium.Cartesian3.fromDegrees(geom.mount.lon, geom.mount.lat, geom.mount.alt);
+    const posCapCenter = Cesium.Cartesian3.fromDegrees(geom.capCenter.lon, geom.capCenter.lat, geom.capCenter.alt);
     const posTL = Cesium.Cartesian3.fromDegrees(geom.corners.tl.lon, geom.corners.tl.lat, geom.corners.tl.alt);
     const posTR = Cesium.Cartesian3.fromDegrees(geom.corners.tr.lon, geom.corners.tr.lat, geom.corners.tr.alt);
     const posBR = Cesium.Cartesian3.fromDegrees(geom.corners.br.lon, geom.corners.br.lat, geom.corners.br.alt);
@@ -9625,7 +9665,7 @@ function initGlobeIntelligence(viewer) {
       fps: '30 FPS'
     };
 
-    // 1. Camera Mount Optical Gizmo Billboard with Label
+    // 1. Camera Mount Optical Gizmo Billboard with Label (God's Eye always-on-top)
     _cctvDataSource.entities.add({
       position: posMount,
       billboard: {
@@ -9633,58 +9673,81 @@ function initGlobeIntelligence(viewer) {
         width: 28,
         height: 28,
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        disableDepthTestDistance: 50000,
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 3000000)
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000),
+        scaleByDistance: new Cesium.NearFarScalar(350, 1.25, 4000000, 0.45)
       },
       label: {
         text: `📹 ${cam.label}`,
-        font: 'bold 10.5px JetBrains Mono, monospace',
+        font: 'bold 10px JetBrains Mono, monospace',
         fillColor: Cesium.Color.fromCssColorString('#38BDF8'),
         outlineColor: Cesium.Color.BLACK,
         outlineWidth: 3,
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
         pixelOffset: new Cesium.Cartesian2(0, -18),
-        disableDepthTestDistance: 50000,
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 2500000)
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 8000000)
       },
       _tacticalData: tacticalData
     });
 
-    // 2. The 4 Corner Rays of the 3D Frustum Pyramid
-    const rayMaterial = new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.65));
+    // 2. Optical Mast Line Anchoring Camera to Ground Terrain
+    _cctvDataSource.entities.add({
+      polyline: {
+        positions: [
+          Cesium.Cartesian3.fromDegrees(cam.lon, cam.lat, 0),
+          posMount
+        ],
+        width: 1.5,
+        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.65)),
+        depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.25))
+      },
+      _tacticalData: tacticalData
+    });
+
+    // 3. The 4 Corner Rays of the 3D Frustum Pyramid
+    const rayMaterial = new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.85));
+    const rayDepthFail = new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.35));
     [posTL, posTR, posBR, posBL].forEach(cornerPos => {
       _cctvDataSource.entities.add({
         polyline: {
           positions: [posMount, cornerPos],
           width: 1.6,
-          material: rayMaterial
+          material: rayMaterial,
+          depthFailMaterial: rayDepthFail
         },
         _tacticalData: tacticalData
       });
     });
 
-    // 3. The Pitched Far-Cap Closed Rectangle Polyline
+    // 4. The Pitched Far-Cap Closed Rectangle Polyline
     _cctvDataSource.entities.add({
       polyline: {
         positions: [posTL, posTR, posBR, posBL, posTL],
         width: 2.2,
-        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.95))
+        material: rayMaterial,
+        depthFailMaterial: rayDepthFail
       },
       _tacticalData: tacticalData
     });
 
-    // 4. The 3D Monitor Plane Entity at the far end of the frustum (Live Optical Texture)
+    // 5. The 3D Monitor Plane Entity at the far end of the frustum (Exact God's Eye Plane Primitive)
     _cctvDataSource.entities.add({
-      polygon: {
-        hierarchy: [posTL, posTR, posBR, posBL],
-        perPositionHeight: true,
+      id: `cctv-${cam.id}-plane`,
+      position: posCapCenter,
+      orientation: planeOrientationFor(cam, posCapCenter),
+      plane: {
+        plane: new Cesium.Plane(Cesium.Cartesian3.UNIT_Z, 0.0),
+        dimensions: new Cesium.Cartesian2(geom.halfW * 2, geom.halfH * 2),
         material: new Cesium.ImageMaterialProperty({
           image: '/api/cctv/frame/' + cam.id,
-          transparent: true
+          transparent: true,
+          color: Cesium.Color.WHITE.withAlpha(0.95)
         }),
         outline: true,
-        outlineColor: Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.85)
+        outlineColor: Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.85),
+        outlineWidth: 2
       },
       _tacticalData: tacticalData
     });
