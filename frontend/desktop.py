@@ -18,6 +18,15 @@ import re
 import subprocess
 import time
 import os
+
+# Unrestrict audio autoplay in QtWebEngine so neural voice responses play without requiring a user click
+current_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
+required_flags = "--autoplay-policy=no-user-gesture-required --no-sandbox"
+for f in required_flags.split():
+    if f not in current_flags:
+        current_flags = f"{current_flags} {f}".strip()
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = current_flags
+
 import base64
 import tempfile
 import shutil
@@ -392,8 +401,100 @@ class JarvisAPI:
             msg_str = f"⚡ LIVE CODE AUDIT [{finfo['index']}/{finfo['total']}]: {finfo['file']} ({finfo['lines']} LOC)... [VERIFIED]"
             self._emit("jarvis_stt_interim", {"text": msg_str})
 
+    def _resolve_and_glide_location(self, text: str) -> bool:
+        """Detect location queries and glide 3D camera to Earth globe with coordinates."""
+        pat = r'\b(?:locate|find|where\s+is|show|map\s+of|track\s+(?:traffic|flights?\s+in\s+)?|go\s+to|zoom\s+to)\s+(?:the\s+(?:city|town|region|country|area)\s+of\s+)?([a-zA-Z\s]{3,35})\b'
+        m = re.search(pat, text, re.IGNORECASE)
+        if not m:
+            return False
+
+        candidate = m.group(1).strip().lower()
+        if candidate in ("your", "this", "that", "something", "anything", "nothing", "what", "how", "who", "when", "why", "help"):
+            return False
+
+        KNOWN_COORDS = {
+            "kotagiri": (11.4228, 76.8661),
+            "coonoor": (11.3530, 76.7959),
+            "ooty": (11.4102, 76.6950),
+            "nilgiris": (11.4916, 76.7337),
+            "chennai": (13.0827, 80.2707),
+            "bangalore": (12.9716, 77.5946),
+            "bengaluru": (12.9716, 77.5946),
+            "delhi": (28.6139, 77.2090),
+            "new delhi": (28.6139, 77.2090),
+            "mumbai": (19.0760, 72.8777),
+            "kolkata": (22.5726, 88.3639),
+            "hyderabad": (17.3850, 78.4867),
+            "coimbatore": (11.0168, 76.9558),
+            "kochi": (9.9312, 76.2673),
+            "kerala": (10.8505, 76.2711),
+            "tokyo": (35.6762, 139.6503),
+            "london": (51.5074, -0.1278),
+            "paris": (48.8566, 2.3522),
+            "new york": (40.7128, -74.0060),
+            "nyc": (40.7128, -74.0060),
+            "san francisco": (37.7749, -122.4194),
+            "los angeles": (34.0522, -118.2437),
+            "chicago": (41.8781, -87.6298),
+            "washington": (38.9072, -77.0369),
+            "dubai": (25.2048, 55.2708),
+            "singapore": (1.3521, 103.8198),
+            "sydney": (-33.8688, 151.2093),
+            "berlin": (52.5200, 13.4050),
+            "moscow": (55.7558, 37.6173),
+            "beijing": (39.9042, 116.4074),
+            "cairo": (30.0444, 31.2357),
+            "rome": (41.9028, 12.4964),
+            "toronto": (43.6532, -79.3832),
+        }
+
+        lat, lon = None, None
+        matched_name = candidate.title()
+
+        for k, coords in KNOWN_COORDS.items():
+            if k in candidate or candidate in k:
+                lat, lon = coords
+                matched_name = k.title()
+                break
+
+        if lat is None:
+            try:
+                import urllib.request
+                import urllib.parse
+                q = urllib.parse.quote(candidate)
+                url = f"https://nominatim.openstreetmap.org/search?q={q}&format=json&limit=1"
+                req = urllib.request.Request(url, headers={"User-Agent": "JARVIS-Tactical-Console/2.0"})
+                with urllib.request.urlopen(req, timeout=1.8) as resp:
+                    data = json.loads(resp.read().decode('utf-8'))
+                    if data and len(data) > 0:
+                        lat = float(data[0]["lat"])
+                        lon = float(data[0]["lon"])
+                        matched_name = data[0].get("display_name", candidate).split(",")[0].strip().title()
+            except Exception:
+                pass
+
+        if lat is not None and lon is not None:
+            print(f"[desktop] Location target acquired: {matched_name} ({lat:.4f}°N, {lon:.4f}°E). Gliding 3D camera to Earth globe...")
+            self._emit("glide_to_location", {
+                "lat": lat,
+                "lon": lon,
+                "label": matched_name
+            })
+            loc_prompt = (
+                f"[GEOSPATIAL TELEMETRY: The 3D planetary globe has automatically rotated and locked onto "
+                f"{matched_name} at coordinates {lat:.4f}°N, {lon:.4f}°E. The tactical holographic pin is pulsing. "
+                f"Address Sir directly with crisp J.A.R.V.I.S. wit and inform him that the orbital viewport is locked on {matched_name}.]\n"
+                f"User Question: {text}"
+            )
+            self._run_ask(loc_prompt)
+            return True
+        return False
+
     def _run_process_input(self, text: str):
         try:
+            # Fast-path check: location and navigation commands trigger 3D Globe camera glide
+            if self._resolve_and_glide_location(text):
+                return
             # Fast-path check: system skills and search commands execute instantly without 2s intent classification latency
             if hasattr(self._voice, 'skills') and self._voice.skills:
                 res = self._voice.skills.try_execute(text, on_progress=self._on_skill_progress)
@@ -1141,7 +1242,7 @@ class JarvisAPI:
                                     tts_state["emitted"] = True
                                     self._emit("jarvis_pcm_audio_chunk", {
                                         "audio": base64.b64encode(pcm_bytes).decode("ascii"),
-                                        "sample_rate": 44100,
+                                        "sample_rate": 24000,
                                         "text": sentence,
                                         "turn_id": tts_turn_id,
                                     })
@@ -1560,6 +1661,52 @@ class JarvisAPI:
                     except Exception:
                         pass
 
+    @staticmethod
+    def normalize_wav_audio(wav_path: str, target_peak: int = 24000) -> bool:
+        """Normalize 16-bit PCM WAV to target peak volume for crystal-clear STT."""
+        try:
+            if not os.path.exists(wav_path) or os.path.getsize(wav_path) < 44:
+                return False
+            with wave.open(wav_path, "rb") as wf:
+                params = wf.getparams()
+                raw = wf.readframes(wf.getnframes())
+            if not raw:
+                return False
+            count = len(raw) // 2
+            shorts = struct.unpack(f"<{count}h", raw)
+            max_val = max(abs(s) for s in shorts) if shorts else 0
+            if max_val < 650:
+                # Disregard background silence / ambient room hum (do not amplify pure noise)
+                return False
+            gain = min(25.0, float(target_peak) / float(max_val))
+            if gain > 1.05:
+                boosted = [int(max(-32768, min(32767, s * gain))) for s in shorts]
+                boosted_raw = struct.pack(f"<{count}h", *boosted)
+                with wave.open(wav_path, "wb") as wf:
+                    wf.setparams(params)
+                    wf.writeframes(boosted_raw)
+                print(f"[audio] Normalized audio: gain {gain:.1f}x applied (peak: {max_val} -> {target_peak})")
+            return True
+        except Exception as e:
+            print(f"[audio] Normalization notice: {e}")
+            return False
+
+    def shutdown(self):
+        """Cleanly stop background mic, wake engine, and voice listener threads."""
+        print("[desktop] Performing clean shutdown of all background services...")
+        self._bg_voice_active = False
+        if hasattr(self, '_wake_engine') and self._wake_engine:
+            try:
+                self._wake_engine.stop()
+            except Exception:
+                pass
+        if hasattr(self, '_mic_proc') and self._mic_proc:
+            try:
+                self._mic_proc.terminate()
+                self._mic_proc.kill()
+            except Exception:
+                pass
+
     def start_native_mic(self):
         """Start native Linux microphone recording via verified ffmpeg/arecord/rec background process."""
         if hasattr(self, '_mic_proc') and self._mic_proc and self._mic_proc.poll() is None:
@@ -1626,16 +1773,34 @@ class JarvisAPI:
         if not os.path.exists(wav_path) or os.path.getsize(wav_path) == 0:
             return {"success": False, "error": "No audio captured from microphone"}
 
+        # Boost quiet microphone input before transcribing
+        self.normalize_wav_audio(wav_path)
+
         try:
             recognizer = sr.Recognizer()
+            recognizer.operation_timeout = 15.0
+            text = ""
+            start_stt = time.time()
             with sr.AudioFile(wav_path) as source:
                 audio_data = recognizer.record(source)
-                text = recognizer.recognize_google(audio_data)
+                try:
+                    text = recognizer.recognize_google(audio_data, language="en-IN").strip()
+                except sr.UnknownValueError:
+                    try:
+                        text = recognizer.recognize_google(audio_data, language="en-US").strip()
+                    except Exception:
+                        pass
+                except Exception as e:
+                    print(f"[desktop] Push-to-talk STT notice: {e}")
 
-            return {"success": True, "text": text}
-        except sr.UnknownValueError:
-            return {"success": False, "error": "Speech was unintelligible"}
+            if text:
+                print(f"[desktop] Push-to-talk transcribed in {time.time()-start_stt:.2f}s: '{text}'")
+                return {"success": True, "text": text}
+            else:
+                print("[desktop] Push-to-talk: Speech was unintelligible or low volume.")
+                return {"success": False, "error": "Speech was unintelligible"}
         except sr.RequestError as e:
+            print(f"[desktop] Speech API network error: {e}")
             return {"success": False, "error": f"Speech API error: {e}"}
         except Exception as e:
             print(f"[desktop] Native mic transcribe error: {e}")
@@ -1646,6 +1811,33 @@ class JarvisAPI:
                     os.remove(wav_path)
                 except Exception:
                     pass
+
+    def play_native_audio(self, audio_b64: str, sample_rate: int = 24000):
+        """Fallback native speaker playback if browser Web Audio is suspended."""
+        try:
+            raw_pcm = base64.b64decode(audio_b64)
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                tmp_wav = tf.name
+            with wave.open(tmp_wav, 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sample_rate or 24000)
+                wf.writeframes(raw_pcm)
+
+            cmd = None
+            if shutil.which("aplay"):
+                cmd = ["aplay", "-q", tmp_wav]
+            elif shutil.which("ffplay"):
+                cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", tmp_wav]
+            elif shutil.which("mpg123"):
+                cmd = ["mpg123", "-q", tmp_wav]
+
+            if cmd:
+                subprocess.Popen(cmd)
+                approx_dur = max(1.0, len(raw_pcm) / (sample_rate * 2))
+                self._tts_playback_until = time.time() + approx_dur
+        except Exception as e:
+            print(f"[desktop] Native audio playback fallback notice: {e}")
 
     def start_background_voice_listener(self):
         """Start a background daemon thread that continuously listens for speech."""
@@ -1714,8 +1906,8 @@ class JarvisAPI:
                 if not is_speaking:
                     ambient_energy = 0.985 * ambient_energy + 0.015 * energy
 
-                # Adaptive floor tuned for responsive conversational speech
-                threshold = max(160.0, ambient_energy * 1.45, 195.0)
+                # Voice activity threshold: reject ambient room noise (~200-280) and require genuine vocal acoustic energy (600+)
+                threshold = max(380.0, ambient_energy * 1.6 + 60.0)
                 speech = energy >= threshold
 
                 if speech:
@@ -1747,6 +1939,7 @@ class JarvisAPI:
                                 f"Captured {duration_sec:.1f}s of audio. Transcribing immediately..."
                             )
                             if len(captured_pcm) >= 12000:
+                                self._emit("jarvis_transcribing", {"duration": duration_sec})
                                 threading.Thread(
                                     target=self._process_captured_speech,
                                     args=(captured_pcm,), daemon=True
@@ -1762,6 +1955,7 @@ class JarvisAPI:
                     silence_chunks = 0
                     speech_start_count = 0
                     if captured_pcm:
+                        self._emit("jarvis_transcribing", {"duration": len(captured_pcm) / 32000.0})
                         threading.Thread(
                             target=self._process_captured_speech,
                             args=(captured_pcm,), daemon=True
@@ -1795,20 +1989,27 @@ class JarvisAPI:
                 wf.setframerate(16000)
                 wf.writeframes(pcm_bytes)
 
+            # Boost quiet microphone input before transcribing
+            self.normalize_wav_audio(wav_path)
+
             recognizer = sr.Recognizer()
+            recognizer.operation_timeout = 15.0
             text = ""
+            start_stt = time.time()
             with sr.AudioFile(wav_path) as source:
                 audio_data = recognizer.record(source)
                 try:
                     text = recognizer.recognize_google(audio_data, language="en-IN").strip()
-                except Exception:
+                except sr.UnknownValueError:
                     try:
                         text = recognizer.recognize_google(audio_data, language="en-US").strip()
                     except Exception:
-                        text = ""
+                        pass
+                except Exception as e:
+                    print(f"[voice listener] STT notice: {e}")
 
             if text:
-                print(f"[voice listener] Recognized text: '{text}'")
+                print(f"[voice listener] Recognized text in {time.time()-start_stt:.2f}s: '{text}'")
 
                 # 2. Filter out self-echo (mic picking up J.A.R.V.I.S.'s own voice)
                 rec_clean = re.sub(r'[^\w\s]', '', text.lower()).strip()
@@ -1971,11 +2172,8 @@ class JarvisDesktop:
         if webview is None:
             raise ImportError("pywebview is required to run JarvisDesktop. Install pywebview or run with CLI mode.")
 
-        # Start God's Eye View OSINT server in background
-        try:
-            GEVServer.get_instance().start()
-        except Exception as e:
-            print(f"[desktop] Notice: God's Eye View auto-start: {e}")
+        # Native 3D Earth Globe is integrated directly into the spatial WebGL canvas;
+        # Standalone Vite dev server is kept optional for external standalone use.
 
         window = webview.create_window(**window_kwargs)
 
@@ -1997,11 +2195,74 @@ class JarvisDesktop:
                 else:
                     self.setFeaturePermission(url, feature, denied)
 
+            def _terminal_javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
+                msg_level = getattr(QWebEnginePage, "JavaScriptConsoleMessageLevel", None)
+                level_str = "LOG"
+                color = "\033[36m"
+                reset = "\033[0m"
+                if msg_level:
+                    if level == getattr(msg_level, "WarningMessageLevel", 1):
+                        level_str = "WARN"
+                        color = "\033[33m"
+                    elif level == getattr(msg_level, "ErrorMessageLevel", 2):
+                        level_str = "ERROR"
+                        color = "\033[31;1m"
+                    elif level == getattr(msg_level, "InfoMessageLevel", 0):
+                        level_str = "INFO"
+                        color = "\033[34m"
+
+                src = os.path.basename(sourceID) if sourceID else "app.html"
+                print(f"{color}[js:{level_str}]{reset} ({src}:{lineNumber}) {message}", flush=True)
+
             if hasattr(qt_mod, "BrowserView") and hasattr(qt_mod.BrowserView, "WebPage"):
                 qt_mod.BrowserView.WebPage.onFeaturePermissionRequested = _safe_onFeaturePermissionRequested
-        except Exception as e:
-            print(f"[desktop] Qt permission patch notice: {e}")
+                qt_mod.BrowserView.WebPage.javaScriptConsoleMessage = _terminal_javaScriptConsoleMessage
 
-        webview.start(gui="qt", debug=False)
+            # Disable user gesture requirement for audio/video playback in Qt WebEngine
+            try:
+                from qtpy.QtWebEngineCore import QWebEngineSettings
+            except Exception:
+                try:
+                    from PyQt6.QtWebEngineCore import QWebEngineSettings
+                except Exception:
+                    QWebEngineSettings = None
+            if QWebEngineSettings:
+                try:
+                    settings = QWebEngineSettings.defaultSettings()
+                    attr = getattr(getattr(QWebEngineSettings, "WebAttribute", None), "PlaybackRequiresUserGesture", None)
+                    if attr is not None:
+                        settings.setAttribute(attr, False)
+                    elif hasattr(QWebEngineSettings, "PlaybackRequiresUserGesture"):
+                        settings.setAttribute(QWebEngineSettings.PlaybackRequiresUserGesture, False)
+                except Exception as sett_err:
+                    print(f"[desktop] PlaybackRequiresUserGesture patch notice: {sett_err}")
+        except Exception as e:
+            print(f"[desktop] Qt permission/console patch notice: {e}")
+
+        # Debug mode for terminal alone: stream JS logs and errors to terminal without opening GUI DevTools window
+        if hasattr(webview, "settings"):
+            webview.settings["OPEN_DEVTOOLS_IN_DEBUG"] = False
+
+        def _on_closed():
+            print("\n[desktop] Window closed by user. Performing clean shutdown of all threads...")
+            try:
+                api.shutdown()
+            except Exception:
+                pass
+            os._exit(0)
+
+        window.events.closed += _on_closed
+
+        try:
+            webview.start(gui="qt", debug=True)
+        finally:
+            try:
+                api.shutdown()
+            except Exception:
+                pass
+            print("[desktop] J.A.R.V.I.S. process exited cleanly.")
+            os._exit(0)
+
+
 
 

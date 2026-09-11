@@ -20,6 +20,14 @@ if "FONTCONFIG_PATH" not in os.environ:
 if "FONTCONFIG_FILE" not in os.environ and os.path.exists("/etc/fonts/fonts.conf"):
     os.environ["FONTCONFIG_FILE"] = "/etc/fonts/fonts.conf"
 
+# Unrestrict audio autoplay in QtWebEngine so neural voice responses play without requiring a user click
+current_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
+required_flags = "--autoplay-policy=no-user-gesture-required --no-sandbox"
+for f in required_flags.split():
+    if f not in current_flags:
+        current_flags = f"{current_flags} {f}".strip()
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = current_flags
+
 # Now safe to import everything else
 def boot_checks():
     issues = []

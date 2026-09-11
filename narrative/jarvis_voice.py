@@ -180,6 +180,26 @@ class JarvisVoice:
         self.fish_streaming_sdk_available = bool(FishAudio is not None and TTSConfig is not None)
         self._fish_stream_client = None
 
+        # Preflight Fish Audio free model check
+        if self.fish_audio_available:
+            try:
+                probe = httpx.post(
+                    "https://api.fish.audio/v1/tts",
+                    headers={"Authorization": f"Bearer {self.fish_audio_key}", "model": self.fish_audio_model},
+                    json={"text": "probe", "model": self.fish_audio_model, "reference_id": self.fish_audio_voice_id},
+                    timeout=3.5
+                )
+                if probe.status_code == 200:
+                    print(f"[jarvis_voice] Fish Audio free tier verified active ({self.fish_audio_model}).")
+                elif probe.status_code == 402 or "insufficient" in probe.text.lower():
+                    print(f"[jarvis_voice] Notice: Fish Audio credit depleted for {self.fish_audio_model}. Switching to British neural/system TTS.")
+                    self.fish_audio_available = False
+                elif probe.status_code in (401, 403):
+                    print(f"[jarvis_voice] Notice: Fish Audio authentication failed ({probe.status_code}). Switching to British neural/system TTS.")
+                    self.fish_audio_available = False
+            except Exception:
+                pass
+
         # Local Zero-Shot Voice Clone
         from core.local_voice_clone import LocalVoiceClone
         self.local_clone = LocalVoiceClone()
@@ -722,11 +742,24 @@ class JarvisVoice:
         def text_stream():
             yield clean_text
 
-        # Ultra-low latency TTS config:
-        # - chunk_length=100: start generating audio after 100 chars (default 200)
-        # - latency='balanced': Fish Audio's actual low-latency inference mode (~300ms TTFA)
-        # - prosody speed=0.85: slower speed for natural, butler-like delivery (was 1.05)
-        # - sample_rate=24000: halves PCM payload for faster network transfer, still excellent quality
+        # 1. Free tier model (s2.1-pro-free) is served via standard REST endpoint
+        if "free" in str(self.fish_audio_model).lower():
+            audio_bytes = self._synthesize_fish_audio(clean_text)
+            if audio_bytes:
+                import subprocess, shutil
+                if shutil.which("ffmpeg"):
+                    proc = subprocess.run(
+                        ["ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "24000", "-ac", "1", "pipe:1"],
+                        input=audio_bytes,
+                        capture_output=True,
+                        timeout=8.0
+                    )
+                    if proc.returncode == 0 and proc.stdout:
+                        yield proc.stdout, 24000
+                        return
+            return
+
+        # 2. Production paid models (s2-pro, speech-1.5) use low-latency WebSocket live streaming
         prosody_cfg = Prosody(speed=0.85) if Prosody is not None else None
         config = TTSConfig(
             format="pcm",
@@ -741,10 +774,6 @@ class JarvisVoice:
             "config": config,
             "model": self.fish_audio_model,
         }
-        # fish-audio-sdk >= 1.1.1 officially exposes WebSocketOptions. A longer
-        # keepalive prevents long phrase streams from dying during a quiet generation
-        # interval. If an older SDK is installed, omit the option rather than inventing
-        # an unsupported parameter.
         if WebSocketOptions is not None:
             kwargs["ws_options"] = WebSocketOptions(keepalive_ping_timeout_seconds=60.0)
 
@@ -762,15 +791,20 @@ class JarvisVoice:
                 return  # success
             except Exception as ws_err:
                 err_str = str(ws_err).lower()
+                if "402" in err_str or "insufficient" in err_str:
+                    print(f"[jarvis_voice] Notice: Paid credits required for {self.fish_audio_model}. Switching to free/offline model.")
+                    self.fish_audio_available = False
+                    return
                 is_connection_error = any(k in err_str for k in ["ssl", "record_layer", "connection", "reset", "broken pipe", "eof", "timeout"])
                 if is_connection_error and attempt == 0:
                     self._fish_stream_client = None  # force fresh client
                     continue
-                raise
+                print(f"[jarvis_voice] Fish Audio WebSocket error: {ws_err}")
+                return
 
 
     def _synthesize_fish_audio(self, text: str) -> Optional[bytes]:
-        """Synthesize speech via Fish Audio API using reference voice ID."""
+        """Synthesize speech via Fish Audio API using free model s2.1-pro-free and reference voice ID."""
         if not self.fish_audio_available or not text or not text.strip():
             return None
 
@@ -782,21 +816,26 @@ class JarvisVoice:
         headers = {
             "Authorization": f"Bearer {self.fish_audio_key}",
             "Content-Type": "application/json",
-            "model": "s2.1-pro-free"
+            "model": self.fish_audio_model
         }
         payload = {
             "text": clean_text,
             "reference_id": self.fish_audio_voice_id,
-            "format": "mp3"
+            "format": "mp3",
+            "model": self.fish_audio_model
         }
 
         try:
             r = self.client.post(url, json=payload, headers=headers, timeout=12.0)
             if r.status_code == 200 and r.content:
                 return r.content
+            if r.status_code == 402 or "insufficient" in r.text.lower():
+                print(f"[jarvis_voice] Notice: Fish Audio credit depleted for {self.fish_audio_model}. Disabling Fish Audio for session.")
+                self.fish_audio_available = False
+                return None
             print(f"[jarvis_voice] Fish Audio API status {r.status_code}: {r.text[:150]}")
         except Exception as e:
-            print(f"[jarvis_voice] Fish Audio API error: {e}")
+            print(f"[jarvis_voice] Fish Audio API notice: {e}")
         return None
 
     def _synthesize_edge_tts(self, text: str) -> Optional[bytes]:
@@ -821,12 +860,12 @@ class JarvisVoice:
             return None
 
     def _synthesize_espeak(self, text: str) -> Optional[bytes]:
-        """Offline zero-latency system TTS fallback using espeak."""
+        """Offline zero-latency system TTS fallback using British J.A.R.V.I.S. voice."""
         try:
             import tempfile
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
                 tmp_path = tf.name
-            cmd = ["espeak", "-v", "en-us+m3", "-s", "165", "-p", "45", "-w", tmp_path, text]
+            cmd = ["espeak", "-v", "en-gb+m3", "-s", "155", "-p", "45", "-w", tmp_path, text]
             p = subprocess.run(cmd, capture_output=True, timeout=5.0)
             if p.returncode == 0 and os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 44:
                 with open(tmp_path, "rb") as f:

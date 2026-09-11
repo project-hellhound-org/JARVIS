@@ -1798,6 +1798,11 @@
     #spatial-system-telemetry { right: 10px; gap: 8px; }
   }
 
+:root {
+  --spatial-x: 0px;
+  --spatial-ratio: 0;
+}
+
 #starfield {
   position: fixed;
   inset: 0;
@@ -1816,6 +1821,316 @@
   pointer-events: none;
   display: block;
 }
+
+body {
+  perspective: 1500px;
+  perspective-origin: 50% 50%;
+}
+
+/* 3D Spatial Holographic Navigation & HUD */
+#shell {
+  transform: translate3d(calc(-105vw * var(--spatial-ratio, 0)), 0, calc(-360px * var(--spatial-ratio, 0))) rotateY(calc(15deg * var(--spatial-ratio, 0)));
+  transform-origin: left center;
+  opacity: calc(1.0 - (var(--spatial-ratio, 0) * 1.05));
+  will-change: transform, opacity;
+  transition: opacity 0.08s linear;
+}
+
+/* Floating Tactile Edge Drag / Switch Strips */
+.spatial-edge-strip {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 215;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+#spatial-edge-right {
+  right: 0;
+  opacity: calc(1.0 - var(--spatial-ratio, 0) * 2.2);
+}
+#spatial-edge-left {
+  left: 0;
+  opacity: calc((var(--spatial-ratio, 0) - 0.45) * 2.2);
+}
+.spatial-edge-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(8, 9, 11, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 157, 46, 0.35);
+  padding: 10px 14px;
+  border-radius: 10px 0 0 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.75);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #FFB84D;
+  letter-spacing: 0.08em;
+  transition: all 0.2s ease;
+}
+#spatial-edge-left .spatial-edge-pill {
+  border-radius: 0 10px 10px 0;
+}
+.spatial-edge-strip:hover .spatial-edge-pill {
+  background: rgba(255, 157, 46, 0.22);
+  border-color: #FF9D2E;
+  color: #FFFFFF;
+  box-shadow: 0 0 18px rgba(255, 157, 46, 0.45);
+}
+
+#globe-overlay {
+  display: none !important;
+}
+
+#spatial-nav-dock {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(8, 9, 10, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 157, 46, 0.25);
+  border-radius: 20px;
+  padding: 3px 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.75);
+  user-select: none;
+}
+
+.spatial-dock-item {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #8A8D91;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  letter-spacing: 0.06em;
+  transition: all 0.2s ease;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+.spatial-dock-item:hover {
+  color: #E6E6E6;
+}
+
+.spatial-dock-item.active {
+  color: #FFB84D;
+  background: rgba(255, 157, 46, 0.16);
+  box-shadow: 0 0 10px rgba(255, 157, 46, 0.2);
+}
+
+.spatial-dock-track {
+  width: 60px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.spatial-dock-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 50%;
+  background: #FF9D2E;
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(255, 157, 46, 0.8);
+  transform: translateX(calc(var(--spatial-ratio, 0) * 100%));
+}
+
+/* Hanging Globe Telemetry Panel (Collapsible Right Rail) */
+#spatial-globe-hud {
+  position: fixed;
+  top: 54px;
+  right: 24px;
+  width: 360px;
+  max-width: 90vw;
+  max-height: calc(100vh - 76px);
+  z-index: 180;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: auto;
+  opacity: var(--spatial-ratio, 0);
+  transform: translate3d(calc((1 - var(--spatial-ratio, 0)) * 50px), 0, 0);
+  transition: opacity 0.22s ease, transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  visibility: hidden;
+}
+
+#spatial-globe-hud.visible {
+  visibility: visible;
+}
+
+#spatial-globe-hud.collapsed {
+  transform: translate3d(calc(100% + 40px), 0, 0) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Rail Header Bar */
+.globe-hud-rail-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(8, 9, 11, 0.90);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 157, 46, 0.35);
+  border-left: 3px solid #FF9D2E;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+}
+
+.globe-hud-rail-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #FFB84D;
+  letter-spacing: 0.08em;
+}
+
+.globe-hud-collapse-trigger {
+  background: rgba(255, 157, 46, 0.12);
+  border: 1px solid rgba(255, 157, 46, 0.35);
+  color: #FFB84D;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.globe-hud-collapse-trigger:hover {
+  background: rgba(255, 157, 46, 0.28);
+  border-color: #FF9D2E;
+  color: #FFFFFF;
+}
+
+/* Floating Collapsed Launcher Tab on Right Edge */
+#globe-hud-launcher {
+  position: fixed;
+  top: 96px;
+  right: 0;
+  z-index: 185;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(8, 9, 11, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 157, 46, 0.35);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  padding: 10px 14px;
+  box-shadow: -4px 6px 24px rgba(0, 0, 0, 0.8);
+  cursor: pointer;
+  user-select: none;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #FFB84D;
+  letter-spacing: 0.08em;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#globe-hud-launcher.visible {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#globe-hud-launcher:hover {
+  background: rgba(255, 157, 46, 0.22);
+  border-color: #FF9D2E;
+  color: #FFFFFF;
+  box-shadow: -6px 8px 30px rgba(255, 157, 46, 0.35);
+}
+
+.globe-launcher-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22C55E;
+  box-shadow: 0 0 8px #22C55E;
+}
+
+.globe-hud-card {
+  background: rgba(8, 9, 10, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 157, 46, 0.25);
+  border-left: 3px solid #FF9D2E;
+  border-radius: 6px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+}
+
+.globe-hud-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: #FFB84D;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.globe-hud-coords {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #E6E6E6;
+  margin-bottom: 8px;
+}
+
+.globe-hud-btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.globe-hud-btn {
+  background: rgba(255, 157, 46, 0.12);
+  border: 1px solid rgba(255, 157, 46, 0.4);
+  color: #FFB84D;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.globe-hud-btn:hover {
+  background: rgba(255, 157, 46, 0.28);
+  border-color: #FF9D2E;
+}
 </style>
 </head>
 <body>
@@ -1825,6 +2140,103 @@
 <div id="bg-overlay"></div>
 
 <div id="sidebar-backdrop"></div>
+
+<!-- Top Spatial Navigation Dock -->
+<div id="spatial-nav-dock">
+  <div class="spatial-dock-item active" id="dock-btn-hud" onclick="window.glideToSpatial(0)" title="Glide to Tactical HUD">
+    <span style="color:#FF9D2E;">✦</span> TACTICAL HUD
+  </div>
+  <div class="spatial-dock-track" id="dock-track" onclick="SpatialNav.onTrackClick(event)" title="Scrub Continuous 3D Space">
+    <div class="spatial-dock-thumb" id="dock-thumb"></div>
+  </div>
+  <div class="spatial-dock-item" id="dock-btn-globe" onclick="window.glideToSpatial(950)" title="Glide to God's Eye 3D Earth">
+    <span style="color:#00F0FF;">◉</span> GOD'S EYE VIEW
+  </div>
+</div>
+
+<!-- Floating Tactile Spatial Drag / Switch Handles -->
+<div id="spatial-edge-right" class="spatial-edge-strip" onclick="window.glideToGlobe()" title="Drag or Click to God's Eye 3D Earth">
+  <div class="spatial-edge-pill">
+    <span class="spatial-edge-label">GOD'S EYE 3D</span>
+    <span class="spatial-edge-icon">❯</span>
+  </div>
+</div>
+
+<div id="spatial-edge-left" class="spatial-edge-strip" onclick="window.glideToSpatial(0)" title="Drag or Click to Tactical HUD">
+  <div class="spatial-edge-pill">
+    <span class="spatial-edge-icon">❮</span>
+    <span class="spatial-edge-label">TAC HUD</span>
+  </div>
+</div>
+
+<!-- Floating Collapsed Launcher Tab on Right Edge (God's Eye Style) -->
+<div id="globe-hud-launcher" onclick="toggleGlobeHudCollapsed()" title="Expand OSINT Panel">
+  <span class="globe-launcher-icon">❮</span>
+  <span class="globe-launcher-text">OSINT INTEL</span>
+  <span class="globe-launcher-dot"></span>
+</div>
+
+<!-- Floating Globe Telemetry HUD (Active when panned to Earth) -->
+<div id="spatial-globe-hud">
+  <div class="globe-hud-rail-bar">
+    <div class="globe-hud-rail-tag">
+      <span style="color:#00F0FF;">◉</span>
+      <span>OSINT INTELLIGENCE RAIL</span>
+    </div>
+    <button class="globe-hud-collapse-trigger" onclick="toggleGlobeHudCollapsed()" title="Collapse Panel (Unobstructed View)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+  </div>
+
+  <div class="globe-hud-card">
+    <div class="globe-hud-title">
+      <span>◎ 3D EARTH ORBITAL SECTOR</span>
+      <span style="color:#22C55E; font-size:10px;">LIVE</span>
+    </div>
+    <div class="globe-hud-coords" id="globe-coords-label">
+      TARGET: <span style="color:#FFB84D;">KOTAGIRI SECTOR</span> • 11.4228° N, 76.8661° E
+    </div>
+    <div style="font-size:11px; color:#8A8D91; line-height:1.5; font-family:var(--sans);">
+      3D Earth Globe rendered in space. Drag with mouse to rotate Earth; scroll wheel to zoom into orbit.
+    </div>
+    <div class="globe-hud-btn-row">
+      <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(11.4228, 76.8661, 'Kotagiri')">KOTAGIRI</button>
+      <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(11.3530, 76.7959, 'Coonoor')">COONOOR</button>
+      <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(11.4102, 76.6950, 'Ooty')">OOTY</button>
+      <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(12.9716, 77.5946, 'Bengaluru')">BENGALURU</button>
+      <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(37.7749, -122.4194, 'San Francisco')">SF</button>
+    </div>
+  </div>
+
+  <div class="globe-hud-card">
+    <div class="globe-hud-title">
+      <span>🛰 KEYLESS OSINT FEEDS</span>
+      <span style="color:#38BDF8; font-size:10px;">UNAUTHENTICATED</span>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:5px; font-size:10.5px; font-family:var(--mono);">
+      <div style="display:flex; justify-content:space-between;">
+        <span style="color:#8A8D91;">MILITARY AIRSPACE:</span>
+        <span style="color:#00F0FF; font-weight:700;">adsb.lol [ONLINE]</span>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span style="color:#8A8D91;">SATELLITE ORBITS:</span>
+        <span style="color:#4ADE80; font-weight:700;">CelesTrak / ISS [LOCKED]</span>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span style="color:#8A8D91;">STREET MAPS:</span>
+        <span style="color:#FFB84D; font-weight:700;">OpenStreetMap [READY]</span>
+      </div>
+    </div>
+    <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+      <button class="globe-hud-btn" style="background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.15); color:#E6E6E6;" onclick="toggleGlobeHudCollapsed()">
+        COLLAPSE ❯
+      </button>
+      <button class="globe-hud-btn" style="background:rgba(255,157,46,0.18); border-color:rgba(255,157,46,0.45); color:#FFB84D;" onclick="window.glideToSpatial(0)">
+        ◄ RETURN TO HUD
+      </button>
+    </div>
+  </div>
+</div>
 
 <div id="shell">
 
@@ -2923,9 +3335,13 @@ function openGraphOverlay() {
 $('#graph-overlay-close').addEventListener('click', () => { $('#graph-overlay').classList.remove('open'); });
 $('#graph-nav').addEventListener('click', openGraphOverlay);
 
-// openGlobeOverlay is defined in the GEV bridge section below
-$('#globe-overlay-close').addEventListener('click', () => { $('#globe-overlay').classList.remove('open'); });
-$('#globe-nav').addEventListener('click', openGlobeOverlay);
+// Seamless 3D Spatial Navigation: glide directly to Earth Globe
+$('#globe-nav').addEventListener('click', (e) => {
+  e.preventDefault();
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) { sidebar.classList.remove('expanded'); sidebar.classList.remove('open'); }
+  window.glideToGlobe();
+});
 
 /* ---------- Evidence Gallery Overlay JS ---------- */
 function openEvidenceOverlay() {
@@ -4886,6 +5302,16 @@ function ensureJarvisPcmContext() {
   return jarvisPcmContext;
 }
 
+// Auto-unlock AudioContext on any user gesture across window
+const unlockPcmAudio = () => {
+  if (jarvisPcmContext && jarvisPcmContext.state === 'suspended') {
+    jarvisPcmContext.resume().catch(() => {});
+  }
+};
+['click', 'keydown', 'mousedown', 'pointerdown', 'touchstart', 'focus'].forEach(ev => {
+  window.addEventListener(ev, unlockPcmAudio, { passive: true });
+});
+
 function enqueueJarvisPcmChunk(audioB64, sampleRate, text, turnId) {
   if (!audioB64) return;
   if (turnId != null && Number(turnId) !== Number(activeJarvisTtsTurn)) return;
@@ -4910,6 +5336,14 @@ function enqueueJarvisPcmChunk(audioB64, sampleRate, text, turnId) {
       recentAgentTexts.push(text.trim());
       if (recentAgentTexts.length > 20) recentAgentTexts.shift();
       showSubtitles(text, 'J.A.R.V.I.S. SPEECH');
+    }
+
+    // Fallback check: if Web Audio is suspended by browser autoplay policy before user clicks, play natively through Python
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.play_native_audio) {
+        window.pywebview.api.play_native_audio(audioB64, sampleRate || 24000);
+      }
     }
 
     const source = ctx.createBufferSource();
@@ -6515,15 +6949,21 @@ window.jarvis = window.joe = {
         }
         break;
 
+      case 'jarvis_transcribing':
+      case 'joe_transcribing':
+        setHudState('thinking');
+        showSubtitles("Transcribing Sir's command...", 'VOICE STT');
+        break;
+
       case 'jarvis_vad_speech_end':
       case 'joe_vad_speech_end':
       case 'jarvis_speech_ended':
       case 'joe_speech_ended':
-        if (jarvisHudState === 'listening') {
+        if (jarvisHudState === 'listening' || jarvisHudState === 'thinking') {
           if (jarvisWakeTimer) clearTimeout(jarvisWakeTimer);
           if (joeWakeTimer) clearTimeout(joeWakeTimer);
           setHudState('idle');
-          showSubtitles('VAD post-speech silence detected. Window closed.', 'TELEMETRY');
+          showSubtitles('Standby.', 'TELEMETRY');
         }
         break;
 
@@ -6608,6 +7048,13 @@ window.jarvis = window.joe = {
       case 'jarvis_stop_pcm':
         // Backend requests stop of browser PCM before switching to native playback
         stopJarvisPcmStream();
+        break;
+
+      case 'glide_to_location':
+      case 'glide_to_globe':
+        if (data) {
+          window.focusGlobeCoordinates(data.lat || 11.4228, data.lon || 76.8661, data.label || 'TARGET SECTOR');
+        }
         break;
 
       case 'jarvis_stream_chunk':
@@ -7226,73 +7673,36 @@ let gevLoaded = false;
 let gevUrl = 'http://localhost:4173';
 
 /**
- * Open the God's Eye View overlay and load the iframe if needed.
+ * Seamless 3D Spatial Navigation: glide camera to Earth Globe in deep space.
  */
 function openGlobeOverlay() {
-  $('#globe-overlay').classList.add('open');
-  const iframe = document.getElementById('gev-iframe');
-  const loading = document.getElementById('gev-loading');
-  const status = document.getElementById('gev-status');
-
-  if (!gevLoaded && iframe) {
-    // Query the backend for the actual GEV URL
-    if (api() && api().get_gev_url) {
-      api().get_gev_url().then(url => {
-        if (url) gevUrl = url;
-        iframe.src = gevUrl;
-        if (status) status.textContent = 'CONNECTING';
-      }).catch(() => {
-        iframe.src = gevUrl;
-      });
-    } else {
-      iframe.src = gevUrl;
-    }
-    gevLoaded = true;
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) {
+    sidebar.classList.remove('expanded');
+    sidebar.classList.remove('open');
   }
-
-  // Listen for GEV iframe load
-  if (iframe && !iframe._gevListenerSet) {
-    iframe.addEventListener('load', () => {
-      if (loading) loading.style.display = 'none';
-      if (status) { status.textContent = 'LIVE'; status.style.color = '#4ade80'; }
-    });
-    iframe.addEventListener('error', () => {
-      if (status) { status.textContent = 'OFFLINE'; status.style.color = '#ef4444'; }
-    });
-    iframe._gevListenerSet = true;
-  }
+  window.glideToGlobe();
 }
 
 /**
- * Send a command to the GEV iframe via postMessage.
- */
-function gevCommand(action, payload) {
-  const iframe = document.getElementById('gev-iframe');
-  if (iframe && iframe.contentWindow) {
-    iframe.contentWindow.postMessage({ source: 'jarvis', action, ...payload }, '*');
-  }
-}
-
-/**
- * Fly the GEV camera to specific coordinates.
+ * Fly the 3D space camera to specific coordinates on the Earth Globe.
  */
 function gevFlyTo(lat, lng, alt) {
-  gevCommand('flyTo', { lat, lng, altitude: alt || 50000 });
+  window.focusGlobeCoordinates(lat, lng, 'Target Pin');
 }
 
 /**
  * Toggle a GEV data layer on/off.
  */
 function gevToggleLayer(layerName, enabled) {
-  gevCommand('toggleLayer', { layer: layerName, enabled });
+  console.log(`[OSINT Feeds] Layer ${layerName}: ${enabled ? 'active' : 'inactive'}`);
 }
 
 /**
- * Legacy compatibility: old code calls initOrUpdateGeoMap — now opens GEV.
+ * Geo intelligence updates: smoothly glides to 3D Earth Globe and targets coordinates.
  */
 function initOrUpdateGeoMap(entities, timeline) {
-  openGlobeOverlay();
-  // If entities have geo data, fly to the first location
+  window.glideToGlobe();
   if (entities && entities.length > 0) {
     for (const e of entities) {
       if (e.metadata && (e.metadata.lat || e.metadata.geocoded)) {
@@ -7300,7 +7710,7 @@ function initOrUpdateGeoMap(entities, timeline) {
         const lat = parseFloat(g.lat || 0);
         const lng = parseFloat(g.lng || g.lon || 0);
         if (lat || lng) {
-          setTimeout(() => gevFlyTo(lat, lng, 80000), 2000); // delay for GEV to load
+          window.focusGlobeCoordinates(lat, lng, e.value || 'OSINT Entity');
           break;
         }
       }
@@ -7333,9 +7743,324 @@ window.addEventListener('pywebviewready', () => {
     });
   }
 });
-// Starfield background
-let sfScene, sfCamera, sfRenderer, sfGroup;
-let sfClock;
+// ── 3D SPATIAL UNIFIED ENVIRONMENT: GALAXY STARFIELD & HANGING EARTH GLOBE ──
+let sfScene, sfCamera, sfRenderer, sfGroup, sfClock;
+let globeGroup, earthMesh, atmosMesh, beaconPin, beaconRing;
+let targetEarthRotY = 0, targetEarthRotX = 0;
+let isFocusingCoordinate = false;
+
+// Convert geographic coordinates to 3D sphere coordinate vector
+function latLonToVector3(lat, lon, radius) {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+  return new THREE.Vector3(
+    -(radius * Math.sin(phi) * Math.cos(theta)),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta)
+  );
+}
+
+// Spatial Navigation Controller for smooth continuous 3D camera drag
+const SpatialNav = {
+  targetX: 0,
+  currentX: 0,
+  targetZoom: 720,
+  currentZoom: 720,
+  isDragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  dragStartSpatialX: 0,
+  lastPointerX: 0,
+  pointerVelocity: 0,
+  lastPointerTime: 0,
+  isGlobeInteracting: false,
+  lastGlobeX: 0,
+  lastGlobeY: 0,
+
+  init() {
+    window.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+    window.addEventListener('pointermove', (e) => this.onPointerMove(e));
+    window.addEventListener('pointerup', () => this.onPointerUp());
+    window.addEventListener('pointercancel', () => this.onPointerUp());
+    window.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+
+    // Multi-finger trackpad/touchscreen swipe gesture
+    let touchStartX = 0;
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches.length >= 2) {
+        touchStartX = e.touches[0].clientX;
+      }
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches && e.touches.length >= 2) {
+        const dx = e.touches[0].clientX - touchStartX;
+        this.targetX = Math.max(0, Math.min(950, this.targetX - dx * 1.6));
+        touchStartX = e.touches[0].clientX;
+      }
+    }, { passive: true });
+    window.addEventListener('touchend', (e) => {
+      if (this.targetX !== 0 && this.targetX !== 950) {
+        this.targetX = this.currentX > 475 ? 950 : 0;
+      }
+    }, { passive: true });
+
+    // Keypad and Keyboard arrows screen switching (ArrowLeft/Right, Numpad 4/6, Numpad 1/2)
+    window.addEventListener('keydown', (e) => {
+      const activeEl = document.activeElement;
+      const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+      if (isTyping) return;
+
+      if (e.key === 'ArrowLeft' || e.code === 'Numpad4' || e.key === 'Home') {
+        this.glideTo(0);
+      } else if (e.key === 'ArrowRight' || e.code === 'Numpad6' || e.key === 'End') {
+        this.glideTo(950);
+      } else if (e.code === 'Numpad1') {
+        this.glideTo(0);
+      } else if (e.code === 'Numpad2') {
+        this.glideTo(950);
+      }
+    });
+  },
+
+  glideTo(x) {
+    this.targetX = Math.max(0, Math.min(950, x));
+  },
+
+  onTrackClick(e) {
+    const track = document.getElementById('dock-track');
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    this.glideTo(ratio * 950);
+  },
+
+  onPointerDown(e) {
+    // Exclude interactive controls, inputs, action buttons, and window titles
+    if (e.target.closest('input, textarea, button, a, select, option, .jarvis-task-surface, .overlay-panel, #sidebar, .spatial-dock-item, .globe-hud-btn, .nav-btn, .top-bar-menu-btn')) {
+      return;
+    }
+
+    // When centered on Globe (Screen 2), clicking the Earth sphere rotates the Earth
+    if (this.currentX > 550 && e.clientX > window.innerWidth * 0.18 && e.clientX < window.innerWidth * 0.82 && e.clientY > 60 && e.clientY < window.innerHeight - 60 && !e.target.closest('#spatial-globe-hud')) {
+      this.isGlobeInteracting = true;
+      this.lastGlobeX = e.clientX;
+      this.lastGlobeY = e.clientY;
+      isFocusingCoordinate = false;
+      return;
+    }
+
+    // Continuous 3D Spatial Camera Glide
+    this.isDragging = true;
+    this.dragStartX = e.clientX;
+    this.dragStartY = e.clientY;
+    this.dragStartSpatialX = this.targetX;
+    this.lastPointerX = e.clientX;
+    this.pointerVelocity = 0;
+    this.lastPointerTime = performance.now();
+  },
+
+  onPointerMove(e) {
+    if (this.isGlobeInteracting && earthMesh) {
+      const dx = e.clientX - this.lastGlobeX;
+      const dy = e.clientY - this.lastGlobeY;
+      this.lastGlobeX = e.clientX;
+      this.lastGlobeY = e.clientY;
+      earthMesh.rotation.y += dx * 0.005;
+      earthMesh.rotation.x = Math.max(-0.8, Math.min(0.8, earthMesh.rotation.x + dy * 0.005));
+      return;
+    }
+
+    if (!this.isDragging) return;
+
+    const dx = e.clientX - this.dragStartX;
+    const now = performance.now();
+    const dt = Math.max(1, now - this.lastPointerTime);
+    this.pointerVelocity = (e.clientX - this.lastPointerX) / dt;
+    this.lastPointerX = e.clientX;
+    this.lastPointerTime = now;
+
+    // Physical sensitivity: moving pointer across viewport spans spatial coordinate space
+    const sensitivity = (950 / window.innerWidth) * 1.25;
+    this.targetX = Math.max(0, Math.min(950, this.dragStartSpatialX - dx * sensitivity));
+  },
+
+  onPointerUp() {
+    const wasDragging = this.isDragging;
+    this.isDragging = false;
+    this.isGlobeInteracting = false;
+
+    if (wasDragging) {
+      // Natural momentum flick gesture
+      if (this.pointerVelocity < -0.30) {
+        // Flicked left -> camera glides to Earth Globe
+        this.targetX = 950;
+      } else if (this.pointerVelocity > 0.30) {
+        // Flicked right -> camera glides to Tactical HUD
+        this.targetX = 0;
+      } else {
+        // Settle smoothly to closest screen
+        this.targetX = this.currentX > 475 ? 950 : 0;
+      }
+    }
+  },
+
+  onWheel(e) {
+    // Horizontal trackpad gesture (two-finger / three-finger horizontal glide)
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 2) {
+      e.preventDefault();
+      this.targetX = Math.max(0, Math.min(950, this.targetX + e.deltaX * 1.5));
+      if (this.wheelTimeout) clearTimeout(this.wheelTimeout);
+      this.wheelTimeout = setTimeout(() => {
+        this.targetX = this.targetX > 475 ? 950 : 0;
+      }, 140);
+      return;
+    }
+
+    if (this.currentX > 500 && !e.target.closest('#thread, .jarvis-window-body, #spatial-globe-hud')) {
+      e.preventDefault();
+      this.targetZoom = Math.max(340, Math.min(850, this.targetZoom + e.deltaY * 0.5));
+    }
+  },
+
+  update(delta) {
+    // Responsive damping during active drag; silky smooth glide on release
+    const lerpRate = this.isDragging ? 0.22 : 0.085;
+    this.currentX += (this.targetX - this.currentX) * lerpRate;
+    this.currentZoom += (this.targetZoom - this.currentZoom) * 0.08;
+
+    const ratio = Math.max(0, Math.min(1, this.currentX / 950));
+    document.documentElement.style.setProperty('--spatial-x', this.currentX.toFixed(2) + 'px');
+    document.documentElement.style.setProperty('--spatial-ratio', ratio.toFixed(4));
+
+    // Pointer-events management: disable HUD click interception when on Globe screen
+    const shell = document.getElementById('shell');
+    if (shell) {
+      if (ratio > 0.55) {
+        shell.style.pointerEvents = 'none';
+      } else {
+        shell.style.pointerEvents = 'auto';
+      }
+    }
+
+    const btnHud = document.getElementById('dock-btn-hud');
+    const btnGlobe = document.getElementById('dock-btn-globe');
+    if (btnHud && btnGlobe) {
+      if (ratio < 0.5) {
+        btnHud.classList.add('active');
+        btnGlobe.classList.remove('active');
+      } else {
+        btnHud.classList.remove('active');
+        btnGlobe.classList.add('active');
+      }
+    }
+
+    const globeHud = document.getElementById('spatial-globe-hud');
+    const globeLauncher = document.getElementById('globe-hud-launcher');
+    if (globeHud) {
+      if (ratio > 0.35) {
+        globeHud.classList.add('visible');
+        if (isGlobeHudCollapsed) {
+          globeHud.classList.add('collapsed');
+          if (globeLauncher) globeLauncher.classList.add('visible');
+        } else {
+          globeHud.classList.remove('collapsed');
+          if (globeLauncher) globeLauncher.classList.remove('visible');
+        }
+      } else {
+        globeHud.classList.remove('visible');
+        if (globeLauncher) globeLauncher.classList.remove('visible');
+      }
+    }
+
+    if (sfCamera) {
+      sfCamera.position.x = this.currentX;
+      sfCamera.position.z = this.currentZoom;
+      sfCamera.lookAt(this.currentX, 0, 0);
+    }
+  }
+};
+
+// Collapsible OSINT Rail controller (God's Eye View Style)
+let isGlobeHudCollapsed = false;
+window.toggleGlobeHudCollapsed = function() {
+  isGlobeHudCollapsed = !isGlobeHudCollapsed;
+  const globeHud = document.getElementById('spatial-globe-hud');
+  const globeLauncher = document.getElementById('globe-hud-launcher');
+  if (globeHud) {
+    if (isGlobeHudCollapsed) {
+      globeHud.classList.add('collapsed');
+      if (globeLauncher && SpatialNav.currentX > 330) globeLauncher.classList.add('visible');
+    } else {
+      globeHud.classList.remove('collapsed');
+      if (globeLauncher) globeLauncher.classList.remove('visible');
+    }
+  }
+};
+
+// Global error telemetry to terminal
+window.onerror = function(msg, src, line, col, err) {
+  console.error(`[UNCAUGHT] ${msg} (${src ? src.split('/').pop() : 'app'}:${line}:${col})`, err && err.stack ? err.stack : '');
+};
+window.addEventListener('unhandledrejection', function(event) {
+  console.error('[UNHANDLED_PROMISE]', event.reason);
+});
+
+// Global helpers accessible to buttons, voice, and HUD
+window.glideToSpatial = function(x) {
+  SpatialNav.glideTo(x);
+};
+
+window.focusGlobeCoordinates = function(lat, lon, label) {
+  SpatialNav.glideTo(950);
+  isFocusingCoordinate = true;
+  targetEarthRotY = (-(lon) * Math.PI / 180) - Math.PI / 2;
+  targetEarthRotX = (lat * Math.PI / 180) * 0.65;
+
+  const lbl = document.getElementById('globe-coords-label');
+  if (lbl) {
+    lbl.innerHTML = `TARGET: <span style="color:#FFB84D;">${(label || 'SECTOR').toUpperCase()}</span> • ${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E`;
+  }
+
+  if (beaconPin && earthMesh) {
+    if (beaconPin.parent !== earthMesh) {
+      if (beaconPin.parent) beaconPin.parent.remove(beaconPin);
+      earthMesh.add(beaconPin);
+    }
+    const pos = latLonToVector3(lat, lon, 212);
+    beaconPin.position.copy(pos);
+    beaconPin.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pos.clone().normalize());
+    beaconPin.visible = true;
+  }
+};
+
+window.glideToGlobe = function(lat, lon, label) {
+  window.focusGlobeCoordinates(lat || 11.4228, lon || 76.8661, label || 'Kotagiri');
+};
+
+// Double-click on Earth globe raycasts to exact sector and drops beacon
+window.addEventListener('dblclick', (e) => {
+  if (!sfCamera || !earthMesh || !sfRenderer) return;
+  if (SpatialNav.currentX < 400) return;
+  const rect = sfRenderer.domElement.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, sfCamera);
+  const intersects = raycaster.intersectObject(earthMesh, false);
+  if (intersects.length > 0) {
+    const hitPoint = intersects[0].point.clone();
+    const localPoint = earthMesh.worldToLocal(hitPoint);
+    const r = localPoint.length();
+    const lat = Math.asin(Math.max(-1, Math.min(1, localPoint.y / r))) * (180 / Math.PI);
+    const theta = Math.atan2(localPoint.z, -localPoint.x);
+    let lon = (theta * 180 / Math.PI) - 180;
+    while (lon < -180) lon += 360;
+    while (lon > 180) lon -= 360;
+    window.focusGlobeCoordinates(lat, lon, 'INSPECTED SECTOR');
+  }
+});
 
 // Create a soft round glow sprite texture via canvas
 function createGlowTexture() {
@@ -7362,15 +8087,24 @@ function sfInit() {
     console.error('[Starfield] Three.js is not available');
     return;
   }
-  if (sfRenderer) return; // already initialized
+  if (sfRenderer) return;
 
   sfScene = new THREE.Scene();
   sfClock = new THREE.Clock();
   sfGroup = new THREE.Group();
   sfScene.add(sfGroup);
 
-  sfCamera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 1, 4000);
-  sfCamera.position.set(0, 0, 0);
+  // Perspective camera placed for cinematic depth
+  sfCamera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 1, 8000);
+  sfCamera.position.set(0, 0, 720);
+
+  // Studio lighting: ambient illumination + directional sunlight for Earth terminator
+  const ambientLight = new THREE.AmbientLight(0x445577, 1.4);
+  sfScene.add(ambientLight);
+
+  const sunLight = new THREE.DirectionalLight(0xffffff, 2.2);
+  sunLight.position.set(1200, 600, 800);
+  sfScene.add(sunLight);
 
   sfRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   sfRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -7413,18 +8147,158 @@ function sfInit() {
   }
 
   // 1. Dense field of small white stars (far shell - 12,500 stars)
-  sfGroup.add(buildLayer(12500, 500, 1800, 0xffffff, 2.2, 0.88));
+  sfGroup.add(buildLayer(12500, 600, 2400, 0xffffff, 2.2, 0.90));
   // 2. Sparser layer of larger, faintly blue stars closer to camera for subtle parallax (2,500 stars)
-  sfGroup.add(buildLayer(2500, 200, 650, 0x9fc8ff, 3.6, 0.72));
+  sfGroup.add(buildLayer(2500, 300, 900, 0x9fc8ff, 3.6, 0.75));
   // 3. A few dozen slightly brighter stars with soft additive glow (80 accent stars)
-  sfGroup.add(buildLayer(80, 250, 950, 0xddeeff, 6.5, 0.60));
+  sfGroup.add(buildLayer(80, 350, 1200, 0xddeeff, 6.5, 0.65));
   // 4. Very faint large nebula-like glow blobs far away (subtle deep blue & violet)
-  sfGroup.add(buildLayer(8, 1200, 600, 0x14223d, 90.0, 0.08));
-  sfGroup.add(buildLayer(6, 1400, 700, 0x24143d, 110.0, 0.06));
+  sfGroup.add(buildLayer(8, 1400, 800, 0x14223d, 90.0, 0.08));
+  sfGroup.add(buildLayer(6, 1600, 900, 0x24143d, 110.0, 0.06));
+
+  // ── 3D EARTH GLOBE HANGING IN SPACE ──
+  const globeRadius = 210;
+  const globeX = 950;
+  const globeY = 0;
+  const globeZ = 0;
+
+  globeGroup = new THREE.Group();
+  globeGroup.position.set(globeX, globeY, globeZ);
+  sfScene.add(globeGroup);
+
+  function createProceduralEarthTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#061324';
+    ctx.fillRect(0, 0, 1024, 512);
+
+    // Lat/Long tactical grid
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.12)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < 1024; x += 64) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 512); ctx.stroke();
+    }
+    for (let y = 0; y < 512; y += 32) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1024, y); ctx.stroke();
+    }
+
+    // Tactical continents silhouette
+    ctx.fillStyle = '#14344d';
+    ctx.beginPath(); ctx.ellipse(280, 200, 110, 150, 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(620, 180, 150, 110, -0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(590, 310, 80, 120, 0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(830, 330, 60, 45, 0, 0, Math.PI * 2); ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  const texLoader = new THREE.TextureLoader();
+  const earthGeo = new THREE.SphereGeometry(globeRadius, 64, 64);
+  const earthMat = new THREE.MeshStandardMaterial({
+    map: createProceduralEarthTexture(),
+    roughness: 0.65,
+    metalness: 0.15,
+    emissive: new THREE.Color(0x0e1b30),
+    emissiveIntensity: 0.9
+  });
+  earthMesh = new THREE.Mesh(earthGeo, earthMat);
+  globeGroup.add(earthMesh);
+
+  // Upgrade dynamically with NASA Blue Marble, night lights, and bump map
+  texLoader.load('assets/textures/earth-blue-marble.jpg', (tex) => {
+    earthMat.map = tex;
+    earthMat.needsUpdate = true;
+  }, undefined, () => {});
+
+  texLoader.load('assets/textures/earth-topology.png', (tex) => {
+    earthMat.bumpMap = tex;
+    earthMat.bumpScale = 3.2;
+    earthMat.needsUpdate = true;
+  }, undefined, () => {});
+
+  texLoader.load('assets/textures/earth-night.jpg', (tex) => {
+    earthMat.emissiveMap = tex;
+    earthMat.needsUpdate = true;
+  }, undefined, () => {});
+
+  // Atmospheric Fresnel Rim Glow
+  const atmosGeo = new THREE.SphereGeometry(globeRadius * 1.035, 48, 48);
+  const atmosMat = new THREE.ShaderMaterial({
+    vertexShader: `
+      varying vec3 vNormal;
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      void main() {
+        float intensity = pow(0.68 - dot(vNormal, vec3(0, 0, 1.0)), 2.6);
+        gl_FragColor = vec4(0.18, 0.65, 1.0, 1.0) * intensity * 1.5;
+      }
+    `,
+    blending: THREE.AdditiveBlending,
+    side: THREE.BackSide,
+    transparent: true
+  });
+  atmosMesh = new THREE.Mesh(atmosGeo, atmosMat);
+  globeGroup.add(atmosMesh);
+
+  // Earth rendered clean and pristine without obstructing orbit rings
+
+  // Beacon pin group
+  beaconPin = new THREE.Group();
+  const pinStemGeo = new THREE.CylinderGeometry(0.8, 0.8, 14, 8);
+  const pinStemMat = new THREE.MeshBasicMaterial({ color: 0xff9d2e });
+  const pinStem = new THREE.Mesh(pinStemGeo, pinStemMat);
+  pinStem.position.y = 7;
+  beaconPin.add(pinStem);
+
+  const ringGeo = new THREE.RingGeometry(4, 5.5, 32);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
+  beaconRing = new THREE.Mesh(ringGeo, ringMat);
+  beaconRing.rotation.x = Math.PI / 2;
+  beaconPin.add(beaconRing);
+
+  // Initial beacon on Kotagiri (11.4228, 76.8661)
+  const initPos = latLonToVector3(11.4228, 76.8661, globeRadius + 2);
+  beaconPin.position.copy(initPos);
+  beaconPin.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), initPos.clone().normalize());
+  earthMesh.add(beaconPin);
+
+  // Tactical Reconnaissance Markers (Live OSINT & ADS-B Contacts in LEO)
+  const tacticalGroup = new THREE.Group();
+  earthMesh.add(tacticalGroup);
+
+  const reconTargets = [
+    { name: "RECON-01", lat: 13.08, lon: 80.27, alt: 8, col: 0x00f0ff },
+    { name: "TACTICAL-7", lat: 28.61, lon: 77.20, alt: 10, col: 0xff9d2e },
+    { name: "SENTINEL-9", lat: 35.67, lon: 139.65, alt: 12, col: 0x00f0ff },
+    { name: "AIR-PATROL", lat: 51.50, lon: -0.12, alt: 8, col: 0x00ff88 },
+    { name: "STARLINK-V2", lat: 40.71, lon: -74.00, alt: 14, col: 0x38bdf8 }
+  ];
+
+  reconTargets.forEach(t => {
+    const tPos = latLonToVector3(t.lat, t.lon, globeRadius + t.alt);
+    const pMesh = new THREE.Mesh(
+      new THREE.OctahedronGeometry(2.2, 0),
+      new THREE.MeshBasicMaterial({ color: t.col, wireframe: true })
+    );
+    pMesh.position.copy(tPos);
+    tacticalGroup.add(pMesh);
+  });
+
+  // Initialize Spatial Pointer Controller
+  SpatialNav.init();
 
   window.addEventListener('resize', sfOnResize);
 
-  console.log('[Starfield] Initialized rotating 3D galaxy with 4400+ stars');
+  console.log('[Starfield] Initialized 3D Spatial Canvas: Rotating Galaxy & Hanging Earth Globe');
   sfAnimate();
 }
 
@@ -7440,12 +8314,32 @@ function sfAnimate() {
   if (document.hidden) { sfClock.getDelta(); return; }
 
   const delta = sfClock.getDelta();
-  // ~1 full turn (2*PI rad) every 3 minutes (180s) => ~0.0349 rad/s
-  const speed = 0.0349;
+  // Visible cosmic rotation: ~0.14 rad/s (alive and moving!)
+  const speed = 0.14;
   if (sfGroup) {
     sfGroup.rotation.y += speed * delta;
     sfGroup.rotation.x += (speed * 0.18) * delta;
   }
+
+  // Earth diurnal rotation or animated lock
+  if (earthMesh) {
+    if (isFocusingCoordinate) {
+      earthMesh.rotation.y += (targetEarthRotY - earthMesh.rotation.y) * 0.08;
+      earthMesh.rotation.x += (targetEarthRotX - earthMesh.rotation.x) * 0.08;
+    } else if (!SpatialNav.isGlobeInteracting) {
+      earthMesh.rotation.y += 0.003;
+    }
+  }
+
+  // Pulsing beacon ring animation
+  if (beaconRing) {
+    const s = 1.0 + Math.sin(Date.now() * 0.006) * 0.35;
+    beaconRing.scale.set(s, s, s);
+  }
+
+  // Update spatial camera & HTML HUD parallax
+  SpatialNav.update(delta);
+
   if (sfRenderer && sfScene && sfCamera) {
     sfRenderer.render(sfScene, sfCamera);
   }
