@@ -112,12 +112,6 @@ class Orchestrator:
         dom = parsed.metadata["domain"]
         generic = {"gmail.com", "yahoo.com", "outlook.com", "hotmail.com"}
 
-        default_order = ["email_recon", "paste_search", "social_enum", "github_recon"]
-        if dom not in generic:
-            default_order.extend(["domain_intel", "wayback"])
-
-        ordered = _reorder_modules(default_order, plan)
-
         candidates = list(set([
             local,
             local.replace(".", "_"),
@@ -125,47 +119,29 @@ class Orchestrator:
             local.split(".")[0] if "." in local else local,
         ]))
 
-        for module in ordered:
-            if module == "email_recon":
-                await self._status("Running email breach lookup...")
-                await email_recon.run(target, parsed.value, self._make_find_cb(target))
-            elif module == "paste_search":
-                await self._status("Searching paste sites...")
-                await paste_search.run(target, parsed.value, self._make_find_cb(target))
-            elif module == "social_enum":
-                await self._status("Scanning username variants across 300+ platforms...")
-                for uname in candidates:
-                    await social.run(target, uname, self._make_find_cb(target),
-                                     lessons_store=self.lessons_store)
-            elif module == "github_recon":
-                await self._status("Running GitHub deep recon for username variants...")
-                for uname in candidates:
-                    await github_recon.run(target, uname, on_find=self._make_find_cb(target))
-            elif module == "domain_intel" and dom not in generic:
-                await self._status(f"Running domain intel on {dom}...")
-                await domain.run(target, dom, self._make_find_cb(target))
-            elif module == "wayback" and dom not in generic:
-                await self._status(f"Checking Wayback Machine for domain {dom}...")
-                await wayback.run(target, dom, self._make_find_cb(target))
+        await self._status(f"⚡ Deploying autonomous OSINT swarm for email: {parsed.value}...")
+        swarm_tasks = [
+            email_recon.run(target, parsed.value, self._make_find_cb(target)),
+            paste_search.run(target, parsed.value, self._make_find_cb(target)),
+        ]
+        for uname in candidates[:2]:
+            swarm_tasks.append(social.run(target, uname, self._make_find_cb(target), lessons_store=self.lessons_store))
+            swarm_tasks.append(github_recon.run(target, uname, on_find=self._make_find_cb(target)))
+        if dom not in generic:
+            swarm_tasks.append(domain.run(target, dom, self._make_find_cb(target)))
+            swarm_tasks.append(wayback.run(target, dom, self._make_find_cb(target)))
+
+        await asyncio.gather(*swarm_tasks, return_exceptions=True)
 
     async def _username_pipeline(self, target, parsed, plan=None):
-        default_order = ["social_enum", "github_recon", "paste_search", "wayback"]
-        ordered = _reorder_modules(default_order, plan)
-
-        for module in ordered:
-            if module == "social_enum":
-                await self._status("Scanning 300+ platforms for username...")
-                await social.run(target, parsed.value, self._make_find_cb(target),
-                                 lessons_store=self.lessons_store)
-            elif module == "github_recon":
-                await self._status("Running GitHub deep recon...")
-                await github_recon.run(target, parsed.value, on_find=self._make_find_cb(target))
-            elif module == "paste_search":
-                await self._status("Searching paste sites...")
-                await paste_search.run(target, parsed.value, self._make_find_cb(target))
-            elif module == "wayback":
-                await self._status("Checking Wayback Machine for username snapshots...")
-                await wayback.run(target, parsed.value, self._make_find_cb(target))
+        await self._status(f"⚡ Deploying autonomous reconnaissance swarm for: {parsed.value}...")
+        swarm_tasks = [
+            social.run(target, parsed.value, self._make_find_cb(target), lessons_store=self.lessons_store),
+            github_recon.run(target, parsed.value, on_find=self._make_find_cb(target)),
+            paste_search.run(target, parsed.value, self._make_find_cb(target)),
+            wayback.run(target, parsed.value, self._make_find_cb(target)),
+        ]
+        await asyncio.gather(*swarm_tasks, return_exceptions=True)
 
         await self._status("Dorking Google for username...")
         import modules.dork_fallback as dork_fallback
@@ -185,19 +161,13 @@ class Orchestrator:
             await self._status(f"Google search found {count} profiles.")
 
     async def _domain_pipeline(self, target, parsed, plan=None):
-        default_order = ["domain_intel", "wayback", "paste_search"]
-        ordered = _reorder_modules(default_order, plan)
-
-        for module in ordered:
-            if module == "domain_intel":
-                await self._status("Running domain intelligence...")
-                await domain.run(target, parsed.value, self._make_find_cb(target))
-            elif module == "wayback":
-                await self._status("Checking Wayback Machine...")
-                await wayback.run(target, parsed.value, self._make_find_cb(target))
-            elif module == "paste_search":
-                await self._status("Searching paste sites...")
-                await paste_search.run(target, parsed.value, self._make_find_cb(target))
+        await self._status(f"⚡ Deploying autonomous domain reconnaissance swarm for: {parsed.value}...")
+        swarm_tasks = [
+            domain.run(target, parsed.value, self._make_find_cb(target)),
+            wayback.run(target, parsed.value, self._make_find_cb(target)),
+            paste_search.run(target, parsed.value, self._make_find_cb(target)),
+        ]
+        await asyncio.gather(*swarm_tasks, return_exceptions=True)
 
     async def _ip_pipeline(self, target, parsed, plan=None):
         default_order = ["ip_recon"]

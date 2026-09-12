@@ -6375,6 +6375,158 @@ const unlockPcmAudio = () => {
   window.addEventListener(ev, unlockPcmAudio, { passive: true });
 });
 
+// ── Holographic Procedural Sound Synthesizer (Iron Man HUD SFX) ──
+const JarvisSFX = {
+  enabled: true,
+
+  targetLock() {
+    if (!this.enabled) return;
+    const ctx = ensureJarvisPcmContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1400, now);
+      filter.Q.setValueAtTime(3.5, now);
+
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, now);
+      osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.08);
+
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(440, now);
+      osc2.frequency.exponentialRampToValueAtTime(880, now + 0.08);
+
+      gain.gain.setValueAtTime(0.16, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.22);
+      osc2.stop(now + 0.22);
+    } catch(e) {}
+  },
+
+  flightSwoosh() {
+    if (!this.enabled) return;
+    const ctx = ensureJarvisPcmContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const bufferSize = Math.floor(ctx.sampleRate * 0.40);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(160, now);
+      filter.frequency.exponentialRampToValueAtTime(1400, now + 0.16);
+      filter.frequency.exponentialRampToValueAtTime(120, now + 0.38);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.12, now + 0.14);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.40);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      noise.start(now);
+    } catch(e) {}
+  },
+
+  layerToggle(state = true) {
+    if (!this.enabled) return;
+    const ctx = ensureJarvisPcmContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      if (state) {
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(1040, now + 0.06);
+      } else {
+        osc.frequency.setValueAtTime(840, now);
+        osc.frequency.exponentialRampToValueAtTime(420, now + 0.06);
+      }
+
+      gain.gain.setValueAtTime(0.10, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch(e) {}
+  },
+
+  radarPing() {
+    if (!this.enabled) return;
+    const ctx = ensureJarvisPcmContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1280, now);
+      osc.frequency.exponentialRampToValueAtTime(640, now + 0.16);
+
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.26);
+    } catch(e) {}
+  },
+
+  alert() {
+    if (!this.enabled) return;
+    const ctx = ensureJarvisPcmContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      [659.25, 880, 1318.51].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + i * 0.05);
+        gain.gain.setValueAtTime(0.12, now + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.05);
+        osc.stop(now + i * 0.05 + 0.16);
+      });
+    } catch(e) {}
+  }
+};
+window.JarvisSFX = JarvisSFX;
+
 function enqueueJarvisPcmChunk(audioB64, sampleRate, text, turnId) {
   if (!audioB64) return;
   if (turnId != null && Number(turnId) !== Number(activeJarvisTtsTurn)) return;
@@ -8241,6 +8393,34 @@ window.jarvis = window.joe = {
         }
         break;
 
+      case 'jarvis_play_sfx':
+        if (window.JarvisSFX && data && data.effect) {
+          if (data.effect === 'target_lock' || data.effect === 'targetLock') window.JarvisSFX.targetLock();
+          else if (data.effect === 'flight_swoosh' || data.effect === 'flightSwoosh') window.JarvisSFX.flightSwoosh();
+          else if (data.effect === 'layer_toggle' || data.effect === 'layerToggle') window.JarvisSFX.layerToggle(data.state !== false);
+          else if (data.effect === 'radar_ping' || data.effect === 'radarPing') window.JarvisSFX.radarPing();
+          else if (data.effect === 'alert') window.JarvisSFX.alert();
+        }
+        break;
+
+      case 'annotate_map':
+        if (window.JarvisAnnotations && data) {
+          window.JarvisAnnotations.handle(data);
+        }
+        break;
+
+      case 'control_cockpit':
+        if (window.JarvisCockpit && data) {
+          window.JarvisCockpit.handle(data);
+        }
+        break;
+
+      case 'predict_satellite_pass':
+        if (data && typeof window.predictNextSatellitePass === 'function') {
+          window.predictNextSatellitePass(Number(data.lat), Number(data.lon), data.label || 'SECTOR');
+        }
+        break;
+
       case 'jarvis_stream_chunk':
       case 'joe_stream_chunk':
         updateStreamingChunk(data.chunk);
@@ -9230,6 +9410,10 @@ window.glideToSpatial = function(x) {
 };
 
 window.focusGlobeCoordinates = function(lat, lon, label) {
+  if (window.JarvisSFX) {
+    window.JarvisSFX.flightSwoosh();
+    window.JarvisSFX.targetLock();
+  }
   SpatialNav.glideTo(950);
   isFocusingCoordinate = true;
   targetEarthRotY = (-(lon) * Math.PI / 180) - Math.PI / 2;
@@ -9278,6 +9462,9 @@ window.focusGlobeCoordinates = function(lat, lon, label) {
 };
 
 window.resetGlobeOrbitView = function() {
+  if (window.JarvisSFX) {
+    window.JarvisSFX.flightSwoosh();
+  }
   if (window.cesiumViewer && typeof Cesium !== 'undefined' && !window.cesiumViewer.isDestroyed()) {
     window.cesiumViewer.camera.flyTo({
       destination: Cesium.Cartesian3.fromDegrees(76.8661, 11.4228, 22000000),
@@ -9294,6 +9481,345 @@ window.resetGlobeOrbitView = function() {
 window.glideToGlobe = function(lat, lon, label) {
   window.focusGlobeCoordinates(lat || 11.4228, lon || 76.8661, label || 'Kotagiri');
 };
+
+// ── Phase 2: 3D Map Whiteboard & Range Ring Annotation Engine ──
+const JarvisAnnotations = {
+  dataSource: null,
+
+  ensureDataSource() {
+    if (!this.dataSource && window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+      this.dataSource = new Cesium.CustomDataSource('jarvis-annotations');
+      window.cesiumViewer.dataSources.add(this.dataSource);
+    }
+    return this.dataSource;
+  },
+
+  clear() {
+    if (this.dataSource) {
+      this.dataSource.entities.removeAll();
+      if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+        window.cesiumViewer.scene.requestRender();
+      }
+    }
+    if (window.JarvisSFX) window.JarvisSFX.layerToggle(false);
+  },
+
+  addRing(lat, lon, radiusKm = 50, label = 'TACTICAL PERIMETER', color = '#FF9D2E') {
+    const ds = this.ensureDataSource();
+    if (!ds || !window.Cesium) return;
+    const radiusM = radiusKm * 1000;
+    const cesiumColor = Cesium.Color.fromCssColorString(color || '#FF9D2E');
+
+    // Outer range ring with subtle glowing fill
+    ds.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, 20),
+      ellipse: {
+        semiMajorAxis: radiusM,
+        semiMinorAxis: radiusM,
+        material: cesiumColor.withAlpha(0.12),
+        outline: true,
+        outlineColor: cesiumColor.withAlpha(0.85),
+        outlineWidth: 2.5,
+        height: 20
+      },
+      label: {
+        text: `◎ [${radiusKm} KM] ${(label || 'PERIMETER').toUpperCase()}`,
+        font: 'bold 12px "JetBrains Mono", monospace',
+        fillColor: Cesium.Color.WHITE,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -12)
+      }
+    });
+
+    // Inner concentric ring (50% radius) for tactical range grid
+    ds.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, 25),
+      ellipse: {
+        semiMajorAxis: radiusM * 0.5,
+        semiMinorAxis: radiusM * 0.5,
+        material: Cesium.Color.TRANSPARENT,
+        outline: true,
+        outlineColor: cesiumColor.withAlpha(0.45),
+        outlineWidth: 1.5,
+        height: 25
+      }
+    });
+
+    // Center focal point
+    ds.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, 30),
+      point: {
+        pixelSize: 8,
+        color: cesiumColor,
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 2
+      }
+    });
+
+    if (window.JarvisSFX) window.JarvisSFX.targetLock();
+    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+      window.cesiumViewer.scene.requestRender();
+    }
+  },
+
+  addArc(fromLat, fromLon, toLat, toLon, fromLabel = '', toLabel = '', label = 'TRANSIT CORRIDOR', color = '#38BDF8') {
+    const ds = this.ensureDataSource();
+    if (!ds || !window.Cesium) return;
+    const cesiumColor = Cesium.Color.fromCssColorString(color || '#38BDF8');
+
+    // Approximate distance in km (Haversine)
+    const R = 6371;
+    const dLat = (toLat - fromLat) * Math.PI / 180;
+    const dLon = (toLon - fromLon) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(fromLat * Math.PI / 180) * Math.cos(toLat * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const distKm = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    const peakAltM = Math.min(350000, distKm * 1000 * 0.15);
+
+    // Generate 60 interpolated points along parabolic arc
+    const points = [];
+    const steps = 60;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const curLat = fromLat + (toLat - fromLat) * t;
+      const curLon = fromLon + (toLon - fromLon) * t;
+      const curAlt = Math.sin(t * Math.PI) * peakAltM + 100;
+      points.push(curLon, curLat, curAlt);
+    }
+
+    // Glowing polyline arc
+    ds.entities.add({
+      polyline: {
+        positions: Cesium.Cartesian3.fromDegreesArrayHeights(points),
+        width: 3.5,
+        material: new Cesium.PolylineGlowMaterialProperty({
+          glowPower: 0.25,
+          color: cesiumColor
+        })
+      }
+    });
+
+    // Apex label showing distance and corridor designation
+    const midLat = (fromLat + toLat) / 2;
+    const midLon = (fromLon + toLon) / 2;
+    ds.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(midLon, midLat, peakAltM + 2500),
+      label: {
+        text: `✈ ${(label || 'AIR CORRIDOR').toUpperCase()} • ${distKm} KM`,
+        font: 'bold 11px "JetBrains Mono", monospace',
+        fillColor: Cesium.Color.WHITE,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM
+      }
+    });
+
+    // Origin and Destination tactical pins
+    [
+      { lat: fromLat, lon: fromLon, lbl: fromLabel || 'ORIGIN' },
+      { lat: toLat, lon: toLon, lbl: toLabel || 'DESTINATION' }
+    ].forEach(pt => {
+      ds.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(pt.lon, pt.lat, 20),
+        point: {
+          pixelSize: 7,
+          color: cesiumColor,
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2
+        },
+        label: {
+          text: pt.lbl.toUpperCase(),
+          font: '10px "JetBrains Mono", monospace',
+          fillColor: Cesium.Color.fromCssColorString('#E6E6E6'),
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          pixelOffset: new Cesium.Cartesian2(0, 14)
+        }
+      });
+    });
+
+    if (window.JarvisSFX) window.JarvisSFX.flightSwoosh();
+    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+      window.cesiumViewer.scene.requestRender();
+    }
+  },
+
+  addPin(lat, lon, label = 'PIN', color = '#EF4444') {
+    const ds = this.ensureDataSource();
+    if (!ds || !window.Cesium) return;
+    const cesiumColor = Cesium.Color.fromCssColorString(color || '#EF4444');
+
+    ds.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, 100),
+      polyline: {
+        positions: Cesium.Cartesian3.fromDegreesArrayHeights([
+          lon, lat, 0,
+          lon, lat, 800
+        ]),
+        width: 2.0,
+        material: cesiumColor
+      },
+      point: {
+        pixelSize: 9,
+        color: cesiumColor,
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 2
+      },
+      label: {
+        text: `📍 ${(label || 'PIN').toUpperCase()}`,
+        font: 'bold 11px "JetBrains Mono", monospace',
+        fillColor: Cesium.Color.WHITE,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -10)
+      }
+    });
+
+    if (window.JarvisSFX) window.JarvisSFX.targetLock();
+    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+      window.cesiumViewer.scene.requestRender();
+    }
+  },
+
+  handle(data) {
+    if (!data || !data.action) return;
+    const act = data.action.toLowerCase();
+    if (act === 'clear') {
+      this.clear();
+    } else if (act === 'ring') {
+      this.addRing(Number(data.lat), Number(data.lon), Number(data.radius_km || 50), data.label, data.color);
+    } else if (act === 'arc') {
+      this.addArc(Number(data.from_lat), Number(data.from_lon), Number(data.to_lat), Number(data.to_lon), data.from_label, data.to_label, data.label, data.color);
+    } else if (act === 'pin') {
+      this.addPin(Number(data.lat), Number(data.lon), data.label, data.color);
+    }
+  }
+};
+window.JarvisAnnotations = JarvisAnnotations;
+
+// ── Phase 4: Tactical 3D Cockpit & Entity Chase Cam ──
+const JarvisCockpit = {
+  activeEntity: null,
+  activeIdx: 0,
+
+  enter(targetCallsignOrId = null) {
+    const viewer = window.cesiumViewer;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    let target = null;
+    if (typeof _flightsDataSource !== 'undefined' && _flightsDataSource && _flightsDataSource.entities.values.length > 0) {
+      const entities = _flightsDataSource.entities.values.filter(e => e._tacticalData && e.billboard);
+      if (entities.length > 0) {
+        if (targetCallsignOrId) {
+          target = entities.find(e => (e._tacticalData.callsign || '').toLowerCase() === targetCallsignOrId.toLowerCase()) || entities[0];
+        } else if (typeof _inspectTargetData !== 'undefined' && _inspectTargetData && _inspectTargetData._entity) {
+          target = _inspectTargetData._entity;
+        } else {
+          target = entities.find(e => e._tacticalData.isMil) || entities[0];
+        }
+      }
+    }
+
+    if (!target) {
+      console.warn('[Cockpit] No airborne contact available to chase.');
+      return;
+    }
+
+    this.activeEntity = target;
+    viewer.trackedEntity = target;
+
+    const heading = target._tacticalData ? target._tacticalData.heading : 0;
+    const headingRad = Cesium.Math.toRadians((heading || 0) + 180);
+    const pitchRad = Cesium.Math.toRadians(-14);
+    const rangeMeters = 2400;
+
+    viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+    viewer.zoomTo(target, new Cesium.HeadingPitchRange(headingRad, pitchRad, rangeMeters));
+
+    this.showCockpitHud(target._tacticalData);
+    if (window.JarvisSFX) window.JarvisSFX.targetLock();
+  },
+
+  exit() {
+    const viewer = window.cesiumViewer;
+    if (!viewer || viewer.isDestroyed()) return;
+    viewer.trackedEntity = undefined;
+    this.activeEntity = null;
+    this.hideCockpitHud();
+    if (window.JarvisSFX) window.JarvisSFX.flightSwoosh();
+  },
+
+  next() {
+    if (typeof _flightsDataSource === 'undefined' || !_flightsDataSource) return;
+    const entities = _flightsDataSource.entities.values.filter(e => e._tacticalData && e.billboard);
+    if (entities.length === 0) return;
+    this.activeIdx = (this.activeIdx + 1) % entities.length;
+    this.enter(entities[this.activeIdx]._tacticalData.callsign);
+  },
+
+  prev() {
+    if (typeof _flightsDataSource === 'undefined' || !_flightsDataSource) return;
+    const entities = _flightsDataSource.entities.values.filter(e => e._tacticalData && e.billboard);
+    if (entities.length === 0) return;
+    this.activeIdx = (this.activeIdx - 1 + entities.length) % entities.length;
+    this.enter(entities[this.activeIdx]._tacticalData.callsign);
+  },
+
+  showCockpitHud(data) {
+    let hud = document.getElementById('jarvis-cockpit-hud');
+    if (!hud) {
+      hud = document.createElement('div');
+      hud.id = 'jarvis-cockpit-hud';
+      hud.style.cssText = 'position:absolute; top:70px; left:50%; transform:translateX(-50%); z-index:9999; pointer-events:auto; display:flex; align-items:center; gap:16px; background:rgba(6,10,18,0.85); border:1px solid #FF9D2E; border-radius:8px; padding:10px 18px; box-shadow:0 0 24px rgba(255,157,46,0.3); font-family:"JetBrains Mono",monospace; backdrop-filter:blur(8px);';
+      document.body.appendChild(hud);
+    }
+    const callsign = data?.callsign || 'CONTACT';
+    const alt = data?.alt ? Math.round(data.alt) : 'ALT';
+    const spd = data?.speed ? Math.round(data.speed) : 'SPD';
+    const hdg = data?.heading ? Math.round(data.heading) : '0';
+    hud.innerHTML = `
+      <div style="color:#FFB84D; font-weight:700; font-size:12px; display:flex; align-items:center; gap:6px;">
+        <span class="pulse-dot" style="width:8px; height:8px; background:#FF9D2E; border-radius:50%; display:inline-block;"></span>
+        COCKPIT CHASE: ${callsign}
+      </div>
+      <div style="font-size:11px; color:#A0AEC0;">SPD: <span style="color:#FFFFFF; font-weight:700;">${spd} KTS</span></div>
+      <div style="font-size:11px; color:#A0AEC0;">ALT: <span style="color:#FFFFFF; font-weight:700;">${alt} FT</span></div>
+      <div style="font-size:11px; color:#A0AEC0;">HDG: <span style="color:#FFFFFF; font-weight:700;">${hdg}°</span></div>
+      <button onclick="window.JarvisCockpit.next()" style="background:rgba(255,157,46,0.15); border:1px solid rgba(255,157,46,0.5); color:#FFB84D; font-size:10px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer;">NEXT</button>
+      <button onclick="window.JarvisCockpit.exit()" style="background:rgba(239,68,68,0.25); border:1px solid #EF4444; color:#FCA5A5; font-size:10px; font-weight:700; padding:4px 10px; border-radius:4px; cursor:pointer;">EXIT</button>
+    `;
+    hud.style.display = 'flex';
+  },
+
+  hideCockpitHud() {
+    const hud = document.getElementById('jarvis-cockpit-hud');
+    if (hud) hud.style.display = 'none';
+  },
+
+  handle(data) {
+    if (!data || !data.action) return;
+    const act = data.action.toLowerCase();
+    if (act === 'exit' || act === 'stop' || act === 'leave' || act === 'off') {
+      this.exit();
+    } else if (act === 'next') {
+      this.next();
+    } else if (act === 'prev' || act === 'previous') {
+      this.prev();
+    } else {
+      this.enter(data.target || null);
+    }
+  }
+};
+window.JarvisCockpit = JarvisCockpit;
+window.startCockpitChase = () => JarvisCockpit.enter();
 
 // Double-click on Earth globe raycasts to exact sector and drops beacon
 window.addEventListener('dblclick', (e) => {
@@ -10016,6 +10542,9 @@ window.toggleTacticalLayer = function(layerName, forceState) {
     _tacticalLayers[layerName] = forceState;
   } else {
     _tacticalLayers[layerName] = !_tacticalLayers[layerName];
+  }
+  if (window.JarvisSFX) {
+    window.JarvisSFX.layerToggle(_tacticalLayers[layerName]);
   }
   const toggleEl = document.getElementById(`layer-toggle-${layerName}`);
   if (toggleEl) toggleEl.classList.toggle('active', _tacticalLayers[layerName]);
@@ -10964,6 +11493,9 @@ function initGlobeIntelligence(viewer) {
 
         const countEl = document.getElementById('radar-contact-count');
         if (countEl) countEl.textContent = contacts.length;
+        if (contacts.length > 0 && window.JarvisSFX && _tacticalLayers.flights) {
+          window.JarvisSFX.radarPing();
+        }
         viewer.scene.requestRender();
       }
     } catch (err) {
@@ -11106,6 +11638,84 @@ function initGlobeIntelligence(viewer) {
   window._updateISSPosition = updateISSPosition;
   updateISSPosition();
   setInterval(updateISSPosition, 5000);
+
+  // ── Phase 5: Satellite Orbit Pass Predictor (Analytical Keplerian Propagator) ──
+  window.predictNextSatellitePass = function(targetLat = 11.4228, targetLon = 76.8661, targetLabel = 'SECTOR') {
+    const nowSec = Date.now() / 1000;
+    let bestPass = null;
+    let minDistanceKm = Infinity;
+    let inPass = false;
+    let passStartSec = 0;
+    let passEndSec = 0;
+
+    // Scan the next 24 hours (86,400s) in 45-second propagation increments
+    for (let offset = 0; offset <= 86400; offset += 45) {
+      const t = nowSec + offset;
+      const sat = computeISSPositionAnalytical(t);
+      const R = 6371;
+      const dLat = (sat.lat - targetLat) * Math.PI / 180;
+      const dLon = (sat.lon - targetLon) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(targetLat * Math.PI / 180) * Math.cos(sat.lat * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      // LEO horizon footprint at 420km altitude is ~1800 km
+      if (distKm <= 1800) {
+        if (!inPass) {
+          inPass = true;
+          passStartSec = t;
+          minDistanceKm = distKm;
+        } else if (distKm < minDistanceKm) {
+          minDistanceKm = distKm;
+        }
+      } else if (inPass) {
+        inPass = false;
+        passEndSec = t;
+        const elevRad = Math.atan2(420.5 - (R * (1 - Math.cos(minDistanceKm / R))), R * Math.sin(minDistanceKm / R));
+        const elevDeg = Math.max(8, Math.round(Cesium.Math.toDegrees(elevRad)));
+        const durationMin = Math.max(3, Math.round((passEndSec - passStartSec) / 60));
+        const minutesFromNow = Math.round((passStartSec - nowSec) / 60);
+
+        bestPass = {
+          target: targetLabel,
+          aosEpoch: passStartSec,
+          minutesFromNow: minutesFromNow,
+          durationMinutes: durationMin,
+          maxElevationDeg: elevDeg,
+          closestApproachKm: Math.round(minDistanceKm)
+        };
+        break;
+      }
+    }
+
+    if (bestPass) {
+      if (window.JarvisAnnotations) {
+        const trackPoints = [];
+        for (let pt = bestPass.aosEpoch - 240; pt <= bestPass.aosEpoch + (bestPass.durationMinutes * 60) + 240; pt += 60) {
+          const sat = computeISSPositionAnalytical(pt);
+          trackPoints.push(sat.lon, sat.lat, 420000);
+        }
+        const ds = window.JarvisAnnotations.ensureDataSource();
+        if (ds && window.Cesium) {
+          ds.entities.add({
+            polyline: {
+              positions: Cesium.Cartesian3.fromDegreesArrayHeights(trackPoints),
+              width: 3.5,
+              material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.35,
+                color: Cesium.Color.fromCssColorString('#38BDF8')
+              })
+            }
+          });
+        }
+        window.JarvisAnnotations.addRing(targetLat, targetLon, 120, `ISS PASS: ${targetLabel} (PEAK ${bestPass.maxElevationDeg}°)`, '#38BDF8');
+      }
+      if (window.JarvisSFX) window.JarvisSFX.targetLock();
+      console.log('[SatellitePass] Predicted next orbital pass:', bestPass);
+    }
+    return bestPass;
+  };
 
   // =========================================================================
   // 6. PLANETARY SEISMIC HAZARDS LAYER (USGS M4.5+)

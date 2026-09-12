@@ -112,6 +112,30 @@ CRITICAL IDENTITY & PROTOCOLS:
      Example:
      - User: "turn on ATC radio" -> [RADIO: atc] Tuning audio receiver to aviation air traffic control, Sir.
 
+   5. 3D Map Whiteboard & Tactical Annotations:
+      You have direct drawing and whiteboard capability over the 3D Cesium globe.
+      To project glowing defense rings, perimeter zones, ballistic arcs, air corridors, or pins:
+      Emit:
+      [ANNOTATE: ring <location> radius=<km> label="<label>"]
+      [ANNOTATE: arc from="<origin>" to="<destination>" label="<label>"]
+      [ANNOTATE: pin <location> label="<label>"]
+      [ANNOTATE: clear]
+      Examples:
+      - User: "draw a 50 km perimeter around Kotagiri" -> [ANNOTATE: ring Kotagiri radius=50 label="DEFENSE PERIMETER"] Drawing a fifty-kilometer tactical perimeter around Kotagiri now, Sir.
+      - User: "connect Kotagiri to Bangalore" -> [ANNOTATE: arc from=Kotagiri to=Bengaluru label="LOGISTICS CORRIDOR"] Projecting flight corridor arc from Kotagiri to Bengaluru, Sir.
+      - User: "clear map drawings" -> [ANNOTATE: clear] Purging tactical map annotations, Sir.
+
+   6. Tactical 3D Cockpit & Chase Cam:
+      To lock camera behind a tracked airborne contact in a chase cam cockpit view:
+      Emit:
+      [COCKPIT: enter] or [COCKPIT: exit] or [COCKPIT: next]
+      Example:
+      - User: "enter cockpit view" -> [COCKPIT: enter] Engaging entity chase camera and cockpit HUD, Sir.
+
+   7. Holographic Audio SFX:
+      You can accompany tactical actions with procedural HUD audio feedback:
+      [SFX: target_lock], [SFX: radar_ping], [SFX: alert], [SFX: flight_swoosh]
+
 - Autonomous OS Execution & CLI Tools:
   You can execute Linux shell commands for genuine system operations, file inspection, diagnostics, network sockets, or git.
   To execute an OS command, emit:
@@ -1284,6 +1308,24 @@ class JarvisVoice:
                 tactical["radio"] = m_radio.group(1).strip()
                 cleaned = re.sub(r'\[RADIO:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
 
+            # Detect [SFX: <effect>]
+            m_sfx = re.search(r'\[SFX:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+            if m_sfx:
+                tactical["sfx"] = m_sfx.group(1).strip()
+                cleaned = re.sub(r'\[SFX:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+            # Detect [ANNOTATE: <directive>]
+            m_annotate = re.search(r'\[ANNOTATE:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+            if m_annotate:
+                tactical["annotate"] = m_annotate.group(1).strip()
+                cleaned = re.sub(r'\[ANNOTATE:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+            # Detect [COCKPIT: <directive>]
+            m_cockpit = re.search(r'\[COCKPIT:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+            if m_cockpit:
+                tactical["cockpit"] = m_cockpit.group(1).strip()
+                cleaned = re.sub(r'\[COCKPIT:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
             return cleaned, tactical
 
         # Try cloud engines first (NVIDIA → Gemini)
@@ -1306,6 +1348,9 @@ class JarvisVoice:
                 "layer_action": tactical_directives.get("layer"),
                 "zoom_action": tactical_directives.get("zoom"),
                 "radio_action": tactical_directives.get("radio"),
+                "sfx_action": tactical_directives.get("sfx"),
+                "annotate_action": tactical_directives.get("annotate"),
+                "cockpit_action": tactical_directives.get("cockpit"),
             }
 
         # Fall back to local SLM
@@ -1328,6 +1373,9 @@ class JarvisVoice:
             "layer_action": tactical_directives.get("layer"),
             "zoom_action": tactical_directives.get("zoom"),
             "radio_action": tactical_directives.get("radio"),
+            "sfx_action": tactical_directives.get("sfx"),
+            "annotate_action": tactical_directives.get("annotate"),
+            "cockpit_action": tactical_directives.get("cockpit"),
         }
 
     def classify_intent(self, text: str, current_target: Target = None) -> dict:

@@ -155,12 +155,15 @@ class _StreamingPrefixFilter:
     CANDIDATES = ("JARVIS:", "J.A.R.V.I.S.:", "ASSISTANT:", "AI:")
     CLEAN_REGEX = re.compile(r'^\s*(?:JARVIS|J\.A\.R\.V\.I\.S\.|ASSISTANT|AI)\s*:\s*', re.IGNORECASE)
 
-    def __init__(self, on_chunk, on_nav=None, on_layer=None, on_zoom=None, on_radio=None):
+    def __init__(self, on_chunk, on_nav=None, on_layer=None, on_zoom=None, on_radio=None, on_sfx=None, on_annotate=None, on_cockpit=None):
         self.on_chunk = on_chunk
         self.on_nav = on_nav
         self.on_layer = on_layer
         self.on_zoom = on_zoom
         self.on_radio = on_radio
+        self.on_sfx = on_sfx
+        self.on_annotate = on_annotate
+        self.on_cockpit = on_cockpit
         self.buffer = ""
         self.cleared = False
         self.cmd_buffer = ""
@@ -241,6 +244,9 @@ class _StreamingPrefixFilter:
                     m_layer = re.match(r'\[LAYER(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
                     m_zoom = re.match(r'\[ZOOM(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
                     m_radio = re.match(r'\[RADIO(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
+                    m_sfx = re.match(r'\[SFX(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
+                    m_annotate = re.match(r'\[ANNOTATE(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
+                    m_cockpit = re.match(r'\[COCKPIT(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
 
                     if m_cmd:
                         cmd_to_run = m_cmd.group(1).strip()
@@ -278,6 +284,27 @@ class _StreamingPrefixFilter:
                                 self.on_radio(radio_spec)
                             except Exception as e:
                                 print(f"[desktop] Streaming RADIO error: {e}")
+                    elif m_sfx:
+                        sfx_spec = m_sfx.group(1).strip()
+                        if self.on_sfx:
+                            try:
+                                self.on_sfx(sfx_spec)
+                            except Exception as e:
+                                print(f"[desktop] Streaming SFX error: {e}")
+                    elif m_annotate:
+                        annotate_spec = m_annotate.group(1).strip()
+                        if self.on_annotate:
+                            try:
+                                self.on_annotate(annotate_spec)
+                            except Exception as e:
+                                print(f"[desktop] Streaming ANNOTATE error: {e}")
+                    elif m_cockpit:
+                        cockpit_spec = m_cockpit.group(1).strip()
+                        if self.on_cockpit:
+                            try:
+                                self.on_cockpit(cockpit_spec)
+                            except Exception as e:
+                                print(f"[desktop] Streaming COCKPIT error: {e}")
                     else:
                         # Not a tactical tag (e.g. markdown link or reference), pass through
                         self.on_chunk(self.cmd_buffer)
@@ -317,6 +344,147 @@ class _StreamingPrefixFilter:
             else:
                 self.on_chunk(self.cmd_buffer)
             self.cmd_buffer = ""
+
+# Comprehensive Prominent Indian Cities, Nilgiri Corridor & Global Hubs
+KNOWN_COORDS = {
+    # Nilgiri Corridor & Southern India
+    "kotagiri": (11.4228, 76.8661),
+    "coonoor": (11.3530, 76.7959),
+    "ooty": (11.4102, 76.6950),
+    "ootacamund": (11.4102, 76.6950),
+    "udhagamandalam": (11.4102, 76.6950),
+    "nilgiris": (11.4916, 76.7337),
+    "nilgiri": (11.4916, 76.7337),
+    "niligiris": (11.4916, 76.7337),
+    "niligiri": (11.4916, 76.7337),
+    "nilgiri hills": (11.4916, 76.7337),
+    "nilgiris hills": (11.4916, 76.7337),
+    "the nilgiris": (11.4916, 76.7337),
+    "coimbatore": (11.0168, 76.9558),
+    "chennai": (13.0827, 80.2707),
+    "madras": (13.0827, 80.2707),
+    "bangalore": (12.9716, 77.5946),
+    "bengaluru": (12.9716, 77.5946),
+    "mysore": (12.2958, 76.6394),
+    "mysuru": (12.2958, 76.6394),
+    "madurai": (9.9252, 78.1198),
+    "trichy": (10.7905, 78.7047),
+    "tiruchirappalli": (10.7905, 78.7047),
+    "salem": (11.6643, 78.1460),
+    "kochi": (9.9312, 76.2673),
+    "cochin": (9.9312, 76.2673),
+    "trivandrum": (8.5241, 76.9366),
+    "thiruvananthapuram": (8.5241, 76.9366),
+    "kerala": (10.8505, 76.2711),
+    "tamil nadu": (11.1271, 78.6569),
+    "hyderabad": (17.3850, 78.4867),
+    "visakhapatnam": (17.6868, 83.2185),
+    "vizag": (17.6868, 83.2185),
+    "vijayawada": (16.5062, 80.6480),
+
+    # North, West & East India
+    "mumbai": (19.0760, 72.8777),
+    "bombay": (19.0760, 72.8777),
+    "pune": (18.5204, 73.8567),
+    "goa": (15.2993, 74.1240),
+    "panaji": (15.4909, 73.8278),
+    "ahmedabad": (23.0225, 72.5714),
+    "surat": (21.1702, 72.8311),
+    "delhi": (28.6139, 77.2090),
+    "new delhi": (28.6139, 77.2090),
+    "noida": (28.5355, 77.3910),
+    "gurgaon": (28.4595, 77.0266),
+    "gurugram": (28.4595, 77.0266),
+    "jaipur": (26.9124, 75.7873),
+    "udaipur": (24.5854, 73.7125),
+    "jodhpur": (26.2389, 73.0243),
+    "chandigarh": (30.7333, 76.7794),
+    "amritsar": (31.6340, 74.8723),
+    "shimla": (31.1048, 77.1734),
+    "manali": (32.2432, 77.1892),
+    "srinagar": (34.0837, 74.7973),
+    "leh": (34.1526, 77.5771),
+    "ladakh": (34.1526, 77.5771),
+    "kolkata": (22.5726, 88.3639),
+    "calcutta": (22.5726, 88.3639),
+    "lucknow": (26.8467, 80.9462),
+    "varanasi": (25.3176, 82.9739),
+    "patna": (25.5941, 85.1376),
+    "bhopal": (23.2599, 77.4126),
+    "indore": (22.7196, 75.8577),
+    "darjeeling": (27.0410, 88.2663),
+    "guwahati": (26.1445, 91.7362),
+    "india": (20.5937, 78.9629),
+
+    # Prominent Global Capitals & Hubs
+    "tokyo": (35.6762, 139.6503),
+    "london": (51.5074, -0.1278),
+    "paris": (48.8566, 2.3522),
+    "new york": (40.7128, -74.0060),
+    "nyc": (40.7128, -74.0060),
+    "san francisco": (37.7749, -122.4194),
+    "sf": (37.7749, -122.4194),
+    "los angeles": (34.0522, -118.2437),
+    "chicago": (41.8781, -87.6298),
+    "washington": (38.9072, -77.0369),
+    "washington dc": (38.9072, -77.0369),
+    "dubai": (25.2048, 55.2708),
+    "abu dhabi": (24.4539, 54.3773),
+    "singapore": (1.3521, 103.8198),
+    "sydney": (-33.8688, 151.2093),
+    "melbourne": (-37.8136, 144.9631),
+    "berlin": (52.5200, 13.4050),
+    "moscow": (55.7558, 37.6173),
+    "beijing": (39.9042, 116.4074),
+    "shanghai": (31.2304, 121.4737),
+    "hong kong": (22.3193, 114.1694),
+    "seoul": (37.5665, 126.9780),
+    "bangkok": (13.7563, 100.5018),
+    "cairo": (30.0444, 31.2357),
+    "rome": (41.9028, 12.4964),
+    "toronto": (43.6532, -79.3832),
+    "vancouver": (49.2827, -123.1207),
+    "zurich": (47.3769, 8.5417),
+    "geneva": (46.2044, 6.1432),
+    "amsterdam": (52.3676, 4.9041),
+}
+
+def resolve_geospatial_coordinates(candidate: str) -> tuple[float, float, str] | None:
+    if not candidate:
+        return None
+    clean = candidate.strip().lower()
+    coord_m = re.search(r'(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)', clean)
+    if coord_m:
+        lat = float(coord_m.group(1))
+        lon = float(coord_m.group(2))
+        return lat, lon, f"{lat:.4f}°N, {lon:.4f}°E"
+
+    for k, coords in KNOWN_COORDS.items():
+        if k == clean or k in clean or clean in k:
+            return coords[0], coords[1], k.title()
+
+    import difflib
+    close_keys = difflib.get_close_matches(clean, KNOWN_COORDS.keys(), n=1, cutoff=0.75)
+    if close_keys:
+        coords = KNOWN_COORDS[close_keys[0]]
+        return coords[0], coords[1], close_keys[0].title()
+
+    try:
+        import urllib.request
+        import urllib.parse
+        q = urllib.parse.quote(clean)
+        url = f"https://nominatim.openstreetmap.org/search?q={q}&format=json&limit=1"
+        req = urllib.request.Request(url, headers={"User-Agent": "JARVIS-Tactical-Console/2.0"})
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            if data and len(data) > 0:
+                lat = float(data[0]["lat"])
+                lon = float(data[0]["lon"])
+                name = data[0].get("display_name", clean).split(",")[0].strip().title()
+                return lat, lon, name
+    except Exception:
+        pass
+    return None
 
 
 class JarvisAPI:
@@ -455,6 +623,7 @@ class JarvisAPI:
         if not target:
             return
         print(f"[desktop] Tactical NAV directive received: '{target}'")
+        self._emit("jarvis_play_sfx", {"effect": "target_lock"})
         self._resolve_and_glide_location(f"go to {target}", glide_only=True)
 
     def _execute_tactical_layer(self, layer_spec: str):
@@ -496,12 +665,14 @@ class JarvisAPI:
         }
         canonical_layer = layer_aliases.get(layer, layer)
         print(f"[desktop] Tactical LAYER directive: {canonical_layer} -> {'ON' if state else 'OFF'}")
+        self._emit("jarvis_play_sfx", {"effect": "layer_toggle", "state": state})
         self._emit("toggle_tactical_layer", {"layer": canonical_layer, "state": state})
 
     def _execute_tactical_zoom(self, zoom_spec: str):
         """Execute God's Eye camera zoom."""
         direction = "in" if "in" in zoom_spec.lower() or "close" in zoom_spec.lower() else "out"
         print(f"[desktop] Tactical ZOOM directive: {direction}")
+        self._emit("jarvis_play_sfx", {"effect": "flight_swoosh"})
         self._emit("adjust_camera_zoom", {"direction": direction})
 
     def _execute_tactical_radio(self, radio_spec: str):
@@ -509,6 +680,148 @@ class JarvisAPI:
         action = radio_spec.strip().lower()
         print(f"[desktop] Tactical RADIO directive: {action}")
         self._emit("control_radio", {"action": action})
+
+    def _execute_tactical_sfx(self, effect: str):
+        """Execute holographic procedural SFX."""
+        if not effect:
+            return
+        eff = effect.strip().lower().replace("-", "_")
+        print(f"[desktop] Tactical SFX directive: {eff}")
+        self._emit("jarvis_play_sfx", {"effect": eff})
+
+    def _execute_tactical_annotate(self, spec: str):
+        """Execute God's Eye tactical 3D map annotations (range rings, arcs, pins, clear)."""
+        if not spec:
+            return
+        raw = spec.strip()
+        print(f"[desktop] Tactical ANNOTATE directive: '{raw}'")
+        if raw.lower() in ("clear", "reset", "purge", "off", "remove"):
+            self._emit("annotate_map", {"action": "clear"})
+            return
+
+        # 1. Range Ring: e.g. ring Kotagiri radius=50 label="DEFENSE PERIMETER"
+        if any(raw.lower().startswith(k) for k in ("ring", "perimeter", "zone", "circle")):
+            rad_m = re.search(r'radius=(\d+(?:\.\d+)?)', raw, re.IGNORECASE)
+            radius_km = float(rad_m.group(1)) if rad_m else 50.0
+
+            lbl_m = re.search(r'label=[\"\']([^\"\']+)[\"\']', raw, re.IGNORECASE)
+            label = lbl_m.group(1) if lbl_m else "TACTICAL PERIMETER"
+
+            color_m = re.search(r'color=[\"\']([^\"\']+)[\"\']', raw, re.IGNORECASE)
+            color = color_m.group(1) if color_m else "#FF9D2E"
+
+            target = re.sub(r'^(?:ring|perimeter|zone|circle)\s*', '', raw, flags=re.IGNORECASE)
+            target = re.sub(r'radius=\d+(?:\.\d+)?', '', target, flags=re.IGNORECASE)
+            target = re.sub(r'label=[\"\'][^\"\']+[\"\']', '', target, flags=re.IGNORECASE)
+            target = re.sub(r'color=[\"\'][^\"\']+[\"\']', '', target, flags=re.IGNORECASE).strip()
+
+            coords = resolve_geospatial_coordinates(target or "Kotagiri")
+            if coords:
+                lat, lon, name = coords
+                self._emit("annotate_map", {
+                    "action": "ring",
+                    "lat": lat,
+                    "lon": lon,
+                    "radius_km": radius_km,
+                    "label": f"{label} ({name})",
+                    "color": color
+                })
+            return
+
+        # 2. Ballistic Arc / Air Corridor: e.g. arc from=Kotagiri to=Bengaluru label="AIR CORRIDOR"
+        if any(raw.lower().startswith(k) for k in ("arc", "route", "corridor", "vector", "line")):
+            from_m = re.search(r'from=[\"\']?([^\"\'\s,]+)[\"\']?', raw, re.IGNORECASE)
+            to_m = re.search(r'to=[\"\']?([^\"\'\s,]+)[\"\']?', raw, re.IGNORECASE)
+            lbl_m = re.search(r'label=[\"\']([^\"\']+)[\"\']', raw, re.IGNORECASE)
+            color_m = re.search(r'color=[\"\']([^\"\']+)[\"\']', raw, re.IGNORECASE)
+
+            origin = from_m.group(1) if from_m else "Kotagiri"
+            destination = to_m.group(1) if to_m else "Bengaluru"
+            label = lbl_m.group(1) if lbl_m else f"{origin.upper()} \u2794 {destination.upper()}"
+            color = color_m.group(1) if color_m else "#38BDF8"
+
+            coords1 = resolve_geospatial_coordinates(origin)
+            coords2 = resolve_geospatial_coordinates(destination)
+            if coords1 and coords2:
+                self._emit("annotate_map", {
+                    "action": "arc",
+                    "from_lat": coords1[0],
+                    "from_lon": coords1[1],
+                    "to_lat": coords2[0],
+                    "to_lon": coords2[1],
+                    "from_label": coords1[2],
+                    "to_label": coords2[2],
+                    "label": label,
+                    "color": color
+                })
+            return
+
+        # 3. Pin: e.g. pin Kotagiri label="OPERATIONS BASE"
+        if any(raw.lower().startswith(k) for k in ("pin", "marker", "beacon")):
+            lbl_m = re.search(r'label=[\"\']([^\"\']+)[\"\']', raw, re.IGNORECASE)
+            color_m = re.search(r'color=[\"\']([^\"\']+)[\"\']', raw, re.IGNORECASE)
+            label = lbl_m.group(1) if lbl_m else "TACTICAL PIN"
+            color = color_m.group(1) if color_m else "#EF4444"
+
+            target = re.sub(r'^(?:pin|marker|beacon)\s*', '', raw, flags=re.IGNORECASE)
+            target = re.sub(r'label=[\"\'][^\"\']+[\"\']', '', target, flags=re.IGNORECASE)
+            target = re.sub(r'color=[\"\'][^\"\']+[\"\']', '', target, flags=re.IGNORECASE).strip()
+
+            coords = resolve_geospatial_coordinates(target or "Kotagiri")
+            if coords:
+                self._emit("annotate_map", {
+                    "action": "pin",
+                    "lat": coords[0],
+                    "lon": coords[1],
+                    "label": f"{label} ({coords[2]})",
+                    "color": color
+                })
+            return
+
+    def _execute_tactical_cockpit(self, spec: str):
+        """Execute God's Eye tactical 3D cockpit / chase cam."""
+        act = (spec or "enter").strip().lower()
+        print(f"[desktop] Tactical COCKPIT directive: {act}")
+        self._emit("control_cockpit", {"action": act})
+
+    def _capture_desktop_screenshot(self) -> str | None:
+        """Capture the operator's active screen for multimodal vision analysis."""
+        screenshot_dir = Path("/tmp/jarvis_vision")
+        screenshot_dir.mkdir(parents=True, exist_ok=True)
+        out_path = screenshot_dir / f"screenshot_{int(time.time())}.png"
+
+        # 1. Try grim (Wayland)
+        try:
+            res = subprocess.run(["grim", str(out_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+            if res.returncode == 0 and out_path.exists() and out_path.stat().st_size > 1000:
+                print(f"[desktop] Vision Eye captured Wayland screen via grim: {out_path}")
+                return str(out_path)
+        except Exception:
+            pass
+
+        # 2. Try PIL ImageGrab
+        try:
+            from PIL import ImageGrab
+            img = ImageGrab.grab()
+            img.save(str(out_path))
+            if out_path.exists() and out_path.stat().st_size > 1000:
+                print(f"[desktop] Vision Eye captured screen via PIL: {out_path}")
+                return str(out_path)
+        except Exception as e:
+            print(f"[desktop] ImageGrab failed: {e}")
+
+        # 3. Try scrot or import (X11)
+        for tool in ["scrot", "import"]:
+            try:
+                cmd = [tool, str(out_path)] if tool == "scrot" else [tool, "-window", "root", str(out_path)]
+                res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+                if res.returncode == 0 and out_path.exists() and out_path.stat().st_size > 1000:
+                    print(f"[desktop] Vision Eye captured screen via {tool}: {out_path}")
+                    return str(out_path)
+            except Exception:
+                pass
+
+        return None
 
     def _resolve_and_glide_location(self, text: str, glide_only: bool = False) -> bool:
         """Detect location queries and glide 3D camera to Earth globe with coordinates."""
@@ -541,162 +854,9 @@ class JarvisAPI:
                 self._run_ask(loc_prompt)
             return True
 
-        # Coordinate match check: e.g. "11.4916, 76.7337" or "11.4916° N, 76.7337° E"
-        coord_m = re.search(r'(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)', candidate)
-        if coord_m:
-            lat = float(coord_m.group(1))
-            lon = float(coord_m.group(2))
-            matched_name = f"{lat:.4f}°N, {lon:.4f}°E"
-            print(f"[desktop] Direct coordinate target: {matched_name}. Gliding 3D camera to Earth globe...")
-            self._emit("glide_to_location", {"lat": lat, "lon": lon, "label": matched_name})
-            if not glide_only:
-                loc_prompt = (
-                    f"[GEOSPATIAL TELEMETRY: The 3D planetary globe has locked onto coordinates {matched_name}. "
-                    f"Address Sir directly and inform him that the orbital viewport is locked on target.]\n"
-                    f"User Question: {text}"
-                )
-                self._run_ask(loc_prompt)
-            return True
-
-        # Comprehensive Prominent Indian Cities, Nilgiri Corridor & Global Hubs
-        KNOWN_COORDS = {
-            # Nilgiri Corridor & Southern India
-            "kotagiri": (11.4228, 76.8661),
-            "coonoor": (11.3530, 76.7959),
-            "ooty": (11.4102, 76.6950),
-            "ootacamund": (11.4102, 76.6950),
-            "udhagamandalam": (11.4102, 76.6950),
-            "nilgiris": (11.4916, 76.7337),
-            "nilgiri": (11.4916, 76.7337),
-            "niligiris": (11.4916, 76.7337),
-            "niligiri": (11.4916, 76.7337),
-            "nilgiri hills": (11.4916, 76.7337),
-            "nilgiris hills": (11.4916, 76.7337),
-            "the nilgiris": (11.4916, 76.7337),
-            "coimbatore": (11.0168, 76.9558),
-            "chennai": (13.0827, 80.2707),
-            "madras": (13.0827, 80.2707),
-            "bangalore": (12.9716, 77.5946),
-            "bengaluru": (12.9716, 77.5946),
-            "mysore": (12.2958, 76.6394),
-            "mysuru": (12.2958, 76.6394),
-            "madurai": (9.9252, 78.1198),
-            "trichy": (10.7905, 78.7047),
-            "tiruchirappalli": (10.7905, 78.7047),
-            "salem": (11.6643, 78.1460),
-            "kochi": (9.9312, 76.2673),
-            "cochin": (9.9312, 76.2673),
-            "trivandrum": (8.5241, 76.9366),
-            "thiruvananthapuram": (8.5241, 76.9366),
-            "kerala": (10.8505, 76.2711),
-            "tamil nadu": (11.1271, 78.6569),
-            "hyderabad": (17.3850, 78.4867),
-            "visakhapatnam": (17.6868, 83.2185),
-            "vizag": (17.6868, 83.2185),
-            "vijayawada": (16.5062, 80.6480),
-
-            # North, West & East India
-            "mumbai": (19.0760, 72.8777),
-            "bombay": (19.0760, 72.8777),
-            "pune": (18.5204, 73.8567),
-            "goa": (15.2993, 74.1240),
-            "panaji": (15.4909, 73.8278),
-            "ahmedabad": (23.0225, 72.5714),
-            "surat": (21.1702, 72.8311),
-            "delhi": (28.6139, 77.2090),
-            "new delhi": (28.6139, 77.2090),
-            "noida": (28.5355, 77.3910),
-            "gurgaon": (28.4595, 77.0266),
-            "gurugram": (28.4595, 77.0266),
-            "jaipur": (26.9124, 75.7873),
-            "udaipur": (24.5854, 73.7125),
-            "jodhpur": (26.2389, 73.0243),
-            "chandigarh": (30.7333, 76.7794),
-            "amritsar": (31.6340, 74.8723),
-            "shimla": (31.1048, 77.1734),
-            "manali": (32.2432, 77.1892),
-            "srinagar": (34.0837, 74.7973),
-            "leh": (34.1526, 77.5771),
-            "ladakh": (34.1526, 77.5771),
-            "kolkata": (22.5726, 88.3639),
-            "calcutta": (22.5726, 88.3639),
-            "lucknow": (26.8467, 80.9462),
-            "varanasi": (25.3176, 82.9739),
-            "patna": (25.5941, 85.1376),
-            "bhopal": (23.2599, 77.4126),
-            "indore": (22.7196, 75.8577),
-            "darjeeling": (27.0410, 88.2663),
-            "guwahati": (26.1445, 91.7362),
-            "india": (20.5937, 78.9629),
-
-            # Prominent Global Capitals & Hubs
-            "tokyo": (35.6762, 139.6503),
-            "london": (51.5074, -0.1278),
-            "paris": (48.8566, 2.3522),
-            "new york": (40.7128, -74.0060),
-            "nyc": (40.7128, -74.0060),
-            "san francisco": (37.7749, -122.4194),
-            "sf": (37.7749, -122.4194),
-            "los angeles": (34.0522, -118.2437),
-            "chicago": (41.8781, -87.6298),
-            "washington": (38.9072, -77.0369),
-            "washington dc": (38.9072, -77.0369),
-            "dubai": (25.2048, 55.2708),
-            "abu dhabi": (24.4539, 54.3773),
-            "singapore": (1.3521, 103.8198),
-            "sydney": (-33.8688, 151.2093),
-            "melbourne": (-37.8136, 144.9631),
-            "berlin": (52.5200, 13.4050),
-            "moscow": (55.7558, 37.6173),
-            "beijing": (39.9042, 116.4074),
-            "shanghai": (31.2304, 121.4737),
-            "hong kong": (22.3193, 114.1694),
-            "seoul": (37.5665, 126.9780),
-            "bangkok": (13.7563, 100.5018),
-            "cairo": (30.0444, 31.2357),
-            "rome": (41.9028, 12.4964),
-            "toronto": (43.6532, -79.3832),
-            "vancouver": (49.2827, -123.1207),
-            "zurich": (47.3769, 8.5417),
-            "geneva": (46.2044, 6.1432),
-            "amsterdam": (52.3676, 4.9041),
-        }
-
-        lat, lon = None, None
-        matched_name = candidate.title()
-
-        for k, coords in KNOWN_COORDS.items():
-            if k == candidate or k in candidate or candidate in k:
-                lat, lon = coords
-                matched_name = k.title()
-                break
-
-        # Fuzzy matching with cutoff 0.75 for typos (e.g. niligiris -> nilgiris)
-        if lat is None:
-            import difflib
-            close_keys = difflib.get_close_matches(candidate, KNOWN_COORDS.keys(), n=1, cutoff=0.75)
-            if close_keys:
-                lat, lon = KNOWN_COORDS[close_keys[0]]
-                matched_name = close_keys[0].title()
-
-        # OpenStreetMap Nominatim Geocoding fallback for open-world places
-        if lat is None:
-            try:
-                import urllib.request
-                import urllib.parse
-                q = urllib.parse.quote(candidate)
-                url = f"https://nominatim.openstreetmap.org/search?q={q}&format=json&limit=1"
-                req = urllib.request.Request(url, headers={"User-Agent": "JARVIS-Tactical-Console/2.0"})
-                with urllib.request.urlopen(req, timeout=2.5) as resp:
-                    data = json.loads(resp.read().decode('utf-8'))
-                    if data and len(data) > 0:
-                        lat = float(data[0]["lat"])
-                        lon = float(data[0]["lon"])
-                        matched_name = data[0].get("display_name", candidate).split(",")[0].strip().title()
-            except Exception:
-                pass
-
-        if lat is not None and lon is not None:
+        resolved = resolve_geospatial_coordinates(candidate)
+        if resolved:
+            lat, lon, matched_name = resolved
             print(f"[desktop] Location target acquired: {matched_name} ({lat:.4f}°N, {lon:.4f}°E). Gliding 3D camera to Earth globe...")
             self._emit("glide_to_location", {
                 "lat": lat,
@@ -719,6 +879,30 @@ class JarvisAPI:
             # Fast-path check: location and navigation commands trigger 3D Globe camera glide
             if self._resolve_and_glide_location(text):
                 return
+
+            # Phase 5: Satellite Orbit Pass Prediction intent
+            sat_match = re.search(r'\b(?:satellite|iss|orbit(?:al)?)\s+(?:pass|transit|flyover|track|over)\s+(?:over\s+)?([a-zA-Z0-9\s,\.\-]{2,45})\b', text, re.IGNORECASE)
+            if not sat_match and any(kw in text.lower() for kw in ("satellite pass", "iss pass", "next pass over", "when will iss", "orbit pass")):
+                sat_match = re.search(r'\b(?:over|at|in|above)\s+([a-zA-Z0-9\s,\.\-]{2,45})\b', text, re.IGNORECASE)
+
+            if sat_match:
+                target_loc = sat_match.group(1).strip()
+                resolved = resolve_geospatial_coordinates(target_loc)
+                if resolved:
+                    lat, lon, matched_name = resolved
+                    print(f"[desktop] Satellite pass requested for {matched_name}. Triggering analytical orbital prediction...")
+                    self._emit("toggle_tactical_layer", {"layer": "space", "state": True})
+                    self._emit("glide_to_location", {"lat": lat, "lon": lon, "label": matched_name})
+                    self._emit("predict_satellite_pass", {"lat": lat, "lon": lon, "label": matched_name})
+                    self._emit("jarvis_play_sfx", {"effect": "target_lock"})
+                    sat_prompt = (
+                        f"[ORBITAL TELEMETRY: Sir requested the next satellite/ISS orbital pass over {matched_name} ({lat:.4f}°N, {lon:.4f}°E). "
+                        f"The analytical Keplerian orbital predictor has projected the ground track and visual horizon acquisition onto the 3D globe. "
+                        f"Address Sir directly as J.A.R.V.I.S. with crisp wit, reporting that the orbital tracking sensors are active and the next pass trajectory has been plotted.]\n"
+                        f"User Prompt: {text}"
+                    )
+                    self._run_ask(sat_prompt)
+                    return
             # Fast-path check: system skills and search commands execute instantly without 2s intent classification latency
             if hasattr(self._voice, 'skills') and self._voice.skills:
                 res = self._voice.skills.try_execute(text, on_progress=self._on_skill_progress)
@@ -1822,19 +2006,37 @@ class JarvisAPI:
                             clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
                             queue_spoken_text(clean_sentence)
 
+        # Phase 3: Stark Vision Eye (Desktop Screen Capture & Multimodal Analysis)
+        image_path = None
+        vision_triggers = [
+            "look at my screen", "see my screen", "check my screen", "read my screen",
+            "what's on my screen", "what is on my screen", "what am i looking at",
+            "analyze my screen", "analyze my desktop", "inspect my screen", "view my screen",
+            "can you see this", "look at this code", "look at this error", "read this window"
+        ]
+        q_lower = question.lower()
+        if any(vt in q_lower for vt in vision_triggers):
+            print("[desktop] Stark Vision Eye activated — capturing screen...")
+            self._emit("jarvis_play_sfx", {"effect": "target_lock"})
+            self._emit("jarvis_stt_interim", {"text": "👁️ [VISION EYE] Capturing desktop display..."})
+            image_path = self._capture_desktop_screenshot()
+
         prefix_filter = _StreamingPrefixFilter(
             emit_clean_chunk,
             on_nav=lambda loc: self._execute_tactical_nav(loc),
             on_layer=lambda l: self._execute_tactical_layer(l),
             on_zoom=lambda z: self._execute_tactical_zoom(z),
             on_radio=lambda r: self._execute_tactical_radio(r),
+            on_sfx=lambda s: self._execute_tactical_sfx(s),
+            on_annotate=lambda a: self._execute_tactical_annotate(a),
+            on_cockpit=lambda c: self._execute_tactical_cockpit(c),
         )
 
         def on_token(chunk: str):
             prefix_filter.feed(chunk)
 
         try:
-            result = self._voice.chat(question, self._target, on_token=on_token)
+            result = self._voice.chat(question, self._target, on_token=on_token, image_path=image_path)
         except Exception as e:
             print(f"[desktop] Voice chat execution error: {e}")
             result = {
@@ -1844,6 +2046,22 @@ class JarvisAPI:
             }
 
         prefix_filter.flush()
+
+        # Dispatch any tactical directives from final response
+        if result.get("nav_location"):
+            self._execute_tactical_nav(result["nav_location"])
+        if result.get("layer_action"):
+            self._execute_tactical_layer(result["layer_action"])
+        if result.get("zoom_action"):
+            self._execute_tactical_zoom(result["zoom_action"])
+        if result.get("radio_action"):
+            self._execute_tactical_radio(result["radio_action"])
+        if result.get("sfx_action"):
+            self._execute_tactical_sfx(result["sfx_action"])
+        if result.get("annotate_action"):
+            self._execute_tactical_annotate(result["annotate_action"])
+        if result.get("cockpit_action"):
+            self._execute_tactical_cockpit(result["cockpit_action"])
 
         if result.get("rate_limited"):
             self._emit("rate_limited", {})
