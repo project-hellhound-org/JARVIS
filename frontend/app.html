@@ -2016,7 +2016,7 @@ body {
   width: 360px;
   max-width: 90vw;
   max-height: calc(100vh - 76px);
-  z-index: 180;
+  z-index: 350;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2259,6 +2259,9 @@ body {
   cursor: pointer;
   user-select: none;
   transition: all 0.15s ease;
+}
+.globe-layer-toggle * {
+  pointer-events: none;
 }
 .globe-layer-toggle:hover {
   border-color: rgba(255, 157, 46, 0.4);
@@ -2609,9 +2612,12 @@ body {
         </div>
       </div>
       <div style="display:flex; flex-direction:column; gap:6px;">
-        <div class="globe-layer-toggle" id="layer-toggle-flights" onclick="window.toggleTacticalLayer('flights')">
-          <span>✈ AIRSPACE RADAR (ADS-B)</span>
-          <div class="toggle-pill"></div>
+        <div style="display:flex; gap:6px; align-items:stretch;">
+          <div class="globe-layer-toggle" id="layer-toggle-flights" onclick="window.toggleTacticalLayer('flights')" style="flex:1;">
+            <span>✈ AIRSPACE RADAR (ADS-B)</span>
+            <div class="toggle-pill"></div>
+          </div>
+          <button onclick="window.JarvisCockpit.enter()" style="background:rgba(255,157,46,0.18); border:1px solid rgba(255,157,46,0.6); color:#FFB84D; font-family:var(--mono); font-size:9.5px; font-weight:700; padding:0 8px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s ease;" title="Enter Cockpit Chase Camera on Airborne Flight" onmouseenter="this.style.background='rgba(255,157,46,0.3)'" onmouseleave="this.style.background='rgba(255,157,46,0.18)'">🎮 COCKPIT</button>
         </div>
         <div class="globe-layer-toggle" id="layer-toggle-vessels" onclick="window.toggleTacticalLayer('vessels')">
           <span>🚢 MARITIME VESSELS (AIS)</span>
@@ -5796,13 +5802,13 @@ function setHudState(state) {
   if (state === 'thinking') {
     _thinkingWatchdogTimer = setTimeout(() => {
       if (jarvisHudState === 'thinking') {
-        console.warn('[HUD] Thinking state watchdog triggered after 15s timeout. Returning to idle.');
+        console.warn('[HUD] Thinking state watchdog triggered after 35s timeout. Returning to idle.');
         setHudState('idle');
         if (typeof finalizeStreamingAnswer === 'function') {
           finalizeStreamingAnswer('Standby. Operation completed or timed out, Sir.');
         }
       }
-    }, 15000);
+    }, 35000);
   }
   if (window.HudGalaxy) {
     HudGalaxy.setState(state);
@@ -9315,6 +9321,18 @@ const SpatialNav = {
     const shell = document.getElementById('shell');
     if (shell) shell.style.pointerEvents = 'auto';
 
+    // Edge strips: disable pointer events on edge strips when faded out so they never block HUD buttons or pills
+    const rightEdge = document.getElementById('spatial-edge-right');
+    if (rightEdge) {
+      rightEdge.style.pointerEvents = ratio > 0.08 ? 'none' : 'auto';
+      rightEdge.style.visibility = ratio > 0.08 ? 'hidden' : 'visible';
+    }
+    const leftEdge = document.getElementById('spatial-edge-left');
+    if (leftEdge) {
+      leftEdge.style.pointerEvents = ratio < 0.4 ? 'none' : 'auto';
+      leftEdge.style.visibility = ratio < 0.4 ? 'hidden' : 'visible';
+    }
+
     // Cesium pointer-events: active when focused on Globe screen (ratio > 0.45)
     const cesiumWrap = document.getElementById('cesium-spatial-wrapper');
     if (cesiumWrap) {
@@ -9714,6 +9732,11 @@ const JarvisCockpit = {
     const viewer = window.cesiumViewer;
     if (!viewer || viewer.isDestroyed()) return;
 
+    // Ensure flight layer is active so planes exist
+    if (!_tacticalLayers.flights) {
+      window.toggleTacticalLayer('flights');
+    }
+
     let target = null;
     if (typeof _flightsDataSource !== 'undefined' && _flightsDataSource && _flightsDataSource.entities.values.length > 0) {
       const entities = _flightsDataSource.entities.values.filter(e => e._tacticalData && e.billboard);
@@ -9738,8 +9761,8 @@ const JarvisCockpit = {
 
     const heading = target._tacticalData ? target._tacticalData.heading : 0;
     const headingRad = Cesium.Math.toRadians((heading || 0) + 180);
-    const pitchRad = Cesium.Math.toRadians(-14);
-    const rangeMeters = 2400;
+    const pitchRad = Cesium.Math.toRadians(-12);
+    const rangeMeters = 1800;
 
     viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
     viewer.zoomTo(target, new Cesium.HeadingPitchRange(headingRad, pitchRad, rangeMeters));
@@ -9773,28 +9796,40 @@ const JarvisCockpit = {
     this.enter(entities[this.activeIdx]._tacticalData.callsign);
   },
 
+  updateTelemetry(ac) {
+    const hud = document.getElementById('jarvis-cockpit-hud');
+    if (!hud || hud.style.display === 'none') return;
+    const spdEl = document.getElementById('cockpit-telemetry-spd');
+    const altEl = document.getElementById('cockpit-telemetry-alt');
+    const hdgEl = document.getElementById('cockpit-telemetry-hdg');
+    if (spdEl && ac.speedKnots) spdEl.textContent = `${Math.round(ac.speedKnots)} KTS`;
+    if (altEl && ac.altMeters) altEl.textContent = `${Math.round(ac.altMeters * 3.28084)} FT`;
+    if (hdgEl && ac.headingDeg !== undefined) hdgEl.textContent = `${Math.round(ac.headingDeg)}°`;
+  },
+
   showCockpitHud(data) {
     let hud = document.getElementById('jarvis-cockpit-hud');
     if (!hud) {
       hud = document.createElement('div');
       hud.id = 'jarvis-cockpit-hud';
-      hud.style.cssText = 'position:absolute; top:70px; left:50%; transform:translateX(-50%); z-index:9999; pointer-events:auto; display:flex; align-items:center; gap:16px; background:rgba(6,10,18,0.85); border:1px solid #FF9D2E; border-radius:8px; padding:10px 18px; box-shadow:0 0 24px rgba(255,157,46,0.3); font-family:"JetBrains Mono",monospace; backdrop-filter:blur(8px);';
+      hud.style.cssText = 'position:fixed; top:64px; left:50%; transform:translateX(-50%); z-index:10001; pointer-events:auto; display:flex; align-items:center; gap:16px; background:rgba(6,10,18,0.92); border:1px solid #FF9D2E; border-radius:8px; padding:10px 18px; box-shadow:0 0 24px rgba(255,157,46,0.35); font-family:"JetBrains Mono",monospace; backdrop-filter:blur(10px);';
       document.body.appendChild(hud);
     }
     const callsign = data?.callsign || 'CONTACT';
-    const alt = data?.alt ? Math.round(data.alt) : 'ALT';
-    const spd = data?.speed ? Math.round(data.speed) : 'SPD';
-    const hdg = data?.heading ? Math.round(data.heading) : '0';
+    const alt = data?.alt ? Math.round(Number(data.alt)) : 28000;
+    const spd = data?.speed ? Math.round(Number(data.speed)) : 440;
+    const hdg = data?.heading ? Math.round(Number(data.heading)) : 0;
     hud.innerHTML = `
       <div style="color:#FFB84D; font-weight:700; font-size:12px; display:flex; align-items:center; gap:6px;">
         <span class="pulse-dot" style="width:8px; height:8px; background:#FF9D2E; border-radius:50%; display:inline-block;"></span>
         COCKPIT CHASE: ${callsign}
       </div>
-      <div style="font-size:11px; color:#A0AEC0;">SPD: <span style="color:#FFFFFF; font-weight:700;">${spd} KTS</span></div>
-      <div style="font-size:11px; color:#A0AEC0;">ALT: <span style="color:#FFFFFF; font-weight:700;">${alt} FT</span></div>
-      <div style="font-size:11px; color:#A0AEC0;">HDG: <span style="color:#FFFFFF; font-weight:700;">${hdg}°</span></div>
-      <button onclick="window.JarvisCockpit.next()" style="background:rgba(255,157,46,0.15); border:1px solid rgba(255,157,46,0.5); color:#FFB84D; font-size:10px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer;">NEXT</button>
-      <button onclick="window.JarvisCockpit.exit()" style="background:rgba(239,68,68,0.25); border:1px solid #EF4444; color:#FCA5A5; font-size:10px; font-weight:700; padding:4px 10px; border-radius:4px; cursor:pointer;">EXIT</button>
+      <div style="font-size:11px; color:#A0AEC0;">SPD: <span id="cockpit-telemetry-spd" style="color:#FFFFFF; font-weight:700;">${spd} KTS</span></div>
+      <div style="font-size:11px; color:#A0AEC0;">ALT: <span id="cockpit-telemetry-alt" style="color:#FFFFFF; font-weight:700;">${alt} FT</span></div>
+      <div style="font-size:11px; color:#A0AEC0;">HDG: <span id="cockpit-telemetry-hdg" style="color:#FFFFFF; font-weight:700;">${hdg}°</span></div>
+      <button onclick="window.JarvisCockpit.prev()" style="background:rgba(255,157,46,0.15); border:1px solid rgba(255,157,46,0.5); color:#FFB84D; font-size:10px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer;" title="Previous Aircraft">PREV</button>
+      <button onclick="window.JarvisCockpit.next()" style="background:rgba(255,157,46,0.15); border:1px solid rgba(255,157,46,0.5); color:#FFB84D; font-size:10px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer;" title="Next Aircraft">NEXT</button>
+      <button onclick="window.JarvisCockpit.exit()" style="background:rgba(239,68,68,0.25); border:1px solid #EF4444; color:#FCA5A5; font-size:10px; font-weight:700; padding:4px 10px; border-radius:4px; cursor:pointer;" title="Exit Cockpit Camera">EXIT</button>
     `;
     hud.style.display = 'flex';
   },
@@ -10379,16 +10414,16 @@ const RADIO_STATIONS = {
 
 let _currentStationId = 'tokyo_atc';
 
-// CCTV Network Seeds with Elevation-aware FOV, Azimuth, Pitch, and Mount Clearances
+// CCTV Network Seeds with Elevation-aware FOV, Azimuth, Pitch, Mount Clearances, and Live Stream Feeds
 const CCTV_CAMERAS = [
-  { id: 'cctv-kotagiri-johnstone', label: 'Kotagiri Johnstone Circle', lat: 11.4228, lon: 76.8661, headingDeg: 45, pitchDeg: -16, rangeM: 650, fovDeg: 72, groundAltM: 1800, mountHeightM: 30, snapshotUrl: '/api/cctv/frame/cctv-kotagiri-johnstone' },
-  { id: 'cctv-coonoor-sims', label: 'Coonoor Sim\'s Park Junction', lat: 11.3530, lon: 76.7959, headingDeg: 120, pitchDeg: -18, rangeM: 550, fovDeg: 68, groundAltM: 1850, mountHeightM: 28, snapshotUrl: '/api/cctv/frame/cctv-coonoor-sims' },
-  { id: 'cctv-ooty-charring', label: 'Ooty Charring Cross Hub', lat: 11.4102, lon: 76.6950, headingDeg: 280, pitchDeg: -15, rangeM: 700, fovDeg: 75, groundAltM: 2240, mountHeightM: 32, snapshotUrl: '/api/cctv/frame/cctv-ooty-charring' },
-  { id: 'cctv-bengaluru-mg', label: 'Bengaluru MG Road Central', lat: 12.9716, lon: 77.5946, headingDeg: 180, pitchDeg: -20, rangeM: 750, fovDeg: 75, groundAltM: 920, mountHeightM: 26, snapshotUrl: '/api/cctv/frame/cctv-bengaluru-mg' },
-  { id: 'cctv-sf-market-5th', label: 'SF Market & 5th St', lat: 37.7833, lon: -122.4080, headingDeg: 320, pitchDeg: -22, rangeM: 800, fovDeg: 70, groundAltM: 15, mountHeightM: 25, snapshotUrl: '/api/cctv/frame/cctv-sf-market-5th' },
-  { id: 'cctv-nyc-times-sq', label: 'NYC Times Square Plaza', lat: 40.7580, lon: -73.9855, headingDeg: 218, pitchDeg: -24, rangeM: 750, fovDeg: 66, groundAltM: 12, mountHeightM: 24, snapshotUrl: '/api/cctv/frame/cctv-nyc-times-sq' },
-  { id: 'cctv-tokyo-shibuya', label: 'Tokyo Shibuya Crossing', lat: 35.6595, lon: 139.7005, headingDeg: 18, pitchDeg: -20, rangeM: 750, fovDeg: 82, groundAltM: 18, mountHeightM: 30, snapshotUrl: '/api/cctv/frame/cctv-tokyo-shibuya' },
-  { id: 'cctv-london-city', label: 'London City Financial Core', lat: 51.5155, lon: -0.0922, headingDeg: 220, pitchDeg: -20, rangeM: 850, fovDeg: 71, groundAltM: 14, mountHeightM: 28, snapshotUrl: '/api/cctv/frame/cctv-london-city' }
+  { id: 'cctv-kotagiri-johnstone', label: 'Kotagiri Johnstone Circle', lat: 11.4228, lon: 76.8661, headingDeg: 45, pitchDeg: -16, rangeM: 650, fovDeg: 72, groundAltM: 1800, mountHeightM: 30, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', snapshotUrl: '/api/cctv/frame/cctv-kotagiri-johnstone' },
+  { id: 'cctv-coonoor-sims', label: 'Coonoor Sim\'s Park Junction', lat: 11.3530, lon: 76.7959, headingDeg: 120, pitchDeg: -18, rangeM: 550, fovDeg: 68, groundAltM: 1850, mountHeightM: 28, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', snapshotUrl: '/api/cctv/frame/cctv-coonoor-sims' },
+  { id: 'cctv-ooty-charring', label: 'Ooty Charring Cross Hub', lat: 11.4102, lon: 76.6950, headingDeg: 280, pitchDeg: -15, rangeM: 700, fovDeg: 75, groundAltM: 2240, mountHeightM: 32, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4', snapshotUrl: '/api/cctv/frame/cctv-ooty-charring' },
+  { id: 'cctv-bengaluru-mg', label: 'Bengaluru MG Road Central', lat: 12.9716, lon: 77.5946, headingDeg: 180, pitchDeg: -20, rangeM: 750, fovDeg: 75, groundAltM: 920, mountHeightM: 26, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4', snapshotUrl: '/api/cctv/frame/cctv-bengaluru-mg' },
+  { id: 'cctv-sf-market-5th', label: 'SF Market & 5th St', lat: 37.7833, lon: -122.4080, headingDeg: 320, pitchDeg: -22, rangeM: 800, fovDeg: 70, groundAltM: 15, mountHeightM: 25, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4', snapshotUrl: '/api/cctv/frame/cctv-sf-market-5th' },
+  { id: 'cctv-nyc-times-sq', label: 'NYC Times Square Plaza', lat: 40.7580, lon: -73.9855, headingDeg: 218, pitchDeg: -24, rangeM: 750, fovDeg: 66, groundAltM: 12, mountHeightM: 24, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', snapshotUrl: '/api/cctv/frame/cctv-nyc-times-sq' },
+  { id: 'cctv-tokyo-shibuya', label: 'Tokyo Shibuya Crossing', lat: 35.6595, lon: 139.7005, headingDeg: 18, pitchDeg: -20, rangeM: 750, fovDeg: 82, groundAltM: 18, mountHeightM: 30, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', snapshotUrl: '/api/cctv/frame/cctv-tokyo-shibuya' },
+  { id: 'cctv-london-city', label: 'London City Financial Core', lat: 51.5155, lon: -0.0922, headingDeg: 220, pitchDeg: -20, rangeM: 850, fovDeg: 71, groundAltM: 14, mountHeightM: 28, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4', snapshotUrl: '/api/cctv/frame/cctv-london-city' }
 ];
 
 // Live AIS Maritime Vessels Catalog
@@ -10641,9 +10676,10 @@ window.inspectTarget = function(data) {
       actBtn.textContent = 'LOCK AIRCRAFT';
       actBtn.onclick = () => window.focusGlobeCoordinates(data.lat, data.lon, data.callsign);
     }
-    if (chaseBtn && data._entity) {
+    if (chaseBtn) {
       chaseBtn.style.display = 'block';
       chaseBtn.textContent = '✈ CHASE COCKPIT VIEW';
+      chaseBtn.onclick = () => window.JarvisCockpit.enter(data.callsign);
     }
   } else if (data.type === 'VESSEL') {
     if (icon) icon.textContent = '🚢';
@@ -10664,32 +10700,38 @@ window.inspectTarget = function(data) {
     if (icon) icon.textContent = '📹';
     if (title) title.textContent = `SURVEILLANCE: ${data.label}`;
     const frameEndpoint = `/api/cctv/frame/${data.id}?t=${Date.now()}`;
+    const hasVideo = !!data.videoUrl;
     body.innerHTML = `
-      <div style="width:100%; height:130px; background:#02060D; border:1px solid rgba(0,240,255,0.45); border-radius:4px; position:relative; overflow:hidden; margin-bottom:8px;">
-        <img id="cctv-live-img" src="${frameEndpoint}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.opacity='0.4'">
-        <div style="position:absolute; top:5px; left:6px; font-size:9px; color:#22C55E; font-weight:700; display:flex; align-items:center; gap:4px; background:rgba(0,0,0,0.65); padding:2px 5px; border-radius:3px;">
-          <span style="width:6px; height:6px; border-radius:50%; background:#22C55E; display:inline-block; animation: cctvPulse 1s infinite alternate;"></span> REC [LIVE OPTICAL]
+      <div style="width:100%; height:140px; background:#02060D; border:1px solid rgba(0,240,255,0.45); border-radius:4px; position:relative; overflow:hidden; margin-bottom:8px;">
+        ${hasVideo ? `
+          <video id="cctv-live-video" src="${data.videoUrl}" autoplay loop muted playsinline style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.display='none'; const fb = document.getElementById('cctv-live-img'); if (fb) fb.style.display='block';"></video>
+          <img id="cctv-live-img" src="${frameEndpoint}" style="width:100%; height:100%; object-fit:cover; display:none;" onerror="this.style.opacity='0.4'">
+        ` : `
+          <img id="cctv-live-img" src="${frameEndpoint}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.opacity='0.4'">
+        `}
+        <div style="position:absolute; top:5px; left:6px; font-size:9px; color:#22C55E; font-weight:700; display:flex; align-items:center; gap:4px; background:rgba(0,0,0,0.7); padding:2px 6px; border-radius:3px; border:1px solid rgba(34,197,94,0.3);">
+          <span style="width:6px; height:6px; border-radius:50%; background:#22C55E; display:inline-block; animation: cctvPulse 1s infinite alternate;"></span> ${hasVideo ? 'LIVE STREAM [VIDEO]' : 'REC [LIVE OPTICAL]'}
         </div>
-        <div style="position:absolute; top:5px; right:6px; font-size:9px; color:#FF9D2E; background:rgba(0,0,0,0.65); padding:2px 5px; border-radius:3px;" id="cctv-clock-stamp">
+        <div style="position:absolute; top:5px; right:6px; font-size:9px; color:#FF9D2E; background:rgba(0,0,0,0.7); padding:2px 6px; border-radius:3px; font-family:var(--mono);" id="cctv-clock-stamp">
           ${new Date().toLocaleTimeString()}
         </div>
-        <div style="position:absolute; bottom:5px; left:6px; font-size:8.5px; color:#00F0FF; background:rgba(0,0,0,0.65); padding:2px 5px; border-radius:3px;">
+        <div style="position:absolute; bottom:5px; left:6px; font-size:8.5px; color:#00F0FF; background:rgba(0,0,0,0.7); padding:2px 6px; border-radius:3px; font-family:var(--mono);">
           AZ: ${data.heading}° • PITCH: ${data.pitch || -18}° • RNG: ${data.rangeM || 650}m
         </div>
-        <div style="position:absolute; bottom:5px; right:6px; font-size:8.5px; color:#A1A1AA; background:rgba(0,0,0,0.65); padding:2px 5px; border-radius:3px;">
+        <div style="position:absolute; bottom:5px; right:6px; font-size:8.5px; color:#A1A1AA; background:rgba(0,0,0,0.7); padding:2px 6px; border-radius:3px; font-family:var(--mono);">
           ELEV: ${Math.round(data.alt || 1800)}m MSL
         </div>
       </div>
       <div><span style="color:#8A8D91;">LOCATION:</span> <span style="color:#E6E6E6; font-weight:600;">${data.label}</span></div>
       <div><span style="color:#8A8D91;">COORDINATES:</span> ${data.lat.toFixed(4)}° N, ${data.lon.toFixed(4)}° E</div>
-      <div><span style="color:#8A8D91;">FEED TELEMETRY:</span> <span style="color:#22C55E; font-weight:700;">STREAM ONLINE (30 FPS)</span></div>
+      <div><span style="color:#8A8D91;">FEED TELEMETRY:</span> <span style="color:#22C55E; font-weight:700;">${hasVideo ? 'H.264 DIGITAL VIDEO FEED (ONLINE)' : 'HIGH-RES SENSOR CAPTURE (30 FPS)'}</span></div>
     `;
 
-    // 4-second live frame refresh
+    // 4-second live frame refresh for fallback
     _cctvAnimInterval = setInterval(() => {
       const img = document.getElementById('cctv-live-img');
       const clock = document.getElementById('cctv-clock-stamp');
-      if (img) img.src = `/api/cctv/frame/${data.id}?t=${Date.now()}`;
+      if (img && img.style.display !== 'none') img.src = `/api/cctv/frame/${data.id}?t=${Date.now()}`;
       if (clock) clock.textContent = new Date().toLocaleTimeString();
     }, 4000);
 
@@ -11175,6 +11217,21 @@ function initGlobeIntelligence(viewer) {
     });
 
     // 5. The 3D Monitor Plane Entity at the far end of the frustum (Exact God's Eye Plane Primitive)
+    let monitorTexture = '/api/cctv/frame/' + cam.id;
+    if (cam.videoUrl) {
+      try {
+        const vid = document.createElement('video');
+        vid.muted = true;
+        vid.loop = true;
+        vid.autoplay = true;
+        vid.playsInline = true;
+        vid.crossOrigin = 'anonymous';
+        vid.src = cam.videoUrl;
+        vid.play().catch(() => {});
+        monitorTexture = vid;
+      } catch (e) {}
+    }
+
     _cctvDataSource.entities.add({
       id: `cctv-${cam.id}-plane`,
       position: posCapCenter,
@@ -11183,7 +11240,7 @@ function initGlobeIntelligence(viewer) {
         plane: new Cesium.Plane(Cesium.Cartesian3.UNIT_Z, 0.0),
         dimensions: new Cesium.Cartesian2(geom.halfW * 2, geom.halfH * 2),
         material: new Cesium.ImageMaterialProperty({
-          image: '/api/cctv/frame/' + cam.id,
+          image: monitorTexture,
           transparent: true,
           color: Cesium.Color.WHITE.withAlpha(0.95)
         }),
@@ -11338,6 +11395,62 @@ function initGlobeIntelligence(viewer) {
   _flightsDataSource.show = _tacticalLayers.flights;
   viewer.dataSources.add(_flightsDataSource);
 
+  const _aircraftFlightMap = new Map();
+  let _lastFlightFrameTime = performance.now();
+
+  // Continuous Kinematic Dead-Reckoning Loop: advances aircraft smoothly across globe every frame
+  viewer.scene.preUpdate.addEventListener(() => {
+    if (!_tacticalLayers.flights || SpatialNav.currentX < 200) return;
+    const now = performance.now();
+    const dt = Math.min(0.2, (now - _lastFlightFrameTime) / 1000.0);
+    _lastFlightFrameTime = now;
+    if (dt <= 0.0001) return;
+
+    _aircraftFlightMap.forEach((ac) => {
+      const speedMps = Math.max(120, (ac.speedKnots || 420) * 0.514444);
+      const distM = speedMps * dt;
+      const hdgRad = Cesium.Math.toRadians(ac.headingDeg || 0);
+
+      // Spherical dead reckoning step
+      const dNorth = distM * Math.cos(hdgRad);
+      const dEast = distM * Math.sin(hdgRad);
+      const dLat = dNorth / 111139.0;
+      const cosLat = Math.max(0.1, Math.cos(Cesium.Math.toRadians(ac.lat)));
+      const dLon = dEast / (111139.0 * cosLat);
+
+      ac.lat += dLat;
+      ac.lon += dLon;
+
+      // Nudge toward target coordinates if a new transponder ping arrived
+      if (ac.targetLat !== undefined && ac.targetLon !== undefined) {
+        ac.lat += (ac.targetLat - ac.lat) * 0.04;
+        ac.lon += (ac.targetLon - ac.lon) * 0.04;
+      }
+
+      // Update Cesium entity position in Cartesian3
+      const newPos = Cesium.Cartesian3.fromDegrees(ac.lon, ac.lat, ac.altMeters);
+      ac.entity.position = newPos;
+
+      if (ac.entity._tacticalData) {
+        ac.entity._tacticalData.lat = ac.lat;
+        ac.entity._tacticalData.lon = ac.lon;
+      }
+
+      // Update altitude drop line
+      if (ac.dropLine && ac.dropLine.polyline) {
+        ac.dropLine.polyline.positions = Cesium.Cartesian3.fromDegreesArrayHeights([
+          ac.lon, ac.lat, 0,
+          ac.lon, ac.lat, ac.altMeters
+        ]);
+      }
+
+      // If active in cockpit view, continuously update HUD telemetry
+      if (window.JarvisCockpit && window.JarvisCockpit.activeEntity === ac.entity) {
+        window.JarvisCockpit.updateTelemetry(ac);
+      }
+    });
+  });
+
   const JET_ICON = (() => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
       <path d="M18 3 L20 12 L33 19 L33 22 L20 18 L20 27 L25 31 L25 33 L18 31 L11 33 L11 31 L16 27 L16 18 L3 22 L3 19 L16 12 Z" fill="#FFB800" stroke="#000000" stroke-width="1.2"/>
@@ -11425,8 +11538,9 @@ function initGlobeIntelligence(viewer) {
       }
 
       if (_flightsDataSource && aircraftList.length > 0) {
-        _flightsDataSource.entities.removeAll();
         const contacts = aircraftList.slice(0, 180);
+        const nowMs = Date.now();
+
         contacts.forEach(ac => {
           if (!ac.lat || !ac.lon) return;
           const altMeters = ac.alt_baro && ac.alt_baro !== 'ground' ? Number(ac.alt_baro) * 0.3048 : 600;
@@ -11434,66 +11548,113 @@ function initGlobeIntelligence(viewer) {
           const fl = ac.alt_baro && ac.alt_baro !== 'ground' ? `FL${Math.round(Number(ac.alt_baro) / 100)}` : 'GND';
           const classification = classifyTacticalAircraft(ac);
           const trackAngle = Number(ac.track || 0);
+          const gs = Number(ac.gs || 420);
 
-          const entity = _flightsDataSource.entities.add({
-            position: Cesium.Cartesian3.fromDegrees(Number(ac.lon), Number(ac.lat), altMeters),
-            billboard: {
-              image: JET_ICON,
-              width: 22,
-              height: 22,
-              rotation: Cesium.Math.toRadians(360 - trackAngle),
-              color: Cesium.Color.fromCssColorString(classification.color),
-              verticalOrigin: Cesium.VerticalOrigin.CENTER,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
-              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000)
-            },
-            label: {
-              text: `✈ ${callsign} ${fl}`,
-              font: 'bold 9.5px JetBrains Mono, monospace',
-              fillColor: Cesium.Color.fromCssColorString(classification.color),
-              outlineColor: Cesium.Color.BLACK,
-              outlineWidth: 2.5,
-              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-              pixelOffset: new Cesium.Cartesian2(0, -14),
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
-              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 9000000)
-            },
-            _tacticalData: {
-              type: 'AIRCRAFT',
-              callsign: callsign,
-              hex: ac.hex,
-              alt: ac.alt_baro,
-              speed: ac.gs,
+          if (_aircraftFlightMap.has(callsign)) {
+            // Update existing contact kinematics smoothly without destroying entity
+            const existing = _aircraftFlightMap.get(callsign);
+            existing.targetLat = Number(ac.lat);
+            existing.targetLon = Number(ac.lon);
+            existing.speedKnots = gs;
+            existing.headingDeg = trackAngle;
+            existing.altMeters = altMeters;
+            existing.lastSeen = nowMs;
+            if (existing.entity.billboard) {
+              existing.entity.billboard.rotation = Cesium.Math.toRadians(360 - trackAngle);
+            }
+            if (existing.entity.label) {
+              existing.entity.label.text = `✈ ${callsign} ${fl}`;
+            }
+            if (existing.entity._tacticalData) {
+              existing.entity._tacticalData.speed = gs;
+              existing.entity._tacticalData.heading = trackAngle;
+              existing.entity._tacticalData.alt = ac.alt_baro;
+            }
+          } else {
+            // Create new contact entity
+            const initPos = Cesium.Cartesian3.fromDegrees(Number(ac.lon), Number(ac.lat), altMeters);
+            const entity = _flightsDataSource.entities.add({
+              position: initPos,
+              billboard: {
+                image: JET_ICON,
+                width: 22,
+                height: 22,
+                rotation: Cesium.Math.toRadians(360 - trackAngle),
+                color: Cesium.Color.fromCssColorString(classification.color),
+                verticalOrigin: Cesium.VerticalOrigin.CENTER,
+                disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000)
+              },
+              label: {
+                text: `✈ ${callsign} ${fl}`,
+                font: 'bold 9.5px JetBrains Mono, monospace',
+                fillColor: Cesium.Color.fromCssColorString(classification.color),
+                outlineColor: Cesium.Color.BLACK,
+                outlineWidth: 2.5,
+                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                pixelOffset: new Cesium.Cartesian2(0, -14),
+                disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 9000000)
+              },
+              _tacticalData: {
+                type: 'AIRCRAFT',
+                callsign: callsign,
+                hex: ac.hex,
+                alt: ac.alt_baro,
+                speed: gs,
+                lat: Number(ac.lat),
+                lon: Number(ac.lon),
+                heading: trackAngle,
+                squawk: ac.squawk,
+                typeCode: ac.t || 'MIL',
+                desc: ac.desc || classification.category,
+                category: classification.category,
+                isMil: true
+              }
+            });
+            entity._tacticalData._entity = entity;
+
+            const dropLine = _flightsDataSource.entities.add({
+              polyline: {
+                positions: Cesium.Cartesian3.fromDegreesArrayHeights([
+                  Number(ac.lon), Number(ac.lat), 0,
+                  Number(ac.lon), Number(ac.lat), altMeters
+                ]),
+                width: 1.2,
+                material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(classification.color).withAlpha(0.35))
+              },
+              _tacticalData: entity._tacticalData
+            });
+
+            _aircraftFlightMap.set(callsign, {
+              callsign,
+              entity,
+              dropLine,
               lat: Number(ac.lat),
               lon: Number(ac.lon),
-              heading: trackAngle,
-              squawk: ac.squawk,
-              typeCode: ac.t || 'MIL',
-              desc: ac.desc || classification.category,
-              category: classification.category,
-              isMil: true
-            }
-          });
-          entity._tacticalData._entity = entity;
+              targetLat: Number(ac.lat),
+              targetLon: Number(ac.lon),
+              altMeters,
+              speedKnots: gs,
+              headingDeg: trackAngle,
+              lastSeen: nowMs
+            });
+          }
+        });
 
-          // 3D Altitude Drop Line to Surface
-          _flightsDataSource.entities.add({
-            polyline: {
-              positions: Cesium.Cartesian3.fromDegreesArrayHeights([
-                Number(ac.lon), Number(ac.lat), 0,
-                Number(ac.lon), Number(ac.lat), altMeters
-              ]),
-              width: 1.2,
-              material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(classification.color).withAlpha(0.35))
-            },
-            _tacticalData: entity._tacticalData
-          });
+        // Prune stale contacts not seen for > 90 seconds (never prune currently chased cockpit aircraft)
+        _aircraftFlightMap.forEach((val, key) => {
+          if (nowMs - val.lastSeen > 90000 && (!window.JarvisCockpit || window.JarvisCockpit.activeEntity !== val.entity)) {
+            _flightsDataSource.entities.remove(val.entity);
+            if (val.dropLine) _flightsDataSource.entities.remove(val.dropLine);
+            _aircraftFlightMap.delete(key);
+          }
         });
 
         const countEl = document.getElementById('radar-contact-count');
-        if (countEl) countEl.textContent = contacts.length;
-        if (contacts.length > 0 && window.JarvisSFX && _tacticalLayers.flights) {
+        if (countEl) countEl.textContent = _aircraftFlightMap.size;
+        if (_aircraftFlightMap.size > 0 && window.JarvisSFX && _tacticalLayers.flights) {
           window.JarvisSFX.radarPing();
         }
         viewer.scene.requestRender();

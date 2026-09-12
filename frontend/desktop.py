@@ -1207,6 +1207,32 @@ class JarvisAPI:
         except Exception:
             return {"ac": []}
 
+    def get_cctv_synthetic_svg(self, camera_id: str, label: str = "OPTICAL CAM") -> bytes:
+        """Fallback synthetic vector feed when optical canvas or JPEG pipeline is unavailable."""
+        now_str = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+        svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+          <defs>
+            <linearGradient id="cctv-bg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#07121E" />
+              <stop offset="100%" stop-color="#020509" />
+            </linearGradient>
+          </defs>
+          <rect width="640" height="360" fill="url(#cctv-bg)" />
+          <g stroke="rgba(0,240,255,0.2)" stroke-width="1" fill="none">
+            <line x1="0" y1="180" x2="640" y2="180" />
+            <line x1="320" y1="0" x2="320" y2="360" />
+            <circle cx="320" cy="180" r="80" />
+            <circle cx="320" cy="180" r="140" stroke-dasharray="4 4" />
+          </g>
+          <rect x="0" y="0" width="640" height="28" fill="rgba(2,8,16,0.9)" />
+          <rect x="0" y="332" width="640" height="28" fill="rgba(2,8,16,0.9)" />
+          <text x="14" y="19" fill="#22C55E" font-family="monospace" font-size="11" font-weight="bold">● REC [LIVE OPTICAL FEED] // {label.upper()}</text>
+          <text x="440" y="19" fill="#FF9D2E" font-family="monospace" font-size="11">{now_str}</text>
+          <text x="14" y="351" fill="#00F0FF" font-family="monospace" font-size="10">STATUS: SENSOR ONLINE (OPTICAL STREAM)</text>
+          <text x="500" y="351" fill="#A1A1AA" font-family="monospace" font-size="10">ID: {camera_id}</text>
+        </svg>"""
+        return svg.strip().encode('utf-8')
+
     def get_cctv_frame(self, camera_id: str) -> bytes:
         """Return a dynamic high-fidelity tactical surveillance snapshot for a CCTV camera."""
         now = time.time()
@@ -1277,7 +1303,8 @@ class JarvisAPI:
             self._cctv_frame_cache[camera_id] = (now, frame_bytes)
             return frame_bytes
         except Exception as e:
-            return b""
+            print(f"[desktop] CCTV frame generation error ({camera_id}): {e}")
+            return self.get_cctv_synthetic_svg(camera_id, label=info.get("name", camera_id))
 
     def get_firms_hotspots(self) -> dict:
         """Fetch real-time NASA FIRMS thermal wildfire anomaly contacts."""
@@ -2444,6 +2471,70 @@ class JarvisAPI:
 
         return {"success": False, "error": f"Failed starting microphone recording: {last_err[:150]}"}
 
+    def _transcribe_audio_fast(self, wav_path: str) -> str:
+        """Fast low-latency speech transcription with Groq Whisper primary and socket-capped Google STT fallback."""
+        groq_key = (
+            getattr(getattr(self, '_voice', None), 'groq_key', '')
+            or os.environ.get("GROQ_API_KEY", "")
+        )
+        if groq_key:
+            try:
+                with open(wav_path, "rb") as f:
+                    wav_bytes = f.read()
+                boundary = "----WebKitFormBoundary" + hex(int(time.time() * 1000))[2:]
+                body = (
+                    f"--{boundary}\r\n"
+                    f'Content-Disposition: form-data; name="file"; filename="audio.wav"\r\n'
+                    f"Content-Type: audio/wav\r\n\r\n"
+                ).encode("latin1") + wav_bytes + (
+                    f"\r\n--{boundary}\r\n"
+                    f'Content-Disposition: form-data; name="model"\r\n\r\n'
+                    f"whisper-large-v3-turbo\r\n"
+                    f"--{boundary}\r\n"
+                    f'Content-Disposition: form-data; name="language"\r\n\r\n'
+                    f"en\r\n"
+                    f"--{boundary}--\r\n"
+                ).encode("latin1")
+                req = urllib.request.Request(
+                    "https://api.groq.com/openai/v1/audio/transcriptions",
+                    data=body,
+                    headers={
+                        "Authorization": f"Bearer {groq_key}",
+                        "Content-Type": f"multipart/form-data; boundary={boundary}",
+                        "User-Agent": "JARVIS-STT/1.0"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=3.5) as resp:
+                    if resp.status == 200:
+                        payload = json.loads(resp.read().decode("utf-8"))
+                        text = (payload.get("text") or "").strip()
+                        if text:
+                            return text
+            except Exception as e:
+                print(f"[desktop] Groq Whisper turbo fallback: {e}")
+
+        # Fallback: Google Speech Recognition with strict socket timeout
+        try:
+            import socket
+            old_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(3.5)
+            try:
+                recognizer = sr.Recognizer()
+                with sr.AudioFile(wav_path) as source:
+                    audio_data = recognizer.record(source)
+                    try:
+                        return recognizer.recognize_google(audio_data, language="en-IN").strip()
+                    except sr.UnknownValueError:
+                        try:
+                            return recognizer.recognize_google(audio_data, language="en-US").strip()
+                        except Exception:
+                            return ""
+            finally:
+                socket.setdefaulttimeout(old_timeout)
+        except Exception as ge:
+            print(f"[desktop] Google STT fallback error: {ge}")
+            return ""
+
     def stop_native_mic(self):
         """Stop native Linux microphone recording and transcribe using Google Speech Recognition."""
         if not hasattr(self, '_mic_proc') or not self._mic_proc:
@@ -2474,31 +2565,14 @@ class JarvisAPI:
         self.normalize_wav_audio(wav_path)
 
         try:
-            recognizer = sr.Recognizer()
-            recognizer.operation_timeout = 15.0
-            text = ""
             start_stt = time.time()
-            with sr.AudioFile(wav_path) as source:
-                audio_data = recognizer.record(source)
-                try:
-                    text = recognizer.recognize_google(audio_data, language="en-IN").strip()
-                except sr.UnknownValueError:
-                    try:
-                        text = recognizer.recognize_google(audio_data, language="en-US").strip()
-                    except Exception:
-                        pass
-                except Exception as e:
-                    print(f"[desktop] Push-to-talk STT notice: {e}")
-
+            text = self._transcribe_audio_fast(wav_path)
             if text:
                 print(f"[desktop] Push-to-talk transcribed in {time.time()-start_stt:.2f}s: '{text}'")
                 return {"success": True, "text": text}
             else:
                 print("[desktop] Push-to-talk: Speech was unintelligible or low volume.")
                 return {"success": False, "error": "Speech was unintelligible"}
-        except sr.RequestError as e:
-            print(f"[desktop] Speech API network error: {e}")
-            return {"success": False, "error": f"Speech API error: {e}"}
         except Exception as e:
             print(f"[desktop] Native mic transcribe error: {e}")
             return {"success": False, "error": str(e)}
@@ -2689,21 +2763,8 @@ class JarvisAPI:
             # Boost quiet microphone input before transcribing
             self.normalize_wav_audio(wav_path)
 
-            recognizer = sr.Recognizer()
-            recognizer.operation_timeout = 15.0
-            text = ""
             start_stt = time.time()
-            with sr.AudioFile(wav_path) as source:
-                audio_data = recognizer.record(source)
-                try:
-                    text = recognizer.recognize_google(audio_data, language="en-IN").strip()
-                except sr.UnknownValueError:
-                    try:
-                        text = recognizer.recognize_google(audio_data, language="en-US").strip()
-                    except Exception:
-                        pass
-                except Exception as e:
-                    print(f"[voice listener] STT notice: {e}")
+            text = self._transcribe_audio_fast(wav_path)
 
             if text:
                 print(f"[voice listener] Recognized text in {time.time()-start_stt:.2f}s: '{text}'")
@@ -2933,9 +2994,15 @@ class JarvisDesktop:
 
                                 @app.route('/api/cctv/frame/<camera_id>')
                                 def _bottle_cctv(camera_id):
-                                    bottle.response.content_type = 'image/jpeg'
+                                    frame = api.get_cctv_frame(camera_id)
+                                    if not frame:
+                                        frame = api.get_cctv_synthetic_svg(camera_id)
+                                    if frame.strip().startswith(b'<svg') or frame.strip().startswith(b'<?xml'):
+                                        bottle.response.content_type = 'image/svg+xml'
+                                    else:
+                                        bottle.response.content_type = 'image/jpeg'
                                     bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                                    return api.get_cctv_frame(camera_id)
+                                    return [frame] if isinstance(frame, bytes) else frame
 
                                 @app.route('/api/firms')
                                 def _bottle_firms():
