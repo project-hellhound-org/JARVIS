@@ -699,11 +699,14 @@ class JarvisAPI:
                 return {
                     "model": config.get("model", ""),
                     "ollama_url": config.get("ollama_url", "http://localhost:11434"),
-                    "gemini_api_key": clean("gemini_api_key"),
-                    "nvidia_api_key": clean("nvidia_api_key"),
+                    "gemini_api_key": clean("gemini_api_key") or os.environ.get("GEMINI_API_KEY", ""),
+                    "nvidia_api_key": clean("nvidia_api_key") or os.environ.get("NVIDIA_API_KEY", ""),
                     "nvidia_model": config.get("nvidia_model", "nvidia/nemotron-3-super-120b-a12b"),
-                    "fish_audio_api_key": clean("fish_audio_api_key"),
+                    "fish_audio_api_key": clean("fish_audio_api_key") or os.environ.get("FISH_AUDIO_API_KEY", ""),
                     "fish_audio_voice_id": config.get("fish_audio_voice_id", "05b36da8574341d0803391491850db20"),
+                    "cesium_ion_token": clean("cesium_ion_token") or os.environ.get("CESIUM_ION_TOKEN", ""),
+                    "nasa_firms_key": clean("nasa_firms_key") or os.environ.get("NASA_FIRMS_MAP_KEY", "") or os.environ.get("FIRMS_MAP_KEY", ""),
+                    "groq_api_key": clean("groq_api_key") or os.environ.get("GROQ_API_KEY", ""),
                     "tools": config.get("tools", {}),
                 }
         except Exception as e:
@@ -879,6 +882,79 @@ class JarvisAPI:
         except Exception as e:
             return b""
 
+    def get_firms_hotspots(self) -> dict:
+        """Fetch real-time NASA FIRMS thermal wildfire anomaly contacts."""
+        now = time.time()
+        cache = getattr(self, '_firms_cache', None)
+        if cache and (now - cache.get('time', 0)) < 900:  # 15 min cache
+            return cache.get('data', {"available": False, "fires": []})
+
+        key = ""
+        if CONFIG_PATH.exists():
+            try:
+                with open(CONFIG_PATH) as f:
+                    cfg = yaml.safe_load(f) or {}
+                    raw = cfg.get("nasa_firms_key", "")
+                    if not self._is_placeholder(raw):
+                        key = str(raw).strip()
+            except Exception:
+                pass
+        if not key:
+            key = os.environ.get("NASA_FIRMS_MAP_KEY", "") or os.environ.get("FIRMS_MAP_KEY", "")
+
+        if not key or self._is_placeholder(key):
+            return {
+                "available": False,
+                "configured": False,
+                "reason": "Needs NASA FIRMS MAP_KEY — configure in Settings [GEO] to unlock live satellite fire detections.",
+                "fires": []
+            }
+
+        url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{key}/VIIRS_SNPP_NRT/world/1"
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "JARVIS-Geointel/2.0 (NASA-FIRMS-Adapter)",
+                    "Accept": "text/csv, application/json",
+                }
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                if resp.status == 200:
+                    csv_text = resp.read().decode("utf-8", errors="replace")
+                    lines = [l.strip() for l in csv_text.splitlines() if l.strip()]
+                    if len(lines) > 1 and "latitude" in lines[0].lower():
+                        header = [h.strip().lower() for h in lines[0].split(",")]
+                        lat_idx = header.index("latitude") if "latitude" in header else -1
+                        lon_idx = header.index("longitude") if "longitude" in header else -1
+                        frp_idx = header.index("frp") if "frp" in header else -1
+                        conf_idx = header.index("confidence") if "confidence" in header else -1
+                        date_idx = header.index("acq_date") if "acq_date" in header else -1
+                        time_idx = header.index("acq_time") if "acq_time" in header else -1
+
+                        fires = []
+                        for line in lines[1:350]:
+                            parts = [p.strip() for p in line.split(",")]
+                            if len(parts) > max(lat_idx, lon_idx):
+                                try:
+                                    fires.append({
+                                        "lat": float(parts[lat_idx]),
+                                        "lon": float(parts[lon_idx]),
+                                        "frp": float(parts[frp_idx]) if frp_idx != -1 and parts[frp_idx] else 15.0,
+                                        "confidence": parts[conf_idx] if conf_idx != -1 else "nominal",
+                                        "date": parts[date_idx] if date_idx != -1 else "",
+                                        "time": parts[time_idx] if time_idx != -1 else "",
+                                    })
+                                except Exception:
+                                    continue
+                        res = {"available": True, "configured": True, "count": len(fires), "fires": fires}
+                        self._firms_cache = {"time": now, "data": res}
+                        return res
+        except Exception as e:
+            print(f"[desktop] NASA FIRMS fetch notice: {e}")
+            return {"available": False, "configured": True, "error": str(e), "fires": []}
+        return {"available": False, "configured": True, "fires": []}
+
     # ── Task Manager & Barge-In JS API ──────────────────────────────
     def minimize_task(self, task_id: str = ""):
         from core.task_manager import get_task_manager
@@ -1037,6 +1113,9 @@ class JarvisAPI:
                 "nvidia_model": "nvidia_model",
                 "fish_audio_api_key": "fish_audio_api_key",
                 "fish_audio_voice_id": "fish_audio_voice_id",
+                "cesium_ion_token": "cesium_ion_token",
+                "nasa_firms_key": "nasa_firms_key",
+                "groq_api_key": "groq_api_key",
             }
             for ui_key, yaml_key in field_map.items():
                 if ui_key in cfg:
@@ -1049,11 +1128,55 @@ class JarvisAPI:
             with open(CONFIG_PATH, "w") as f:
                 yaml.dump(existing, f, default_flow_style=False, sort_keys=False)
 
+            # Hot-apply environment variables in memory
+            if cfg.get("cesium_ion_token"):
+                os.environ["CESIUM_ION_TOKEN"] = cfg["cesium_ion_token"].strip()
+            if cfg.get("nasa_firms_key"):
+                val = cfg["nasa_firms_key"].strip()
+                os.environ["NASA_FIRMS_MAP_KEY"] = val
+                os.environ["FIRMS_MAP_KEY"] = val
+            if cfg.get("groq_api_key"):
+                os.environ["GROQ_API_KEY"] = cfg["groq_api_key"].strip()
+            if cfg.get("gemini_api_key"):
+                os.environ["GEMINI_API_KEY"] = cfg["gemini_api_key"].strip()
+            if cfg.get("nvidia_api_key"):
+                os.environ["NVIDIA_API_KEY"] = cfg["nvidia_api_key"].strip()
+            if cfg.get("fish_audio_api_key"):
+                os.environ["FISH_AUDIO_API_KEY"] = cfg["fish_audio_api_key"].strip()
+
+            # Sync persistent keys into root .env file
+            try:
+                env_file = Path(__file__).parent.parent / ".env"
+                env_map = {}
+                if env_file.exists():
+                    for line in env_file.read_text(encoding="utf-8").splitlines():
+                        if "=" in line and not line.strip().startswith("#"):
+                            k, v = line.split("=", 1)
+                            env_map[k.strip()] = v.strip()
+                sync_items = {
+                    "CESIUM_ION_TOKEN": cfg.get("cesium_ion_token"),
+                    "NASA_FIRMS_MAP_KEY": cfg.get("nasa_firms_key"),
+                    "FIRMS_MAP_KEY": cfg.get("nasa_firms_key"),
+                    "GROQ_API_KEY": cfg.get("groq_api_key"),
+                    "GEMINI_API_KEY": cfg.get("gemini_api_key"),
+                    "NVIDIA_API_KEY": cfg.get("nvidia_api_key"),
+                    "FISH_AUDIO_API_KEY": cfg.get("fish_audio_api_key"),
+                }
+                for k, v in sync_items.items():
+                    if v and not self._is_placeholder(v):
+                        env_map[k] = v.strip()
+                out_lines = [f"{k}={v}" for k, v in sorted(env_map.items())]
+                env_file.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
+            except Exception as env_err:
+                print(f"[desktop] Note on .env sync: {env_err}")
+
             self._voice = JarvisVoice()
 
             engine = "SLM"
             if self._voice.nvidia_available:
                 engine = f"NVIDIA NIM ({self._voice.nvidia_model})"
+            elif getattr(self._voice, 'groq_available', False):
+                engine = f"Groq LPU ({getattr(self._voice, 'groq_model', 'llama-3.3-70b')})"
             elif self._voice.gemini_available:
                 engine = "Gemini"
 
@@ -2319,6 +2442,11 @@ class JarvisDesktop:
                                 bottle.response.content_type = 'image/jpeg'
                                 bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
                                 return api.get_cctv_frame(camera_id)
+
+                            @app.route('/api/firms')
+                            def _bottle_firms():
+                                bottle.response.content_type = 'application/json'
+                                return json.dumps(api.get_firms_hotspots())
                         except Exception as hook_err:
                             print(f"[desktop] Route hook notice: {hook_err}")
 
@@ -2345,6 +2473,11 @@ class JarvisDesktop:
                 bottle.response.content_type = 'image/jpeg'
                 bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
                 return api.get_cctv_frame(camera_id)
+
+            @bottle.route('/api/firms')
+            def _bottle_api_firms_proxy():
+                bottle.response.content_type = 'application/json'
+                return json.dumps(api.get_firms_hotspots())
         except Exception as e:
             print(f"[desktop] Custom BottleServer setup notice: {e}")
 

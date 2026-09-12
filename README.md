@@ -12,6 +12,8 @@
 <p align="center">
   <a href="#quick-start">Quick Start</a> ·
   <a href="#installation--setup">Installation & Setup</a> ·
+  <a href="#gods-eye-geointel--3d-satellite-reconnaissance">God's Eye Geointel</a> ·
+  <a href="#settings-panel--free-api-configuration">Settings Panel</a> ·
   <a href="#the-osint-specialist-arsenal">OSINT Arsenal</a> ·
   <a href="#ai-model-routing">AI Routing</a> ·
   <a href="#commands">Commands</a> ·
@@ -24,7 +26,8 @@
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10+-blue?style=flat-square&logo=python&logoColor=white" alt="Python Version"/></a>
   <a href="https://github.com/project-hellhound-org/JARVIS/releases"><img src="https://img.shields.io/badge/Release-v2.0.0--OSINT.Specialist-cyan?style=flat-square" alt="Release Version"/></a>
   <img src="https://img.shields.io/badge/Specialization-Autonomous%20OSINT%20Specialist-blueviolet?style=flat-square" alt="Specialization"/>
-  <img src="https://img.shields.io/badge/AI--Powered-Ollama%20%7C%20NVIDIA%20NIM%20%7C%20Gemini-red?style=flat-square" alt="AI Support"/>
+  <img src="https://img.shields.io/badge/AI--Powered-NVIDIA%20%7C%20Groq%20%7C%20Gemini%20%7C%20Ollama-red?style=flat-square" alt="AI Support"/>
+  <img src="https://img.shields.io/badge/Geointel-Cesium%20%7C%20NASA%20FIRMS%20%7C%20ADS--B-orange?style=flat-square" alt="Geointel"/>
   <img src="https://img.shields.io/badge/Voice-Fish%20Audio%20%7C%20Local%20Clone-brightgreen?style=flat-square" alt="Voice Synthesis"/>
   <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-lightgrey?style=flat-square" alt="Platform"/>
   <img src="https://img.shields.io/badge/License-GPLv3-blue?style=flat-square" alt="License"/>
@@ -101,7 +104,63 @@ J.A.R.V.I.S. equips operators with a comprehensive multi-discipline reconnaissan
 | | `breach_directory` | Credential Telemetry | Discovers compromised account breaches and exposed data field classes. |
 | **Aerial & Telemetry** | `adsb_radar` | Keyless ADS-B | Real-time military flight tracking, altitude, callsigns, and squawk codes. |
 | | `atmospheric_intel` | Open-Meteo | Keyless real-time weather telemetry, cloud cover, and barometric pressure. |
+| | `thermal_sensors` | NASA FIRMS | Real-time active wildfire and thermal satellite sensor anomalies (VIIRS/MODIS). |
+| | `satellite_geointel` | CesiumJS / Ion | High-resolution 3D World Terrain, 3D OSM buildings, and orbital tracking. |
+| **Inference Acceleration** | `groq_lpu` | Groq LPU Engine | Sub-100ms ultra-low-latency LLaMA 3.3 70B and Whisper audio transcription. |
 | **Visualization** | `2d_3d_topology` | D3 / Three.js | Radial SVG relationship fallback + 3D WebGL entity topology graph. |
+
+---
+
+## 🌍 God's Eye Geointel & 3D Satellite Reconnaissance
+
+J.A.R.V.I.S. integrates the spatial intelligence architecture inspired by **God's Eye View**, delivering global situational awareness directly inside the spatial 3D WebGL viewport:
+
+### Keyless Global Intelligence (Works 100% Out of the Box)
+- **Airspace Radar (ADS-B)**: Real-time military and commercial aircraft tracking worldwide via `api.adsb.lol` / `airplanes.live`. Single-click any contact for callsign, altitude, ground speed, Mach velocity, squawk code, and heading.
+- **Flight Cockpit POV & Chase Mode**: Lock onto any aircraft and experience first-person tactical cockpit perspective (`LOCK AIRCRAFT`) or third-person chase camera (`CHASE TARGET`).
+- **Maritime Vessels (AIS)**: Worldwide commercial shipping and naval vessel locations with MMSI, vessel type, and heading indicators.
+- **Tactical CCTV Grid**: Live surveillance cones and simulated optical video feeds across key global metropolitan and tactical sector junctions.
+- **Global Radio Scanner Tuner**: 100% genuine live audio feeds from major international aviation towers (Tokyo Haneda ATC, Heathrow Tower ATC) and emergency dispatch channels (SF Police/Fire, BBC World Service).
+- **USGS Planetary Seismic Monitor**: Real-time earthquake monitoring ($M \ge 4.5$) with fault zone radius visualization and hypocenter depth telemetry.
+- **Orbital Satellite Tracking**: Live International Space Station (ISS) ephemeris tracking with nadir drop beam and 90-minute ground orbital track projection.
+- **High-Resolution Satellite Imagery**: Keyless ESRI World Imagery with OpenStreetMap fallback and photorealistic vibrance calibration.
+
+---
+
+## ⚙️ Settings Panel & Free API Configuration
+
+J.A.R.V.I.S. includes a dedicated **Settings Panel** (`⚙` button in the UI header or `/settings`) allowing operators to dynamically configure model endpoints, voice synthesis, and geointel providers without restarting the application:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   J.A.R.V.I.S. — SETTINGS                   │
+├─────────────────────────────────────────────────────────────┤
+│ [LLM] Language Model Engine        [Ollama / Gemini / NIM]  │
+│ [VOX] Fish Audio Voice Engine      [s2.1-pro-free / Vox ID] │
+│ [GEO] God's Eye Geointel & Accel   [Cesium / NASA / Groq]   │
+│ [RCN] Reconnaissance Modules       [Sherlock / Maigret...]  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Unlocking Extra Capabilities with Free API Keys
+
+All keys are **optional**. J.A.R.V.I.S. functions completely offline and keyless, but these free provider keys unlock immense extra analytical power:
+
+| Provider | Setting Field | Unlocked Capabilities | How to Get (100% Free) |
+| :--- | :--- | :--- | :--- |
+| **Cesium Ion** | `cesium_ion_token` | **High-Resolution 3D World Terrain**, 3D Photorealistic Tiles, and **3D OpenStreetMap Buildings**. | [ion.cesium.com/tokens](https://ion.cesium.com/tokens) |
+| **NASA FIRMS** | `nasa_firms_key` | **Real-time satellite active wildfire & thermal anomaly sensors** (VIIRS NOAA-20, NOAA-21, Suomi-NPP). | [firms.modaps.eosdis.nasa.gov/api/map_key/](https://firms.modaps.eosdis.nasa.gov/api/map_key/) |
+| **Groq LPU** | `groq_api_key` | **Sub-100ms ultra-fast inference** with `llama-3.3-70b-versatile` & Groq Whisper transcription (~800 tokens/sec). | [console.groq.com/keys](https://console.groq.com/keys) |
+| **NVIDIA NIM** | `nvidia_api_key` | **Frontier 70B–120B reasoning** (`nvidia/nemotron-3-super-120b-a12b`, `meta/llama-3.3-70b`). | [build.nvidia.com](https://build.nvidia.com) |
+| **Google Gemini** | `gemini_api_key` | Multimodal vision analysis and deep entity correlation. | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| **Fish Audio** | `fish_audio_api_key` | Ultra-realistic British tactical voice synthesis (`05b36da8574341d0803391491850db20`). | [fish.audio/app/developers](https://fish.audio/app/developers) |
+
+> [!TIP]
+> ### 🔒 Dynamic Hot-Apply & Auto-Syncing
+> Whenever you save changes in the Settings Panel, J.A.R.V.I.S.:
+> 1. Persists your keys directly into `config.yaml`.
+> 2. Auto-syncs environment variables to the project `.env` file for sub-modules.
+> 3. Hot-applies keys into active memory (`Cesium.Ion.defaultAccessToken`, cloud model router) immediately without requiring an application restart.
 
 ---
 

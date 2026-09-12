@@ -165,6 +165,13 @@ class JarvisVoice:
         # NVIDIA model override from config
         self.nvidia_model = config.get("nvidia_model", NVIDIA_MODEL)
 
+        # Groq LPU key & model
+        raw_groq = config.get("groq_api_key") or os.environ.get("GROQ_API_KEY")
+        self.groq_key = self._clean_key(raw_groq)
+        self.groq_available = bool(self.groq_key)
+        self.groq_model = config.get("groq_model", "llama-3.3-70b-versatile")
+        self.groq_rate_limited = False
+
         # Detect available SLM
         self.slm_model = self._detect_slm()
         self.client = httpx.Client(timeout=180.0)
@@ -217,6 +224,8 @@ class JarvisVoice:
         # Determine active engine label for logging
         if self.nvidia_available:
             engine = f"NVIDIA NIM ({self.nvidia_model})"
+        elif self.groq_available:
+            engine = f"Groq LPU ({self.groq_model})"
         elif self.gemini_available:
             engine = "Gemini"
         else:
@@ -224,6 +233,7 @@ class JarvisVoice:
         print(f"[jarvis_voice] Primary engine: {engine}")
         print(f"[jarvis_voice] SLM fallback: {self.slm_model}")
         print(f"[jarvis_voice] NVIDIA NIM: {'available' if self.nvidia_available else 'not configured'}")
+        print(f"[jarvis_voice] Groq LPU: {'available (' + self.groq_model + ')' if self.groq_available else 'not configured'}")
         print(f"[jarvis_voice] Gemini: {'available' if self.gemini_available else 'not configured'}")
         if self.fish_audio_available:
             stream_label = "streaming ready" if self.fish_streaming_sdk_available else "phrase fallback (SDK missing)"
@@ -664,9 +674,66 @@ class JarvisVoice:
             print(f"[jarvis_voice] Gemini error: {e}")
             return "", False
 
+    def _ask_groq(self, prompt: str, system: str, max_tokens: int = 4096, on_token: callable = None) -> tuple[str, bool]:
+        """
+        Ask Groq LPU inference API with OpenAI-compatible SSE streaming.
+        Returns (response_text, rate_limited).
+        """
+        if not self.groq_key or self.groq_rate_limited:
+            return "", False
+
+        headers = {
+            "Authorization": f"Bearer {self.groq_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.groq_model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": min(max_tokens, 4096),
+            "temperature": 0.5,
+            "stream": True,
+        }
+
+        try:
+            full_response = []
+            with self.client.stream("POST", "https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=14.0) as r:
+                if r.status_code == 429:
+                    self.groq_rate_limited = True
+                    print(f"[jarvis_voice] Groq API rate-limited (429). Switching to fallback.")
+                    return "", True
+                if r.status_code != 200:
+                    print(f"[jarvis_voice] Groq error ({r.status_code}): {r.text[:200]}")
+                    return "", False
+
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    if line.startswith("data: "):
+                        line_str = line[6:].strip()
+                        if line_str == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(line_str)
+                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            token = delta.get("content", "")
+                            if token:
+                                full_response.append(token)
+                                if on_token:
+                                    on_token(token)
+                        except Exception:
+                            continue
+            text = "".join(full_response).strip()
+            return text, False
+        except Exception as e:
+            print(f"[jarvis_voice] Groq error: {e}")
+            return "", False
+
     def _ask_cloud(self, prompt: str, system: str, max_tokens: int = 4096, on_token: callable = None, image_path: str = None) -> dict:
         """
-        Try cloud LLMs in priority order: NVIDIA NIM → Gemini → empty.
+        Try cloud LLMs in priority order: NVIDIA NIM → Groq LPU → Gemini → empty.
         Returns {text, rate_limited, engine}.
         """
         # Try NVIDIA NIM first
@@ -677,7 +744,15 @@ class JarvisVoice:
             elif text:
                 return {"text": text, "rate_limited": False, "engine": "nvidia"}
 
-        # Try Gemini second
+        # Try Groq LPU second (fastest token latency, text-only)
+        if self.groq_available and not self.groq_rate_limited and not image_path:
+            text, r_limited = self._ask_groq(prompt, system, max_tokens=max_tokens, on_token=on_token)
+            if r_limited:
+                self.groq_rate_limited = True
+            elif text:
+                return {"text": text, "rate_limited": False, "engine": "groq"}
+
+        # Try Gemini third
         if self.gemini_available and not self.gemini_rate_limited:
             text, r_limited = self._ask_gemini(prompt, system, max_tokens=max_tokens, on_token=on_token, image_path=image_path)
             if r_limited:
@@ -685,8 +760,8 @@ class JarvisVoice:
             elif text:
                 return {"text": text, "rate_limited": False, "engine": "gemini"}
 
-        # Both exhausted or rate-limited
-        rate_limited = (self.nvidia_rate_limited or self.gemini_rate_limited)
+        # All exhausted or rate-limited
+        rate_limited = (self.nvidia_rate_limited or self.groq_rate_limited or self.gemini_rate_limited)
         return {"text": "", "rate_limited": rate_limited, "engine": None}
 
     def _sanitize_text_for_speech(self, text: str) -> str:

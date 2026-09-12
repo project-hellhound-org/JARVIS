@@ -24,6 +24,22 @@ nvidia_model: nvidia/nemotron-3-super-120b-a12b
 # Or paste it here (less secure — make sure config.yaml is gitignored):
 gemini_api_key: YOUR_GEMINI_API_KEY_HERE
 
+# ── Groq LPU Inference (ultra-low latency, free tier) ───────────
+# Get your free key at: https://console.groq.com/keys
+# Delivers sub-100ms LLaMA 3.3 70B & Whisper audio transcription.
+#   export GROQ_API_KEY="gsk_your_key_here"
+groq_api_key: YOUR_GROQ_API_KEY_HERE
+groq_model: llama-3.3-70b-versatile
+
+# ── God's Eye Geointel & Satellites (Optional Enhancements) ────
+# Cesium Ion Access Token: https://ion.cesium.com/tokens
+# Unlocks 3D Cesium World Terrain, photorealistic tiles & 3D OSM Buildings.
+cesium_ion_token: YOUR_CESIUM_ION_TOKEN_HERE
+
+# NASA FIRMS MAP_KEY: https://firms.modaps.eosdis.nasa.gov/api/map_key/
+# Unlocks live satellite active wildfire & thermal anomaly sensors (VIIRS / MODIS).
+nasa_firms_key: YOUR_NASA_FIRMS_MAP_KEY_HERE
+
 # ── Fish Audio Voice Synthesis ──────────────────────────────────
 # Get your key at: https://fish.audio/app/developers
 fish_audio_api_key: YOUR_FISH_AUDIO_API_KEY_HERE

@@ -2567,11 +2567,16 @@ body {
           <span>💥 SEISMIC HAZARDS (USGS)</span>
           <div class="toggle-pill"></div>
         </div>
+        <div class="globe-layer-toggle" id="layer-toggle-thermal" onclick="window.toggleTacticalLayer('thermal')">
+          <span>🔥 THERMAL ANOMALIES (NASA FIRMS)</span>
+          <div class="toggle-pill"></div>
+        </div>
       </div>
-      <div style="font-size:9.5px; color:#8A8D91; font-family:var(--mono); margin-top:8px; display:grid; grid-template-columns:repeat(3, 1fr); gap:4px;">
+      <div style="font-size:9px; color:#8A8D91; font-family:var(--mono); margin-top:8px; display:grid; grid-template-columns:repeat(4, 1fr); gap:4px;">
         <span>RADAR: <span id="radar-contact-count" style="color:#00F0FF;">0</span></span>
         <span>VESSELS: <span id="vessel-contact-count" style="color:#38BDF8;">0</span></span>
         <span>CCTV: <span id="cctv-contact-count" style="color:#FFB84D;">0</span></span>
+        <span>FIRMS: <span id="thermal-contact-count" style="color:#EF4444;">0</span></span>
       </div>
     </div>
 
@@ -3107,7 +3112,74 @@ body {
         </div>
       </div>
 
-      <!-- Card 3: Recon Modules -->
+      <!-- Card 3: God's Eye Geointel & Acceleration (Cesium Ion, NASA FIRMS, Groq) -->
+      <div class="collapsible-card settings-card">
+        <div class="collapsible-card-header" onclick="toggleCardCollapse(this)">
+          <div class="collapsible-card-title">
+            <span style="opacity:0.6; font-family:var(--mono); font-size:11px; margin-right:4px;">[GEO]</span>
+            <span>God's Eye Geointel & Acceleration</span>
+          </div>
+          <div class="collapsible-card-badge">Cesium / NASA / Groq</div>
+          <div class="collapsible-card-chevron">▼</div>
+        </div>
+        <div class="collapsible-card-body">
+          <!-- Cesium Ion Access Token -->
+          <div class="settings-row">
+            <label>Cesium Ion Access Token</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-cesium-token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-cesium-token', this)" title="Show/Hide Access Token">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Unlocks Cesium World Terrain, 3D Photorealistic Tiles, and 3D OSM Buildings. Free at
+            <a href="https://ion.cesium.com/tokens" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">ion.cesium.com/tokens ↗</a>.
+          </div>
+
+          <!-- NASA FIRMS Map Key -->
+          <div class="settings-row">
+            <label>NASA FIRMS MAP_KEY</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-nasa-firms-key" placeholder="e.g. 7a3f89b1c2..." />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-nasa-firms-key', this)" title="Show/Hide Map Key">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Unlocks real-time satellite active wildfire & thermal anomaly sensors (VIIRS / MODIS). Free at
+            <a href="https://firms.modaps.eosdis.nasa.gov/api/map_key/" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">firms.modaps.eosdis.nasa.gov ↗</a>.
+          </div>
+
+          <!-- Groq LPU API Key -->
+          <div class="settings-row">
+            <label>Groq LPU API Key</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-groq-key" placeholder="gsk_..." />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-groq-key', this)" title="Show/Hide API Key">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Unlocks sub-100ms ultra-fast Groq LPU inference (LLaMA 3.3 70B & Whisper). Free at
+            <a href="https://console.groq.com/keys" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">console.groq.com/keys ↗</a>.
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: Recon Modules -->
       <div class="collapsible-card settings-card">
         <div class="collapsible-card-header" onclick="toggleCardCollapse(this)">
           <div class="collapsible-card-title">
@@ -3958,6 +4030,12 @@ function applyConfigToForm(cfg) {
   $('#cfg-nvidia-key').value = clean(cfg.nvidia_api_key);
   if ($('#cfg-fish-key')) $('#cfg-fish-key').value = clean(cfg.fish_audio_api_key);
   if ($('#cfg-fish-voice')) $('#cfg-fish-voice').value = cfg.fish_audio_voice_id || '05b36da8574341d0803391491850db20';
+  if ($('#cfg-cesium-token')) $('#cfg-cesium-token').value = clean(cfg.cesium_ion_token);
+  if ($('#cfg-nasa-firms-key')) $('#cfg-nasa-firms-key').value = clean(cfg.nasa_firms_key);
+  if ($('#cfg-groq-key')) $('#cfg-groq-key').value = clean(cfg.groq_api_key);
+  if (typeof Cesium !== 'undefined' && cfg.cesium_ion_token) {
+    Cesium.Ion.defaultAccessToken = clean(cfg.cesium_ion_token);
+  }
   if (cfg.tools) {
     Object.keys(cfg.tools).forEach((k) => {
       const el = document.querySelector(`.voice-toggle[data-tool="${k}"]`);
@@ -3978,13 +4056,21 @@ $('#settings-save').addEventListener('click', () => {
     nvidia_api_key: $('#cfg-nvidia-key').value,
     fish_audio_api_key: $('#cfg-fish-key') ? $('#cfg-fish-key').value : '',
     fish_audio_voice_id: $('#cfg-fish-voice') ? $('#cfg-fish-voice').value : '05b36da8574341d0803391491850db20',
+    cesium_ion_token: $('#cfg-cesium-token') ? $('#cfg-cesium-token').value.trim() : '',
+    nasa_firms_key: $('#cfg-nasa-firms-key') ? $('#cfg-nasa-firms-key').value.trim() : '',
+    groq_api_key: $('#cfg-groq-key') ? $('#cfg-groq-key').value.trim() : '',
     tools: tools,
   };
   if (api() && api().save_config) {
     $('#settings-status').textContent = 'Saving...';
     api().save_config(cfg).then((result) => {
       if (result) {
-        $('#settings-status').textContent = '✓ Saved to config.yaml';
+        $('#settings-status').textContent = '✓ Saved to config.yaml & .env';
+        if (typeof Cesium !== 'undefined' && cfg.cesium_ion_token) {
+          Cesium.Ion.defaultAccessToken = cfg.cesium_ion_token;
+          if (typeof window.loadCesiumTerrain === 'function') window.loadCesiumTerrain();
+          if (typeof window.loadCesiumBuildings === 'function') window.loadCesiumBuildings();
+        }
       } else {
         $('#settings-status').textContent = '✗ Save failed — check console.';
       }
@@ -8860,9 +8946,23 @@ function initCesiumGlobe() {
     }
     loadCesiumImagery();
 
-    // Keyless Re:Earth 3D Terrain mesh (with graceful fallback to default ellipsoid)
+    // High-Resolution Cesium World Terrain (Ion Authenticated) or Keyless Fallback
     async function loadCesiumTerrain() {
       try {
+        if (Cesium.Ion && Cesium.Ion.defaultAccessToken) {
+          if (Cesium.Terrain && Cesium.Terrain.fromWorldTerrain) {
+            cesiumViewer.terrain = Cesium.Terrain.fromWorldTerrain();
+            console.log('[Cesium] Cesium World Terrain active (Ion authenticated)');
+            return;
+          } else if (Cesium.createWorldTerrainAsync) {
+            const tp = await Cesium.createWorldTerrainAsync();
+            if (cesiumViewer && !cesiumViewer.isDestroyed()) {
+              cesiumViewer.terrainProvider = tp;
+              console.log('[Cesium] Cesium World Terrain active (Ion authenticated)');
+              return;
+            }
+          }
+        }
         if (Cesium.CesiumTerrainProvider && Cesium.CesiumTerrainProvider.fromUrl) {
           const tp = await Cesium.CesiumTerrainProvider.fromUrl('https://terrain.reearth.land/cesium-mesh/ellipsoid');
           if (cesiumViewer && !cesiumViewer.isDestroyed()) {
@@ -8874,7 +8974,27 @@ function initCesiumGlobe() {
         console.log('[Cesium] Using default WGS84 ellipsoid terrain');
       }
     }
+    window.loadCesiumTerrain = loadCesiumTerrain;
     loadCesiumTerrain();
+
+    // 3D OSM Photorealistic Buildings (Ion Authenticated)
+    async function loadCesiumBuildings() {
+      if (window._cesiumOsmBuildingsAdded) return;
+      if (Cesium.createOsmBuildingsAsync && Cesium.Ion && Cesium.Ion.defaultAccessToken) {
+        try {
+          const buildingsTileset = await Cesium.createOsmBuildingsAsync();
+          if (cesiumViewer && !cesiumViewer.isDestroyed()) {
+            cesiumViewer.scene.primitives.add(buildingsTileset);
+            window._cesiumOsmBuildingsAdded = true;
+            console.log('[Cesium] Cesium 3D OSM Buildings active');
+          }
+        } catch (bErr) {
+          console.warn('[Cesium] 3D Buildings unavailable:', bErr?.message || bErr);
+        }
+      }
+    }
+    window.loadCesiumBuildings = loadCesiumBuildings;
+    loadCesiumBuildings();
 
     // Initial God's Eye orbital view centered on South Asia / Kotagiri (11.4228° N, 76.8661° E)
     cesiumViewer.camera.setView({
@@ -8950,7 +9070,8 @@ let _tacticalLayers = {
   cctv: false,
   radio: false,
   space: false,
-  seismic: false
+  seismic: false,
+  thermal: false
 };
 let _flightsDataSource = null;
 let _vesselsDataSource = null;
@@ -8958,6 +9079,7 @@ let _cctvDataSource = null;
 let _radioDataSource = null;
 let _spaceDataSource = null;
 let _seismicDataSource = null;
+let _thermalDataSource = null;
 let _inspectTargetData = null;
 let _cctvAnimInterval = null;
 
@@ -9206,6 +9328,12 @@ window.toggleTacticalLayer = function(layerName) {
   } else if (layerName === 'seismic' && _seismicDataSource) {
     _seismicDataSource.show = _tacticalLayers.seismic;
     if (_tacticalLayers.seismic && window._fetchLiveSeismic) window._fetchLiveSeismic();
+  } else if (layerName === 'thermal' && _thermalDataSource) {
+    _thermalDataSource.show = _tacticalLayers.thermal;
+    if (_tacticalLayers.thermal && window._fetchLiveThermal) window._fetchLiveThermal();
+    else if (!_tacticalLayers.thermal) {
+      const el = document.getElementById('thermal-contact-count'); if (el) el.textContent = '0';
+    }
   }
 
   if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
@@ -9225,6 +9353,8 @@ window.clearAllTacticalLayers = function() {
   if (_radioDataSource) _radioDataSource.show = false;
   if (_spaceDataSource) _spaceDataSource.show = false;
   if (_seismicDataSource) _seismicDataSource.show = false;
+  if (_thermalDataSource) _thermalDataSource.show = false;
+  const thEl = document.getElementById('thermal-contact-count'); if (thEl) thEl.textContent = '0';
   if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
     window.cesiumViewer.scene.requestRender();
   }
@@ -9371,6 +9501,21 @@ window.inspectTarget = function(data) {
     if (actBtn) {
       actBtn.textContent = 'FOCUS EPICENTER';
       actBtn.onclick = () => window.focusGlobeCoordinates(data.lat, data.lon, `M${data.mag} ${data.place}`);
+    }
+  } else if (data.type === 'THERMAL_ANOMALY') {
+    if (icon) icon.textContent = '🔥';
+    if (title) title.textContent = `THERMAL ANOMALY: ${data.callsign}`;
+    body.innerHTML = `
+      <div><span style="color:#8A8D91;">CLASSIFICATION:</span> <span style="color:#EF4444; font-weight:700;">ACTIVE WILDFIRE / THERMAL CONTACT</span></div>
+      <div><span style="color:#8A8D91;">FIRE RADIATIVE POWER:</span> <span style="color:#FF9D2E; font-weight:700;">${data.frp}</span></div>
+      <div><span style="color:#8A8D91;">DETECTION CONFIDENCE:</span> <span style="color:#4ADE80;">${data.confidence}</span></div>
+      <div><span style="color:#8A8D91;">SENSOR SATELLITE:</span> <span style="color:#00F0FF;">${data.satellite}</span></div>
+      <div><span style="color:#8A8D91;">ACQUISITION TIME:</span> <span style="color:#FFFFFF;">${data.time}</span></div>
+      <div><span style="color:#8A8D91;">COORDINATES:</span> ${data.lat.toFixed(4)}° N, ${data.lon.toFixed(4)}° E</div>
+    `;
+    if (actBtn) {
+      actBtn.textContent = 'FOCUS THERMAL BEACON';
+      actBtn.onclick = () => window.focusGlobeCoordinates(data.lat, data.lon, data.callsign);
     }
   }
 
@@ -10346,6 +10491,91 @@ function initGlobeIntelligence(viewer) {
   window._fetchLiveSeismic = fetchLiveSeismic;
   fetchLiveSeismic();
   setInterval(fetchLiveSeismic, 60000);
+
+  // =========================================================================
+  // 7. THERMAL ANOMALIES & WILDFIRE SENSORS (NASA FIRMS)
+  // =========================================================================
+  _thermalDataSource = new Cesium.CustomDataSource('thermal-layer');
+  _thermalDataSource.show = _tacticalLayers.thermal;
+  viewer.dataSources.add(_thermalDataSource);
+
+  async function fetchLiveThermal() {
+    if (!_tacticalLayers.thermal || SpatialNav.currentX < 200) return;
+    try {
+      let data = null;
+      if (api() && api().get_firms_hotspots) {
+        data = await api().get_firms_hotspots();
+      } else {
+        const res = await fetch('/api/firms');
+        if (res.ok) data = await res.json();
+      }
+
+      const countEl = document.getElementById('thermal-contact-count');
+      if (data && data.configured === false) {
+        if (countEl) countEl.textContent = 'NO KEY';
+        const statusEl = document.getElementById('globe-live-status');
+        if (statusEl) {
+          statusEl.textContent = 'NASA FIRMS MAP_KEY REQUIRED — SET IN SETTINGS [GEO]';
+          setTimeout(() => { if (statusEl) statusEl.textContent = 'ACTIVE OSINT SENSORS ONLINE'; }, 4500);
+        }
+        return;
+      }
+
+      const fires = (data && data.fires) ? data.fires : [];
+      if (countEl) countEl.textContent = String(fires.length);
+
+      if (_thermalDataSource) {
+        _thermalDataSource.entities.removeAll();
+        fires.forEach((fire, idx) => {
+          const frp = Number(fire.frp || 15);
+          const colorHex = frp >= 50 ? '#EF4444' : (frp >= 20 ? '#F97316' : '#EAB308');
+          const pointSize = Math.max(5, Math.min(13, Math.round(frp / 8) + 4));
+
+          const tacticalData = {
+            type: 'THERMAL_ANOMALY',
+            callsign: `THERMAL-${idx + 1}`,
+            frp: frp.toFixed(1) + ' MW',
+            confidence: fire.confidence || 'nominal',
+            time: `${fire.date} ${fire.time} UTC`,
+            satellite: 'VIIRS NRT (NASA EOSDIS)',
+            lat: fire.lat,
+            lon: fire.lon
+          };
+
+          _thermalDataSource.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(fire.lon, fire.lat, 0),
+            point: {
+              pixelSize: pointSize,
+              color: Cesium.Color.fromCssColorString(colorHex),
+              outlineColor: Cesium.Color.BLACK,
+              outlineWidth: 2,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
+            },
+            label: {
+              text: `🔥 ${frp.toFixed(0)}MW`,
+              font: 'bold 9px JetBrains Mono, monospace',
+              fillColor: Cesium.Color.fromCssColorString('#FF9D2E'),
+              outlineColor: Cesium.Color.BLACK,
+              outlineWidth: 2,
+              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+              pixelOffset: new Cesium.Cartesian2(0, -10),
+              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000),
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
+            },
+            _tacticalData: tacticalData
+          });
+        });
+        viewer.scene.requestRender();
+      }
+    } catch (err) {
+      console.warn('[ThermalIntel] Fetch error:', err);
+    }
+  }
+
+  window._fetchLiveThermal = fetchLiveThermal;
+  fetchLiveThermal();
+  setInterval(fetchLiveThermal, 60000);
 
   // Initial sector weather probe
   window.updateSectorWeather(11.4228, 76.8661, 'Kotagiri');
