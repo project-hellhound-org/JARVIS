@@ -1160,6 +1160,7 @@ class JarvisAPI:
                     "GROQ_API_KEY": cfg.get("groq_api_key"),
                     "GEMINI_API_KEY": cfg.get("gemini_api_key"),
                     "NVIDIA_API_KEY": cfg.get("nvidia_api_key"),
+                    "NVIDIA_MODEL": cfg.get("nvidia_model"),
                     "FISH_AUDIO_API_KEY": cfg.get("fish_audio_api_key"),
                 }
                 for k, v in sync_items.items():
@@ -1170,18 +1171,21 @@ class JarvisAPI:
             except Exception as env_err:
                 print(f"[desktop] Note on .env sync: {env_err}")
 
-            self._voice = JarvisVoice()
+            try:
+                self._voice = JarvisVoice()
+                engine = "SLM"
+                if self._voice.nvidia_available:
+                    engine = f"NVIDIA NIM ({self._voice.nvidia_model})"
+                elif getattr(self._voice, 'groq_available', False):
+                    engine = f"Groq LPU ({getattr(self._voice, 'groq_model', 'llama-3.3-70b')})"
+                elif self._voice.gemini_available:
+                    engine = "Gemini"
+                print(f"[desktop] Config saved → active engine: {engine}")
+                self._emit("config_saved", {"engine": engine})
+            except Exception as v_err:
+                print(f"[desktop] Note on voice reload: {v_err}")
+                self._emit("config_saved", {"engine": "Updated"})
 
-            engine = "SLM"
-            if self._voice.nvidia_available:
-                engine = f"NVIDIA NIM ({self._voice.nvidia_model})"
-            elif getattr(self._voice, 'groq_available', False):
-                engine = f"Groq LPU ({getattr(self._voice, 'groq_model', 'llama-3.3-70b')})"
-            elif self._voice.gemini_available:
-                engine = "Gemini"
-
-            print(f"[desktop] Config saved → active engine: {engine}")
-            self._emit("config_saved", {"engine": engine})
             return True
         except Exception as e:
             print(f"[desktop] Error saving config: {e}")

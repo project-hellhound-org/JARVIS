@@ -2929,6 +2929,7 @@ body {
     </main>
 
   </div>
+</div> <!-- /#shell -->
 
 <!-- 3D Case Graph Overlay -->
 <div class="overlay" id="graph-overlay">
@@ -3079,6 +3080,7 @@ body {
       </div>
     </div>
   </div>
+</div> <!-- /#skills-overlay -->
 <!-- Live Sub-Conscious Stream & Voice Telemetry Subtitle Ribbon -->
 <div id="jarvis-hud-subtitles" class="jarvis-subtitles-hidden">
   <div class="jarvis-subtitles-tag" id="jarvis-subtitle-tag">LIVE TELEMETRY</div>
@@ -3934,13 +3936,26 @@ function maybeAddInlineViz(entity) {
 
 function openGraphOverlay() {
   $('#graph-overlay-title').textContent = `Case Graph — ${state.activeCase || 'Untitled'}`;
-  $('#graph-overlay').classList.add('open');
+  const overlay = $('#graph-overlay');
+  if (overlay) {
+    overlay.classList.add('open');
+    overlay.style.display = 'flex';
+  }
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) { sidebar.classList.remove('expanded'); sidebar.classList.remove('open'); }
   setTimeout(() => {
     buildGraphData(state.entities, []);
     renderGraph();
   }, 60);
 }
-$('#graph-overlay-close').addEventListener('click', () => { $('#graph-overlay').classList.remove('open'); });
+function closeGraphOverlay() {
+  const overlay = $('#graph-overlay');
+  if (overlay) {
+    overlay.classList.remove('open');
+    overlay.style.display = 'none';
+  }
+}
+$('#graph-overlay-close').addEventListener('click', closeGraphOverlay);
 $('#graph-nav').addEventListener('click', openGraphOverlay);
 
 // Seamless 3D Spatial Navigation: glide directly to Earth Globe
@@ -3953,12 +3968,22 @@ $('#globe-nav').addEventListener('click', (e) => {
 
 /* ---------- Evidence Gallery Overlay JS ---------- */
 function openEvidenceOverlay() {
-  $('#evidence-overlay').classList.add('open');
+  const overlay = $('#evidence-overlay');
+  if (overlay) {
+    overlay.classList.add('open');
+    overlay.style.display = 'flex';
+  }
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) { sidebar.classList.remove('expanded'); sidebar.classList.remove('open'); }
   loadEvidenceGallery();
 }
 
 function closeEvidenceOverlay() {
-  $('#evidence-overlay').classList.remove('open');
+  const overlay = $('#evidence-overlay');
+  if (overlay) {
+    overlay.classList.remove('open');
+    overlay.style.display = 'none';
+  }
 }
 
 function loadEvidenceGallery() {
@@ -4077,13 +4102,31 @@ function showSubtitles(text, tag = 'LIVE TELEMETRY') {
 }
 
 function openSkillsOverlay() {
-  $('#skills-overlay').classList.add('open');
+  const overlay = $('#skills-overlay');
+  if (overlay) {
+    overlay.classList.add('open');
+    overlay.style.display = 'flex';
+  }
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) { sidebar.classList.remove('expanded'); sidebar.classList.remove('open'); }
 }
-$('#skills-overlay-close').addEventListener('click', () => { $('#skills-overlay').classList.remove('open'); });
+function closeSkillsOverlay() {
+  const overlay = $('#skills-overlay');
+  if (overlay) {
+    overlay.classList.remove('open');
+    overlay.style.display = 'none';
+  }
+}
+$('#skills-overlay-close').addEventListener('click', closeSkillsOverlay);
 $('#skills-nav').addEventListener('click', openSkillsOverlay);
+if ($('#skills-overlay')) {
+  $('#skills-overlay').addEventListener('click', (e) => {
+    if (e.target === $('#skills-overlay')) closeSkillsOverlay();
+  });
+}
 
 function runSkillPrompt(prefix) {
-  $('#skills-overlay').classList.remove('open');
+  closeSkillsOverlay();
   const input = $('#chat-input');
   if (state.activeCase) {
     input.value = `${prefix} ${state.activeCase}`;
@@ -4106,9 +4149,21 @@ window.openSettingsOverlay = function() {
     sidebar.classList.remove('expanded');
     sidebar.classList.remove('open');
   }
+
+  // Instantly apply local cache so the form is immediately populated
+  try {
+    const cached = localStorage.getItem('jarvis_config');
+    if (cached) {
+      applyConfigToForm(JSON.parse(cached));
+    }
+  } catch(e) {}
+
   if (api() && api().get_config) {
     api().get_config().then((cfg) => {
-      if (cfg) applyConfigToForm(cfg);
+      if (cfg) {
+        applyConfigToForm(cfg);
+        try { localStorage.setItem('jarvis_config', JSON.stringify(cfg)); } catch(e) {}
+      }
     }).catch((err) => {
       console.warn('[settings] Could not fetch config:', err);
     });
@@ -4143,16 +4198,22 @@ function openTargetDialog() {
   const input = $('#target-dialog-input');
   if (overlay) {
     overlay.classList.add('open');
+    overlay.style.display = 'flex';
     if (input) {
       input.value = '';
       setTimeout(() => input.focus(), 100);
     }
   }
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) { sidebar.classList.remove('expanded'); sidebar.classList.remove('open'); }
 }
 
 function closeTargetDialog() {
   const overlay = $('#target-dialog-overlay');
-  if (overlay) overlay.classList.remove('open');
+  if (overlay) {
+    overlay.classList.remove('open');
+    overlay.style.display = 'none';
+  }
 }
 
 function submitTargetDialog() {
@@ -4425,20 +4486,28 @@ document.querySelectorAll('.voice-toggle').forEach((t) => {
 });
 
 function applyConfigToForm(cfg) {
+  if (!cfg || typeof cfg !== 'object') return;
   function clean(val) {
     if (!val || typeof val !== 'string') return '';
     if (val.startsWith('YOUR_') || val.endsWith('_HERE')) return '';
     return val;
   }
-  if (cfg.model) $('#cfg-model').value = cfg.model;
-  if (cfg.ollama_url) $('#cfg-ollama-url').value = cfg.ollama_url;
-  $('#cfg-gemini-key').value = clean(cfg.gemini_api_key);
-  $('#cfg-nvidia-key').value = clean(cfg.nvidia_api_key);
-  if ($('#cfg-fish-key')) $('#cfg-fish-key').value = clean(cfg.fish_audio_api_key);
-  if ($('#cfg-fish-voice')) $('#cfg-fish-voice').value = cfg.fish_audio_voice_id || '05b36da8574341d0803391491850db20';
-  if ($('#cfg-cesium-token')) $('#cfg-cesium-token').value = clean(cfg.cesium_ion_token);
-  if ($('#cfg-nasa-firms-key')) $('#cfg-nasa-firms-key').value = clean(cfg.nasa_firms_key);
-  if ($('#cfg-groq-key')) $('#cfg-groq-key').value = clean(cfg.groq_api_key);
+  function setVal(id, val) {
+    const el = document.querySelector(id);
+    if (el) el.value = val !== undefined && val !== null ? val : '';
+  }
+
+  if (cfg.model !== undefined) setVal('#cfg-model', cfg.model);
+  if (cfg.ollama_url !== undefined) setVal('#cfg-ollama-url', cfg.ollama_url);
+  setVal('#cfg-gemini-key', clean(cfg.gemini_api_key));
+  setVal('#cfg-nvidia-key', clean(cfg.nvidia_api_key));
+  if (cfg.nvidia_model !== undefined) setVal('#cfg-nvidia-model', cfg.nvidia_model);
+  setVal('#cfg-fish-key', clean(cfg.fish_audio_api_key));
+  setVal('#cfg-fish-voice', cfg.fish_audio_voice_id || '05b36da8574341d0803391491850db20');
+  setVal('#cfg-cesium-token', clean(cfg.cesium_ion_token));
+  setVal('#cfg-nasa-firms-key', clean(cfg.nasa_firms_key));
+  setVal('#cfg-groq-key', clean(cfg.groq_api_key));
+
   if (typeof Cesium !== 'undefined' && cfg.cesium_ion_token) {
     const cToken = clean(cfg.cesium_ion_token);
     if (cToken && cToken.length > 20) {
@@ -4446,7 +4515,7 @@ function applyConfigToForm(cfg) {
       window._userConfiguredCesium = true;
     }
   }
-  if (cfg.tools) {
+  if (cfg.tools && typeof cfg.tools === 'object') {
     Object.keys(cfg.tools).forEach((k) => {
       const el = document.querySelector(`.voice-toggle[data-tool="${k}"]`);
       if (el) el.classList.toggle('on', !!cfg.tools[k]);
@@ -4454,47 +4523,81 @@ function applyConfigToForm(cfg) {
   }
 }
 
-$('#settings-save').addEventListener('click', () => {
-  const tools = {};
-  document.querySelectorAll('.voice-toggle[data-tool]').forEach((el) => {
-    tools[el.getAttribute('data-tool')] = el.classList.contains('on');
-  });
-  const cfg = {
-    model: $('#cfg-model').value,
-    ollama_url: $('#cfg-ollama-url').value,
-    gemini_api_key: $('#cfg-gemini-key').value,
-    nvidia_api_key: $('#cfg-nvidia-key').value,
-    fish_audio_api_key: $('#cfg-fish-key') ? $('#cfg-fish-key').value : '',
-    fish_audio_voice_id: $('#cfg-fish-voice') ? $('#cfg-fish-voice').value : '05b36da8574341d0803391491850db20',
-    cesium_ion_token: $('#cfg-cesium-token') ? $('#cfg-cesium-token').value.trim() : '',
-    nasa_firms_key: $('#cfg-nasa-firms-key') ? $('#cfg-nasa-firms-key').value.trim() : '',
-    groq_api_key: $('#cfg-groq-key') ? $('#cfg-groq-key').value.trim() : '',
-    tools: tools,
-  };
-  if (api() && api().save_config) {
-    $('#settings-status').textContent = 'Saving...';
-    api().save_config(cfg).then((result) => {
-      if (result) {
-        $('#settings-status').textContent = '✓ Saved to config.yaml & .env';
-        if (typeof Cesium !== 'undefined' && cfg.cesium_ion_token) {
-          Cesium.Ion.defaultAccessToken = cfg.cesium_ion_token;
-          window._userConfiguredCesium = true;
-          window._cesiumOsmBuildingsAdded = false;
-          if (typeof window.loadCesiumTerrain === 'function') window.loadCesiumTerrain();
-          if (typeof window.loadCesiumBuildings === 'function') window.loadCesiumBuildings();
-        }
-      } else {
-        $('#settings-status').textContent = '✗ Save failed — check console.';
-      }
-      setTimeout(() => { $('#settings-status').textContent = ''; }, 3500);
-    }).catch(() => {
-      $('#settings-status').textContent = '✗ Save error.';
-      setTimeout(() => { $('#settings-status').textContent = ''; }, 3500);
+const settingsSaveBtn = document.getElementById('settings-save');
+if (settingsSaveBtn) {
+  settingsSaveBtn.addEventListener('click', () => {
+    const tools = {};
+    document.querySelectorAll('.voice-toggle[data-tool]').forEach((el) => {
+      tools[el.getAttribute('data-tool')] = el.classList.contains('on');
     });
-  } else {
-    $('#settings-status').textContent = 'save_config not available — restart the desktop app.';
-  }
-});
+
+    function getVal(id) {
+      const el = document.querySelector(id);
+      return el ? el.value.trim() : '';
+    }
+
+    const cfg = {
+      model: getVal('#cfg-model'),
+      ollama_url: getVal('#cfg-ollama-url'),
+      gemini_api_key: getVal('#cfg-gemini-key'),
+      nvidia_api_key: getVal('#cfg-nvidia-key'),
+      nvidia_model: getVal('#cfg-nvidia-model') || 'nvidia/nemotron-3-super-120b-a12b',
+      fish_audio_api_key: getVal('#cfg-fish-key'),
+      fish_audio_voice_id: getVal('#cfg-fish-voice') || '05b36da8574341d0803391491850db20',
+      cesium_ion_token: getVal('#cfg-cesium-token'),
+      nasa_firms_key: getVal('#cfg-nasa-firms-key'),
+      groq_api_key: getVal('#cfg-groq-key'),
+      tools: tools,
+    };
+
+    try {
+      localStorage.setItem('jarvis_config', JSON.stringify(cfg));
+    } catch(e) {}
+
+    const statusEl = document.getElementById('settings-status');
+    if (statusEl) {
+      statusEl.style.color = '#FF9D2E';
+      statusEl.textContent = 'Saving...';
+    }
+
+    if (api() && api().save_config) {
+      api().save_config(cfg).then((result) => {
+        if (result) {
+          if (statusEl) {
+            statusEl.style.color = '#22C55E';
+            statusEl.textContent = '✓ Saved to config.yaml & .env';
+          }
+          if (typeof Cesium !== 'undefined' && cfg.cesium_ion_token) {
+            Cesium.Ion.defaultAccessToken = cfg.cesium_ion_token;
+            window._userConfiguredCesium = true;
+            window._cesiumOsmBuildingsAdded = false;
+            if (typeof window.loadCesiumTerrain === 'function') window.loadCesiumTerrain();
+            if (typeof window.loadCesiumBuildings === 'function') window.loadCesiumBuildings();
+          }
+        } else {
+          if (statusEl) {
+            statusEl.style.color = '#EF4444';
+            statusEl.textContent = '✗ Save failed — check console.';
+          }
+        }
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3500);
+      }).catch((err) => {
+        console.error('[settings] Save error:', err);
+        if (statusEl) {
+          statusEl.style.color = '#EF4444';
+          statusEl.textContent = '✗ Save error: ' + (err?.message || err);
+        }
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3500);
+      });
+    } else {
+      if (statusEl) {
+        statusEl.style.color = '#22C55E';
+        statusEl.textContent = '✓ Saved to local cache.';
+      }
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3500);
+    }
+  });
+}
 
 /* ---------- Sidebar Case List & History Persistence ---------- */
 
@@ -5753,6 +5856,12 @@ function setHudState(state) {
 }
 
 function drawJarvisHud() {
+  // Pause Screen 1 HUD galaxy canvas when focused on Screen 2 (Cesium Globe)
+  if (typeof SpatialNav !== 'undefined' && SpatialNav.currentX > 800) {
+    requestAnimationFrame(drawJarvisHud);
+    return;
+  }
+
   if (!jarvisCanvas) jarvisCanvas = document.getElementById('jarvis-hud-canvas') || document.getElementById('joe-hud-canvas');
   if (!jarvisCanvas) {
     requestAnimationFrame(drawJarvisHud);
@@ -5831,6 +5940,12 @@ function getEkgHeightAtPhase(phase, state, audioEnergy) {
 }
 
 function drawEkgWaveform() {
+  // Pause Screen 1 EKG canvas rendering when on Screen 2
+  if (typeof SpatialNav !== 'undefined' && SpatialNav.currentX > 800) {
+    requestAnimationFrame(drawEkgWaveform);
+    return;
+  }
+
   if (!ekgCanvas) ekgCanvas = document.getElementById('ekg-canvas');
   if (ekgCanvas && !ekgCtx) ekgCtx = ekgCanvas.getContext('2d');
   if (!ekgCanvas || !ekgCtx) {
@@ -7581,6 +7696,10 @@ function updateGalaxyMeta() {
 
 document.addEventListener('DOMContentLoaded', () => {
   TaskSurfaceManager.init();
+  try {
+    const cached = localStorage.getItem('jarvis_config');
+    if (cached) applyConfigToForm(JSON.parse(cached));
+  } catch(e) {}
   if (window.HudGalaxy && typeof HudGalaxy.resize === 'function') HudGalaxy.resize();
   updateSpatialSystemTelemetry();
   spatialTelemetryTimer = setInterval(updateSpatialSystemTelemetry, 2000);
@@ -8750,8 +8869,16 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// Automatic background voice listener trigger
+// Automatic background voice listener trigger and initial config preload
 window.addEventListener('pywebviewready', () => {
+  if (api() && api().get_config) {
+    api().get_config().then(cfg => {
+      if (cfg) {
+        applyConfigToForm(cfg);
+        try { localStorage.setItem('jarvis_config', JSON.stringify(cfg)); } catch(e) {}
+      }
+    }).catch(e => console.warn('[settings] Startup config fetch error:', e));
+  }
   if (api() && api().start_background_voice_listener) {
     api().start_background_voice_listener().then(res => {
       console.log('[JarvisVoice] Automatic background voice listener initialized:', res);
@@ -8852,8 +8979,8 @@ const SpatialNav = {
   },
 
   onPointerDown(e) {
-    // Exclude interactive controls, inputs, action buttons, and window titles
-    if (e.target.closest('input, textarea, button, a, select, option, .jarvis-task-surface, .overlay-panel, #sidebar, .spatial-dock-item, .globe-hud-btn, .nav-btn, .top-bar-menu-btn')) {
+    // Exclude interactive controls, inputs, action buttons, overlays, hud cards, and window titles
+    if (e.target.closest('input, textarea, button, a, select, option, .jarvis-task-surface, .overlay, .overlay-panel, #sidebar, .spatial-dock-item, #spatial-dock, .globe-hud-btn, .nav-btn, .top-bar-menu-btn, #spatial-globe-hud, .globe-layer-toggle, .radio-tuner-box, #globe-inspect-card, #globe-hud-launcher, #jarvis-top-bar, #jarvis-input-bar, .spatial-edge-strip')) {
       return;
     }
 
@@ -8926,11 +9053,27 @@ const SpatialNav = {
   },
 
   update(delta) {
+    const isMoving = Math.abs(this.targetX - this.currentX) > 0.04 || Math.abs(this.targetZoom - this.currentZoom) > 0.04;
+    if (!isMoving && !this.isDragging && !this._initialStyleSet) {
+      this._initialStyleSet = true;
+      this.currentX = this.targetX;
+      this.currentZoom = this.targetZoom;
+      this._applySpatialProperties();
+      return;
+    }
+    if (!isMoving && !this.isDragging) return;
+
     // Responsive damping during active drag; silky smooth glide on release
     const lerpRate = this.isDragging ? 0.22 : 0.085;
     this.currentX += (this.targetX - this.currentX) * lerpRate;
     this.currentZoom += (this.targetZoom - this.currentZoom) * 0.08;
+    if (Math.abs(this.targetX - this.currentX) < 0.04) this.currentX = this.targetX;
+    if (Math.abs(this.targetZoom - this.currentZoom) < 0.04) this.currentZoom = this.targetZoom;
 
+    this._applySpatialProperties();
+  },
+
+  _applySpatialProperties() {
     const ratio = Math.max(0, Math.min(1, this.currentX / 950));
     document.documentElement.style.setProperty('--spatial-x', this.currentX.toFixed(2) + 'px');
     document.documentElement.style.setProperty('--spatial-ratio', ratio.toFixed(4));
