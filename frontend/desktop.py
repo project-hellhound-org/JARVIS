@@ -2423,87 +2423,98 @@ class JarvisDesktop:
         try:
             import bottle
             try:
-                from webview.http import BottleServer
+                from webview.http import BottleServer, is_app, is_local_url, _get_random_port, ThreadedAdapter
             except Exception:
-                from webview.http.bottle import BottleServer
+                try:
+                    from webview.http.bottle import BottleServer, is_app, is_local_url, _get_random_port, ThreadedAdapter
+                except Exception:
+                    BottleServer = None
 
-            class JarvisBottleServer(BottleServer):
-                @classmethod
-                def start_server(cls, urls, http_port, keyfile=None, certfile=None):
-                    import uuid, threading, os
-                    from os.path import abspath
-                    from webview.http.bottle import is_app, is_local_url, _get_random_port, ThreadedAdapter
-                    from webview import _state
+            if BottleServer:
+                class JarvisBottleServer(BottleServer):
+                    @classmethod
+                    def start_server(cls, urls, http_port, keyfile=None, certfile=None):
+                        try:
+                            import uuid, threading, os
+                            from os.path import abspath
+                            try:
+                                from webview.http import is_app, is_local_url, _get_random_port, ThreadedAdapter
+                            except Exception:
+                                from webview.http.bottle import is_app, is_local_url, _get_random_port, ThreadedAdapter
+                            from webview import _state
 
-                    apps = [u for u in urls if is_app(u)]
-                    server = cls()
+                            apps = [u for u in urls if is_app(u)]
+                            server = cls()
 
-                    if len(apps) > 0:
-                        app = apps[0]
-                        common_path = '.'
-                    else:
-                        local_urls = [u.split('#')[0] for u in urls if is_local_url(u)]
-                        common_path = os.path.commonpath(local_urls) if len(local_urls) > 0 else None
-                        if common_path is not None and not os.path.isdir(abspath(common_path)):
-                            common_path = os.path.dirname(common_path)
-                        server.root_path = abspath(common_path) if common_path is not None else None
-                        app = bottle.Bottle()
+                            if len(apps) > 0:
+                                app = apps[0]
+                                common_path = '.'
+                            else:
+                                local_urls = [u.split('#')[0] for u in urls if is_local_url(u)]
+                                common_path = os.path.commonpath(local_urls) if len(local_urls) > 0 else None
+                                if common_path is not None and not os.path.isdir(abspath(common_path)):
+                                    common_path = os.path.dirname(common_path)
+                                server.root_path = abspath(common_path) if common_path is not None else None
+                                app = bottle.Bottle()
 
-                        @app.post(f'/js_api/{server.uid}')
-                        def js_api():
-                            bottle.response.headers['Access-Control-Allow-Origin'] = '*'
-                            bottle.response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
-                            bottle.response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
-                            body = json.loads(bottle.request.body.read().decode('utf-8'))
-                            if body['uid'] in server.js_callback:
-                                return json.dumps(server.js_callback[body['uid']](body))
-                            return ""
+                                @app.post(f'/js_api/{server.uid}')
+                                def js_api():
+                                    bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+                                    bottle.response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
+                                    bottle.response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
+                                    body = json.loads(bottle.request.body.read().decode('utf-8'))
+                                    if body['uid'] in server.js_callback:
+                                        return json.dumps(server.js_callback[body['uid']](body))
+                                    return ""
 
-                        # Hook dynamic OSINT and CCTV endpoints BEFORE catch-all static route!
-                        @app.route('/api/adsb/<feed>')
-                        def _bottle_adsb(feed="mil"):
-                            bottle.response.content_type = 'application/json'
-                            return json.dumps(api.get_adsb_flights(feed))
+                                # Hook dynamic OSINT and CCTV endpoints BEFORE catch-all static route!
+                                @app.route('/api/adsb/<feed>')
+                                def _bottle_adsb(feed="mil"):
+                                    bottle.response.content_type = 'application/json'
+                                    return json.dumps(api.get_adsb_flights(feed))
 
-                        @app.route('/api/cctv/frame/<camera_id>')
-                        def _bottle_cctv(camera_id):
-                            bottle.response.content_type = 'image/jpeg'
-                            bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                            return api.get_cctv_frame(camera_id)
+                                @app.route('/api/cctv/frame/<camera_id>')
+                                def _bottle_cctv(camera_id):
+                                    bottle.response.content_type = 'image/jpeg'
+                                    bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                                    return api.get_cctv_frame(camera_id)
 
-                        @app.route('/api/firms')
-                        def _bottle_firms():
-                            bottle.response.content_type = 'application/json'
-                            return json.dumps(api.get_firms_hotspots())
+                                @app.route('/api/firms')
+                                def _bottle_firms():
+                                    bottle.response.content_type = 'application/json'
+                                    return json.dumps(api.get_firms_hotspots())
 
-                        @app.route('/')
-                        @app.route('/<file:path>')
-                        def asset(file):
-                            if not server.root_path:
-                                return ''
-                            bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                            bottle.response.set_header('Pragma', 'no-cache')
-                            bottle.response.set_header('Expires', 0)
-                            return bottle.static_file(file, root=server.root_path)
+                                @app.route('/')
+                                @app.route('/<file:path>')
+                                def asset(file):
+                                    if not server.root_path:
+                                        return ''
+                                    bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                                    bottle.response.set_header('Pragma', 'no-cache')
+                                    bottle.response.set_header('Expires', 0)
+                                    return bottle.static_file(file, root=server.root_path)
 
-                    server.root_path = abspath(common_path) if common_path is not None else None
-                    server.port = http_port or _get_random_port()
-                    server.thread = threading.Thread(
-                        target=lambda: bottle.run(
-                            app=app, server=ThreadedAdapter, port=server.port, quiet=not _state['debug']
-                        ),
-                        daemon=True,
-                    )
-                    server.thread.start()
+                            server.root_path = abspath(common_path) if common_path is not None else None
+                            server.port = http_port or _get_random_port()
+                            server.thread = threading.Thread(
+                                target=lambda: bottle.run(
+                                    app=app, server=ThreadedAdapter, port=server.port, quiet=not _state['debug']
+                                ),
+                                daemon=True,
+                            )
+                            server.thread.start()
 
-                    server.running = True
-                    server.address = f'http://127.0.0.1:{server.port}/'
-                    cls.common_path = common_path
-                    server.js_api_endpoint = f'{server.address}js_api/{server.uid}'
+                            server.running = True
+                            server.address = f'http://127.0.0.1:{server.port}/'
+                            cls.common_path = common_path
+                            server.js_api_endpoint = f'{server.address}js_api/{server.uid}'
 
-                    return server.address, common_path, server
+                            return server.address, common_path, server
+                        except Exception as srv_err:
+                            print(f"[desktop] JarvisBottleServer fallback notice: {srv_err}")
+                            return super().start_server(urls, http_port, keyfile, certfile)
 
-            server_cls = JarvisBottleServer
+                server_cls = JarvisBottleServer
         except Exception as e:
             print(f"[desktop] Custom BottleServer setup notice: {e}")
 

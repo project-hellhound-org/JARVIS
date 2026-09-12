@@ -9020,8 +9020,10 @@ function initCesiumGlobe() {
     loadCesiumImagery();
 
     function hasUserCesiumToken() {
+      if (window._userConfiguredCesium) return true;
       const tok = (Cesium.Ion && Cesium.Ion.defaultAccessToken) || '';
-      return typeof tok === 'string' && tok.length > 20 && !tok.startsWith('YOUR_') && !tok.includes('cesium-token');
+      const builtInToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlZWVkZjhjNC';
+      return !!(tok && typeof tok === 'string' && tok.length > 20 && !tok.startsWith('YOUR_') && !tok.startsWith(builtInToken) && !tok.includes('cesium-token'));
     }
 
     // High-Resolution Cesium World Terrain (Ion Authenticated) or Keyless Fallback
