@@ -155,6 +155,56 @@ All keys are **optional**. J.A.R.V.I.S. functions completely offline and keyless
 | **Google Gemini** | `gemini_api_key` | Multimodal vision analysis and deep entity correlation. | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | **Fish Audio** | `fish_audio_api_key` | Ultra-realistic British tactical voice synthesis (`05b36da8574341d0803391491850db20`). | [fish.audio/app/developers](https://fish.audio/app/developers) |
 
+### 🔑 Step-by-Step Guide to Acquiring Free API Keys
+
+Operator keys can be configured instantly in the GUI via the **Settings Panel** (`⚙ SETTINGS` button in the top bar or via `/settings` in chat), or by editing `config.yaml` / `.env`:
+
+#### 1. Cesium Ion Access Token (`cesium_ion_token`)
+* **What it unlocks:** High-resolution 3D World Terrain elevation mesh, worldwide 3D photorealistic tiles, and 3D OpenStreetMap building models on the 3D globe.
+* **Steps to obtain (100% Free):**
+  1. Sign up for a free Community account at [ion.cesium.com/signup](https://ion.cesium.com/signup).
+  2. Navigate to **Access Tokens** at [ion.cesium.com/tokens](https://ion.cesium.com/tokens).
+  3. Copy your default token (or generate a new token with `assets:read` permission).
+  4. In J.A.R.V.I.S., click **⚙ SETTINGS** (or type `/settings`), paste into **Cesium Ion Access Token**, and click **Save Settings**.
+
+#### 2. NASA FIRMS MAP_KEY (`nasa_firms_key`)
+* **What it unlocks:** Live near-real-time satellite thermal anomaly detections and active wildfire hotspots across the globe (VIIRS NOAA-20, NOAA-21, and MODIS sensors).
+* **Steps to obtain (100% Free):**
+  1. Visit the NASA FIRMS MAP KEY portal: [firms.modaps.eosdis.nasa.gov/api/map_key/](https://firms.modaps.eosdis.nasa.gov/api/map_key/).
+  2. Enter your email address and click **Get MAP KEY**.
+  3. NASA will immediately send your unique 32-character key to your inbox.
+  4. Paste into the **NASA FIRMS MAP_KEY** field in Settings and click **Save Settings**.
+
+#### 3. Groq LPU API Key (`groq_api_key`)
+* **What it unlocks:** Sub-100ms ultra-low-latency reasoning with `llama-3.3-70b-versatile` and accelerated voice transcription via Groq Whisper (~800 tokens/sec).
+* **Steps to obtain (100% Free):**
+  1. Go to the Groq Cloud Console at [console.groq.com/keys](https://console.groq.com/keys).
+  2. Sign in with GitHub or Google.
+  3. Click **Create API Key**, enter a friendly name (e.g. `JARVIS`), and copy your key starting with `gsk_`.
+  4. Paste into the **Groq LPU API Key** field in Settings and click **Save Settings**.
+
+#### 4. NVIDIA NIM API Key (`nvidia_api_key`)
+* **What it unlocks:** Frontier-class 70B–120B reasoning engines (`nvidia/nemotron-3-super-120b-a12b` and `meta/llama-3.3-70b-instruct`).
+* **Steps to obtain (100% Free):**
+  1. Go to [build.nvidia.com](https://build.nvidia.com) and log in.
+  2. Select `nvidia/nemotron-3-super-120b-a12b` or search for any Nemotron model.
+  3. Click **Get API Key** and generate your key (`nvapi-...`). NVIDIA provides generous free tier credits.
+  4. Paste into **NVIDIA NIM API Key** in Settings.
+
+#### 5. Google Gemini API Key (`gemini_api_key`)
+* **What it unlocks:** Multimodal image/screenshot analysis and deep entity correlation.
+* **Steps to obtain (100% Free):**
+  1. Head to Google AI Studio at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+  2. Click **Create API Key** and select a Google Cloud project.
+  3. Copy your key (`AIza...`) and paste into **Gemini API Key** in Settings.
+
+#### 6. Fish Audio API Key (`fish_audio_api_key`)
+* **What it unlocks:** High-fidelity cloud voice synthesis with J.A.R.V.I.S. voice signature (`05b36da8574341d0803391491850db20`).
+* **Steps to obtain (100% Free):**
+  1. Visit [fish.audio](https://fish.audio) and register an account.
+  2. Go to the Developer Dashboard at [fish.audio/app/developers](https://fish.audio/app/developers).
+  3. Generate an API Key and paste it into **Fish Audio API Key** in Settings.
+
 > [!TIP]
 > ### 🔒 Dynamic Hot-Apply & Auto-Syncing
 > Whenever you save changes in the Settings Panel, J.A.R.V.I.S.:

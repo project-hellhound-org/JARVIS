@@ -2428,56 +2428,82 @@ class JarvisDesktop:
                 from webview.http.bottle import BottleServer
 
             class JarvisBottleServer(BottleServer):
-                def _hook_routes(self):
-                    app = getattr(self, 'root', getattr(self, 'app', None))
-                    if app:
-                        try:
-                            @app.route('/api/adsb/<feed>')
-                            def _bottle_adsb(feed="mil"):
-                                bottle.response.content_type = 'application/json'
-                                return json.dumps(api.get_adsb_flights(feed))
+                @classmethod
+                def start_server(cls, urls, http_port, keyfile=None, certfile=None):
+                    import uuid, threading, os
+                    from os.path import abspath
+                    from webview.http.bottle import is_app, is_local_url, _get_random_port, ThreadedAdapter
+                    from webview import _state
 
-                            @app.route('/api/cctv/frame/<camera_id>')
-                            def _bottle_cctv(camera_id):
-                                bottle.response.content_type = 'image/jpeg'
-                                bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                                return api.get_cctv_frame(camera_id)
+                    apps = [u for u in urls if is_app(u)]
+                    server = cls()
 
-                            @app.route('/api/firms')
-                            def _bottle_firms():
-                                bottle.response.content_type = 'application/json'
-                                return json.dumps(api.get_firms_hotspots())
-                        except Exception as hook_err:
-                            print(f"[desktop] Route hook notice: {hook_err}")
+                    if len(apps) > 0:
+                        app = apps[0]
+                        common_path = '.'
+                    else:
+                        local_urls = [u.split('#')[0] for u in urls if is_local_url(u)]
+                        common_path = os.path.commonpath(local_urls) if len(local_urls) > 0 else None
+                        if common_path is not None and not os.path.isdir(abspath(common_path)):
+                            common_path = os.path.dirname(common_path)
+                        server.root_path = abspath(common_path) if common_path is not None else None
+                        app = bottle.Bottle()
 
-                def __init__(self):
-                    super().__init__()
-                    self._hook_routes()
+                        @app.post(f'/js_api/{server.uid}')
+                        def js_api():
+                            bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+                            bottle.response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
+                            bottle.response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
+                            body = json.loads(bottle.request.body.read().decode('utf-8'))
+                            if body['uid'] in server.js_callback:
+                                return json.dumps(server.js_callback[body['uid']](body))
+                            return ""
 
-                def start_server(self, paths):
-                    ret = super().start_server(paths)
-                    self._hook_routes()
-                    return ret
+                        # Hook dynamic OSINT and CCTV endpoints BEFORE catch-all static route!
+                        @app.route('/api/adsb/<feed>')
+                        def _bottle_adsb(feed="mil"):
+                            bottle.response.content_type = 'application/json'
+                            return json.dumps(api.get_adsb_flights(feed))
+
+                        @app.route('/api/cctv/frame/<camera_id>')
+                        def _bottle_cctv(camera_id):
+                            bottle.response.content_type = 'image/jpeg'
+                            bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                            return api.get_cctv_frame(camera_id)
+
+                        @app.route('/api/firms')
+                        def _bottle_firms():
+                            bottle.response.content_type = 'application/json'
+                            return json.dumps(api.get_firms_hotspots())
+
+                        @app.route('/')
+                        @app.route('/<file:path>')
+                        def asset(file):
+                            if not server.root_path:
+                                return ''
+                            bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                            bottle.response.set_header('Pragma', 'no-cache')
+                            bottle.response.set_header('Expires', 0)
+                            return bottle.static_file(file, root=server.root_path)
+
+                    server.root_path = abspath(common_path) if common_path is not None else None
+                    server.port = http_port or _get_random_port()
+                    server.thread = threading.Thread(
+                        target=lambda: bottle.run(
+                            app=app, server=ThreadedAdapter, port=server.port, quiet=not _state['debug']
+                        ),
+                        daemon=True,
+                    )
+                    server.thread.start()
+
+                    server.running = True
+                    server.address = f'http://127.0.0.1:{server.port}/'
+                    cls.common_path = common_path
+                    server.js_api_endpoint = f'{server.address}js_api/{server.uid}'
+
+                    return server.address, common_path, server
 
             server_cls = JarvisBottleServer
-
-            # Also register on global bottle default_app
-            @bottle.route('/api/adsb/<feed>')
-            def _bottle_api_adsb_proxy(feed="mil"):
-                bottle.response.content_type = 'application/json'
-                data = api.get_adsb_flights(feed)
-                return json.dumps(data)
-
-            @bottle.route('/api/cctv/frame/<camera_id>')
-            def _bottle_api_cctv_frame_proxy(camera_id):
-                bottle.response.content_type = 'image/jpeg'
-                bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                return api.get_cctv_frame(camera_id)
-
-            @bottle.route('/api/firms')
-            def _bottle_api_firms_proxy():
-                bottle.response.content_type = 'application/json'
-                return json.dumps(api.get_firms_hotspots())
         except Exception as e:
             print(f"[desktop] Custom BottleServer setup notice: {e}")
 

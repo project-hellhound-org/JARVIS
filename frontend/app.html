@@ -1306,14 +1306,14 @@
   input[type=file] { display: none; }
 
   /* Overlays */
-  .overlay { position: fixed; inset: 0; z-index: 100; background: rgba(3, 4, 5, 0.88); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; }
-  .overlay.open { display: flex; }
-  .overlay-panel { width: 88%; height: 84%; background: #050607; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.9); }
+  .overlay { position: fixed; inset: 0; z-index: 100000 !important; background: rgba(3, 4, 5, 0.88); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; }
+  .overlay.open { display: flex !important; }
+  .overlay-panel { width: 88%; height: 84%; background: #050607; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.9); z-index: 100001 !important; }
   .overlay-head { padding: 14px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; background: #08090A; }
   .overlay-head .t { font-size: 13px; font-weight: 600; font-family: var(--mono); color: #E6E6E6; letter-spacing: 0.5px; }
   .overlay-close { background: #0B0C0E; border: 1px solid rgba(255, 255, 255, 0.08); color: #8A8D91; width: 28px; height: 28px; border-radius: var(--radius); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.15s ease; }
   .overlay-close:hover { color: #E6E6E6; border-color: rgba(255, 157, 46, 0.4); background: #121417; }
-  .overlay-body { flex: 1; overflow: auto; position: relative; }
+  .overlay-body { flex: 1; overflow-y: auto !important; position: relative; }
 
   /* Key Input Wrap & Transparent Eye Toggle Button */
   .key-input-wrap {
@@ -1420,7 +1420,24 @@
   }
 
   /* Settings Overlay */
-  #settings-overlay .overlay-body { padding: 20px 28px; overflow-y: auto; background: #050607; }
+  #settings-overlay { z-index: 100000 !important; }
+  #settings-overlay .overlay-panel {
+    width: 680px !important;
+    max-width: 94vw !important;
+    height: 85vh !important;
+    max-height: 85vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    z-index: 100001 !important;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.95), 0 0 30px rgba(255,157,46,0.12) !important;
+  }
+  #settings-overlay .overlay-body {
+    padding: 20px 28px;
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    background: #050607;
+  }
   .settings-section { margin-bottom: 22px; }
   .settings-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #FF9D2E; margin: 0 0 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 6px; font-family: var(--mono); }
   .settings-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
@@ -2493,6 +2510,7 @@ body {
         <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(11.4102, 76.6950, 'Ooty')">OOTY</button>
         <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(12.9716, 77.5946, 'Bengaluru')">BENGALURU</button>
         <button class="globe-hud-btn" onclick="window.focusGlobeCoordinates(37.7749, -122.4194, 'San Francisco')">SF</button>
+        <button class="globe-hud-btn" style="border-color:rgba(255,157,46,0.45); color:#FFB84D;" onclick="window.openSettingsOverlay()">⚙ SETTINGS</button>
       </div>
     </div>
 
@@ -2617,9 +2635,12 @@ body {
 
     <!-- Navigation actions -->
     <div class="globe-hud-card" style="padding:10px 12px;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
         <button class="globe-hud-btn" style="background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.15); color:#E6E6E6;" onclick="toggleGlobeHudCollapsed()">
           COLLAPSE ❯
+        </button>
+        <button class="globe-hud-btn" style="background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.2); color:#FFB84D;" onclick="window.openSettingsOverlay()">
+          ⚙ SETTINGS
         </button>
         <button class="globe-hud-btn" style="background:rgba(255,157,46,0.18); border-color:rgba(255,157,46,0.45); color:#FFB84D;" onclick="window.glideToSpatial(0)">
           ◄ RETURN TO HUD
@@ -2686,6 +2707,9 @@ body {
       </div>
     </div>
     <div class="top-bar-right" style="display:flex; align-items:center;">
+      <button id="top-bar-settings-btn" class="hud-color-btn" onclick="window.openSettingsOverlay()" title="Configure Models & God's Eye API Keys" style="display:inline-flex; align-items:center; gap:6px; margin-right:8px; padding:5px 12px; border-radius:6px; font-family:'Inter', sans-serif; font-size:11px; font-weight:700; letter-spacing:0.4px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.06); color:#E6E6E6; cursor:pointer; transition:all 0.25s ease;">
+        ⚙ SETTINGS
+      </button>
       <button id="mode-toggle-btn" class="hud-color-btn" onclick="toggleAppMode()" title="Toggle Assistant vs OSINT War Room Mode" style="display:inline-flex; align-items:center; gap:6px; margin-right:8px; padding:5px 12px; border-radius:6px; font-family:'Inter', sans-serif; font-size:11px; font-weight:700; letter-spacing:0.4px; border:1px solid rgba(255,157,46,0.35); background:rgba(255,157,46,0.1); color:#FFB84D; cursor:pointer; transition:all 0.25s ease;">
         <span id="mode-label">PARTNER MODE</span>
       </button>
@@ -3032,7 +3056,7 @@ body {
 
 <!-- Settings Overlay -->
 <div class="overlay" id="settings-overlay">
-  <div class="overlay-panel" style="width:640px; height:auto; max-height:85%;">
+  <div class="overlay-panel" style="width:680px; height:85vh; max-height:85vh;">
     <div class="overlay-head">
       <span class="t">J.A.R.V.I.S. — Settings</span>
       <button class="overlay-close" id="settings-overlay-close">
@@ -3040,6 +3064,7 @@ body {
       </button>
     </div>
     <div class="overlay-body">
+      <form id="settings-form" onsubmit="return false;" style="display:flex; flex-direction:column; gap:0; margin:0; padding:0;">
       <!-- Card 1: LLM Engine -->
       <div class="collapsible-card settings-card">
         <div class="collapsible-card-header" onclick="toggleCardCollapse(this)">
@@ -3198,13 +3223,14 @@ body {
         </div>
       </div>
 
-      <div style="display:flex; align-items:center; padding-top:12px;">
-        <button id="settings-save">Save Settings</button>
-        <span id="settings-status"></span>
-       </div>
-     </div>
-   </div>
- </div>
+        <div style="display:flex; align-items:center; padding-top:12px;">
+          <button type="button" id="settings-save">Save Settings</button>
+          <span id="settings-status"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <!-- Target Investigation Dialog Overlay -->
 <div class="overlay" id="target-dialog-overlay">
@@ -3967,13 +3993,47 @@ function runSkillPrompt(prefix) {
 
 /* ---------- Settings Overlay ---------- */
 
-$('#nav-settings-tab').addEventListener('click', () => {
-  $('#settings-overlay').classList.add('open');
-  if (api() && api().get_config) {
-    api().get_config().then((cfg) => { if (cfg) applyConfigToForm(cfg); });
+window.openSettingsOverlay = function() {
+  const overlay = $('#settings-overlay');
+  if (overlay) {
+    overlay.classList.add('open');
+    overlay.style.display = 'flex';
   }
-});
-$('#settings-overlay-close').addEventListener('click', () => { $('#settings-overlay').classList.remove('open'); });
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) {
+    sidebar.classList.remove('expanded');
+    sidebar.classList.remove('open');
+  }
+  if (api() && api().get_config) {
+    api().get_config().then((cfg) => {
+      if (cfg) applyConfigToForm(cfg);
+    }).catch((err) => {
+      console.warn('[settings] Could not fetch config:', err);
+    });
+  }
+};
+
+window.closeSettingsOverlay = function() {
+  const overlay = $('#settings-overlay');
+  if (overlay) {
+    overlay.classList.remove('open');
+    overlay.style.display = 'none';
+  }
+};
+
+if ($('#nav-settings-tab')) {
+  $('#nav-settings-tab').addEventListener('click', window.openSettingsOverlay);
+}
+if ($('#settings-overlay-close')) {
+  $('#settings-overlay-close').addEventListener('click', window.closeSettingsOverlay);
+}
+if ($('#settings-overlay')) {
+  $('#settings-overlay').addEventListener('click', (e) => {
+    if (e.target === $('#settings-overlay')) {
+      window.closeSettingsOverlay();
+    }
+  });
+}
 
 /* ---------- Target Investigation Overlay JS ---------- */
 function openTargetDialog() {
@@ -4034,7 +4094,11 @@ function applyConfigToForm(cfg) {
   if ($('#cfg-nasa-firms-key')) $('#cfg-nasa-firms-key').value = clean(cfg.nasa_firms_key);
   if ($('#cfg-groq-key')) $('#cfg-groq-key').value = clean(cfg.groq_api_key);
   if (typeof Cesium !== 'undefined' && cfg.cesium_ion_token) {
-    Cesium.Ion.defaultAccessToken = clean(cfg.cesium_ion_token);
+    const cToken = clean(cfg.cesium_ion_token);
+    if (cToken && cToken.length > 20) {
+      Cesium.Ion.defaultAccessToken = cToken;
+      window._userConfiguredCesium = true;
+    }
   }
   if (cfg.tools) {
     Object.keys(cfg.tools).forEach((k) => {
@@ -4068,6 +4132,8 @@ $('#settings-save').addEventListener('click', () => {
         $('#settings-status').textContent = '✓ Saved to config.yaml & .env';
         if (typeof Cesium !== 'undefined' && cfg.cesium_ion_token) {
           Cesium.Ion.defaultAccessToken = cfg.cesium_ion_token;
+          window._userConfiguredCesium = true;
+          window._cesiumOsmBuildingsAdded = false;
           if (typeof window.loadCesiumTerrain === 'function') window.loadCesiumTerrain();
           if (typeof window.loadCesiumBuildings === 'function') window.loadCesiumBuildings();
         }
@@ -4178,6 +4244,13 @@ function handleSend() {
 
   if (text === '/skills') {
     openSkillsOverlay();
+    input.value = '';
+    input.focus();
+    return;
+  }
+
+  if (text === '/settings' || text === '/config') {
+    window.openSettingsOverlay();
     input.value = '';
     input.focus();
     return;
@@ -8946,10 +9019,15 @@ function initCesiumGlobe() {
     }
     loadCesiumImagery();
 
+    function hasUserCesiumToken() {
+      const tok = (Cesium.Ion && Cesium.Ion.defaultAccessToken) || '';
+      return typeof tok === 'string' && tok.length > 20 && !tok.startsWith('YOUR_') && !tok.includes('cesium-token');
+    }
+
     // High-Resolution Cesium World Terrain (Ion Authenticated) or Keyless Fallback
     async function loadCesiumTerrain() {
       try {
-        if (Cesium.Ion && Cesium.Ion.defaultAccessToken) {
+        if (hasUserCesiumToken()) {
           if (Cesium.Terrain && Cesium.Terrain.fromWorldTerrain) {
             cesiumViewer.terrain = Cesium.Terrain.fromWorldTerrain();
             console.log('[Cesium] Cesium World Terrain active (Ion authenticated)');
@@ -8980,7 +9058,11 @@ function initCesiumGlobe() {
     // 3D OSM Photorealistic Buildings (Ion Authenticated)
     async function loadCesiumBuildings() {
       if (window._cesiumOsmBuildingsAdded) return;
-      if (Cesium.createOsmBuildingsAsync && Cesium.Ion && Cesium.Ion.defaultAccessToken) {
+      if (!hasUserCesiumToken()) {
+        console.log('[Cesium] 3D OSM Buildings skipped: No Cesium Ion token configured (using keyless 3D satellite mesh)');
+        return;
+      }
+      if (Cesium.createOsmBuildingsAsync) {
         try {
           const buildingsTileset = await Cesium.createOsmBuildingsAsync();
           if (cesiumViewer && !cesiumViewer.isDestroyed()) {
