@@ -10602,9 +10602,7 @@ function initGlobeIntelligence(viewer) {
           transparent: true,
           color: Cesium.Color.WHITE.withAlpha(0.95)
         }),
-        outline: true,
-        outlineColor: Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.85),
-        outlineWidth: 2
+        outline: false
       },
       _tacticalData: tacticalData
     });
@@ -11113,9 +11111,7 @@ function initGlobeIntelligence(viewer) {
               semiMinorAxis: radiusMeters,
               semiMajorAxis: radiusMeters,
               material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(colorHex).withAlpha(0.28)),
-              outline: true,
-              outlineColor: Cesium.Color.fromCssColorString(colorHex).withAlpha(0.85),
-              outlineWidth: 2
+              outline: false
             },
             point: {
               pixelSize: Math.max(6, Math.min(14, Math.round(mag * 2))),

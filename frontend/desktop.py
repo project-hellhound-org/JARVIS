@@ -18,6 +18,7 @@ import re
 import subprocess
 import time
 import os
+import urllib.request
 
 # Unrestrict audio autoplay in QtWebEngine so neural voice responses play without requiring a user click
 current_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
@@ -2155,14 +2156,14 @@ class JarvisAPI:
                 if not is_speaking:
                     ambient_energy = 0.985 * ambient_energy + 0.015 * energy
 
-                # Voice activity threshold: reject ambient room noise (~200-280) and require genuine vocal acoustic energy (600+)
-                threshold = max(380.0, ambient_energy * 1.6 + 60.0)
+                # Voice activity threshold: reject ambient room noise (~200-480) and require genuine vocal acoustic energy (620+)
+                threshold = max(620.0, ambient_energy * 1.8 + 80.0)
                 speech = energy >= threshold
 
                 if speech:
                     speech_start_count += 1
                     silence_chunks = 0
-                    if not is_speaking and speech_start_count >= 2:
+                    if not is_speaking and speech_start_count >= 3:
                         is_speaking = True
                         pcm_buffer = list(pre_roll)
                         print(
