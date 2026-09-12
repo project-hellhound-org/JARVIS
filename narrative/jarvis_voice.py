@@ -553,7 +553,7 @@ class JarvisVoice:
                 }
 
                 full_response = []
-                with self.client.stream("POST", NVIDIA_URL, headers=headers, json=payload, timeout=60.0) as r:
+                with self.client.stream("POST", NVIDIA_URL, headers=headers, json=payload, timeout=18.0) as r:
                     if r.status_code == 429:
                         self.nvidia_rate_limited = True
                         print(f"[jarvis_voice] NVIDIA NIM API rate-limited (429). Switching to fallback.")
@@ -705,17 +705,37 @@ class JarvisVoice:
         clean = re.sub(r'https?://\S+', '', clean)
         clean = re.sub(r'www\.\S+', '', clean)
         clean = re.sub(r'\b\w+\.(?:com|org|net|edu|gov|mil|int|co\.uk|ca|de|fr|jp|au|us|ru|ch|it|nl|se|no|dk|fi|pl|be|at|pt|gr|ie|hu|cz|sk|si|hr|bg|ro|lv|lt|ee|cy|mt|is|li|lu|mc|sm|va|ad|mc)\b', '', clean, flags=re.IGNORECASE)
+        # Acronym normalization — prevent letter-by-letter spelling or dot splitting on J.A.R.V.I.S.
+        clean = re.sub(r'\bJ\.?A\.?R\.?V\.?I\.?S\.?', 'Jarvis', clean, flags=re.IGNORECASE)
+
+        # Geographic Coordinates normalization (e.g. 11.4228° N, 76.8661° E -> 11.42 degrees North, 76.86 degrees East)
+        def _norm_coord(m):
+            val, direction = m.group(1), m.group(2).upper()
+            d_map = {'N': 'North', 'S': 'South', 'E': 'East', 'W': 'West'}
+            return f"{val} degrees {d_map.get(direction, direction)}"
+        clean = re.sub(r'(\d+(?:\.\d+)?)\s*°?\s*([NSEWnsew])\b', _norm_coord, clean)
+
         # Temperature unit conversion
         clean = re.sub(r'(\d+(?:\.\d+)?)\s*°?\s*C\b', r'\1 degrees Celsius', clean)
         clean = re.sub(r'(\d+(?:\.\d+)?)\s*°?\s*F\b', r'\1 degrees Fahrenheit', clean)
         clean = re.sub(r'\b(\d+(?:\.\d+)?)\s*celsius\b', r'\1 degrees Celsius', clean, flags=re.IGNORECASE)
         clean = re.sub(r'\b(\d+(?:\.\d+)?)\s*fahrenheit\b', r'\1 degrees Fahrenheit', clean, flags=re.IGNORECASE)
+        clean = re.sub(r'(\d+(?:\.\d+)?)\s*°', r'\1 degrees ', clean)
+        clean = clean.replace('°', ' degrees ')
+
+        # Common symbols normalization
+        clean = clean.replace('%', ' percent ')
+        clean = clean.replace('&', ' and ')
+        clean = clean.replace('@', ' at ')
+        clean = clean.replace('±', ' plus or minus ')
+        clean = clean.replace('—', ' — ')
+
         # Strip stage directions, roleplay actions, asterisks and parentheticals (*grins*, *cracks knuckles*, (chuckles), etc.)
         clean = re.sub(r'\*[^*]+\*', '', clean)
         clean = re.sub(r'\([^)]*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks|leans|snort)[^)]*\)', '', clean, flags=re.IGNORECASE)
-        # Add natural pauses around punctuation for more human-like speech
-        clean = re.sub(r'([.!?])\s*', r'\1 ', clean)
-        clean = re.sub(r'([,;:])\s*', r'\1 ', clean)
+        # Add natural pauses around punctuation for more human-like speech (protect decimals from getting broken into "11. 42")
+        clean = re.sub(r'(?<!\d)([.!?])(?!\d)\s*', r'\1 ', clean)
+        clean = re.sub(r'(?<!\d)([,;:])(?!\d)\s*', r'\1 ', clean)
         # Replace snake_case underscores with spaces (e.g. open_app -> open app)
         clean = re.sub(r'(\w+)_(\w+)', r'\1 \2', clean)
         clean = clean.replace('_', ' ')
@@ -999,7 +1019,7 @@ class JarvisVoice:
         q_lower = question.strip().lower()
         clean_q = re.sub(r'[^\w\s]', '', q_lower).strip()
         if clean_q in ["who are you", "who are u", "who u are", "what is your name", "whats your name", "who the fuck are you"]:
-            identity_msg = "I am J.A.R.V.I.S., an autonomous tactical intelligence officer and personal assistant. At your service, Sir."
+            identity_msg = "I am Jarvis, an autonomous tactical intelligence officer and personal assistant. At your service, Sir."
             self.session_memory.add("user", question)
             self.session_memory.add("jarvis", identity_msg)
             if on_token:

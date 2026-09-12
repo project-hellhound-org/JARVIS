@@ -2537,30 +2537,33 @@ body {
     <div class="globe-hud-card">
       <div class="globe-hud-title">
         <span>🛰 TACTICAL LAYERS</span>
-        <span style="color:#22C55E; font-size:10px;">KEYLESS OSINT</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button onclick="window.clearAllTacticalLayers()" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); color:#FCA5A5; font-size:8.5px; font-weight:700; padding:2px 6px; border-radius:3px; cursor:pointer;" title="Turn off all data layers">CLEAR ALL</button>
+          <span style="color:#22C55E; font-size:10px;">KEYLESS OSINT</span>
+        </div>
       </div>
       <div style="display:flex; flex-direction:column; gap:6px;">
-        <div class="globe-layer-toggle active" id="layer-toggle-flights" onclick="window.toggleTacticalLayer('flights')">
+        <div class="globe-layer-toggle" id="layer-toggle-flights" onclick="window.toggleTacticalLayer('flights')">
           <span>✈ AIRSPACE RADAR (ADS-B)</span>
           <div class="toggle-pill"></div>
         </div>
-        <div class="globe-layer-toggle active" id="layer-toggle-vessels" onclick="window.toggleTacticalLayer('vessels')">
+        <div class="globe-layer-toggle" id="layer-toggle-vessels" onclick="window.toggleTacticalLayer('vessels')">
           <span>🚢 MARITIME VESSELS (AIS)</span>
           <div class="toggle-pill"></div>
         </div>
-        <div class="globe-layer-toggle active" id="layer-toggle-cctv" onclick="window.toggleTacticalLayer('cctv')">
+        <div class="globe-layer-toggle" id="layer-toggle-cctv" onclick="window.toggleTacticalLayer('cctv')">
           <span>📹 CCTV / TRAFFIC CONES</span>
           <div class="toggle-pill"></div>
         </div>
-        <div class="globe-layer-toggle active" id="layer-toggle-radio" onclick="window.toggleTacticalLayer('radio')">
+        <div class="globe-layer-toggle" id="layer-toggle-radio" onclick="window.toggleTacticalLayer('radio')">
           <span>📻 GLOBAL RADIO TUNER</span>
           <div class="toggle-pill"></div>
         </div>
-        <div class="globe-layer-toggle active" id="layer-toggle-space" onclick="window.toggleTacticalLayer('space')">
+        <div class="globe-layer-toggle" id="layer-toggle-space" onclick="window.toggleTacticalLayer('space')">
           <span>🛰 ORBITAL SATELLITES (ISS)</span>
           <div class="toggle-pill"></div>
         </div>
-        <div class="globe-layer-toggle active" id="layer-toggle-seismic" onclick="window.toggleTacticalLayer('seismic')">
+        <div class="globe-layer-toggle" id="layer-toggle-seismic" onclick="window.toggleTacticalLayer('seismic')">
           <span>💥 SEISMIC HAZARDS (USGS)</span>
           <div class="toggle-pill"></div>
         </div>
@@ -2568,21 +2571,21 @@ body {
       <div style="font-size:9.5px; color:#8A8D91; font-family:var(--mono); margin-top:8px; display:grid; grid-template-columns:repeat(3, 1fr); gap:4px;">
         <span>RADAR: <span id="radar-contact-count" style="color:#00F0FF;">0</span></span>
         <span>VESSELS: <span id="vessel-contact-count" style="color:#38BDF8;">0</span></span>
-        <span>CCTV: <span id="cctv-contact-count" style="color:#FFB84D;">8</span></span>
+        <span>CCTV: <span id="cctv-contact-count" style="color:#FFB84D;">0</span></span>
       </div>
     </div>
 
-    <!-- Global Internet Radio Player -->
+    <!-- Global Internet Radio Player (Tactical OSINT & Scanner Directory) -->
     <div class="globe-hud-card" id="globe-radio-card">
       <div class="globe-hud-title">
-        <span>📻 LIVE RADIO TUNER</span>
-        <span id="radio-station-freq" style="color:#00F0FF; font-size:10px;">102.3 FM</span>
+        <span>📻 TACTICAL OSINT RADIO</span>
+        <span id="radio-station-freq" style="color:#00F0FF; font-size:10px;">118.10 MHz VHF</span>
       </div>
       <div class="radio-tuner-box">
         <div class="radio-now-playing">
           <div>
-            <div id="radio-now-title" style="font-size:11px; font-weight:700; color:#FFFFFF;">American Tamil Radio</div>
-            <div id="radio-now-genre" style="font-size:9.5px; color:#8A8D91;">Tamil Hits & Cultural • 24/7 Global</div>
+            <div id="radio-now-title" style="font-size:11px; font-weight:700; color:#FFFFFF;">Tokyo Haneda Tower ATC (RJTT)</div>
+            <div id="radio-now-genre" style="font-size:9.5px; color:#8A8D91;">Aviation Air Traffic Control • Tokyo</div>
           </div>
           <div class="radio-bars" id="radio-audio-bars">
             <span></span><span></span><span></span><span></span>
@@ -2596,13 +2599,12 @@ body {
           </div>
         </div>
         <div class="radio-chip-row">
-          <button class="radio-chip active" id="radio-chip-tamil" onclick="window.tuneRadioStation('tamil')">Tamil FM</button>
-          <button class="radio-chip" id="radio-chip-somafm" onclick="window.tuneRadioStation('somafm')">SomaFM</button>
-          <button class="radio-chip" id="radio-chip-secret_agent" onclick="window.tuneRadioStation('secret_agent')">Secret Agent</button>
+          <button class="radio-chip" id="radio-chip-tokyo_atc" onclick="window.tuneRadioStation('tokyo_atc')">Tokyo ATC</button>
+          <button class="radio-chip" id="radio-chip-heathrow_atc" onclick="window.tuneRadioStation('heathrow_atc')">Heathrow ATC</button>
+          <button class="radio-chip" id="radio-chip-sf_police" onclick="window.tuneRadioStation('sf_police')">SF Police/Fire</button>
           <button class="radio-chip" id="radio-chip-bbc_world" onclick="window.tuneRadioStation('bbc_world')">BBC World</button>
-          <button class="radio-chip" id="radio-chip-lofi" onclick="window.tuneRadioStation('lofi')">Lofi Girl</button>
-          <button class="radio-chip" id="radio-chip-synthwave" onclick="window.tuneRadioStation('synthwave')">Synthwave</button>
-          <button class="radio-chip" id="radio-chip-rock" onclick="window.tuneRadioStation('rock')">Paradise Rock</button>
+          <button class="radio-chip" id="radio-chip-secret_agent" onclick="window.tuneRadioStation('secret_agent')">Secret Agent</button>
+          <button class="radio-chip" id="radio-chip-npr_news" onclick="window.tuneRadioStation('npr_news')">NPR News</button>
         </div>
         <audio id="globe-radio-audio" preload="none"></audio>
       </div>
@@ -5157,8 +5159,25 @@ function initJoeHud() { return initJarvisHud(); }
 window.initJarvisHud = initJarvisHud;
 window.initJoeHud = initJarvisHud;
 
+let _thinkingWatchdogTimer = null;
+
 function setHudState(state) {
   jarvisHudState = state;
+  if (_thinkingWatchdogTimer) {
+    clearTimeout(_thinkingWatchdogTimer);
+    _thinkingWatchdogTimer = null;
+  }
+  if (state === 'thinking') {
+    _thinkingWatchdogTimer = setTimeout(() => {
+      if (jarvisHudState === 'thinking') {
+        console.warn('[HUD] Thinking state watchdog triggered after 15s timeout. Returning to idle.');
+        setHudState('idle');
+        if (typeof finalizeStreamingAnswer === 'function') {
+          finalizeStreamingAnswer('Standby. Operation completed or timed out, Sir.');
+        }
+      }
+    }, 15000);
+  }
   if (window.HudGalaxy) {
     HudGalaxy.setState(state);
   }
@@ -8926,12 +8945,12 @@ function initCesiumGlobe() {
 
 let _activeEarthStyle = 'satellite';
 let _tacticalLayers = {
-  flights: true,
-  vessels: true,
-  cctv: true,
-  radio: true,
-  space: true,
-  seismic: true
+  flights: false,
+  vessels: false,
+  cctv: false,
+  radio: false,
+  space: false,
+  seismic: false
 };
 let _flightsDataSource = null;
 let _vesselsDataSource = null;
@@ -8942,65 +8961,65 @@ let _seismicDataSource = null;
 let _inspectTargetData = null;
 let _cctvAnimInterval = null;
 
-// Verified Direct Audio Streams (100% 200 OK without Auth / Codec Restrictions)
+// Tactical OSINT Intelligence & Scanner Feeds (100% 200 OK Direct Audio Streams)
 const RADIO_STATIONS = {
-  tamil: {
-    id: 'tamil',
-    name: 'Tamil Panpalai Gold',
-    freq: '102.3 FM',
-    genre: 'Tamil Classic Hits & News • Global',
-    lat: 13.0827,
-    lon: 80.2707,
-    streamUrl: 'https://tamilpanpalai.radioca.st/ind'
+  tokyo_atc: {
+    id: 'tokyo_atc',
+    name: 'Tokyo Haneda Tower ATC (RJTT)',
+    freq: '118.10 MHz VHF',
+    genre: 'Aviation Air Traffic Control • Tokyo',
+    lat: 35.5494,
+    lon: 139.7798,
+    streamUrl: 'https://icecast.liveatc.net/rjtt_twr'
   },
-  somafm: {
-    id: 'somafm',
-    name: 'SomaFM Groove Salad',
-    freq: '91.5 FM',
-    genre: 'Downtempo Ambient • San Francisco',
+  heathrow_atc: {
+    id: 'heathrow_atc',
+    name: 'Heathrow Tower ATC (EGLL)',
+    freq: '118.50 MHz VHF',
+    genre: 'Aviation Air Traffic Control • London',
+    lat: 51.4700,
+    lon: -0.4543,
+    streamUrl: 'https://icecast.liveatc.net/egll_twr'
+  },
+  sf_police: {
+    id: 'sf_police',
+    name: 'SF 10-33 Police & Fire Dispatch',
+    freq: '460.025 MHz UHF',
+    genre: 'Live Public Safety & Emergency Scanner • SF',
     lat: 37.7749,
     lon: -122.4194,
-    streamUrl: 'https://ice2.somafm.com/groovesalad-128-mp3'
-  },
-  secret_agent: {
-    id: 'secret_agent',
-    name: 'SomaFM Secret Agent',
-    freq: '95.4 FM',
-    genre: 'Spy / Espionage Lounge • Tactical',
-    lat: 38.9072,
-    lon: -77.0369,
-    streamUrl: 'https://ice4.somafm.com/secretagent-128-mp3'
+    streamUrl: 'https://ice4.somafm.com/sf1033-128-mp3'
   },
   bbc_world: {
     id: 'bbc_world',
     name: 'BBC World Service',
     freq: '93.2 FM',
-    genre: 'Global News & Tactical Analysis • UK',
+    genre: 'Global News & Geopolitical Analysis • UK',
     lat: 51.5188,
     lon: -0.1438,
     streamUrl: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service'
   },
-  synthwave: {
-    id: 'synthwave',
-    name: 'Nightwave Plaza',
-    freq: '99.9 FM',
-    genre: 'Vaporwave & Cyber Synthwave • Tokyo',
-    lat: 35.6762,
-    lon: 139.6503,
-    streamUrl: 'https://radio.plaza.one/mp3'
+  secret_agent: {
+    id: 'secret_agent',
+    name: 'SomaFM Secret Agent',
+    freq: '95.4 FM',
+    genre: 'Espionage Scanner Lounge • Tactical Recon',
+    lat: 38.9072,
+    lon: -77.0369,
+    streamUrl: 'https://ice4.somafm.com/secretagent-128-mp3'
   },
-  rock: {
-    id: 'rock',
-    name: 'Radio Paradise Rock',
-    freq: '105.7 FM',
-    genre: 'Alternative & Classic Rock • California',
-    lat: 36.9741,
-    lon: -122.0308,
-    streamUrl: 'https://stream.radioparadise.com/rock-128'
+  npr_news: {
+    id: 'npr_news',
+    name: 'NPR 24/7 Global News',
+    freq: '91.1 FM',
+    genre: 'Strategic World Reports & Headlines • Washington',
+    lat: 38.9072,
+    lon: -77.0369,
+    streamUrl: 'https://npr-ice.streamguys1.com/live.mp3'
   }
 };
 
-let _currentStationId = 'tamil';
+let _currentStationId = 'tokyo_atc';
 
 // CCTV Network Seeds with Elevation-aware FOV, Azimuth, Pitch, and Mount Clearances
 const CCTV_CAMERAS = [
@@ -9167,18 +9186,45 @@ window.toggleTacticalLayer = function(layerName) {
 
   if (layerName === 'flights' && _flightsDataSource) {
     _flightsDataSource.show = _tacticalLayers.flights;
+    if (_tacticalLayers.flights && window._fetchLiveFlights) window._fetchLiveFlights();
+    else if (!_tacticalLayers.flights) {
+      const el = document.getElementById('radar-contact-count'); if (el) el.textContent = '0';
+    }
   } else if (layerName === 'vessels' && _vesselsDataSource) {
     _vesselsDataSource.show = _tacticalLayers.vessels;
+    const el = document.getElementById('vessel-contact-count');
+    if (el) el.textContent = _tacticalLayers.vessels ? (typeof MARITIME_VESSELS !== 'undefined' ? MARITIME_VESSELS.length : '14') : '0';
   } else if (layerName === 'cctv' && _cctvDataSource) {
     _cctvDataSource.show = _tacticalLayers.cctv;
+    const el = document.getElementById('cctv-contact-count');
+    if (el) el.textContent = _tacticalLayers.cctv ? (typeof CCTV_CAMERAS !== 'undefined' ? CCTV_CAMERAS.length : '8') : '0';
   } else if (layerName === 'radio' && _radioDataSource) {
     _radioDataSource.show = _tacticalLayers.radio;
   } else if (layerName === 'space' && _spaceDataSource) {
     _spaceDataSource.show = _tacticalLayers.space;
+    if (_tacticalLayers.space && window._updateISSPosition) window._updateISSPosition();
   } else if (layerName === 'seismic' && _seismicDataSource) {
     _seismicDataSource.show = _tacticalLayers.seismic;
+    if (_tacticalLayers.seismic && window._fetchLiveSeismic) window._fetchLiveSeismic();
   }
 
+  if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+    window.cesiumViewer.scene.requestRender();
+  }
+};
+
+window.clearAllTacticalLayers = function() {
+  Object.keys(_tacticalLayers).forEach(layerName => {
+    _tacticalLayers[layerName] = false;
+    const toggleEl = document.getElementById(`layer-toggle-${layerName}`);
+    if (toggleEl) toggleEl.classList.remove('active');
+  });
+  if (_flightsDataSource) _flightsDataSource.show = false;
+  if (_vesselsDataSource) _vesselsDataSource.show = false;
+  if (_cctvDataSource) _cctvDataSource.show = false;
+  if (_radioDataSource) _radioDataSource.show = false;
+  if (_spaceDataSource) _spaceDataSource.show = false;
+  if (_seismicDataSource) _seismicDataSource.show = false;
   if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
     window.cesiumViewer.scene.requestRender();
   }
@@ -9419,14 +9465,16 @@ function playTacticalRfStatic(durationMs = 280) {
   }
 }
 
-// Global Radio Tuner Engine with Verified Streams
-window.tuneRadioStation = function(stationId) {
+// Global Radio Tuner Engine with Verified Tactical OSINT Streams
+window.tuneRadioStation = function(stationId, autoPlay = true) {
   const station = RADIO_STATIONS[stationId];
   if (!station) return;
   _currentStationId = stationId;
 
-  // Authentic RF tuning sound effect
-  playTacticalRfStatic(220);
+  if (autoPlay) {
+    // Authentic RF tuning sound effect
+    playTacticalRfStatic(220);
+  }
 
   Object.keys(RADIO_STATIONS).forEach(sid => {
     const chip = document.getElementById(`radio-chip-${sid}`);
@@ -9446,6 +9494,11 @@ window.tuneRadioStation = function(stationId) {
   if (audio) {
     audio.src = station.streamUrl;
     audio.load();
+    if (!autoPlay) {
+      if (btn) btn.textContent = '▶ PLAY';
+      if (bars) bars.classList.remove('playing');
+      return;
+    }
     if (btn) btn.textContent = 'TUNING...';
     audio.play().then(() => {
       if (btn) btn.textContent = '⏸ PAUSE';
@@ -9464,7 +9517,7 @@ window.toggleRadioPlayback = function() {
   const bars = document.getElementById('radio-audio-bars');
   if (!audio) return;
 
-  const st = RADIO_STATIONS[_currentStationId] || RADIO_STATIONS['tamil'];
+  const st = RADIO_STATIONS[_currentStationId] || RADIO_STATIONS['tokyo_atc'];
   if (!audio.src || audio.src === '' || audio.src.endsWith('/')) {
     audio.src = st.streamUrl;
     audio.load();
@@ -9479,9 +9532,9 @@ window.toggleRadioPlayback = function() {
       if (bars) bars.classList.add('playing');
     }).catch(err => {
       console.warn('[Radio] Playback error on station:', _currentStationId, err);
-      // Seamless fallback to SomaFM Groove Salad (rock-solid high-uptime 200 OK stream)
-      if (_currentStationId !== 'somafm') {
-        window.tuneRadioStation('somafm');
+      // Seamless fallback to BBC World Service (rock-solid high-uptime 200 OK stream)
+      if (_currentStationId !== 'bbc_world') {
+        window.tuneRadioStation('bbc_world');
       } else {
         if (btn) btn.textContent = '✕ RETRY';
       }
@@ -9521,6 +9574,7 @@ function initGlobeIntelligence(viewer) {
   // 1. CCTV CAMERAS & TRUE 3D PITCHED WIREFRAME PYRAMIDS (GOD'S EYE VIEW)
   // =========================================================================
   _cctvDataSource = new Cesium.CustomDataSource('cctv-layer');
+  _cctvDataSource.show = _tacticalLayers.cctv;
   viewer.dataSources.add(_cctvDataSource);
 
   // Optical Camera Icon for 3D Gizmo Billboards
@@ -9757,6 +9811,7 @@ function initGlobeIntelligence(viewer) {
   // 2. LIVE AIS MARITIME VESSELS LAYER
   // =========================================================================
   _vesselsDataSource = new Cesium.CustomDataSource('vessels-layer');
+  _vesselsDataSource.show = _tacticalLayers.vessels;
   viewer.dataSources.add(_vesselsDataSource);
 
   const SHIP_ICON = (() => {
@@ -9852,6 +9907,7 @@ function initGlobeIntelligence(viewer) {
   // 3. GLOBAL RADIO TRANSMITTER PINS
   // =========================================================================
   _radioDataSource = new Cesium.CustomDataSource('radio-layer');
+  _radioDataSource.show = _tacticalLayers.radio;
   viewer.dataSources.add(_radioDataSource);
 
   Object.values(RADIO_STATIONS).forEach(st => {
@@ -9893,6 +9949,7 @@ function initGlobeIntelligence(viewer) {
   // 4. AIRSPACE RADAR (MILITARY & COMMERCIAL ADS-B)
   // =========================================================================
   _flightsDataSource = new Cesium.CustomDataSource('flights-layer');
+  _flightsDataSource.show = _tacticalLayers.flights;
   viewer.dataSources.add(_flightsDataSource);
 
   const JET_ICON = (() => {
@@ -10057,6 +10114,7 @@ function initGlobeIntelligence(viewer) {
     }
   }
 
+  window._fetchLiveFlights = fetchLiveFlights;
   fetchLiveFlights();
   setInterval(fetchLiveFlights, 14000);
 
@@ -10064,6 +10122,7 @@ function initGlobeIntelligence(viewer) {
   // 5. ORBITAL SATELLITES LAYER (ISS REAL-TIME TRACKER)
   // =========================================================================
   _spaceDataSource = new Cesium.CustomDataSource('space-layer');
+  _spaceDataSource.show = _tacticalLayers.space;
   viewer.dataSources.add(_spaceDataSource);
 
   const SATELLITE_ICON = (() => {
@@ -10187,6 +10246,7 @@ function initGlobeIntelligence(viewer) {
     }
   }
 
+  window._updateISSPosition = updateISSPosition;
   updateISSPosition();
   setInterval(updateISSPosition, 5000);
 
@@ -10194,6 +10254,7 @@ function initGlobeIntelligence(viewer) {
   // 6. PLANETARY SEISMIC HAZARDS LAYER (USGS M4.5+)
   // =========================================================================
   _seismicDataSource = new Cesium.CustomDataSource('seismic-layer');
+  _seismicDataSource.show = _tacticalLayers.seismic;
   viewer.dataSources.add(_seismicDataSource);
 
   async function fetchLiveSeismic() {
@@ -10282,14 +10343,15 @@ function initGlobeIntelligence(viewer) {
     }
   }
 
+  window._fetchLiveSeismic = fetchLiveSeismic;
   fetchLiveSeismic();
   setInterval(fetchLiveSeismic, 60000);
 
   // Initial sector weather probe
   window.updateSectorWeather(11.4228, 76.8661, 'Kotagiri');
 
-  // Initial verified radio tune
-  window.tuneRadioStation('tamil');
+  // Pre-tune tactical station in paused standby (NO AUTOPLAY)
+  window.tuneRadioStation('tokyo_atc', false);
 
   viewer.scene.requestRender();
 }

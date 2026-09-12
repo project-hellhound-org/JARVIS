@@ -1445,39 +1445,37 @@ class JarvisAPI:
             self._emit("jarvis_stream_chunk", {"chunk": tok})
             if self._voice:
                 sentence_buffer += tok
-                # Fast sentence boundary: trigger TTS as early as possible.
-                # 1. Full sentence end (.!?\n) — always split immediately.
-                m = re.search(r'([.!?\n]+)', sentence_buffer)
-                if m:
+                # Fast sentence boundary: trigger TTS with natural cadence.
+                # 1. Full sentence end boundary with acronym and decimal protection:
+                sentence_regex = r'(?:(?<!\b[A-Z])(?<!\d)[.!?]+(?=\s+[A-Z0-9"\'\u201c\u2018]|\n|$|\s*$))'
+                m = re.search(sentence_regex, sentence_buffer)
+                if m and m.end() >= 12:
                     sentence = sentence_buffer[:m.end()].strip()
-                    sentence_buffer = sentence_buffer[m.end():]
+                    sentence_buffer = sentence_buffer[m.end():].lstrip()
                     if len(sentence) > 3:
                         clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
                         queue_spoken_text(clean_sentence)
                     return
 
-                # 2. Fast First-Phrase / Clause Boundary:
-                # If this is the FIRST phrase (sent_count == 0), split at the very first
-                # comma, colon, or dash once we have 4+ chars (e.g. "Sir," or "Certainly, Sir,").
-                # This achieves sub-300ms time-to-first-audio while LLM is still streaming!
-                # For subsequent phrases, split after 40+ chars at clause breaks.
-                min_len = 4 if sent_count == 0 else 40
-                clause_m = re.search(r'([,;:\u2014\-]+)\s', sentence_buffer)
-                if clause_m and clause_m.end() >= min_len:
-                    sentence = sentence_buffer[:clause_m.end()].strip()
-                    sentence_buffer = sentence_buffer[clause_m.end():]
-                    if len(sentence) > 3:
-                        clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
-                        queue_spoken_text(clean_sentence)
-                    return
+                # 2. Natural Clause Boundary:
+                # Require at least 38 characters before splitting at a clause break (comma, colon, semicolon, dash).
+                # Introductory phrases ("Hey, Sir,") stay together with the sentence without awkward network pauses.
+                if len(sentence_buffer) >= 38:
+                    clause_m = re.search(r'([,;:\u2014\-]+)\s', sentence_buffer)
+                    if clause_m and clause_m.end() >= 35:
+                        sentence = sentence_buffer[:clause_m.end()].strip()
+                        sentence_buffer = sentence_buffer[clause_m.end():].lstrip()
+                        if len(sentence) > 3:
+                            clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
+                            queue_spoken_text(clean_sentence)
+                        return
 
-                # 3. Safety: if LLM produces text without punctuation, flush at word boundary
-                max_buf = 70 if sent_count == 0 else 120
-                if len(sentence_buffer) > max_buf:
+                # 3. Word boundary safety flush for long unpunctuated output (110+ chars)
+                if len(sentence_buffer) > 110:
                     last_space = sentence_buffer.rfind(' ', 0, len(sentence_buffer) - 1)
-                    if last_space > 20:
+                    if last_space > 40:
                         sentence = sentence_buffer[:last_space].strip()
-                        sentence_buffer = sentence_buffer[last_space:]
+                        sentence_buffer = sentence_buffer[last_space:].lstrip()
                         if len(sentence) > 3:
                             clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
                             queue_spoken_text(clean_sentence)
@@ -2297,16 +2295,45 @@ class JarvisDesktop:
             raise ImportError("pywebview is required to run JarvisDesktop. Install pywebview or run with CLI mode.")
 
         # Native 3D Earth Globe is integrated directly into the spatial WebGL canvas;
-        # Standalone Vite dev server is kept optional for external standalone use.
-
-        window = webview.create_window(**window_kwargs)
-
-        api.set_window(window)
-        # Background voice listener will activate cleanly once the frontend signals pywebviewready
-
-        # Attach Bottle HTTP routes for local ADS-B & CCTV proxying (bypasses browser CORS completely)
+        # Attach custom BottleServer to pywebview to reliably serve CCTV frames and ADS-B feeds (200 OK)
+        server_cls = None
         try:
             import bottle
+            try:
+                from webview.http import BottleServer
+            except Exception:
+                from webview.http.bottle import BottleServer
+
+            class JarvisBottleServer(BottleServer):
+                def _hook_routes(self):
+                    app = getattr(self, 'root', getattr(self, 'app', None))
+                    if app:
+                        try:
+                            @app.route('/api/adsb/<feed>')
+                            def _bottle_adsb(feed="mil"):
+                                bottle.response.content_type = 'application/json'
+                                return json.dumps(api.get_adsb_flights(feed))
+
+                            @app.route('/api/cctv/frame/<camera_id>')
+                            def _bottle_cctv(camera_id):
+                                bottle.response.content_type = 'image/jpeg'
+                                bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                                return api.get_cctv_frame(camera_id)
+                        except Exception as hook_err:
+                            print(f"[desktop] Route hook notice: {hook_err}")
+
+                def __init__(self):
+                    super().__init__()
+                    self._hook_routes()
+
+                def start_server(self, paths):
+                    ret = super().start_server(paths)
+                    self._hook_routes()
+                    return ret
+
+            server_cls = JarvisBottleServer
+
+            # Also register on global bottle default_app
             @bottle.route('/api/adsb/<feed>')
             def _bottle_api_adsb_proxy(feed="mil"):
                 bottle.response.content_type = 'application/json'
@@ -2316,9 +2343,18 @@ class JarvisDesktop:
             @bottle.route('/api/cctv/frame/<camera_id>')
             def _bottle_api_cctv_frame_proxy(camera_id):
                 bottle.response.content_type = 'image/jpeg'
+                bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
                 return api.get_cctv_frame(camera_id)
         except Exception as e:
-            pass
+            print(f"[desktop] Custom BottleServer setup notice: {e}")
+
+        if server_cls:
+            window_kwargs["server"] = server_cls
+
+        window = webview.create_window(**window_kwargs)
+
+        api.set_window(window)
+        # Background voice listener will activate cleanly once the frontend signals pywebviewready
 
         # Patch pywebview PyQt6 permission policy enum bug (int vs QWebEnginePage.PermissionPolicy)
         try:
@@ -2375,7 +2411,13 @@ class JarvisDesktop:
         window.events.closed += _on_closed
 
         try:
-            webview.start(gui="qt", debug=True)
+            if server_cls:
+                try:
+                    webview.start(gui="qt", debug=True, server=server_cls)
+                except TypeError:
+                    webview.start(gui="qt", debug=True)
+            else:
+                webview.start(gui="qt", debug=True)
         finally:
             try:
                 api.shutdown()
