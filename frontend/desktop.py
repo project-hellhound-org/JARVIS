@@ -155,8 +155,12 @@ class _StreamingPrefixFilter:
     CANDIDATES = ("JARVIS:", "J.A.R.V.I.S.:", "ASSISTANT:", "AI:")
     CLEAN_REGEX = re.compile(r'^\s*(?:JARVIS|J\.A\.R\.V\.I\.S\.|ASSISTANT|AI)\s*:\s*', re.IGNORECASE)
 
-    def __init__(self, on_chunk):
+    def __init__(self, on_chunk, on_nav=None, on_layer=None, on_zoom=None, on_radio=None):
         self.on_chunk = on_chunk
+        self.on_nav = on_nav
+        self.on_layer = on_layer
+        self.on_zoom = on_zoom
+        self.on_radio = on_radio
         self.buffer = ""
         self.cleared = False
         self.cmd_buffer = ""
@@ -197,7 +201,7 @@ class _StreamingPrefixFilter:
     feed = push
 
     def _feed_text(self, text: str):
-        # Filter out [CMD: <cmd>] directives and *stage directions* on the fly
+        # Filter out tactical [CMD:...], [NAV:...], [LAYER:...], [ZOOM:...], [RADIO:...] and *stage directions* on the fly
         for ch in text:
             if not self.capturing_cmd and not self.capturing_action:
                 if ch == '[':
@@ -231,22 +235,55 @@ class _StreamingPrefixFilter:
                     self.capturing_cmd = False
                     self.cmd_in_single = False
                     self.cmd_in_double = False
-                    # Check if this bracket block is a CMD directive
-                    m = re.match(r'\[CMD(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
-                    if m:
-                        cmd_to_run = m.group(1).strip()
+                    # Check if this bracket block is a tactical God's Eye or system directive
+                    m_cmd = re.match(r'\[CMD(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
+                    m_nav = re.match(r'\[NAV(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
+                    m_layer = re.match(r'\[LAYER(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
+                    m_zoom = re.match(r'\[ZOOM(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
+                    m_radio = re.match(r'\[RADIO(?::|\s)\s*(.+)\]\s*$', self.cmd_buffer, re.IGNORECASE | re.DOTALL)
+
+                    if m_cmd:
+                        cmd_to_run = m_cmd.group(1).strip()
                         try:
                             from core.system_commander import get_system_commander
                             commander = get_system_commander()
                             commander.run_as_task(cmd_to_run, title=f"Terminal: {cmd_to_run[:30]}")
                         except Exception as e:
                             print(f"[desktop] Streaming command launch error: {e}")
+                    elif m_nav:
+                        nav_loc = m_nav.group(1).strip()
+                        if self.on_nav:
+                            try:
+                                self.on_nav(nav_loc)
+                            except Exception as e:
+                                print(f"[desktop] Streaming NAV error: {e}")
+                    elif m_layer:
+                        layer_spec = m_layer.group(1).strip()
+                        if self.on_layer:
+                            try:
+                                self.on_layer(layer_spec)
+                            except Exception as e:
+                                print(f"[desktop] Streaming LAYER error: {e}")
+                    elif m_zoom:
+                        zoom_spec = m_zoom.group(1).strip()
+                        if self.on_zoom:
+                            try:
+                                self.on_zoom(zoom_spec)
+                            except Exception as e:
+                                print(f"[desktop] Streaming ZOOM error: {e}")
+                    elif m_radio:
+                        radio_spec = m_radio.group(1).strip()
+                        if self.on_radio:
+                            try:
+                                self.on_radio(radio_spec)
+                            except Exception as e:
+                                print(f"[desktop] Streaming RADIO error: {e}")
                     else:
-                        # Not a CMD tag (e.g. markdown link or reference), pass through
+                        # Not a tactical tag (e.g. markdown link or reference), pass through
                         self.on_chunk(self.cmd_buffer)
                     self.cmd_buffer = ""
                 elif len(self.cmd_buffer) > 2000 or (ch == '\n' and not self.cmd_in_single and not self.cmd_in_double and len(self.cmd_buffer) > 400):
-                    # Overflow protection: not a reasonable CMD tag
+                    # Overflow protection: not a reasonable tag
                     self.capturing_cmd = False
                     self.cmd_in_single = False
                     self.cmd_in_double = False
@@ -413,62 +450,236 @@ class JarvisAPI:
             msg_str = f"⚡ LIVE CODE AUDIT [{finfo['index']}/{finfo['total']}]: {finfo['file']} ({finfo['lines']} LOC)... [VERIFIED]"
             self._emit("jarvis_stt_interim", {"text": msg_str})
 
-    def _resolve_and_glide_location(self, text: str) -> bool:
+    def _execute_tactical_nav(self, target: str):
+        """Execute geospatial navigation to a city, region, landmark, or globe."""
+        if not target:
+            return
+        print(f"[desktop] Tactical NAV directive received: '{target}'")
+        self._resolve_and_glide_location(f"go to {target}", glide_only=True)
+
+    def _execute_tactical_layer(self, layer_spec: str):
+        """Execute God's Eye tactical layer toggle."""
+        if not layer_spec:
+            return
+        parts = layer_spec.strip().split()
+        layer = parts[0].lower()
+        if layer == "clear":
+            print("[desktop] Tactical LAYER directive: CLEAR ALL")
+            self._emit("toggle_tactical_layer", {"layer": "clear", "state": False})
+            return
+        state = True
+        if len(parts) > 1 and parts[1].lower() in ("off", "disable", "false", "0"):
+            state = False
+        layer_aliases = {
+            "radar": "flights",
+            "flight": "flights",
+            "planes": "flights",
+            "aircraft": "flights",
+            "airspace": "flights",
+            "ships": "vessels",
+            "boats": "vessels",
+            "ais": "vessels",
+            "maritime": "vessels",
+            "cameras": "cctv",
+            "camera": "cctv",
+            "traffic": "cctv",
+            "iss": "space",
+            "satellites": "space",
+            "satellite": "space",
+            "earthquake": "seismic",
+            "earthquakes": "seismic",
+            "quake": "seismic",
+            "fires": "thermal",
+            "fire": "thermal",
+            "firms": "thermal",
+            "hotspots": "thermal",
+        }
+        canonical_layer = layer_aliases.get(layer, layer)
+        print(f"[desktop] Tactical LAYER directive: {canonical_layer} -> {'ON' if state else 'OFF'}")
+        self._emit("toggle_tactical_layer", {"layer": canonical_layer, "state": state})
+
+    def _execute_tactical_zoom(self, zoom_spec: str):
+        """Execute God's Eye camera zoom."""
+        direction = "in" if "in" in zoom_spec.lower() or "close" in zoom_spec.lower() else "out"
+        print(f"[desktop] Tactical ZOOM directive: {direction}")
+        self._emit("adjust_camera_zoom", {"direction": direction})
+
+    def _execute_tactical_radio(self, radio_spec: str):
+        """Execute tactical radio tuner command."""
+        action = radio_spec.strip().lower()
+        print(f"[desktop] Tactical RADIO directive: {action}")
+        self._emit("control_radio", {"action": action})
+
+    def _resolve_and_glide_location(self, text: str, glide_only: bool = False) -> bool:
         """Detect location queries and glide 3D camera to Earth globe with coordinates."""
-        pat = r'\b(?:locate|find|where\s+is|show|map\s+of|track\s+(?:traffic|flights?\s+in\s+)?|go\s+to|zoom\s+to)\s+(?:the\s+(?:city|town|region|country|area)\s+of\s+)?([a-zA-Z\s]{3,35})\b'
+        pat = r'\b(?:take\s+(?:me|us)\s+to|bring\s+(?:me|us)\s+to|fly\s+(?:me\s+)?to|navigate\s+to|pan\s+to|head\s+to|look\s+at|show\s+me|view|locate|find|where\s+is|show|map\s+of|track\s+(?:traffic|flights?\s+in\s+)?|go\s+to|zoom\s+(?:(?:in|out)\s+)?to)\s+(?:the\s+(?:city|town|region|country|area|district|hills?)\s+of\s+)?([a-zA-Z0-9\s,\.\-]{2,45})\b'
         m = re.search(pat, text, re.IGNORECASE)
-        if not m:
+
+        candidate = None
+        if m:
+            candidate = m.group(1).strip().lower()
+        elif glide_only:
+            candidate = re.sub(r'^(?:go\s+to|fly\s+to|nav\s+to)\s+', '', text, flags=re.IGNORECASE).strip().lower()
+
+        if not candidate:
             return False
 
-        candidate = m.group(1).strip().lower()
+        candidate = re.sub(r'\b(?:in\s+the\s+map|on\s+the\s+map|on\s+map|in\s+3d|now|please|thanks|sir)\b', '', candidate, flags=re.IGNORECASE).strip()
         if candidate in ("your", "this", "that", "something", "anything", "nothing", "what", "how", "who", "when", "why", "help"):
             return False
 
+        # God's Eye Full-Earth / Orbit View Directive
+        if candidate in ("globe", "earth", "whole earth", "full earth", "orbit", "planet", "reset", "space"):
+            print("[desktop] Tactical globe view requested. Returning camera to full planetary orbit...")
+            self._emit("reset_globe_orbit", {})
+            if not glide_only:
+                loc_prompt = (
+                    f"[GEOSPATIAL TELEMETRY: The 3D planetary camera has pulled back to full Earth orbital view (~22,000 km altitude). "
+                    f"Address Sir directly with crisp J.A.R.V.I.S. wit and inform him that the planetary orbital view is active.]\n"
+                    f"User Question: {text}"
+                )
+                self._run_ask(loc_prompt)
+            return True
+
+        # Coordinate match check: e.g. "11.4916, 76.7337" or "11.4916° N, 76.7337° E"
+        coord_m = re.search(r'(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)', candidate)
+        if coord_m:
+            lat = float(coord_m.group(1))
+            lon = float(coord_m.group(2))
+            matched_name = f"{lat:.4f}°N, {lon:.4f}°E"
+            print(f"[desktop] Direct coordinate target: {matched_name}. Gliding 3D camera to Earth globe...")
+            self._emit("glide_to_location", {"lat": lat, "lon": lon, "label": matched_name})
+            if not glide_only:
+                loc_prompt = (
+                    f"[GEOSPATIAL TELEMETRY: The 3D planetary globe has locked onto coordinates {matched_name}. "
+                    f"Address Sir directly and inform him that the orbital viewport is locked on target.]\n"
+                    f"User Question: {text}"
+                )
+                self._run_ask(loc_prompt)
+            return True
+
+        # Comprehensive Prominent Indian Cities, Nilgiri Corridor & Global Hubs
         KNOWN_COORDS = {
+            # Nilgiri Corridor & Southern India
             "kotagiri": (11.4228, 76.8661),
             "coonoor": (11.3530, 76.7959),
             "ooty": (11.4102, 76.6950),
+            "ootacamund": (11.4102, 76.6950),
+            "udhagamandalam": (11.4102, 76.6950),
             "nilgiris": (11.4916, 76.7337),
+            "nilgiri": (11.4916, 76.7337),
+            "niligiris": (11.4916, 76.7337),
+            "niligiri": (11.4916, 76.7337),
+            "nilgiri hills": (11.4916, 76.7337),
+            "nilgiris hills": (11.4916, 76.7337),
+            "the nilgiris": (11.4916, 76.7337),
+            "coimbatore": (11.0168, 76.9558),
             "chennai": (13.0827, 80.2707),
+            "madras": (13.0827, 80.2707),
             "bangalore": (12.9716, 77.5946),
             "bengaluru": (12.9716, 77.5946),
+            "mysore": (12.2958, 76.6394),
+            "mysuru": (12.2958, 76.6394),
+            "madurai": (9.9252, 78.1198),
+            "trichy": (10.7905, 78.7047),
+            "tiruchirappalli": (10.7905, 78.7047),
+            "salem": (11.6643, 78.1460),
+            "kochi": (9.9312, 76.2673),
+            "cochin": (9.9312, 76.2673),
+            "trivandrum": (8.5241, 76.9366),
+            "thiruvananthapuram": (8.5241, 76.9366),
+            "kerala": (10.8505, 76.2711),
+            "tamil nadu": (11.1271, 78.6569),
+            "hyderabad": (17.3850, 78.4867),
+            "visakhapatnam": (17.6868, 83.2185),
+            "vizag": (17.6868, 83.2185),
+            "vijayawada": (16.5062, 80.6480),
+
+            # North, West & East India
+            "mumbai": (19.0760, 72.8777),
+            "bombay": (19.0760, 72.8777),
+            "pune": (18.5204, 73.8567),
+            "goa": (15.2993, 74.1240),
+            "panaji": (15.4909, 73.8278),
+            "ahmedabad": (23.0225, 72.5714),
+            "surat": (21.1702, 72.8311),
             "delhi": (28.6139, 77.2090),
             "new delhi": (28.6139, 77.2090),
-            "mumbai": (19.0760, 72.8777),
+            "noida": (28.5355, 77.3910),
+            "gurgaon": (28.4595, 77.0266),
+            "gurugram": (28.4595, 77.0266),
+            "jaipur": (26.9124, 75.7873),
+            "udaipur": (24.5854, 73.7125),
+            "jodhpur": (26.2389, 73.0243),
+            "chandigarh": (30.7333, 76.7794),
+            "amritsar": (31.6340, 74.8723),
+            "shimla": (31.1048, 77.1734),
+            "manali": (32.2432, 77.1892),
+            "srinagar": (34.0837, 74.7973),
+            "leh": (34.1526, 77.5771),
+            "ladakh": (34.1526, 77.5771),
             "kolkata": (22.5726, 88.3639),
-            "hyderabad": (17.3850, 78.4867),
-            "coimbatore": (11.0168, 76.9558),
-            "kochi": (9.9312, 76.2673),
-            "kerala": (10.8505, 76.2711),
+            "calcutta": (22.5726, 88.3639),
+            "lucknow": (26.8467, 80.9462),
+            "varanasi": (25.3176, 82.9739),
+            "patna": (25.5941, 85.1376),
+            "bhopal": (23.2599, 77.4126),
+            "indore": (22.7196, 75.8577),
+            "darjeeling": (27.0410, 88.2663),
+            "guwahati": (26.1445, 91.7362),
+            "india": (20.5937, 78.9629),
+
+            # Prominent Global Capitals & Hubs
             "tokyo": (35.6762, 139.6503),
             "london": (51.5074, -0.1278),
             "paris": (48.8566, 2.3522),
             "new york": (40.7128, -74.0060),
             "nyc": (40.7128, -74.0060),
             "san francisco": (37.7749, -122.4194),
+            "sf": (37.7749, -122.4194),
             "los angeles": (34.0522, -118.2437),
             "chicago": (41.8781, -87.6298),
             "washington": (38.9072, -77.0369),
+            "washington dc": (38.9072, -77.0369),
             "dubai": (25.2048, 55.2708),
+            "abu dhabi": (24.4539, 54.3773),
             "singapore": (1.3521, 103.8198),
             "sydney": (-33.8688, 151.2093),
+            "melbourne": (-37.8136, 144.9631),
             "berlin": (52.5200, 13.4050),
             "moscow": (55.7558, 37.6173),
             "beijing": (39.9042, 116.4074),
+            "shanghai": (31.2304, 121.4737),
+            "hong kong": (22.3193, 114.1694),
+            "seoul": (37.5665, 126.9780),
+            "bangkok": (13.7563, 100.5018),
             "cairo": (30.0444, 31.2357),
             "rome": (41.9028, 12.4964),
             "toronto": (43.6532, -79.3832),
+            "vancouver": (49.2827, -123.1207),
+            "zurich": (47.3769, 8.5417),
+            "geneva": (46.2044, 6.1432),
+            "amsterdam": (52.3676, 4.9041),
         }
 
         lat, lon = None, None
         matched_name = candidate.title()
 
         for k, coords in KNOWN_COORDS.items():
-            if k in candidate or candidate in k:
+            if k == candidate or k in candidate or candidate in k:
                 lat, lon = coords
                 matched_name = k.title()
                 break
 
+        # Fuzzy matching with cutoff 0.75 for typos (e.g. niligiris -> nilgiris)
+        if lat is None:
+            import difflib
+            close_keys = difflib.get_close_matches(candidate, KNOWN_COORDS.keys(), n=1, cutoff=0.75)
+            if close_keys:
+                lat, lon = KNOWN_COORDS[close_keys[0]]
+                matched_name = close_keys[0].title()
+
+        # OpenStreetMap Nominatim Geocoding fallback for open-world places
         if lat is None:
             try:
                 import urllib.request
@@ -476,7 +687,7 @@ class JarvisAPI:
                 q = urllib.parse.quote(candidate)
                 url = f"https://nominatim.openstreetmap.org/search?q={q}&format=json&limit=1"
                 req = urllib.request.Request(url, headers={"User-Agent": "JARVIS-Tactical-Console/2.0"})
-                with urllib.request.urlopen(req, timeout=1.8) as resp:
+                with urllib.request.urlopen(req, timeout=2.5) as resp:
                     data = json.loads(resp.read().decode('utf-8'))
                     if data and len(data) > 0:
                         lat = float(data[0]["lat"])
@@ -492,13 +703,14 @@ class JarvisAPI:
                 "lon": lon,
                 "label": matched_name
             })
-            loc_prompt = (
-                f"[GEOSPATIAL TELEMETRY: The 3D planetary globe has automatically rotated and locked onto "
-                f"{matched_name} at coordinates {lat:.4f}°N, {lon:.4f}°E. The tactical holographic pin is pulsing. "
-                f"Address Sir directly with crisp J.A.R.V.I.S. wit and inform him that the orbital viewport is locked on {matched_name}.]\n"
-                f"User Question: {text}"
-            )
-            self._run_ask(loc_prompt)
+            if not glide_only:
+                loc_prompt = (
+                    f"[GEOSPATIAL TELEMETRY: The 3D planetary globe has automatically rotated and locked onto "
+                    f"{matched_name} at coordinates {lat:.4f}°N, {lon:.4f}°E. The tactical holographic pin is pulsing. "
+                    f"Address Sir directly with crisp J.A.R.V.I.S. wit and inform him that the orbital viewport is locked on {matched_name}. Do NOT execute any terminal commands or curl scripts.]\n"
+                    f"User Question: {text}"
+                )
+                self._run_ask(loc_prompt)
             return True
         return False
 
@@ -1463,7 +1675,7 @@ class JarvisAPI:
                                 streamed = True
                                 tts_state["emitted"] = True
                                 chunk_dur = len(pcm_bytes) / float(sample_rate * 2)
-                                self._tts_playback_until = max(self._tts_playback_until, time.time() + chunk_dur + 0.5)
+                                self._tts_playback_until = max(self._tts_playback_until, time.time()) + chunk_dur
                                 self._emit("jarvis_pcm_audio_chunk", {
                                     "audio": base64.b64encode(pcm_bytes).decode("ascii"),
                                     "sample_rate": sample_rate,
@@ -1489,7 +1701,7 @@ class JarvisAPI:
                                 if pcm_bytes:
                                     tts_state["emitted"] = True
                                     chunk_dur = len(pcm_bytes) / float(24000 * 2)
-                                    self._tts_playback_until = max(self._tts_playback_until, time.time() + chunk_dur + 0.5)
+                                    self._tts_playback_until = max(self._tts_playback_until, time.time()) + chunk_dur
                                     self._emit("jarvis_pcm_audio_chunk", {
                                         "audio": base64.b64encode(pcm_bytes).decode("ascii"),
                                         "sample_rate": 24000,
@@ -1504,12 +1716,14 @@ class JarvisAPI:
                                     suffix = ".wav" if is_wav else ".mp3"
                                     tts_state["emitted"] = True
                                     dur = max(2.0, len(audio_bytes) / 32000.0)
-                                    self._tts_playback_until = max(self._tts_playback_until, time.time() + dur + 0.5)
+                                    self._tts_playback_until = max(self._tts_playback_until, time.time()) + dur + 0.5
                                     self._play_audio_natively(audio_bytes, suffix=suffix, wait=True)
                 except Exception as e:
                     print(f"[desktop] TTS synthesis pipeline error: {e}")
                 finally:
                     tts_text_queue.task_done()
+            # Add room acoustic decay padding after all queued sentences finish
+            self._tts_playback_until = max(self._tts_playback_until, time.time()) + 0.6
 
         def tts_playback_worker():
             while True:
@@ -1608,7 +1822,13 @@ class JarvisAPI:
                             clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
                             queue_spoken_text(clean_sentence)
 
-        prefix_filter = _StreamingPrefixFilter(emit_clean_chunk)
+        prefix_filter = _StreamingPrefixFilter(
+            emit_clean_chunk,
+            on_nav=lambda loc: self._execute_tactical_nav(loc),
+            on_layer=lambda l: self._execute_tactical_layer(l),
+            on_zoom=lambda z: self._execute_tactical_zoom(z),
+            on_radio=lambda r: self._execute_tactical_radio(r),
+        )
 
         def on_token(chunk: str):
             prefix_filter.feed(chunk)
@@ -1683,9 +1903,18 @@ class JarvisAPI:
                 _, warnings = verify_grounding(result["text"], self._target)
                 if warnings:
                     print(f"[desktop] Grounding audit warning for active case {self._target.primary}: {warnings}")
-                    self._emit("jarvis_grounding_warning", {"warnings": warnings, "target": self._target.primary})
             except Exception as e:
                 print(f"[desktop] Post-hoc grounding check audit notice: {e}")
+
+        # Dispatch any tactical God's Eye directives returned from LLM
+        if result.get("nav_location"):
+            self._execute_tactical_nav(result["nav_location"])
+        if result.get("layer_action"):
+            self._execute_tactical_layer(result["layer_action"])
+        if result.get("zoom_action"):
+            self._execute_tactical_zoom(result["zoom_action"])
+        if result.get("radio_action"):
+            self._execute_tactical_radio(result["radio_action"])
 
         self._emit("jarvis_answer", {
             "text": result.get("text", "Done."),
@@ -2276,6 +2505,12 @@ class JarvisAPI:
                     if rec_words and past_words:
                         overlap = len(rec_words & past_words) / len(rec_words)
                         if overlap > 0.6 and len(rec_words) >= 3:
+                            is_self_echo = True
+                            break
+                        if len(rec_words) <= 2 and overlap >= 0.8:
+                            is_self_echo = True
+                            break
+                        if rec_words.issubset(past_words):
                             is_self_echo = True
                             break
 

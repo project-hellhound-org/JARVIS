@@ -63,17 +63,65 @@ CRITICAL IDENTITY & PROTOCOLS:
 - Signature Tone: Impeccably articulate, razor-sharp, dryly witty, unflappable, and supremely competent (think classic Paul Bettany JARVIS assisting Tony Stark). Sharp, witty, a little sarcastic, genuinely likeable — but the instant real work or active tasks are on the table, the jokes take a back seat to the facts.
 - Grounded Reality & Veracity:
   You verify before you agree; you don't take a claim, a number, or status at face value just because it was handed to you — you check it against what the evidence actually shows. Match Sir's energy: a quick question gets a quick, witty, direct answer (1-3 sentences), not an essay.
-- Autonomous OS Execution & Tactical Capabilities:
-  You can execute Linux shell commands, run diagnostics, monitor airspace radar, pull atmospheric telemetry, inspect network sockets, and automate workflows directly on the system.
-  To execute any command, emit:
+- God's Eye 3D Earth & Tactical Geospatial Agency:
+  You have direct orbital control over the Cesium 3D planetary Earth console (Screen 2).
+  You can navigate the planet, fly to any location, control real-time sensor layers, zoom the camera, and tune tactical radio.
+  
+  1. Geospatial Navigation:
+     To fly the 3D globe camera to any city, mountain range, country, region, landmark, or coordinates:
+     Emit:
+     [NAV: <location name or coordinates>]
+     To pull out to the global Earth orbit view:
+     Emit:
+     [NAV: globe]
+     Examples:
+     - User: "take me to Nilgiris" -> [NAV: Nilgiris] Setting coordinates for the Nilgiris now, Sir. Locking orbital telemetry onto the mountain corridor.
+     - User: "fly to Tokyo" -> [NAV: Tokyo] Orbiting toward Tokyo immediately, Sir. Visual sensors deployed.
+     - User: "show me Bangalore" -> [NAV: Bangalore] Navigating to Bengaluru, Sir. Telemetry online.
+     - User: "zoom out to whole earth" -> [NAV: globe] Returning to full planetary orbital view, Sir.
+     CRITICAL: NEVER issue terminal curl commands, web scrapers, or python scripts to look up coordinates or view maps when asked to travel or show a place. Always use [NAV: <location>].
+
+  2. Tactical Telemetry Layers:
+     To toggle live intelligence feeds on the 3D globe:
+     Emit:
+     [LAYER: <layer_id> <on|off>]
+     Available Layer IDs:
+     - flights (ADS-B military & civil airspace radar)
+     - vessels (AIS live maritime shipping)
+     - cctv (Public traffic and surveillance camera frustums)
+     - space (Orbital satellites & ISS live tracking)
+     - seismic (USGS global seismic & earthquake hazards)
+     - thermal (NASA FIRMS active wildfires & thermal hotspots)
+     - clear (turn off all active tactical layers: [LAYER: clear])
+     Examples:
+     - User: "show me flights" or "turn on radar" -> [LAYER: flights on] Airspace radar online, Sir. Tracking live transponders.
+     - User: "show active fires" -> [LAYER: thermal on] NASA thermal telemetry activated, Sir. Highlighting active heat signatures.
+     - User: "turn off maritime vessels" -> [LAYER: vessels off] Disabling AIS maritime layer, Sir.
+
+  3. Camera Elevation & Zoom:
+     To zoom in or out from the current viewpoint:
+     Emit:
+     [ZOOM: in] or [ZOOM: out]
+     Example:
+     - User: "zoom in closer" -> [ZOOM: in] Adjusting camera focal distance, Sir.
+
+  4. Tactical Radio Receiver:
+     To control the tactical OSINT audio monitor (ATC, police scanners, news):
+     Emit:
+     [RADIO: <play|stop|atc|police|news>]
+     Example:
+     - User: "turn on ATC radio" -> [RADIO: atc] Tuning audio receiver to aviation air traffic control, Sir.
+
+- Autonomous OS Execution & CLI Tools:
+  You can execute Linux shell commands for genuine system operations, file inspection, diagnostics, network sockets, or git.
+  To execute an OS command, emit:
   [CMD: <command>]
   Examples:
   - User: "check disk space" -> [CMD: df -h]
   - User: "ping cloudflare" -> [CMD: ping -c 3 1.1.1.1]
-  - User: "what is the next flight from Coimbatore" -> [CMD: curl -s "https://api.skypicker.com/flights?flyFrom=CJB&limit=1&sort=dt" | jq -r '.data[] | "\\(.cityTo) via \\(.airline): \\(.dTime)"']
-  CRITICAL: Always speak in active present tense when launching a command (e.g., "Executing that in the terminal now, Sir. Monitoring the live output on the tactical panel.", "Querying the flight schedules now, Sir—standing by for the telemetry."). NEVER speak in past tense claiming a task has completed before the process actually exits.
-- Tactical Intelligence & God's Eye View:
-  You have direct telemetry feeds: live worldwide military airspace tracking (adsb.lol), keyless atmospheric weather (Open-Meteo), live traffic telemetry & GIS mapping (OpenStreetMap & God's Eye View), public CCTV surveillance, and system monitoring. For traffic or navigation queries, live GIS mapping and corridor telemetry are surfaced automatically on Sir's tactical panel.
+  CRITICAL: Only emit [CMD: ...] when Sir specifically asks for system/terminal actions. NEVER use curl, lynx, or shell scripts for maps, travel, weather, or greetings.
+- Tactical Intelligence & Telemetry Feeds:
+  You have direct telemetry feeds: live worldwide military airspace tracking (adsb.lol), keyless atmospheric weather (Open-Meteo), live traffic telemetry & GIS mapping (OpenStreetMap & God's Eye View), public CCTV surveillance, and system monitoring.
 - Response Guidelines:
   1. Length: Keep conversational responses crisp, punchy, and articulate (1 to 3 sentences) unless an in-depth breakdown is explicitly requested.
   2. Voice & Tone: Dry British wit and understated intelligence. Zero robotic clichés, zero forced profanity.
@@ -1191,8 +1239,10 @@ class JarvisVoice:
 
         is_action_popup = bool(resolved_search_query)
 
-        def _process_final_text(raw_text: str) -> str:
+        def _process_final_text(raw_text: str) -> tuple[str, dict]:
             cleaned = self._clean_reasoning(raw_text)
+            tactical = {}
+
             # Detect autonomous [CMD: <command>] safely handling quotes and brackets
             cmd_to_run, cleaned = extract_cmd_directive(cleaned)
             if cmd_to_run:
@@ -1200,6 +1250,7 @@ class JarvisVoice:
                     from core.system_commander import get_system_commander
                     commander = get_system_commander()
                     commander.run_as_task(cmd_to_run, title=f"Terminal: {cmd_to_run[:30]}")
+                    tactical["cmd"] = cmd_to_run
                 except Exception as e:
                     print(f"[voice] Autonomous command launch error: {e}")
 
@@ -1208,13 +1259,37 @@ class JarvisVoice:
                     cleaned = f"Executing `{cmd_to_run}` on your system now, {addressed}. Check the panel."
 
             cleaned = re.sub(r'\[CMD[^\]]*\]', '', cleaned, flags=re.IGNORECASE).strip()
-            cleaned = self._mirror_greeting(question, cleaned)
-            return cleaned
+
+            # Detect [NAV: <location>]
+            m_nav = re.search(r'\[NAV:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+            if m_nav:
+                tactical["nav"] = m_nav.group(1).strip()
+                cleaned = re.sub(r'\[NAV:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+            # Detect [LAYER: <layer> <on|off>]
+            m_layer = re.search(r'\[LAYER:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+            if m_layer:
+                tactical["layer"] = m_layer.group(1).strip()
+                cleaned = re.sub(r'\[LAYER:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+            # Detect [ZOOM: <in|out>]
+            m_zoom = re.search(r'\[ZOOM:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+            if m_zoom:
+                tactical["zoom"] = m_zoom.group(1).strip()
+                cleaned = re.sub(r'\[ZOOM:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+            # Detect [RADIO: <action>]
+            m_radio = re.search(r'\[RADIO:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+            if m_radio:
+                tactical["radio"] = m_radio.group(1).strip()
+                cleaned = re.sub(r'\[RADIO:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+            return cleaned, tactical
 
         # Try cloud engines first (NVIDIA → Gemini)
         cloud = self._ask_cloud(prompt, system, max_tokens=max_tok, on_token=on_token, image_path=image_path)
         if cloud["text"]:
-            clean_text = _process_final_text(cloud["text"])
+            clean_text, tactical_directives = _process_final_text(cloud["text"])
             self.session_memory.add("user", question)
             self.session_memory.add("jarvis", clean_text)
             return {
@@ -1225,12 +1300,17 @@ class JarvisVoice:
                 "engine": cloud["engine"],
                 "show_panel": is_action_popup,
                 "search_query": resolved_search_query,
-                "panel_payload": search_panel_payload
+                "panel_payload": search_panel_payload,
+                "tactical_directives": tactical_directives,
+                "nav_location": tactical_directives.get("nav"),
+                "layer_action": tactical_directives.get("layer"),
+                "zoom_action": tactical_directives.get("zoom"),
+                "radio_action": tactical_directives.get("radio"),
             }
 
         # Fall back to local SLM
         slm_res = self._ask_slm(prompt, system, max_tokens=max_tok, timeout=180, num_ctx=8192, on_token=on_token)
-        clean_text = _process_final_text(slm_res["text"])
+        clean_text, tactical_directives = _process_final_text(slm_res["text"])
         if clean_text:
             self.session_memory.add("user", question)
             self.session_memory.add("jarvis", clean_text)
@@ -1242,7 +1322,12 @@ class JarvisVoice:
             "engine": "slm",
             "show_panel": is_action_popup,
             "search_query": resolved_search_query,
-            "panel_payload": search_panel_payload
+            "panel_payload": search_panel_payload,
+            "tactical_directives": tactical_directives,
+            "nav_location": tactical_directives.get("nav"),
+            "layer_action": tactical_directives.get("layer"),
+            "zoom_action": tactical_directives.get("zoom"),
+            "radio_action": tactical_directives.get("radio"),
         }
 
     def classify_intent(self, text: str, current_target: Target = None) -> dict:
@@ -1401,38 +1486,7 @@ Output only the raw target string. No markdown, no quotes, no explanation."""
         return self.chat(question, target)
 
     def _mirror_greeting(self, user_query: str, ai_response: str) -> str:
-        """Mirror the user's greeting clinically as the first word of the response."""
-        if not user_query or not ai_response:
-            return ai_response
-
-        query_clean = user_query.strip()
-        words = query_clean.split()
-        if not words:
-            return ai_response
-
-        first_word = words[0].strip(',.!?').lower()
-        greetings_map = {
-            'hello': 'Hello.',
-            'hi': 'Hi.',
-            'hey': 'Hey.',
-            'greetings': 'Greetings.',
-            'morning': 'Good morning.',
-            'afternoon': 'Good afternoon.',
-            'evening': 'Good evening.',
-            'yo': 'Yo.'
-        }
-
-        if first_word in greetings_map:
-            expected = greetings_map[first_word]
-            ai_clean = ai_response.strip()
-            if ai_clean.startswith(expected) or ai_clean.startswith(expected[:-1]):
-                return ai_clean
-            ai_clean = re.sub(r'^(?:hello(?:,\s*you)?|hi|hey|greetings|good\s+(?:morning|afternoon|evening))[!.,\s]*', '', ai_clean, flags=re.IGNORECASE).strip()
-            if ai_clean:
-                ai_clean = ai_clean[0].upper() + ai_clean[1:]
-                return f"{expected} {ai_clean}"
-            return expected
-
+        """Greeting mirror disabled to prevent echoing operator speech."""
         return ai_response
 
     def _clean_reasoning(self, text: str) -> str:

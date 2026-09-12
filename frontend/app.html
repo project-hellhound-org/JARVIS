@@ -6423,6 +6423,10 @@ function enqueueJarvisPcmChunk(audioB64, sampleRate, text, turnId) {
     );
     source.onended = () => {
       try { source.disconnect(); } catch(e) {}
+      if (ctx.currentTime >= jarvisPcmNextStartTime - 0.08) {
+        isPlayingJarvisQueue = false;
+        if (jarvisHudState === 'speaking') setHudState('idle');
+      }
     };
     if (generation !== jarvisPcmGeneration) return false;
     source.start(startAt);
@@ -8193,6 +8197,50 @@ window.jarvis = window.joe = {
         }
         break;
 
+      case 'reset_globe_orbit':
+        if (typeof window.resetGlobeOrbitView === 'function') {
+          window.resetGlobeOrbitView();
+        }
+        break;
+
+      case 'toggle_tactical_layer':
+        if (data) {
+          if (data.layer === 'clear' && typeof window.clearAllTacticalLayers === 'function') {
+            window.clearAllTacticalLayers();
+          } else if (typeof window.toggleTacticalLayer === 'function') {
+            window.toggleTacticalLayer(data.layer, data.state);
+          }
+        }
+        break;
+
+      case 'adjust_camera_zoom':
+        if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+          const cam = window.cesiumViewer.camera;
+          const curH = cam.positionCartographic.height;
+          const factor = data?.direction === 'in' ? 0.45 : 2.0;
+          const targetH = Math.max(500, Math.min(22000000, curH * factor));
+          cam.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(
+              Cesium.Math.toDegrees(cam.positionCartographic.longitude),
+              Cesium.Math.toDegrees(cam.positionCartographic.latitude),
+              targetH
+            ),
+            duration: 1.2
+          });
+        }
+        break;
+
+      case 'control_radio':
+        if (data && data.action) {
+          const act = String(data.action).toLowerCase();
+          if (act === 'stop' || act === 'pause' || act === 'off') {
+            if (typeof window.stopRadioAudio === 'function') window.stopRadioAudio();
+          } else {
+            if (typeof window.tuneRadioStation === 'function') window.tuneRadioStation(act);
+          }
+        }
+        break;
+
       case 'jarvis_stream_chunk':
       case 'joe_stream_chunk':
         updateStreamingChunk(data.chunk);
@@ -9316,8 +9364,8 @@ function sfInit() {
   sunLight.position.set(1200, 600, 800);
   sfScene.add(sunLight);
 
-  sfRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-  sfRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  sfRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'low-power' });
+  sfRenderer.setPixelRatio(1.0); // 1:1 hardware pixel ratio; eliminates 4x fill-rate memory bottleneck
   sfRenderer.setSize(window.innerWidth, window.innerHeight);
   sfRenderer.setClearColor(0x000005, 1.0);
 
@@ -9356,10 +9404,10 @@ function sfInit() {
     return new THREE.Points(geo, mat);
   }
 
-  // 1. Dense field of small white stars (far shell - 12,500 stars)
-  sfGroup.add(buildLayer(12500, 600, 2400, 0xffffff, 2.2, 0.90));
-  // 2. Sparser layer of larger, faintly blue stars closer to camera for subtle parallax (2,500 stars)
-  sfGroup.add(buildLayer(2500, 300, 900, 0x9fc8ff, 3.6, 0.75));
+  // 1. Efficient field of small white stars (far shell - 2,500 stars)
+  sfGroup.add(buildLayer(2500, 600, 2400, 0xffffff, 2.2, 0.90));
+  // 2. Sparser layer of larger, faintly blue stars closer to camera for subtle parallax (600 stars)
+  sfGroup.add(buildLayer(600, 300, 900, 0x9fc8ff, 3.6, 0.75));
   // 3. A few dozen slightly brighter stars with soft additive glow (80 accent stars)
   sfGroup.add(buildLayer(80, 350, 1200, 0xddeeff, 6.5, 0.65));
   // 4. Very faint large nebula-like glow blobs far away (subtle deep blue & violet)
@@ -9523,7 +9571,7 @@ function initCesiumGlobe() {
       contextOptions: {
         webgl: {
           alpha: true,
-          preserveDrawingBuffer: true
+          preserveDrawingBuffer: false
         }
       },
       orderIndependentTranslucency: false,
@@ -9534,11 +9582,12 @@ function initCesiumGlobe() {
     window.cesiumViewer = cesiumViewer;
 
     const scene = cesiumViewer.scene;
-    // Cesium RAM & Performance Governor (God's Eye 60 FPS optimization)
-    scene.requestRenderMode = false; // Smooth 60 FPS on Screen 2 (render loop is suspended on Screen 1 when ratio <= 0.25)
+    // Cesium RAM & Performance Governor (God's Eye demand rendering & memory capping)
+    scene.requestRenderMode = true;
+    scene.maximumRenderTimeChange = Infinity;
     cesiumViewer.resolutionScale = 1.0; // 1:1 hardware pixel ratio; eliminates 4x fill-rate bottleneck
-    scene.globe.maximumScreenSpaceError = 3.0; // Optimized tile geometry budget
-    scene.globe.tileCacheSize = 100; // Limits tile cache RAM hoarding
+    scene.globe.maximumScreenSpaceError = 3.5; // Optimized tile geometry budget
+    scene.globe.tileCacheSize = 35; // Capped tile cache RAM hoarding
     scene.highDynamicRange = false;
     if (scene.shadowMap) scene.shadowMap.enabled = false;
 
@@ -9641,10 +9690,13 @@ function initCesiumGlobe() {
       if (Cesium.createOsmBuildingsAsync) {
         try {
           const buildingsTileset = await Cesium.createOsmBuildingsAsync();
+          if (buildingsTileset) {
+            buildingsTileset.maximumMemoryUsage = 64; // Cap 3D building cache to 64MB RAM
+          }
           if (cesiumViewer && !cesiumViewer.isDestroyed()) {
             cesiumViewer.scene.primitives.add(buildingsTileset);
             window._cesiumOsmBuildingsAdded = true;
-            console.log('[Cesium] Cesium 3D OSM Buildings active');
+            console.log('[Cesium] Cesium 3D OSM Buildings active (memory capped at 64MB)');
           }
         } catch (bErr) {
           console.warn('[Cesium] 3D Buildings unavailable:', bErr?.message || bErr);
@@ -9959,8 +10011,12 @@ window.updateSectorWeather = async function(lat, lon, label) {
 };
 
 // Tactical Layer Toggles
-window.toggleTacticalLayer = function(layerName) {
-  _tacticalLayers[layerName] = !_tacticalLayers[layerName];
+window.toggleTacticalLayer = function(layerName, forceState) {
+  if (typeof forceState === 'boolean') {
+    _tacticalLayers[layerName] = forceState;
+  } else {
+    _tacticalLayers[layerName] = !_tacticalLayers[layerName];
+  }
   const toggleEl = document.getElementById(`layer-toggle-${layerName}`);
   if (toggleEl) toggleEl.classList.toggle('active', _tacticalLayers[layerName]);
 
