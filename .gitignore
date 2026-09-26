@@ -90,6 +90,7 @@ memory/chroma_db/
 memory/*.json
 
 # Internal development & testing
+.pytest_cache/
 tests/
 test/
 scripts/
