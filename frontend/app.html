@@ -7405,6 +7405,12 @@ const JarvisKnowledgeGraph = {
   isUserInteracting: false,
   isNodeDragging: false,
   focusedNode: null,
+  jarvisCoreGroup: null,
+  coreInner: null,
+  corePlasma: null,
+  coreCorona: null,
+  coreShell: null,
+  _coreUniforms: null,
 
   init() {
     if (this._initialized) return;
@@ -7656,7 +7662,7 @@ const JarvisKnowledgeGraph = {
         this.hubLabelGroup = new THREE.Group();
         scene.add(this.hubLabelGroup);
 
-        // Continuous slow rotation loop via scene.onBeforeRender
+        // Continuous slow rotation loop and Core animation via scene.onBeforeRender
         scene.onBeforeRender = () => {
           const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           const shouldRotate = !this.isPaused &&
@@ -7668,7 +7674,14 @@ const JarvisKnowledgeGraph = {
           if (controls && controls.autoRotate !== shouldRotate) {
             controls.autoRotate = shouldRotate;
           }
+
+          if (!this.isPaused) {
+            this._animateJarvisCore();
+          }
         };
+
+        // Mount Central Energy Core into the Unified Scene
+        this._initJarvisCore(scene);
       }
 
       // Post-Processing: UnrealBloomPass for luminous jewel halos with dark interstellar spacing
@@ -7929,33 +7942,278 @@ const JarvisKnowledgeGraph = {
     return mat;
   },
 
+  _initJarvisCore(scene) {
+    if (this.jarvisCoreGroup) return;
+    if (!scene || typeof THREE === 'undefined') return;
+
+    const group = new THREE.Group();
+    group.name = 'jarvisCoreGroup';
+
+    const uniforms = {
+      uTime: { value: 0 },
+      uPulse: { value: 1.0 }
+    };
+    this._coreUniforms = uniforms;
+
+    // 1. coreInner: Radiant central plasma seed
+    const innerGeom = new THREE.SphereGeometry(8.5, 32, 32);
+    const innerMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: uniforms.uTime,
+        uPulse: uniforms.uPulse
+      },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec3 vViewDir;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vViewDir = normalize(-mvPosition.xyz);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uPulse;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec3 vViewDir;
+        void main() {
+          vec3 baseColor = vec3(0.95, 0.42, 0.04);
+          vec3 hotCenter = vec3(1.00, 0.68, 0.12);
+          float vDot = max(0.0, dot(vNormal, vViewDir));
+          vec3 col = mix(baseColor, hotCenter, pow(vDot, 2.2));
+          float coreGlow = 0.88 + 0.12 * sin(uTime * 3.1 + vPosition.y * 0.25);
+          gl_FragColor = vec4(col * coreGlow * uPulse, 0.95);
+        }
+      `,
+      transparent: true,
+      blending: THREE.NormalBlending,
+      depthWrite: false
+    });
+    const coreInner = new THREE.Mesh(innerGeom, innerMat);
+    coreInner.name = 'coreInner';
+    group.add(coreInner);
+    this.coreInner = coreInner;
+    this.sunMesh = coreInner;
+
+    // 2. corePlasma: Turbulent organic plasma layer with dynamic coronal tendrils
+    const plasmaGeom = new THREE.SphereGeometry(14.5, 48, 48);
+    const plasmaMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: uniforms.uTime,
+        uPulse: uniforms.uPulse
+      },
+      vertexShader: `
+        uniform float uTime;
+        uniform float uPulse;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec3 vViewDir;
+        varying float vDisplacement;
+
+        float getTurbulence(vec3 p, float t) {
+          float n = sin(p.x * 0.35 + t * 1.3) * cos(p.y * 0.38 - t * 1.1) * sin(p.z * 0.33 + t * 0.9);
+          n += 0.5 * sin(p.x * 0.71 - t * 1.8) * sin(p.y * 0.75 + t * 1.5) * cos(p.z * 0.69 - t * 1.2);
+          n += 0.25 * sin(p.x * 1.45 + t * 2.5) * cos(p.y * 1.41 - t * 2.2) * sin(p.z * 1.39 + t * 2.1);
+          return n;
+        }
+
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vViewDir = normalize(-mvPosition.xyz);
+
+          float turb = getTurbulence(position, uTime);
+          vDisplacement = turb;
+
+          vec3 newPos = position + normal * (turb * 1.5 * uPulse);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uPulse;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec3 vViewDir;
+        varying float vDisplacement;
+
+        void main() {
+          vec3 cDark  = vec3(0.70, 0.20, 0.01);
+          vec3 cMid   = vec3(0.95, 0.48, 0.05);
+          vec3 cHot   = vec3(1.00, 0.70, 0.14);
+
+          float tNorm = clamp(vDisplacement * 0.6 + 0.5, 0.0, 1.0);
+          vec3 col = mix(cDark, cMid, smoothstep(0.1, 0.6, tNorm));
+          col = mix(col, cHot, smoothstep(0.65, 0.95, tNorm));
+
+          float rim = 1.0 - max(0.0, dot(vNormal, vViewDir));
+          col += cMid * pow(rim, 3.0) * 0.35;
+
+          float alpha = clamp(0.18 + tNorm * 0.32 + rim * 0.18, 0.0, 0.65);
+          gl_FragColor = vec4(col * 0.85, alpha);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    const corePlasma = new THREE.Mesh(plasmaGeom, plasmaMat);
+    corePlasma.name = 'corePlasma';
+    group.add(corePlasma);
+    this.corePlasma = corePlasma;
+
+    // 3. coreCorona: Soft breathing coronal halo
+    const coronaGeom = new THREE.SphereGeometry(25, 32, 32);
+    const coronaMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: uniforms.uTime,
+        uPulse: uniforms.uPulse
+      },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vViewDir = normalize(-mvPosition.xyz);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uPulse;
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        void main() {
+          float vDot = max(0.0, dot(vNormal, vViewDir));
+          float halo = pow(vDot, 2.5);
+          float breath = 0.85 + 0.15 * sin(uTime * 1.1 + 0.5);
+          vec3 coronaColor = vec3(1.0, 0.50, 0.06);
+          float alpha = halo * 0.28 * breath * uPulse;
+          gl_FragColor = vec4(coronaColor * 0.90, alpha);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const coreCorona = new THREE.Mesh(coronaGeom, coronaMat);
+    coreCorona.name = 'coreCorona';
+    group.add(coreCorona);
+    this.coreCorona = coreCorona;
+    this.coronaMesh = coreCorona;
+
+    // 4. coreShell: Translucent spherical computational energy cage
+    const shellGeom = new THREE.SphereGeometry(42, 48, 48);
+    const shellMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: uniforms.uTime,
+        uPulse: uniforms.uPulse
+      },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec3 vViewDir;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vViewDir = normalize(-mvPosition.xyz);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uPulse;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec3 vViewDir;
+        void main() {
+          float vDot = abs(dot(vNormal, vViewDir));
+          float fresnel = pow(1.0 - vDot, 2.8);
+
+          float latLines = sin(vPosition.y * 1.4 + uTime * 0.4);
+          float lonLines = sin(atan(vPosition.z, vPosition.x) * 16.0 - uTime * 0.2);
+          float lattice = clamp(latLines * lonLines, 0.0, 1.0);
+          float gridGlow = pow(lattice, 6.0) * 0.15;
+
+          float wave = sin(vPosition.y * 0.18 - uTime * 1.6) * 0.5 + 0.5;
+          float waveAccent = pow(wave, 4.0) * 0.12;
+
+          vec3 shellRimColor = vec3(1.0, 0.68, 0.18);
+          vec3 shellCenterColor = vec3(0.85, 0.38, 0.05);
+
+          vec3 finalColor = mix(shellCenterColor, shellRimColor, fresnel) + vec3(0.25, 0.15, 0.03) * (gridGlow + waveAccent);
+          float alpha = 0.04 + fresnel * 0.38 + gridGlow * 0.18 + waveAccent * 0.10;
+
+          gl_FragColor = vec4(finalColor * 0.95, clamp(alpha, 0.0, 0.65));
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    const coreShell = new THREE.Mesh(shellGeom, shellMat);
+    coreShell.name = 'coreShell';
+    group.add(coreShell);
+    this.coreShell = coreShell;
+
+    scene.add(group);
+    this.jarvisCoreGroup = group;
+  },
+
+  _animateJarvisCore() {
+    if (!this.jarvisCoreGroup) return;
+    const t = performance.now() * 0.001;
+    const b1 = Math.sin(t * 0.75);
+    const b2 = Math.sin(t * 1.43 + 1.2) * 0.35;
+    const b3 = Math.sin(t * 2.81 + 2.4) * 0.15;
+    const pulse = 1.0 + (b1 + b2 + b3) * 0.025;
+
+    if (this._coreUniforms) {
+      this._coreUniforms.uTime.value = t;
+      this._coreUniforms.uPulse.value = pulse;
+    }
+
+    if (this.corePlasma) {
+      this.corePlasma.rotation.y = t * 0.08;
+      this.corePlasma.rotation.x = Math.sin(t * 0.05) * 0.08;
+    }
+    if (this.coreShell) {
+      this.coreShell.rotation.y = -t * 0.035;
+      this.coreShell.rotation.z = Math.cos(t * 0.04) * 0.06;
+    }
+    if (this.coreCorona) {
+      const cScale = pulse * 1.02;
+      this.coreCorona.scale.set(cScale, cScale, cScale);
+    }
+    if (this.coreInner) {
+      const iScale = 1.0 + (b1 * 0.018);
+      this.coreInner.scale.set(iScale, iScale, iScale);
+    }
+  },
+
   createNodeMesh(node) {
     if (typeof THREE === 'undefined') return null;
 
     if (node.id === 'core:jarvis') {
-      const group = new THREE.Group();
-      // Glowing Core Plasma Sun
-      const sunGeom = new THREE.SphereGeometry(10, 24, 24);
-      const sunMat = new THREE.MeshBasicMaterial({
-        color: 0xFFB84D
-      });
-      const sun = new THREE.Mesh(sunGeom, sunMat);
-      group.add(sun);
-
-      // Additive Coronal Halo
-      const coronaGeom = new THREE.SphereGeometry(14, 24, 24);
-      const coronaMat = new THREE.MeshBasicMaterial({
-        color: 0xFFA726,
+      // Invisible hit sphere for raycasting so tooltip, hover, and camera docking work seamlessly
+      // while visual appearance is rendered by the multi-layered jarvisCoreGroup
+      const hitGeom = new THREE.SphereGeometry(14, 16, 16);
+      const hitMat = new THREE.MeshBasicMaterial({
         transparent: true,
-        opacity: 0.35,
-        blending: THREE.AdditiveBlending
+        opacity: 0.0,
+        depthWrite: false
       });
-      const corona = new THREE.Mesh(coronaGeom, coronaMat);
-      group.add(corona);
-
-      this.sunMesh = sun;
-      this.coronaMesh = corona;
-      return group;
+      const hitMesh = new THREE.Mesh(hitGeom, hitMat);
+      return hitMesh;
     }
 
     if (node.type === 'CLUSTER') {
@@ -8088,6 +8346,10 @@ const JarvisKnowledgeGraph = {
 
   setData(data) {
     if (!this.graph || !data) return;
+    if (this._assemblyTimers && this._assemblyTimers.length > 0) {
+      this._assemblyTimers.forEach(t => clearTimeout(t));
+      this._assemblyTimers = [];
+    }
     this.data = data;
     const rawNodes = data.nodes || [];
     const allLinks = data.links || [];
@@ -8543,7 +8805,7 @@ const JarvisKnowledgeGraph = {
     const scene = this.graph.scene();
     if (!scene) return;
     if (!this.graphGroup) {
-      this.graphGroup = scene.children.find(c => c.type === 'Group' && c !== this.kgStarGroup && c !== this.hubLabelGroup) || null;
+      this.graphGroup = scene.children.find(c => c.type === 'Group' && c !== this.kgStarGroup && c !== this.hubLabelGroup && c !== this.jarvisCoreGroup) || null;
     }
     if (!this.ambientLight) {
       this.ambientLight = scene.children.find(c => c.type === 'AmbientLight') || null;
@@ -8553,6 +8815,7 @@ const JarvisKnowledgeGraph = {
   updateAudioEnergy(energy) {
     if (this.isPaused) return;
     this._ensureSceneRefs();
+    this._animateJarvisCore();
     if (!this.graphGroup) return;
 
     const targetNorm = Math.min(1.0, Math.max(0, (energy || 0) / 255));
