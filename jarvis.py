@@ -9,6 +9,12 @@ PROJECT_ROOT = Path(__file__).parent.resolve()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# Support cached pywebview and proxy_tools if not installed system-wide
+_uv_archive = Path("/home/joe/.cache/uv/archive-v0")
+for _p in [_uv_archive / "TyKv85HLRS2les6f", _uv_archive / "7B4rDB-6S8_-lJPf"]:
+    if _p.exists() and str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
 # If running inside a virtual environment that lacks GTK or Qt bindings, switch to system python3
 def _needs_gui_fallback():
     try:

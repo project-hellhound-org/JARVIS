@@ -7303,17 +7303,108 @@ function setHudColorTheme(colorTheme) {
   safeSetStorage('joe_hud_color', 'orange');
 }
 
+const CATEGORY_PALETTE = {
+  CORE: { color: "#FFB84D", glow: "rgba(255, 184, 77, 0.90)", val: 14 },
+  MEMORY_RULE: { color: "#FACC15", glow: "rgba(250, 204, 21, 0.80)", val: 7 },
+  MEMORY_FACT: { color: "#F43F5E", glow: "rgba(244, 63, 94, 0.75)", val: 7 },
+  MEMORY_SKILL: { color: "#10B981", glow: "rgba(16, 185, 129, 0.80)", val: 8 },
+  LESSON: { color: "#C084FC", glow: "rgba(192, 132, 252, 0.75)", val: 7 },
+  OSINT_TARGET: { color: "#EF4444", glow: "rgba(239, 68, 68, 0.90)", val: 10 },
+  OSINT_ENTITY: { color: "#06B6D4", glow: "rgba(6, 182, 212, 0.80)", val: 6 },
+  SESSION_TOPIC: { color: "#FB923C", glow: "rgba(251, 146, 60, 0.75)", val: 7 },
+  CLUSTER: { color: "#FFB84D", glow: "rgba(255, 184, 77, 0.90)", val: 14 },
+  OBSIDIAN_NOTE: { color: "#818CF8", glow: "rgba(129, 140, 248, 0.75)", val: 8 },
+  HEURISTIC: { color: "#2DD4BF", glow: "rgba(45, 212, 191, 0.75)", val: 6 }
+};
+
+const GRAPH_RADIUS = 210;
+
+function _generateOrganicSpherePositions(nodes, R = 210) {
+  const N = nodes.length;
+  const phi = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < N; i++) {
+    const node = nodes[i];
+    if (node.id === 'core:jarvis') {
+      node.x = 0; node.y = 0; node.z = 0;
+      node.fx = 0; node.fy = 0; node.fz = 0;
+      continue;
+    }
+    const y = 1 - (2 * i + 1) / N;
+    const rFactor = 0.88 + 0.12 * ((i * 1.6180339887) % 1);
+    const nodeR = R * rFactor;
+    const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y)) * nodeR;
+    const theta = phi * i;
+    node.x = Math.cos(theta) * radiusAtY;
+    node.y = y * nodeR;
+    node.z = Math.sin(theta) * radiusAtY;
+  }
+}
+
+function generateDefaultData() {
+  const nodes = [
+    { id: 'core:jarvis', label: 'J.A.R.V.I.S.', type: 'CORE', color: '#FFB84D', val: 14, metadata: { status: 'ONLINE', presence: 'Central Neural Matrix' } },
+    { id: 'skill_maps_nav', label: 'Maps Navigation', type: 'MEMORY_SKILL', color: '#10B981', val: 8, metadata: { description: '12 Route Corridors Active' } },
+    { id: 'skill_smart_home', label: 'Smart Home Matrix', type: 'MEMORY_SKILL', color: '#10B981', val: 8, metadata: { description: '4 Automation Nodes' } },
+    { id: 'skill_google_search', label: 'Search Engine', type: 'MEMORY_SKILL', color: '#10B981', val: 8, metadata: { description: 'Autonomous Fastpath Querying' } },
+    { id: 'skill_calendar_intel', label: 'Calendar Intel', type: 'MEMORY_SKILL', color: '#10B981', val: 8, metadata: { description: 'Chronological Event Sync' } },
+    { id: 'mem_rule_0', label: 'Executive Directive', type: 'MEMORY_RULE', color: '#FACC15', val: 7, metadata: { trigger: 'Always address operator as Sir' } },
+    { id: 'mem_rule_1', label: 'Tactical Persona', type: 'MEMORY_RULE', color: '#FACC15', val: 7, metadata: { trigger: 'Maintain understated British tone' } },
+    { id: 'mem_fact_0', label: 'Cognitive Knowledge', type: 'MEMORY_FACT', color: '#F43F5E', val: 7, metadata: { full_text: 'Speech recognition acoustic tuning' } },
+    { id: 'lesson_recon', label: 'Tactical Reconnaissance', type: 'LESSON', color: '#C084FC', val: 7, metadata: { lesson: 'Multi-vector correlation' } }
+  ];
+  const links = [
+    { source: 'core:jarvis', target: 'skill_maps_nav', type: 'applies_skill' },
+    { source: 'core:jarvis', target: 'skill_smart_home', type: 'applies_skill' },
+    { source: 'core:jarvis', target: 'skill_google_search', type: 'applies_skill' },
+    { source: 'core:jarvis', target: 'skill_calendar_intel', type: 'applies_skill' },
+    { source: 'core:jarvis', target: 'mem_rule_0', type: 'governs' },
+    { source: 'core:jarvis', target: 'mem_rule_1', type: 'governs' },
+    { source: 'core:jarvis', target: 'mem_fact_0', type: 'references' },
+    { source: 'core:jarvis', target: 'lesson_recon', type: 'synthesizes' }
+  ];
+  return { nodes, links };
+}
+
+function makeStarSpriteTex() {
+  const sz  = 64;
+  const cv  = document.createElement('canvas');
+  cv.width  = sz; cv.height = sz;
+  const ctx = cv.getContext('2d');
+  const g   = ctx.createRadialGradient(sz / 2, sz / 2, 0, sz / 2, sz / 2, sz / 2);
+  g.addColorStop(0,    'rgba(255,255,255,1.0)');
+  g.addColorStop(0.18, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.5,  'rgba(255,255,255,0.3)');
+  g.addColorStop(1,    'rgba(255,255,255,0.0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, sz, sz);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.needsUpdate = true;
+  return tex;
+}
+
 /* ─── 3D INTERACTIVE KNOWLEDGE GRAPH (SCREEN 2 HUD OVERLAY) ────────── */
 const JarvisKnowledgeGraph = {
   graph: null,
   container: null,
   mountElem: null,
+  renderer: null,
   data: { nodes: [], links: [] },
   isPaused: false,
   _initialized: false,
   graphGroup: null,
   ambientLight: null,
   animFrameId: null,
+  kgStarGroup: null,
+  kgStarTex: null,
+  starNear: null,
+  starMid: null,
+  starFar: null,
+  hubLabelGroup: null,
+  _labelSprites: [],
+  _hubFlares: [],
+  isUserInteracting: false,
+  isNodeDragging: false,
+  focusedNode: null,
 
   init() {
     if (this._initialized) return;
@@ -7352,9 +7443,19 @@ const JarvisKnowledgeGraph = {
       }
 
       this.graph = ForceGraph3D({ controlType: 'orbit' })(this.mountElem)
-        .backgroundColor('rgba(0,0,0,0)')
+        .backgroundColor('#000005')
         .showNavInfo(false)
         .onNodeClick(node => this.focusNode(node))
+        .onNodeDrag((node, translate) => {
+          this.isNodeDragging = true;
+          const c = this.graph ? this.graph.controls() : null;
+          if (c) c.autoRotate = false;
+        })
+        .onNodeDragEnd((node, translate) => {
+          this.isNodeDragging = false;
+          const c = this.graph ? this.graph.controls() : null;
+          if (c && !this.focusedNode) c.autoRotate = true;
+        })
         .onBackgroundClick(event => {
           if (event && event.target && event.target.tagName !== 'CANVAS') return;
           if (this.focusedNode !== null) {
@@ -7456,8 +7557,10 @@ const JarvisKnowledgeGraph = {
         .d3AlphaDecay(0.06)
         .d3VelocityDecay(0.35);
 
+      this.renderer = this.graph.renderer();
+
       // Organic 3D Spherical Volume: bounded volume envelope with uniform repulsion
-      this.graph.d3Force('radial', forceRadial3D(210, 0.004));
+      this.graph.d3Force('radial', forceRadial3D(GRAPH_RADIUS, 0.004));
       if (this.graph.d3Force('charge')) {
         this.graph.d3Force('charge').strength(-160);
       }
@@ -7468,20 +7571,104 @@ const JarvisKnowledgeGraph = {
 
       const controls = this.graph.controls();
       if (controls) {
+        controls.enableZoom = true;
         controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
+        controls.dampingFactor = 0.06;
         controls.rotateSpeed = 0.7;
-        controls.zoomSpeed = 1.0;
-        controls.minDistance = 0.5; // Enable fly-through zoom all the way inside the sphere
-        controls.maxDistance = 2000;
-        controls.autoRotate = false; // Reversed: stationary by default, reacts to interaction/voice
+        controls.zoomSpeed = 0.9;
+        controls.minDistance = 4;
+        controls.maxDistance = 2500;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.35; // ~3 minutes per full revolution
+
+        let interactionTimeout = null;
+        const markInteraction = () => {
+          this.isUserInteracting = true;
+          clearTimeout(interactionTimeout);
+          interactionTimeout = setTimeout(() => {
+            this.isUserInteracting = false;
+          }, 800);
+        };
+        controls.addEventListener('start', () => { this.isUserInteracting = true; });
+        controls.addEventListener('end', () => { markInteraction(); });
+        this.mountElem.addEventListener('wheel', () => { markInteraction(); }, { passive: true });
+        this.mountElem.addEventListener('pointerdown', () => { this.isUserInteracting = true; });
+        window.addEventListener('pointerup', () => { markInteraction(); });
       }
 
       const camera = this.graph.camera();
       if (camera) {
         camera.near = 0.5; // Pristine close-up rendering with zero clipping inside the node cloud
-        camera.far = 6000;
+        camera.far = 10000; // Encompass vast outer cosmic star shell without clipping (far >= 5000)
         camera.updateProjectionMatrix();
+      }
+
+      // Volumetric 3D Starfield directly in Knowledge Graph Scene
+      const scene = this.graph.scene();
+      if (scene && typeof THREE !== 'undefined') {
+        scene.background = new THREE.Color(0x000005);
+        const starTex = makeStarSpriteTex();
+        this.kgStarTex = starTex;
+
+        const makeStarField = (count, rMin, rSpan, color, size, opacity) => {
+          const pos = new Float32Array(count * 3);
+          for (let i = 0; i < count; i++) {
+            const r     = rMin + Math.random() * rSpan;
+            const theta = Math.random() * Math.PI * 2;
+            const phi   = Math.acos(Math.random() * 2 - 1);
+            pos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+            pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+            pos[i * 3 + 2] = r * Math.cos(phi);
+          }
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+          return new THREE.Points(geo, new THREE.PointsMaterial({
+            color: color,
+            size: size,
+            map: starTex,
+            transparent: true,
+            opacity: opacity,
+            alphaTest: 0.01,
+            sizeAttenuation: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            fog: false
+          }));
+        };
+
+        const kgStarGroup = new THREE.Group();
+        // Deep/far layer: 3,200 stars distributed between radius 900 and 2,300 (span 1400)
+        const starFar = makeStarField(3200, 900, 1400, 0xd0e0ff, 1.8, 0.65);
+        // Nearer layer: 650 stars between radius 700 and 1,600 (span 900)
+        const starNear = makeStarField(650, 700, 900, 0xffffff, 3.0, 0.85);
+        // Subtle warm accent layer: 750 stars between radius 800 and 2,000 (span 1200)
+        const starWarm = makeStarField(750, 800, 1200, 0xffe4c4, 2.2, 0.70);
+        // Guide beacon stars: 300 stars between radius 1,000 and 2,400 (span 1400)
+        const starGuide = makeStarField(300, 1000, 1400, 0xffffff, 4.5, 0.90);
+
+        kgStarGroup.add(starFar, starNear, starWarm, starGuide);
+        scene.add(kgStarGroup);
+        this.kgStarGroup = kgStarGroup;
+        this.starNear = starNear;
+        this.starFar = starFar;
+
+        // Group for floating hub labels and leader lines
+        this.hubLabelGroup = new THREE.Group();
+        scene.add(this.hubLabelGroup);
+
+        // Continuous slow rotation loop via scene.onBeforeRender
+        scene.onBeforeRender = () => {
+          const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          const shouldRotate = !this.isPaused &&
+                               !prefersReduced &&
+                               !this.focusedNode &&
+                               !this.isNodeDragging &&
+                               !this.isUserInteracting;
+
+          if (controls && controls.autoRotate !== shouldRotate) {
+            controls.autoRotate = shouldRotate;
+          }
+        };
       }
 
       // Post-Processing: UnrealBloomPass for luminous jewel halos with dark interstellar spacing
@@ -7558,12 +7745,15 @@ const JarvisKnowledgeGraph = {
       this._fullData = null;
     }
     this._hasBootAssembled = true;
+    this.updateHubLabels();
   },
 
   focusNode(node) {
     if (!this.graph || !node) return;
     this.fastForwardAssembly();
     this.focusedNode = node;
+    const controls = this.graph.controls();
+    if (controls) controls.autoRotate = false;
     const nx = node.x || 0;
     const ny = node.y || 0;
     const nz = node.z || 0;
@@ -7607,6 +7797,13 @@ const JarvisKnowledgeGraph = {
     if (!this.graph) return;
     this.fastForwardAssembly();
     this.focusedNode = null;
+    const controls = this.graph.controls();
+    if (controls) {
+      const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!prefersReduced && !this.isPaused) {
+        controls.autoRotate = true;
+      }
+    }
     this.graph.cameraPosition({ x: 0, y: 0, z: 750 }, { x: 0, y: 0, z: 0 }, 800);
   },
 
@@ -7961,6 +8158,7 @@ const JarvisKnowledgeGraph = {
       newOrReplacedNodes.forEach((node, i) => {
         this.energizeNodeWithPulse(node, 'core:jarvis', 150 + i * 120);
       });
+      this.updateHubLabels();
       return;
     }
 
@@ -8080,8 +8278,213 @@ const JarvisKnowledgeGraph = {
           this._fullData = null;
           this._assemblyTimers = [];
           this._hasBootAssembled = true;
+          this.updateHubLabels();
         }
       }, st.delay);
+    });
+  },
+
+  updateHubLabels() {
+    if (!this.graph || typeof THREE === 'undefined') return;
+    const scene = this.graph.scene();
+    if (!scene) return;
+
+    if (!this.hubLabelGroup) {
+      this.hubLabelGroup = new THREE.Group();
+      scene.add(this.hubLabelGroup);
+    }
+
+    // Clear previous hub labels and leader lines
+    while (this.hubLabelGroup.children.length > 0) {
+      const child = this.hubLabelGroup.children[0];
+      this.hubLabelGroup.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (child.material.map) child.material.map.dispose();
+        child.material.dispose();
+      }
+    }
+    this._labelSprites = [];
+    this._hubFlares = [];
+
+    const gData = this.graph.graphData();
+    if (!gData || !gData.nodes || gData.nodes.length === 0) return;
+
+    const allNodes = gData.nodes;
+    const allLinks = gData.links || [];
+
+    const connMap = new Map();
+    allLinks.forEach(l => {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      connMap.set(s, (connMap.get(s) || 0) + 1);
+      connMap.set(t, (connMap.get(t) || 0) + 1);
+    });
+
+    // Pick candidate real nodes (non-core, non-placeholder, real memory rules / skills / facts / lessons)
+    const candidates = allNodes.filter(n => {
+      if (!n || n.id === 'core:jarvis') return false;
+      if (typeof n.id === 'string' && n.id.startsWith('placeholder_')) return false;
+      return true;
+    });
+
+    const typeWeights = {
+      'MEMORY_RULE': 100,
+      'MEMORY_SKILL': 95,
+      'LESSON': 90,
+      'OSINT_TARGET': 85,
+      'MEMORY_FACT': 80,
+      'SESSION_TOPIC': 75,
+      'CLUSTER': 70
+    };
+
+    candidates.sort((a, b) => {
+      const wA = (typeWeights[a.type] || 50) + (connMap.get(a.id) || 0) * 3;
+      const wB = (typeWeights[b.type] || 50) + (connMap.get(b.id) || 0) * 3;
+      return wB - wA;
+    });
+
+    const selectedHubs = [];
+    const minSeparationDot = 0.52; // Enforce distinct spatial directions across the sphere
+
+    for (let i = 0; i < candidates.length && selectedHubs.length < 7; i++) {
+      const cand = candidates[i];
+      const cx = cand.x || 0;
+      const cy = cand.y || 0;
+      const cz = cand.z || 0;
+      const dist = Math.hypot(cx, cy, cz);
+      if (dist < 25) continue;
+
+      const dir = new THREE.Vector3(cx / dist, cy / dist, cz / dist);
+      let overlaps = false;
+      for (const sh of selectedHubs) {
+        if (dir.dot(sh.dir) > minSeparationDot) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) {
+        selectedHubs.push({ node: cand, dir: dir, dist: dist });
+      }
+    }
+
+    if (selectedHubs.length === 0) return;
+
+    const R_SPHERE = 210;
+    const LABEL_RADIUS = R_SPHERE * 1.22;
+    const ANCHOR_RADIUS = R_SPHERE * 1.08;
+
+    selectedHubs.forEach(({ node, dir }) => {
+      let labelText = node.label || 'Node';
+      if (labelText.length > 24) labelText = labelText.substring(0, 22) + '…';
+
+      const connCount = connMap.get(node.id) || 1;
+      let statText = '';
+      if (node.type === 'MEMORY_RULE') {
+        statText = `DIRECTIVE · ${connCount} LINKS`;
+      } else if (node.type === 'MEMORY_SKILL') {
+        statText = `CAPABILITY · ${connCount} REFS`;
+      } else if (node.type === 'LESSON') {
+        statText = `INSIGHT · ${connCount} REFS`;
+      } else if (node.type === 'MEMORY_FACT') {
+        statText = `KNOWLEDGE · ACTIVE`;
+      } else if (node.type === 'OSINT_TARGET') {
+        statText = `TARGET · TRACKED`;
+      } else {
+        statText = `${(node.type || 'ENTITY').replace(/_/g, ' ')} · ${connCount}`;
+      }
+
+      const nodeColorHex = node.color || '#FFB84D';
+      const nodeColor = new THREE.Color(nodeColorHex);
+
+      // Measure exact text dimensions dynamically
+      const measureCv = document.createElement('canvas');
+      const mCtx = measureCv.getContext('2d');
+      mCtx.font = '600 18px "DM Sans", "JetBrains Mono", sans-serif';
+      const labelW = mCtx.measureText(labelText).width;
+      mCtx.font = '400 13px "DM Sans", "JetBrains Mono", sans-serif';
+      const statW = mCtx.measureText(statText).width;
+
+      const textW = Math.ceil(Math.max(labelW, statW)) + 20;
+      const textH = 54;
+
+      const cv = document.createElement('canvas');
+      cv.width = textW;
+      cv.height = textH;
+      const ctx = cv.getContext('2d');
+
+      // Translucent HUD pill backing
+      ctx.fillStyle = 'rgba(6, 10, 18, 0.88)';
+      if (ctx.roundRect) {
+        ctx.roundRect(0, 0, textW, textH, 6);
+      } else {
+        ctx.rect(0, 0, textW, textH);
+      }
+      ctx.fill();
+
+      // Category color outline
+      ctx.strokeStyle = nodeColorHex;
+      ctx.lineWidth = 1.5;
+      if (ctx.roundRect) {
+        ctx.roundRect(1, 1, textW - 2, textH - 2, 5);
+      } else {
+        ctx.rect(1, 1, textW - 2, textH - 2);
+      }
+      ctx.stroke();
+
+      // Text Line 1: Name
+      ctx.font = '600 17px "DM Sans", "JetBrains Mono", sans-serif';
+      ctx.fillStyle = '#E2F4FF';
+      ctx.globalAlpha = 0.95;
+      ctx.fillText(labelText, 10, 22);
+
+      // Text Line 2: Category Stat
+      ctx.font = '400 13px "DM Sans", "JetBrains Mono", sans-serif';
+      ctx.fillStyle = nodeColorHex;
+      ctx.globalAlpha = 0.85;
+      ctx.fillText(statText, 10, 42);
+
+      const tex = new THREE.CanvasTexture(cv);
+      tex.needsUpdate = true;
+
+      // World units scaling preserving aspect ratio
+      const spriteH = 15;
+      const spriteW = (textW / textH) * spriteH;
+
+      const labelPos = dir.clone().multiplyScalar(LABEL_RADIUS);
+      const anchorOnShell = dir.clone().multiplyScalar(ANCHOR_RADIUS);
+      const nodePos = new THREE.Vector3(node.x || 0, node.y || 0, node.z || 0);
+
+      // Canvas Sprite
+      const spMat = new THREE.SpriteMaterial({
+        map: tex,
+        transparent: true,
+        opacity: 0.94,
+        depthWrite: false
+      });
+      const sp = new THREE.Sprite(spMat);
+      sp.position.copy(labelPos);
+      sp.scale.set(spriteW, spriteH, 1);
+      this.hubLabelGroup.add(sp);
+      this._labelSprites.push(sp);
+
+      // Leader line: node -> sphere surface anchor -> floating label
+      const leaderPts = [nodePos.clone(), anchorOnShell.clone(), labelPos.clone()];
+      const leaderGeo = new THREE.BufferGeometry().setFromPoints(leaderPts);
+      const leaderMat = new THREE.LineBasicMaterial({
+        color: nodeColor,
+        transparent: true,
+        opacity: 0.55
+      });
+      this.hubLabelGroup.add(new THREE.Line(leaderGeo, leaderMat));
+
+      // Small anchor dot on the sphere surface
+      const dotGeo = new THREE.SphereGeometry(1.6, 8, 8);
+      const dotMat = new THREE.MeshBasicMaterial({ color: nodeColor });
+      const dot = new THREE.Mesh(dotGeo, dotMat);
+      dot.position.copy(anchorOnShell);
+      this.hubLabelGroup.add(dot);
+      this._hubFlares.push(dot);
     });
   },
 
@@ -8089,12 +8492,16 @@ const JarvisKnowledgeGraph = {
     try {
       if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_knowledge_graph_data === 'function') {
         const res = await window.pywebview.api.get_knowledge_graph_data(1500);
-        if (res && res.nodes) {
+        if (res && res.nodes && res.nodes.length > 0) {
           this.setData(res);
+          return;
         }
       }
     } catch (e) {
       console.warn('[KnowledgeGraph] Pywebview fetch error:', e);
+    }
+    if (!this.data || !this.data.nodes || this.data.nodes.length === 0) {
+      this.setData(generateDefaultData());
     }
   },
 
@@ -8122,7 +8529,10 @@ const JarvisKnowledgeGraph = {
       this.graph.resumeAnimation();
       this.isPaused = false;
       const controls = this.graph.controls();
-      if (controls) controls.autoRotate = false;
+      if (controls) {
+        const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        controls.autoRotate = !this.focusedNode && !prefersReduced;
+      }
       this.resize();
     }
   },
@@ -8133,7 +8543,7 @@ const JarvisKnowledgeGraph = {
     const scene = this.graph.scene();
     if (!scene) return;
     if (!this.graphGroup) {
-      this.graphGroup = scene.children.find(c => c.type === 'Group') || null;
+      this.graphGroup = scene.children.find(c => c.type === 'Group' && c !== this.kgStarGroup && c !== this.hubLabelGroup) || null;
     }
     if (!this.ambientLight) {
       this.ambientLight = scene.children.find(c => c.type === 'AmbientLight') || null;
@@ -13385,6 +13795,9 @@ const SpatialNav = {
   isPointerDown: false,
 
   onPointerDown(e) {
+    if (e.target.closest('#jarvis-knowledge-graph-container, #jarvis-3d-kg-mount, .knowledge-graph-container, canvas')) {
+      return;
+    }
     if (e.target.closest('input, textarea, button, a, select, option, #jarvis-chat-container, #jarvis-main-workspace, #thread, .msg, .msg-answer, .msg-user, .msg-actions, .action-copy-btn, #thinking-indicator, #composer, #jarvis-input-bar, #chat-panel-header, .chat-panel-collapse-btn, #workspace-content-grid, .findings-summary-card, #jarvis-hud-notch-wrapper, #jarvis-hud-notch, .chat-panel-pulse, #chat-expand-launcher, .jarvis-task-surface, .overlay, .overlay-panel, #sidebar, .spatial-dock-item, #spatial-dock, .globe-hud-btn, .nav-btn, .top-bar-menu-btn, #spatial-globe-hud, .globe-layer-toggle, .radio-tuner-box, #globe-inspect-card, #globe-hud-launcher, #jarvis-top-bar, .spatial-edge-strip, .cr-finding-card, .cr-action-btn, .cr-mini-btn, .cr-feed-scroll')) {
       return;
     }
@@ -15210,6 +15623,7 @@ function sfInit() {
       map: sharpStarTex,
       transparent: true,
       opacity: opacity,
+      alphaTest: 0.01,
       sizeAttenuation: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -15344,21 +15758,22 @@ function sfAnimate() {
   const delta = sfClock.getDelta();
   // Calm ambient celestial drift (~0.016 rad/s: ~8.75x slower than previous 0.14 rad/s)
   const speed = 0.016;
-  if (sfGroup) {
+  const isKGTracking = !!(window.JarvisKnowledgeGraph && (window.JarvisKnowledgeGraph.focusedNode || window.JarvisKnowledgeGraph.isNodeDragging));
+  if (sfGroup && !isKGTracking) {
     sfGroup.rotation.y += speed * delta;
     sfGroup.rotation.x += (speed * 0.15) * delta;
   }
-  if (window._globeCosmosGroup) {
+  if (window._globeCosmosGroup && !isKGTracking) {
     window._globeCosmosGroup.rotation.y += (speed * 0.35) * delta;
     window._globeCosmosGroup.rotation.x += (speed * 0.08) * delta;
   }
-  if (window._coldRoomCosmosGroup) {
+  if (window._coldRoomCosmosGroup && !isKGTracking) {
     window._coldRoomCosmosGroup.rotation.y += (speed * 0.25) * delta;
     window._coldRoomCosmosGroup.rotation.x += (speed * 0.06) * delta;
   }
 
   // Earth stays still like a map, moves with user drag; subtle realistic diurnal drift only when in Screen 2
-  if (earthMesh) {
+  if (earthMesh && !isKGTracking) {
     if (isFocusingCoordinate) {
       earthMesh.rotation.y += (targetEarthRotY - earthMesh.rotation.y) * 0.08;
       earthMesh.rotation.x += (targetEarthRotX - earthMesh.rotation.x) * 0.08;

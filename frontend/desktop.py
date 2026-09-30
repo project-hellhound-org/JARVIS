@@ -7,6 +7,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 
+# Support cached pywebview and proxy_tools if not installed system-wide
+_uv_archive = Path("/home/joe/.cache/uv/archive-v0")
+for _p in [_uv_archive / "TyKv85HLRS2les6f", _uv_archive / "7B4rDB-6S8_-lJPf"]:
+    if _p.exists() and str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
 try:
     import webview
 except ImportError:
