@@ -15795,9 +15795,14 @@ function sfAnimate() {
   // Update spatial camera & HTML HUD parallax
   SpatialNav.update(delta);
 
-  // Render deep space Three.js starfield and celestial cosmos continuously across HUD and Globe
+  // Render deep space Three.js starfield and celestial cosmos across Screen 1 and Screen 3;
+  // When centered on Screen 2 (Tactical HUD), the unified J.A.R.V.I.S. Core canvas is active and opaque,
+  // so suspend sfRenderer to ensure strictly ONE central visualization canvas is active on the GPU.
   if (sfRenderer && sfScene && sfCamera) {
-    sfRenderer.render(sfScene, sfCamera);
+    const isCenteredOnHUD = window.JarvisKnowledgeGraph && !window.JarvisKnowledgeGraph.isPaused && Math.abs(SpatialNav.currentX) < 150;
+    if (!isCenteredOnHUD) {
+      sfRenderer.render(sfScene, sfCamera);
+    }
   }
 }
 
