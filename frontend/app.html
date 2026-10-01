@@ -7415,6 +7415,9 @@ const JarvisKnowledgeGraph = {
   coreParticles: null,
   _filamentCurves: null,
   _coreUniforms: null,
+  _coreStateValues: null,
+  _interruptionImpulse: 0.0,
+  _smoothedAudio: 0.0,
 
   init() {
     if (this._initialized) return;
@@ -7953,9 +7956,31 @@ const JarvisKnowledgeGraph = {
     const group = new THREE.Group();
     group.name = 'jarvisCoreGroup';
 
+    this._coreStateValues = {
+      nucleusIntensity: 0.85,
+      nucleusScale: 1.00,
+      plasmaTurbulence: 0.80,
+      plasmaBrightness: 0.85,
+      plasmaSpeed: 0.70,
+      coronaIntensity: 0.75,
+      shellActivity: 0.75,
+      filamentActivity: 0.70,
+      particleActivity: 0.70,
+      graphCirculation: 0.0
+    };
+    this._interruptionImpulse = 0.0;
+    this._smoothedAudio = 0.0;
+
     const uniforms = {
       uTime: { value: 0 },
-      uPulse: { value: 1.0 }
+      uPulse: { value: 1.0 },
+      uNucleusIntensity: { value: 0.85 },
+      uPlasmaTurbulence: { value: 0.80 },
+      uPlasmaBrightness: { value: 0.85 },
+      uCoronaIntensity: { value: 0.75 },
+      uShellActivity: { value: 0.75 },
+      uParticleSpeed: { value: 0.70 },
+      uParticleBrightness: { value: 0.70 }
     };
     this._coreUniforms = uniforms;
 
@@ -7964,7 +7989,8 @@ const JarvisKnowledgeGraph = {
     const innerMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: uniforms.uTime,
-        uPulse: uniforms.uPulse
+        uPulse: uniforms.uPulse,
+        uNucleusIntensity: uniforms.uNucleusIntensity
       },
       vertexShader: `
         varying vec3 vNormal;
@@ -7981,6 +8007,7 @@ const JarvisKnowledgeGraph = {
       fragmentShader: `
         uniform float uTime;
         uniform float uPulse;
+        uniform float uNucleusIntensity;
         varying vec3 vNormal;
         varying vec3 vPosition;
         varying vec3 vViewDir;
@@ -7992,10 +8019,10 @@ const JarvisKnowledgeGraph = {
           float center = pow(vDot, 1.8);
           vec3 col = mix(amberEdge, whiteHot, center);
 
-          // Fast pulsing nucleus
+          // Fast pulsing nucleus with state-modulated glow
           float pulse1 = sin(uTime * 4.5 + vPosition.y * 0.8) * 0.08;
           float pulse2 = sin(uTime * 7.2 + vPosition.x * 1.2) * 0.04;
-          float glow = 0.90 + pulse1 + pulse2;
+          float glow = (0.90 + pulse1 + pulse2) * uNucleusIntensity;
 
           gl_FragColor = vec4(col * glow * uPulse * 1.3, 0.97);
         }
@@ -8015,11 +8042,14 @@ const JarvisKnowledgeGraph = {
     const plasmaMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: uniforms.uTime,
-        uPulse: uniforms.uPulse
+        uPulse: uniforms.uPulse,
+        uPlasmaTurbulence: uniforms.uPlasmaTurbulence,
+        uPlasmaBrightness: uniforms.uPlasmaBrightness
       },
       vertexShader: `
         uniform float uTime;
         uniform float uPulse;
+        uniform float uPlasmaTurbulence;
         varying vec3 vNormal;
         varying vec3 vPosition;
         varying vec3 vWorldPos;
@@ -8044,15 +8074,10 @@ const JarvisKnowledgeGraph = {
         }
 
         float getTurbulence(vec3 p, float t) {
-          // Large-scale convection cells
           float n1 = noise3D(p * 0.22 + vec3(t * 0.3, -t * 0.25, t * 0.18)) * 2.0 - 1.0;
-          // Medium turbulence
           float n2 = noise3D(p * 0.55 + vec3(-t * 0.7, t * 0.6, -t * 0.5)) * 2.0 - 1.0;
-          // Fine granulation
           float n3 = noise3D(p * 1.3 + vec3(t * 1.4, -t * 1.1, t * 1.6)) * 2.0 - 1.0;
-          // Micro detail for filament texture
           float n4 = noise3D(p * 2.8 + vec3(-t * 2.2, t * 2.5, -t * 1.8)) * 2.0 - 1.0;
-
           return n1 * 0.5 + n2 * 0.28 + n3 * 0.15 + n4 * 0.07;
         }
 
@@ -8065,8 +8090,8 @@ const JarvisKnowledgeGraph = {
           float turb = getTurbulence(position, uTime);
           vDisplacement = turb;
 
-          // Irregular displacement: some regions pushed out, some sucked in (dark gaps)
-          float displace = turb * 2.2 * uPulse;
+          // State and audio reactive displacement amplitude
+          float displace = turb * (2.2 * uPlasmaTurbulence) * uPulse;
           vec3 newPos = position + normal * displace;
           vWorldPos = (modelMatrix * vec4(newPos, 1.0)).xyz;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
@@ -8075,6 +8100,7 @@ const JarvisKnowledgeGraph = {
       fragmentShader: `
         uniform float uTime;
         uniform float uPulse;
+        uniform float uPlasmaBrightness;
         varying vec3 vNormal;
         varying vec3 vPosition;
         varying vec3 vWorldPos;
@@ -8082,35 +8108,29 @@ const JarvisKnowledgeGraph = {
         varying float vDisplacement;
 
         void main() {
-          // Temperature-mapped color: dark (cold/gaps) → deep amber → hot orange → white-hot
-          vec3 cVoid  = vec3(0.12, 0.03, 0.0);   // Dark gaps / cold regions
-          vec3 cCool  = vec3(0.55, 0.12, 0.02);   // Cool plasma
-          vec3 cMid   = vec3(0.90, 0.38, 0.04);   // Mid temperature
-          vec3 cHot   = vec3(1.00, 0.62, 0.10);   // Hot plasma
-          vec3 cPeak  = vec3(1.00, 0.85, 0.45);   // Peak filament tips
+          vec3 cVoid  = vec3(0.12, 0.03, 0.0);
+          vec3 cCool  = vec3(0.55, 0.12, 0.02);
+          vec3 cMid   = vec3(0.90, 0.38, 0.04);
+          vec3 cHot   = vec3(1.00, 0.62, 0.10);
+          vec3 cPeak  = vec3(1.00, 0.85, 0.45);
 
           float tNorm = clamp(vDisplacement * 0.55 + 0.5, 0.0, 1.0);
 
-          // Dark gaps where turbulence is strongly negative
           vec3 col = mix(cVoid, cCool, smoothstep(0.0, 0.25, tNorm));
           col = mix(col, cMid, smoothstep(0.25, 0.55, tNorm));
           col = mix(col, cHot, smoothstep(0.55, 0.78, tNorm));
           col = mix(col, cPeak, smoothstep(0.78, 0.95, tNorm));
 
-          // Filament structure: bright streaks along turbulence ridges
           float filament = pow(max(0.0, tNorm - 0.6) * 2.5, 2.0);
           col += vec3(0.3, 0.18, 0.04) * filament;
 
-          // Rim enhancement for volumetric feel
           float rim = 1.0 - max(0.0, dot(vNormal, vViewDir));
           col += cMid * pow(rim, 3.5) * 0.25;
 
-          // Alpha: translucent so graph nodes show through — dark regions more transparent
-          float alpha = clamp(0.10 + tNorm * 0.35 + rim * 0.12, 0.0, 0.52);
-          // Make dark gaps near-transparent
+          float alpha = clamp((0.10 + tNorm * 0.35 + rim * 0.12) * uPlasmaBrightness, 0.0, 0.58);
           alpha *= smoothstep(-0.1, 0.2, tNorm) * 0.85 + 0.15;
 
-          gl_FragColor = vec4(col * 0.75, alpha);
+          gl_FragColor = vec4(col * (0.75 * uPlasmaBrightness), alpha);
         }
       `,
       transparent: true,
@@ -8123,12 +8143,13 @@ const JarvisKnowledgeGraph = {
     group.add(corePlasma);
     this.corePlasma = corePlasma;
 
-    // ─── 3. coreCorona: Soft breathing coronal halo (reduced intensity) ───
+    // ─── 3. coreCorona: Soft breathing coronal halo (state & audio reactive) ───
     const coronaGeom = new THREE.SphereGeometry(22, 32, 32);
     const coronaMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: uniforms.uTime,
-        uPulse: uniforms.uPulse
+        uPulse: uniforms.uPulse,
+        uCoronaIntensity: uniforms.uCoronaIntensity
       },
       vertexShader: `
         varying vec3 vNormal;
@@ -8143,6 +8164,7 @@ const JarvisKnowledgeGraph = {
       fragmentShader: `
         uniform float uTime;
         uniform float uPulse;
+        uniform float uCoronaIntensity;
         varying vec3 vNormal;
         varying vec3 vViewDir;
         void main() {
@@ -8150,8 +8172,8 @@ const JarvisKnowledgeGraph = {
           float halo = pow(vDot, 3.0);
           float breath = 0.85 + 0.15 * sin(uTime * 1.1 + 0.5);
           vec3 coronaColor = vec3(1.0, 0.48, 0.05);
-          float alpha = halo * 0.18 * breath * uPulse;
-          gl_FragColor = vec4(coronaColor * 0.75, alpha);
+          float alpha = halo * 0.18 * breath * uPulse * uCoronaIntensity;
+          gl_FragColor = vec4(coronaColor * (0.75 * uCoronaIntensity), alpha);
         }
       `,
       transparent: true,
@@ -8164,12 +8186,13 @@ const JarvisKnowledgeGraph = {
     this.coreCorona = coreCorona;
     this.coronaMesh = coreCorona;
 
-    // ─── 4. coreShell: Translucent computational energy cage (reduced opacity) ───
+    // ─── 4. coreShell: Translucent computational energy cage (state reactive) ───
     const shellGeom = new THREE.SphereGeometry(38, 48, 48);
     const shellMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: uniforms.uTime,
-        uPulse: uniforms.uPulse
+        uPulse: uniforms.uPulse,
+        uShellActivity: uniforms.uShellActivity
       },
       vertexShader: `
         varying vec3 vNormal;
@@ -8186,6 +8209,7 @@ const JarvisKnowledgeGraph = {
       fragmentShader: `
         uniform float uTime;
         uniform float uPulse;
+        uniform float uShellActivity;
         varying vec3 vNormal;
         varying vec3 vPosition;
         varying vec3 vViewDir;
@@ -8196,18 +8220,18 @@ const JarvisKnowledgeGraph = {
           float latLines = sin(vPosition.y * 1.4 + uTime * 0.4);
           float lonLines = sin(atan(vPosition.z, vPosition.x) * 16.0 - uTime * 0.2);
           float lattice = clamp(latLines * lonLines, 0.0, 1.0);
-          float gridGlow = pow(lattice, 6.0) * 0.10;
+          float gridGlow = pow(lattice, 6.0) * (0.10 * uShellActivity);
 
           float wave = sin(vPosition.y * 0.18 - uTime * 1.6) * 0.5 + 0.5;
-          float waveAccent = pow(wave, 4.0) * 0.08;
+          float waveAccent = pow(wave, 4.0) * (0.08 * uShellActivity);
 
           vec3 shellRimColor = vec3(1.0, 0.60, 0.14);
           vec3 shellCenterColor = vec3(0.70, 0.30, 0.04);
 
-          vec3 finalColor = mix(shellCenterColor, shellRimColor, fresnel) + vec3(0.20, 0.12, 0.02) * (gridGlow + waveAccent);
-          float alpha = 0.02 + fresnel * 0.28 + gridGlow * 0.12 + waveAccent * 0.06;
+          vec3 finalColor = mix(shellCenterColor, shellRimColor, fresnel) * (0.70 + 0.30 * uShellActivity) + vec3(0.20, 0.12, 0.02) * (gridGlow + waveAccent);
+          float alpha = (0.02 + fresnel * 0.28 + gridGlow * 0.12 + waveAccent * 0.06) * uShellActivity;
 
-          gl_FragColor = vec4(finalColor * 0.80, clamp(alpha, 0.0, 0.45));
+          gl_FragColor = vec4(finalColor * 0.80, clamp(alpha, 0.0, 0.50));
         }
       `,
       transparent: true,
@@ -8229,7 +8253,6 @@ const JarvisKnowledgeGraph = {
     for (let i = 0; i < filamentCount; i++) {
       const segments = 80;
       const positions = new Float32Array(segments * 3);
-      // Each filament follows a helical/toroidal path around the core
       const baseRadius = 10 + Math.random() * 12;
       const helixTilt = (Math.random() - 0.5) * Math.PI * 0.7;
       const helixPhase = (i / filamentCount) * Math.PI * 2;
@@ -8247,12 +8270,13 @@ const JarvisKnowledgeGraph = {
 
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      const hue = 0.06 + Math.random() * 0.04; // amber range
+      const hue = 0.06 + Math.random() * 0.04;
       const color = new THREE.Color().setHSL(hue, 0.85, 0.55);
+      const baseOpacity = 0.18 + Math.random() * 0.12;
       const mat = new THREE.LineBasicMaterial({
         color: color,
         transparent: true,
-        opacity: 0.18 + Math.random() * 0.12,
+        opacity: baseOpacity,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         linewidth: 1
@@ -8266,6 +8290,7 @@ const JarvisKnowledgeGraph = {
         helixPhase: helixPhase,
         windingFreq: windingFreq,
         amplitude: amplitude,
+        baseOpacity: baseOpacity,
         rotSpeed: 0.015 + Math.random() * 0.025,
         segments: segments
       });
@@ -8286,8 +8311,6 @@ const JarvisKnowledgeGraph = {
       const semiMinor = 10 + Math.random() * 10;
       const tiltX = (Math.random() - 0.5) * Math.PI * 0.9;
       const tiltZ = (Math.random() - 0.5) * Math.PI * 0.9;
-      const phase = Math.random() * Math.PI * 2;
-      // Only render a partial arc (60-85% of the ellipse) for organic look
       const arcSpan = 0.6 + Math.random() * 0.25;
       const arcStart = Math.random() * Math.PI * 2;
 
@@ -8297,7 +8320,6 @@ const JarvisKnowledgeGraph = {
         let x = Math.cos(angle) * semiMajor;
         let y = Math.sin(angle) * semiMinor;
         let z = 0;
-        // Apply tilts
         const cosX = Math.cos(tiltX), sinX = Math.sin(tiltX);
         const y1 = y * cosX - z * sinX;
         const z1 = y * sinX + z * cosX;
@@ -8311,16 +8333,18 @@ const JarvisKnowledgeGraph = {
 
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const baseOpacity = 0.12 + Math.random() * 0.10;
       const mat = new THREE.LineBasicMaterial({
         color: new THREE.Color().setHSL(0.07, 0.80, 0.50 + Math.random() * 0.15),
         transparent: true,
-        opacity: 0.12 + Math.random() * 0.10,
+        opacity: baseOpacity,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         linewidth: 1
       });
       const arc = new THREE.Line(geo, mat);
       arc.userData = {
+        baseOpacity: baseOpacity,
         rotSpeedY: (0.004 + Math.random() * 0.008) * (Math.random() > 0.5 ? 1 : -1),
         rotSpeedX: (0.002 + Math.random() * 0.004) * (Math.random() > 0.5 ? 1 : -1)
       };
@@ -8357,17 +8381,19 @@ const JarvisKnowledgeGraph = {
     const particleMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: uniforms.uTime,
-        uPulse: uniforms.uPulse
+        uPulse: uniforms.uPulse,
+        uParticleSpeed: uniforms.uParticleSpeed,
+        uParticleBrightness: uniforms.uParticleBrightness
       },
       vertexShader: `
         uniform float uTime;
+        uniform float uParticleSpeed;
         attribute float aSize;
         attribute float aPhase;
         attribute float aRadius;
         varying float vAlpha;
         void main() {
-          // Slow orbital motion: rotate each particle around origin
-          float speed = 0.02 + aSize * 0.008;
+          float speed = (0.02 + aSize * 0.008) * uParticleSpeed;
           float angle = aPhase + uTime * speed;
           vec3 pos = position;
           float cosA = cos(angle * 0.3);
@@ -8378,18 +8404,18 @@ const JarvisKnowledgeGraph = {
           gl_PointSize = aSize * (180.0 / -mvPosition.z);
           gl_Position = projectionMatrix * mvPosition;
 
-          // Gentle twinkle
           vAlpha = 0.25 + 0.15 * sin(uTime * 1.5 + aPhase * 6.28);
         }
       `,
       fragmentShader: `
+        uniform float uParticleBrightness;
         varying float vAlpha;
         void main() {
           float d = length(gl_PointCoord - vec2(0.5));
           if (d > 0.5) discard;
           float glow = smoothstep(0.5, 0.0, d);
           vec3 col = vec3(1.0, 0.65, 0.18);
-          gl_FragColor = vec4(col, glow * vAlpha);
+          gl_FragColor = vec4(col * uParticleBrightness, glow * vAlpha * uParticleBrightness);
         }
       `,
       transparent: true,
@@ -8405,6 +8431,119 @@ const JarvisKnowledgeGraph = {
     this.jarvisCoreGroup = group;
   },
 
+  onStateChange(state) {
+    if (state === 'interrupted') {
+      this._interruptionImpulse = 1.0;
+    }
+  },
+
+  _getStateTargets(state, audioEnergy) {
+    const s = (state || 'idle').toLowerCase();
+    const a = typeof audioEnergy === 'number' ? Math.max(0, Math.min(1.0, audioEnergy)) : 0;
+
+    switch (s) {
+      case 'listening':
+        return {
+          nucleusIntensity: 0.95,
+          nucleusScale: 1.02,
+          plasmaTurbulence: 0.95,
+          plasmaBrightness: 0.95,
+          plasmaSpeed: 0.95,
+          coronaIntensity: 0.95,
+          shellActivity: 1.10,
+          filamentActivity: 0.85,
+          particleActivity: 0.95,
+          graphCirculation: 0.10
+        };
+
+      case 'followup_listening':
+        return {
+          nucleusIntensity: 0.90,
+          nucleusScale: 1.01,
+          plasmaTurbulence: 0.90,
+          plasmaBrightness: 0.90,
+          plasmaSpeed: 0.85,
+          coronaIntensity: 0.88,
+          shellActivity: 1.00,
+          filamentActivity: 0.80,
+          particleActivity: 0.85,
+          graphCirculation: 0.05
+        };
+
+      case 'thinking':
+        return {
+          nucleusIntensity: 1.25,
+          nucleusScale: 1.05,
+          plasmaTurbulence: 1.45,
+          plasmaBrightness: 1.20,
+          plasmaSpeed: 1.60,
+          coronaIntensity: 1.10,
+          shellActivity: 1.35,
+          filamentActivity: 1.50,
+          particleActivity: 1.65,
+          graphCirculation: 1.00
+        };
+
+      case 'speaking':
+        return {
+          nucleusIntensity: 1.00 + a * 0.35,
+          nucleusScale: 1.00 + a * 0.08,
+          plasmaTurbulence: 0.90 + a * 0.40,
+          plasmaBrightness: 0.90 + a * 0.35,
+          plasmaSpeed: 1.00 + a * 0.35,
+          coronaIntensity: 0.85 + a * 0.50,
+          shellActivity: 0.90 + a * 0.35,
+          filamentActivity: 0.85 + a * 0.45,
+          particleActivity: 0.90 + a * 0.40,
+          graphCirculation: 0.20 + a * 0.30
+        };
+
+      case 'interrupted':
+        return {
+          nucleusIntensity: 0.55,
+          nucleusScale: 0.75,
+          plasmaTurbulence: 0.50,
+          plasmaBrightness: 0.60,
+          plasmaSpeed: 0.40,
+          coronaIntensity: 0.45,
+          shellActivity: 1.40,
+          filamentActivity: 0.35,
+          particleActivity: 0.45,
+          graphCirculation: 0.00
+        };
+
+      case 'task_active':
+      case 'processing':
+        return {
+          nucleusIntensity: 1.10,
+          nucleusScale: 1.03,
+          plasmaTurbulence: 1.15,
+          plasmaBrightness: 1.05,
+          plasmaSpeed: 1.20,
+          coronaIntensity: 1.05,
+          shellActivity: 1.20,
+          filamentActivity: 1.20,
+          particleActivity: 1.20,
+          graphCirculation: 0.50
+        };
+
+      case 'idle':
+      default:
+        return {
+          nucleusIntensity: 0.85,
+          nucleusScale: 1.00,
+          plasmaTurbulence: 0.80,
+          plasmaBrightness: 0.85,
+          plasmaSpeed: 0.70,
+          coronaIntensity: 0.75,
+          shellActivity: 0.75,
+          filamentActivity: 0.70,
+          particleActivity: 0.70,
+          graphCirculation: 0.00
+        };
+    }
+  },
+
   _animateJarvisCore() {
     if (!this.jarvisCoreGroup) return;
     const t = performance.now() * 0.001;
@@ -8415,58 +8554,102 @@ const JarvisKnowledgeGraph = {
     const b3 = Math.sin(t * 2.81 + 2.4) * 0.15;
     const pulse = 1.0 + (b1 + b2 + b3) * 0.025;
 
+    // Read authoritative state and smoothed audio energy
+    const state = (typeof jarvisHudState !== 'undefined') ? jarvisHudState : 'idle';
+    const audio = (typeof this._smoothedAudio === 'number') ? this._smoothedAudio : 0;
+    const targets = this._getStateTargets(state, audio);
+
+    // Apply temporary interruption impulse if active
+    if (this._interruptionImpulse > 0.001) {
+      targets.nucleusScale *= (1.0 - this._interruptionImpulse * 0.30);
+      targets.shellActivity += this._interruptionImpulse * 0.40;
+      targets.filamentActivity *= (1.0 - this._interruptionImpulse * 0.50);
+      this._interruptionImpulse *= 0.90;
+    }
+
+    // Initialize or smooth state values with cinematic interpolation (0.08 per frame)
+    if (!this._coreStateValues) {
+      this._coreStateValues = Object.assign({}, targets);
+    }
+    const cur = this._coreStateValues;
+    const lerpFactor = 0.08;
+    for (const key in targets) {
+      if (typeof cur[key] === 'number') {
+        cur[key] += (targets[key] - cur[key]) * lerpFactor;
+      }
+    }
+
     if (this._coreUniforms) {
       this._coreUniforms.uTime.value = t;
       this._coreUniforms.uPulse.value = pulse;
+      this._coreUniforms.uNucleusIntensity.value = cur.nucleusIntensity;
+      this._coreUniforms.uPlasmaTurbulence.value = cur.plasmaTurbulence;
+      this._coreUniforms.uPlasmaBrightness.value = cur.plasmaBrightness;
+      this._coreUniforms.uCoronaIntensity.value = cur.coronaIntensity;
+      this._coreUniforms.uShellActivity.value = cur.shellActivity;
+      this._coreUniforms.uParticleSpeed.value = cur.plasmaSpeed;
+      this._coreUniforms.uParticleBrightness.value = cur.particleActivity;
     }
 
-    // Nucleus: fast pulsing scale
+    // Nucleus: fast pulsing scale modulated by state & audio
     if (this.coreInner) {
-      const nucleusPulse = 1.0 + Math.sin(t * 4.5) * 0.04 + Math.sin(t * 7.1) * 0.02;
+      const fastFreq = 3.5 + cur.plasmaSpeed * 2.0;
+      const nucleusPulse = (1.0 + Math.sin(t * fastFreq) * 0.035 + Math.sin(t * fastFreq * 1.6) * 0.015) * cur.nucleusScale;
       this.coreInner.scale.set(nucleusPulse, nucleusPulse, nucleusPulse);
     }
 
-    // Plasma: medium-speed turbulent rotation
+    // Plasma: multi-axis turbulent rotation modulated by state speed
     if (this.corePlasma) {
-      this.corePlasma.rotation.y = t * 0.065;
-      this.corePlasma.rotation.x = Math.sin(t * 0.04) * 0.10;
-      this.corePlasma.rotation.z = Math.cos(t * 0.055) * 0.05;
+      this.corePlasma.rotation.y = t * 0.065 * cur.plasmaSpeed;
+      this.corePlasma.rotation.x = Math.sin(t * 0.04 * cur.plasmaSpeed) * 0.10;
+      this.corePlasma.rotation.z = Math.cos(t * 0.055 * cur.plasmaSpeed) * 0.05;
     }
 
-    // Shell: very slow counter-rotation
+    // Shell: very slow counter-rotation modulated by state speed
     if (this.coreShell) {
-      this.coreShell.rotation.y = -t * 0.025;
-      this.coreShell.rotation.z = Math.cos(t * 0.03) * 0.04;
+      this.coreShell.rotation.y = -t * 0.025 * cur.plasmaSpeed;
+      this.coreShell.rotation.z = Math.cos(t * 0.03 * cur.plasmaSpeed) * 0.04;
     }
 
-    // Corona: breathing scale
+    // Corona: breathing scale with state & audio reactivity
     if (this.coreCorona) {
-      const cScale = pulse * 1.01;
+      const cScale = pulse * (0.97 + cur.coronaIntensity * 0.04);
       this.coreCorona.scale.set(cScale, cScale, cScale);
     }
 
-    // Filaments: slow drift rotation
-    if (this.energyFilaments) {
-      this.energyFilaments.rotation.y = t * 0.012;
-      this.energyFilaments.rotation.x = Math.sin(t * 0.008) * 0.06;
-    }
-
-    // Orbital arcs: very slow individual rotation
-    if (this.orbitalArcs) {
-      const arcs = this.orbitalArcs.children;
-      for (let i = 0; i < arcs.length; i++) {
-        const arc = arcs[i];
-        if (arc.userData) {
-          arc.rotation.y += arc.userData.rotSpeedY;
-          arc.rotation.x += arc.userData.rotSpeedX;
+    // Filaments: rotation and opacity modulation
+    if (this.energyFilaments && this._filamentCurves) {
+      this.energyFilaments.rotation.y = t * 0.012 * cur.plasmaSpeed;
+      this.energyFilaments.rotation.x = Math.sin(t * 0.008 * cur.plasmaSpeed) * 0.06;
+      const fFactor = cur.filamentActivity;
+      for (let i = 0; i < this._filamentCurves.length; i++) {
+        const fc = this._filamentCurves[i];
+        if (fc.line && fc.line.material) {
+          fc.line.material.opacity = (fc.baseOpacity || 0.20) * fFactor;
         }
       }
     }
 
-    // Core particles: slow orbital (handled in vertex shader via uTime)
-    // Additional slow group rotation for visual variety
+    // Orbital arcs: individual rotation and opacity modulation
+    if (this.orbitalArcs) {
+      const arcs = this.orbitalArcs.children;
+      const speedMult = cur.plasmaSpeed;
+      const fFactor = cur.filamentActivity;
+      for (let i = 0; i < arcs.length; i++) {
+        const arc = arcs[i];
+        if (arc.userData) {
+          arc.rotation.y += (arc.userData.rotSpeedY || 0.006) * speedMult;
+          arc.rotation.x += (arc.userData.rotSpeedX || 0.003) * speedMult;
+        }
+        if (arc.material && arc.userData) {
+          arc.material.opacity = (arc.userData.baseOpacity || 0.15) * fFactor;
+        }
+      }
+    }
+
+    // Core particles: group rotation modulated by state speed
     if (this.coreParticles) {
-      this.coreParticles.rotation.y = t * 0.008;
+      this.coreParticles.rotation.y = t * 0.008 * cur.plasmaSpeed;
     }
   },
 
@@ -9085,33 +9268,38 @@ const JarvisKnowledgeGraph = {
   updateAudioEnergy(energy) {
     if (this.isPaused) return;
     this._ensureSceneRefs();
-    this._animateJarvisCore();
-    if (!this.graphGroup) return;
 
-    const targetNorm = Math.min(1.0, Math.max(0, (energy || 0) / 255));
+    // Authoritative audio gating: only SPEAKING state receives audio reactivity
+    const isSpeaking = (typeof jarvisHudState !== 'undefined' && jarvisHudState === 'speaking');
+    const gate = isSpeaking ? 1.0 : 0.02; // Gate audio to 2% when not speaking
+    const rawNorm = Math.min(1.0, Math.max(0, (energy || 0) / 255));
+    const targetNorm = rawNorm * gate;
+
     if (this._smoothedNorm === undefined) {
-      this._smoothedNorm = targetNorm;
+      this._smoothedNorm = 0;
     }
-    // Asymmetric exponential smoothing: fast attack (0.18) for punchy voice response,
-    // graceful release (0.08) for smooth harmonic decay without discrete jumps
-    const lerpFactor = targetNorm > this._smoothedNorm ? 0.18 : 0.08;
+    // Asymmetric exponential smoothing: fast attack (0.22) for responsive speech,
+    // smooth release (0.07) for natural cadence without jitter
+    const lerpFactor = targetNorm > this._smoothedNorm ? 0.22 : 0.07;
     this._smoothedNorm += (targetNorm - this._smoothedNorm) * lerpFactor;
     const norm = this._smoothedNorm;
+    this._smoothedAudio = norm;
 
-    const scale = 1.0 + (norm * 0.08); // Whole-sphere breathing pulse (O(1) GPU transform, uniform isotropic)
-    this.graphGroup.scale.set(scale, scale, scale);
-
-    if (this.coronaMesh) {
-      const cScale = 1.0 + (norm * 0.35);
-      this.coronaMesh.scale.set(cScale, cScale, cScale);
-      if (this.coronaMesh.material) {
-        this.coronaMesh.material.opacity = 0.45 + (norm * 0.40);
-      }
+    // Subtle accompaniment on graphGroup (calibrated for intelligent response rather than wild visualizer pulsing)
+    if (this.graphGroup) {
+      const gScale = 1.0 + (isSpeaking ? norm * 0.02 : 0.0);
+      this.graphGroup.scale.set(gScale, gScale, gScale);
     }
 
+    // Ambient light subtle accompaniment
     if (this.ambientLight) {
-      this.ambientLight.intensity = 1.3 + (norm * 0.9);
+      const circ = (this._coreStateValues ? this._coreStateValues.graphCirculation : 0);
+      const audioBoost = isSpeaking ? norm * 0.35 : 0.0;
+      const circBoost = circ * 0.20;
+      this.ambientLight.intensity = 1.3 + audioBoost + circBoost;
     }
+
+    this._animateJarvisCore();
   },
 
   startAudioTick() {
@@ -9168,6 +9356,9 @@ function setHudState(state) {
   }
   if (state === 'thinking') {
     window.refreshThinkingWatchdog();
+  }
+  if (window.JarvisKnowledgeGraph && typeof window.JarvisKnowledgeGraph.onStateChange === 'function') {
+    window.JarvisKnowledgeGraph.onStateChange(state);
   }
   if (typeof window.updateGodsEyeVoiceWidget === 'function') {
     window.updateGodsEyeVoiceWidget(state);
