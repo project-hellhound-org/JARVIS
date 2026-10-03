@@ -1778,21 +1778,19 @@
     transform: translateX(-50%) !important;
     display: none;
     align-items: center !important;
-    gap: 6px !important;
+    justify-content: center !important;
+    width: 28px !important;
+    height: 28px !important;
     background: rgba(6, 10, 18, 0.88) !important;
     border: 1px solid rgba(255, 157, 46, 0.35) !important;
-    border-radius: 6px !important;
-    padding: 4px 12px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
     color: #FFB84D !important;
-    font-family: var(--mono) !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.8px !important;
     cursor: pointer !important;
     z-index: 260 !important;
     backdrop-filter: blur(8px) !important;
     -webkit-backdrop-filter: blur(8px) !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 157, 46, 0.15) !important;
     transition: all 0.2s ease !important;
     pointer-events: auto !important;
   }
@@ -1803,6 +1801,7 @@
     background: rgba(255, 157, 46, 0.20) !important;
     border-color: #FF9D2E !important;
     color: #FFF !important;
+    transform: translateX(-50%) translateY(-2px) !important;
   }
   #thread {
     width: 100% !important;
@@ -5141,10 +5140,9 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   </div>
 </div>
 
-<!-- Floating Reopen Pill when Chat Panel is Collapsed -->
-<button id="chat-expand-launcher" onclick="window.toggleChatPanel()" title="Expand J.A.R.V.I.S. Chat & Input">
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
-  <span>EXPAND FEED</span>
+<!-- Floating Reopen Icon Chevron when Chat Panel is Collapsed -->
+<button id="chat-expand-launcher" onclick="window.toggleChatPanel()" title="Expand J.A.R.V.I.S. Chat Panel">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
 </button>
 
 <!-- 3D Case Graph Overlay -->
@@ -7392,17 +7390,17 @@ function setHudColorTheme(colorTheme) {
 }
 
 const CATEGORY_PALETTE = {
-  CORE: { color: "#FFB84D", glow: "rgba(255, 184, 77, 0.90)", val: 14 },
-  MEMORY_RULE: { color: "#FACC15", glow: "rgba(250, 204, 21, 0.80)", val: 7 },
-  MEMORY_FACT: { color: "#F43F5E", glow: "rgba(244, 63, 94, 0.75)", val: 7 },
-  MEMORY_SKILL: { color: "#10B981", glow: "rgba(16, 185, 129, 0.80)", val: 8 },
-  LESSON: { color: "#C084FC", glow: "rgba(192, 132, 252, 0.75)", val: 7 },
-  OSINT_TARGET: { color: "#EF4444", glow: "rgba(239, 68, 68, 0.90)", val: 10 },
-  OSINT_ENTITY: { color: "#06B6D4", glow: "rgba(6, 182, 212, 0.80)", val: 6 },
-  SESSION_TOPIC: { color: "#FB923C", glow: "rgba(251, 146, 60, 0.75)", val: 7 },
-  CLUSTER: { color: "#FFB84D", glow: "rgba(255, 184, 77, 0.90)", val: 14 },
-  OBSIDIAN_NOTE: { color: "#818CF8", glow: "rgba(129, 140, 248, 0.75)", val: 8 },
-  HEURISTIC: { color: "#2DD4BF", glow: "rgba(45, 212, 191, 0.75)", val: 6 }
+  CORE: { color: "#FFA726", glow: "rgba(255, 167, 38, 0.95)", val: 14 },
+  MEMORY_RULE: { color: "#FFB74D", glow: "rgba(255, 183, 77, 0.85)", val: 7 },
+  MEMORY_FACT: { color: "#FF9800", glow: "rgba(255, 152, 0, 0.80)", val: 7 },
+  MEMORY_SKILL: { color: "#FFD54F", glow: "rgba(255, 213, 79, 0.85)", val: 8 },
+  LESSON: { color: "#FFE082", glow: "rgba(255, 224, 130, 0.80)", val: 7 },
+  OSINT_TARGET: { color: "#FF7043", glow: "rgba(255, 112, 67, 0.90)", val: 10 },
+  OSINT_ENTITY: { color: "#FFCC80", glow: "rgba(255, 204, 128, 0.80)", val: 6 },
+  SESSION_TOPIC: { color: "#FF8A65", glow: "rgba(255, 138, 101, 0.80)", val: 7 },
+  CLUSTER: { color: "#FFA726", glow: "rgba(255, 167, 38, 0.95)", val: 14 },
+  OBSIDIAN_NOTE: { color: "#FFF8E1", glow: "rgba(255, 248, 225, 0.80)", val: 8 },
+  HEURISTIC: { color: "#FFE57F", glow: "rgba(255, 229, 127, 0.80)", val: 6 }
 };
 
 const GRAPH_RADIUS = 105;
@@ -7415,6 +7413,7 @@ function _generateOrganicSpherePositions(nodes, R = 105) {
     if (node.id === 'core:jarvis') {
       node.x = 0; node.y = 0; node.z = 0;
       node.fx = 0; node.fy = 0; node.fz = 0;
+      node.__homeX = 0; node.__homeY = 0; node.__homeZ = 0;
       continue;
     }
     const y = 1 - (2 * i + 1) / N;
@@ -7426,47 +7425,76 @@ function _generateOrganicSpherePositions(nodes, R = 105) {
     node.x = Math.cos(theta) * radiusAtY;
     node.y = y * nodeR;
     node.z = Math.sin(theta) * radiusAtY;
+    node.__homeX = node.x;
+    node.__homeY = node.y;
+    node.__homeZ = node.z;
   }
 }
 
 function generateDefaultData() {
+  const categories = [
+    { type: 'MEMORY_SKILL', prefix: 'skill', label: 'Skill Matrix', color: '#FFD54F', val: 8 },
+    { type: 'MEMORY_RULE', prefix: 'rule', label: 'Directive', color: '#FFB74D', val: 7 },
+    { type: 'MEMORY_FACT', prefix: 'fact', label: 'Knowledge Unit', color: '#FF9800', val: 7 },
+    { type: 'LESSON', prefix: 'lesson', label: 'Tactical Lesson', color: '#FFE082', val: 7 },
+    { type: 'OSINT_TARGET', prefix: 'target', label: 'Target Vector', color: '#FF7043', val: 10 },
+    { type: 'OSINT_ENTITY', prefix: 'entity', label: 'Entity Profile', color: '#FFCC80', val: 6 },
+    { type: 'SESSION_TOPIC', prefix: 'topic', label: 'Topic Vector', color: '#FF8A65', val: 7 },
+    { type: 'OBSIDIAN_NOTE', prefix: 'note', label: 'Vault Note', color: '#FFF8E1', val: 8 },
+    { type: 'HEURISTIC', prefix: 'heuristic', label: 'Heuristic Rule', color: '#FFE57F', val: 6 }
+  ];
+
   const nodes = [
-    { id: 'core:jarvis', label: 'J.A.R.V.I.S.', type: 'CORE', color: '#FFB84D', val: 14, metadata: { status: 'ONLINE', presence: 'Central Neural Matrix' } },
-    { id: 'skill_maps_nav', label: 'Maps Navigation', type: 'MEMORY_SKILL', color: '#10B981', val: 8, metadata: { description: '12 Route Corridors Active' } },
-    { id: 'skill_smart_home', label: 'Smart Home Matrix', type: 'MEMORY_SKILL', color: '#10B981', val: 8, metadata: { description: '4 Automation Nodes' } },
-    { id: 'skill_google_search', label: 'Search Engine', type: 'MEMORY_SKILL', color: '#10B981', val: 8, metadata: { description: 'Autonomous Fastpath Querying' } },
-    { id: 'skill_calendar_intel', label: 'Calendar Intel', type: 'MEMORY_SKILL', color: '#10B981', val: 8, metadata: { description: 'Chronological Event Sync' } },
-    { id: 'mem_rule_0', label: 'Executive Directive', type: 'MEMORY_RULE', color: '#FACC15', val: 7, metadata: { trigger: 'Always address operator as Sir' } },
-    { id: 'mem_rule_1', label: 'Tactical Persona', type: 'MEMORY_RULE', color: '#FACC15', val: 7, metadata: { trigger: 'Maintain understated British tone' } },
-    { id: 'mem_fact_0', label: 'Cognitive Knowledge', type: 'MEMORY_FACT', color: '#F43F5E', val: 7, metadata: { full_text: 'Speech recognition acoustic tuning' } },
-    { id: 'lesson_recon', label: 'Tactical Reconnaissance', type: 'LESSON', color: '#C084FC', val: 7, metadata: { lesson: 'Multi-vector correlation' } }
+    { id: 'core:jarvis', label: 'J.A.R.V.I.S.', type: 'CORE', color: '#FFA726', val: 14, metadata: { status: 'ONLINE', presence: 'Central Neural Matrix' } }
   ];
-  const links = [
-    { source: 'core:jarvis', target: 'skill_maps_nav', type: 'applies_skill' },
-    { source: 'core:jarvis', target: 'skill_smart_home', type: 'applies_skill' },
-    { source: 'core:jarvis', target: 'skill_google_search', type: 'applies_skill' },
-    { source: 'core:jarvis', target: 'skill_calendar_intel', type: 'applies_skill' },
-    { source: 'core:jarvis', target: 'mem_rule_0', type: 'governs' },
-    { source: 'core:jarvis', target: 'mem_rule_1', type: 'governs' },
-    { source: 'core:jarvis', target: 'mem_fact_0', type: 'references' },
-    { source: 'core:jarvis', target: 'lesson_recon', type: 'synthesizes' }
-  ];
+  const links = [];
+
+  // Generate 119 nodes across categories to total 120 nodes
+  for (let i = 1; i < 120; i++) {
+    const cat = categories[i % categories.length];
+    const id = `${cat.prefix}_${i}`;
+    nodes.push({
+      id: id,
+      label: `${cat.label} #${i}`,
+      type: cat.type,
+      color: cat.color,
+      val: cat.val,
+      metadata: { id: id, index: i }
+    });
+
+    // Core hub links (governs)
+    if (i < 18 || i % 4 === 0) {
+      links.push({ source: 'core:jarvis', target: id, type: 'governs', strength: 0.35, particles: i < 18 ? 1 : 0 });
+    }
+    // Lateral cluster ring links (references)
+    if (i > 1 && i % 2 === 0) {
+      links.push({ source: nodes[i - 1].id, target: id, type: 'references', strength: 0.25, particles: 0 });
+    }
+    // Cross-domain associative links (applies)
+    if (i > 3 && i % 3 === 0) {
+      links.push({ source: nodes[i - 3].id, target: id, type: 'applies', strength: 0.20, particles: 0 });
+    }
+  }
+
   return { nodes, links };
 }
 
 function makeStarSpriteTex() {
-  const sz  = 64;
-  const cv  = document.createElement('canvas');
-  cv.width  = sz; cv.height = sz;
-  const ctx = cv.getContext('2d');
-  const g   = ctx.createRadialGradient(sz / 2, sz / 2, 0, sz / 2, sz / 2, sz / 2);
-  g.addColorStop(0,    'rgba(255,255,255,1.0)');
-  g.addColorStop(0.18, 'rgba(255,255,255,0.9)');
-  g.addColorStop(0.5,  'rgba(255,255,255,0.3)');
-  g.addColorStop(1,    'rgba(255,255,255,0.0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, sz, sz);
-  const tex = new THREE.CanvasTexture(cv);
+  const size = 32;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const half = size / 2;
+  const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+  grad.addColorStop(0, 'rgba(255,255,255,1.0)');
+  grad.addColorStop(0.20, 'rgba(255,255,255,0.92)');
+  grad.addColorStop(0.45, 'rgba(255,248,220,0.50)');
+  grad.addColorStop(0.75, 'rgba(255,215,140,0.12)');
+  grad.addColorStop(1.0, 'rgba(255,180,60,0.0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
   tex.needsUpdate = true;
   return tex;
 }
@@ -7501,6 +7529,7 @@ const JarvisKnowledgeGraph = {
   coreShell: null,
   energyFilaments: null,
   orbitalArcs: null,
+  coreRays: null,
   coreParticles: null,
   _filamentCurves: null,
   _coreUniforms: null,
@@ -7552,11 +7581,70 @@ const JarvisKnowledgeGraph = {
           this.isNodeDragging = true;
           const c = this.graph ? this.graph.controls() : null;
           if (c) c.autoRotate = false;
+          if (node.id !== 'core:jarvis') {
+            node.fx = node.x;
+            node.fy = node.y;
+            node.fz = node.z;
+          }
         })
         .onNodeDragEnd((node, translate) => {
           this.isNodeDragging = false;
           const c = this.graph ? this.graph.controls() : null;
-          if (c && !this.focusedNode) c.autoRotate = true;
+          if (c && !this.focusedNode) c.autoRotate = false;
+
+          if (node.id === 'core:jarvis') {
+            node.fx = 0; node.fy = 0; node.fz = 0;
+            node.x = 0; node.y = 0; node.z = 0;
+            return;
+          }
+
+          // Elastic spring-back animation to anchor home position
+          const startX = (typeof node.x === 'number') ? node.x : (node.fx || 0);
+          const startY = (typeof node.y === 'number') ? node.y : (node.fy || 0);
+          const startZ = (typeof node.z === 'number') ? node.z : (node.fz || 0);
+          const targetX = (typeof node.__homeX === 'number') ? node.__homeX : 0;
+          const targetY = (typeof node.__homeY === 'number') ? node.__homeY : 0;
+          const targetZ = (typeof node.__homeZ === 'number') ? node.__homeZ : 0;
+
+          const startTime = performance.now();
+          const duration = 650; // ms
+
+          // Damped elastic ease-out
+          const easeOutElastic = (t) => {
+            const p = 0.35;
+            return Math.pow(2, -10 * t) * Math.sin((t - p / 4) * (2 * Math.PI) / p) + 1;
+          };
+
+          if (node.__springAnimId) cancelAnimationFrame(node.__springAnimId);
+
+          const stepSpring = (now) => {
+            const elapsed = now - startTime;
+            const progress = Math.min(1.0, elapsed / duration);
+            const factor = easeOutElastic(progress);
+
+            node.fx = startX + (targetX - startX) * factor;
+            node.fy = startY + (targetY - startY) * factor;
+            node.fz = startZ + (targetZ - startZ) * factor;
+            node.x = node.fx;
+            node.y = node.fy;
+            node.z = node.fz;
+
+            if (progress < 1.0) {
+              node.__springAnimId = requestAnimationFrame(stepSpring);
+            } else {
+              node.fx = targetX;
+              node.fy = targetY;
+              node.fz = targetZ;
+              node.x = targetX;
+              node.y = targetY;
+              node.z = targetZ;
+              delete node.__springAnimId;
+              delete node.fx;
+              delete node.fy;
+              delete node.fz;
+            }
+          };
+          node.__springAnimId = requestAnimationFrame(stepSpring);
         })
         .onBackgroundClick(event => {
           if (event && event.target && event.target.tagName !== 'CANVAS') return;
@@ -7587,35 +7675,35 @@ const JarvisKnowledgeGraph = {
           const meta = node.metadata || {};
           const detail = meta.details || meta.trigger || meta.target || meta.full_text || meta.lesson || meta.description || meta.presence || '';
           const detailHtml = detail ? `<div style="font-size:10px; color:#A1A1AA; margin-top:3px; max-width:240px; white-space:normal; line-height:1.3;">${escapeHtml(String(detail).substring(0, 100))}</div>` : '';
+          const col = (CATEGORY_PALETTE[node.type] && CATEGORY_PALETTE[node.type].color) || '#FFB84D';
           return `<div class="kg-tooltip">
-            <div style="font-size:11px; font-weight:700; color:${node.color || '#FFB84D'};">${escapeHtml(node.label || 'Node')}</div>
+            <div style="font-size:11px; font-weight:700; color:${col};">${escapeHtml(node.label || 'Node')}</div>
             <div style="font-size:9px; color:#FFA726; opacity:0.85; text-transform:uppercase; letter-spacing:0.5px; margin-top:1px;">${typeLabel}</div>
             ${detailHtml}
           </div>`;
         })
         .nodeThreeObject(node => this.createNodeMesh(node))
-        .nodeColor(node => node.color || '#FFB84D')
+        .nodeColor(node => (CATEGORY_PALETTE[node.type] && CATEGORY_PALETTE[node.type].color) || '#FFA726')
         .nodeVal(node => node.type === 'CLUSTER' ? 14 : (node.id === 'core:jarvis' ? 24 : (node.val || 7)))
         .nodeRelSize(3.2)
-        .linkOpacity(0.22)
+        .linkOpacity(0.24)
         .linkWidth(link => {
           const s = typeof link.source === 'object' ? link.source.id : link.source;
           const t = typeof link.target === 'object' ? link.target.id : link.target;
-          if (s === 'core:jarvis' || t === 'core:jarvis') return 1.2;
-          if (link.type === 'investigates' || link.type === 'analyzed_by') return 1.3;
-          if (link.type === 'applies_skill' || link.type === 'invokes') return 1.1;
-          return 0.8;
+          if (s === 'core:jarvis' || t === 'core:jarvis') return 1.3;
+          if (link.type === 'investigates' || link.type === 'analyzed_by') return 1.1;
+          if (link.type === 'applies_skill' || link.type === 'invokes') return 1.0;
+          return 0.75;
         })
         .linkColor(link => {
           const s = typeof link.source === 'object' ? link.source.id : link.source;
           const t = typeof link.target === 'object' ? link.target.id : link.target;
-          if (s === 'core:jarvis' || t === 'core:jarvis') return 'rgba(255, 184, 77, 0.45)';
-          if (link.type === 'investigates' || link.type === 'analyzed_by') return 'rgba(239, 68, 68, 0.85)';
-          if (link.type === 'applies_skill' || link.type === 'invokes') return 'rgba(16, 185, 129, 0.80)';
-          if (link.type === 'references' || link.type === 'synthesizes' || link.type === 'learned_from') return 'rgba(192, 132, 252, 0.75)';
-          if (link.type === 'governs' || link.type === 'governed_by') return 'rgba(250, 204, 21, 0.80)';
-          if (link.type === 'discovered_during') return 'rgba(6, 182, 212, 0.80)';
-          return 'rgba(56, 189, 248, 0.65)';
+          if (s === 'core:jarvis' || t === 'core:jarvis') return 'rgba(255, 195, 95, 0.50)';
+          if (link.type === 'investigates' || link.type === 'analyzed_by') return 'rgba(255, 145, 65, 0.42)';
+          if (link.type === 'applies_skill' || link.type === 'invokes') return 'rgba(255, 215, 80, 0.38)';
+          if (link.type === 'references' || link.type === 'synthesizes' || link.type === 'learned_from') return 'rgba(255, 225, 140, 0.35)';
+          if (link.type === 'governs' || link.type === 'governed_by') return 'rgba(255, 185, 75, 0.38)';
+          return 'rgba(255, 175, 65, 0.30)';
         })
         .linkDirectionalParticles(link => {
           if (link.__pulseActive) return 3;
@@ -7645,12 +7733,12 @@ const JarvisKnowledgeGraph = {
           if (link.__pulseActive) return '#FFFFFF';
           const s = typeof link.source === 'object' ? link.source.id : link.source;
           const t = typeof link.target === 'object' ? link.target.id : link.target;
-          if (s === 'core:jarvis' || t === 'core:jarvis') return '#FFB84D';
-          if (link.type === 'applies_skill' || link.type === 'invokes') return '#10B981';
-          if (link.type === 'references' || link.type === 'synthesizes' || link.type === 'learned_from') return '#C084FC';
-          if (link.type === 'governs' || link.type === 'governed_by') return '#FACC15';
-          if (link.type === 'investigates' || link.type === 'analyzed_by') return '#EF4444';
-          return '#38BDF8';
+          if (s === 'core:jarvis' || t === 'core:jarvis') return '#FFFFFF';
+          if (link.type === 'applies_skill' || link.type === 'invokes') return '#FFE082';
+          if (link.type === 'references' || link.type === 'synthesizes' || link.type === 'learned_from') return '#FFF8E1';
+          if (link.type === 'governs' || link.type === 'governed_by') return '#FFD54F';
+          if (link.type === 'investigates' || link.type === 'analyzed_by') return '#FF9E80';
+          return '#FFB84D';
         })
         .linkDirectionalParticleResolution(4)
         .warmupTicks(60)
@@ -7730,7 +7818,7 @@ const JarvisKnowledgeGraph = {
             map: starTex,
             transparent: true,
             opacity: opacity,
-            alphaTest: 0.01,
+            alphaTest: 0.005,
             sizeAttenuation: true,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
@@ -7739,16 +7827,16 @@ const JarvisKnowledgeGraph = {
         };
 
         const kgStarGroup = new THREE.Group();
-        // Deep galaxy layer: 4,000 stars distributed from radius 1,500 to 11,500 (span 10,000)
-        const starFar = makeStarField(4000, 1500, 10000, 0xd0e0ff, 1.6, 0.70);
-        // Nearer layer: 800 stars between radius 700 and 3,200 (span 2,500)
-        const starNear = makeStarField(800, 700, 2500, 0x9fc8ff, 2.8, 0.75);
-        // Outer cosmic envelope: 2,500 stars between radius 4,000 and 26,000 (span 22,000)
-        const starWarm = makeStarField(2500, 4000, 22000, 0xffe4c4, 2.0, 0.70);
-        // Guide beacon stars: 600 bright stars between radius 1,200 and 17,200 (span 16,000)
-        const starGuide = makeStarField(600, 1200, 16000, 0xffffff, 4.2, 0.85);
+        // Near field tactical stars (crisp, brilliant diamond pinpricks around the core at camera z=400)
+        const starNear = makeStarField(950, 500, 1800, 0xffffff, 5.2, 0.95);
+        // Mid deep space layer (diamond silver & pale amber cosmic stars)
+        const starFar = makeStarField(2400, 1800, 5200, 0xffeedd, 9.0, 0.88);
+        // Outer cosmic envelope (soft golden stardust visible both default and zoomed out)
+        const starWarm = makeStarField(3200, 4500, 14000, 0xffd180, 18.0, 0.82);
+        // Guide beacon stars (high-magnitude diamond accents)
+        const starGuide = makeStarField(600, 900, 9000, 0xffffff, 14.0, 0.95);
 
-        kgStarGroup.add(starFar, starNear, starWarm, starGuide);
+        kgStarGroup.add(starNear, starFar, starWarm, starGuide);
         scene.add(kgStarGroup);
         this.kgStarGroup = kgStarGroup;
         this.starNear = starNear;
@@ -7971,6 +8059,9 @@ const JarvisKnowledgeGraph = {
     if (!this._nodeMaterialCache[key]) {
       const color = new THREE.Color(colorHex);
       this._nodeMaterialCache[key] = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.NormalBlending,
         uniforms: {
           uColor: { value: color },
           uLightPos: { value: new THREE.Vector3(0.55, 0.75, 1.0).normalize() },
@@ -7996,23 +8087,28 @@ const JarvisKnowledgeGraph = {
             vec3 normal = normalize(vNormal);
             vec3 viewDir = normalize(vViewPosition);
 
-            // Diffuse hemisphere lighting matching scene ambiance
-            float diffuse = max(dot(normal, uLightPos), 0.0);
-            vec3 diffuseLight = uColor * (0.35 + 0.65 * diffuse);
+            // Translucent glass core transmission (warm radiant amber crystal)
+            vec3 amberBase = vec3(1.0, 0.68, 0.24);
+            vec3 crystalTint = mix(amberBase, uColor, 0.40);
 
-            // Specular glint simulating polished celestial plasma
+            // Specular highlights: brilliant diamond glass glints
             vec3 halfVector = normalize(uLightPos + viewDir);
             float NdotH = max(dot(normal, halfVector), 0.0);
-            float specular = pow(NdotH, 28.0) * 0.40;
+            float specular = pow(NdotH, 36.0) * 0.85;
 
-            // Celestial Fresnel Rim Glow: luminous limb halo
+            // Direct light glint from core center
+            float coreGlint = pow(max(dot(normal, viewDir), 0.0), 20.0) * 0.35;
+
+            // Glass Fresnel limb halo: edges catch core rim glow
             float NdotV = max(dot(normal, viewDir), 0.0);
-            float rim = pow(1.0 - NdotV, 3.0);
-            vec3 rimGlow = mix(uColor, vec3(1.0), 0.40) * rim * 1.35;
+            float fresnel = pow(1.0 - NdotV, 2.4);
+            vec3 rimGlow = mix(crystalTint, vec3(1.0, 0.96, 0.88), 0.55) * fresnel * 1.6;
 
-            // Modulate total output by uEnergy: 0.15 (bare dim skeleton) to 1.0 (radiant glow)
-            vec3 finalColor = (diffuseLight + vec3(specular) + rimGlow) * uEnergy;
-            gl_FragColor = vec4(finalColor, 1.0);
+            // Translucent glass absorption: center is translucent, perimeter glows
+            float alpha = clamp(0.36 + fresnel * 0.48 + (specular + coreGlint) * 0.45, 0.22, 0.94);
+            vec3 finalColor = (crystalTint * 0.50 + rimGlow + vec3(specular + coreGlint)) * (0.60 + 0.40 * uEnergy);
+
+            gl_FragColor = vec4(finalColor, alpha);
           }
         `
       });
@@ -8377,59 +8473,121 @@ const JarvisKnowledgeGraph = {
     this.energyFilaments = filamentGroup;
     this._filamentCurves = filamentCurves;
 
-    // ─── 6. orbitalArcs: Irregular elliptical energy arcs intersecting core ───
-    const arcCount = 6;
+    // ─── 6. orbitalArcs: Tilted outer planetary rings & diamond flare beads around core ───
     const arcGroup = new THREE.Group();
     arcGroup.name = 'orbitalArcs';
 
-    for (let i = 0; i < arcCount; i++) {
-      const arcSegments = 100;
-      const positions = new Float32Array(arcSegments * 3);
-      const semiMajor = 55 + Math.random() * 40;
-      const semiMinor = 35 + Math.random() * 25;
-      const tiltX = (Math.random() - 0.5) * Math.PI * 0.9;
-      const tiltZ = (Math.random() - 0.5) * Math.PI * 0.9;
-      const arcSpan = 0.6 + Math.random() * 0.25;
-      const arcStart = Math.random() * Math.PI * 2;
+    const ringConfigs = [
+      { semiMajor: 192, semiMinor: 92, tiltX: 0.54, tiltZ: 0.28, opacity: 0.70, color: 0xFFA726, rotY: 0.0012, rotX: 0.0006 },
+      { semiMajor: 176, semiMinor: 84, tiltX: 0.54, tiltZ: 0.28, opacity: 0.55, color: 0xFFB84D, rotY: 0.0010, rotX: 0.0005 },
+      { semiMajor: 156, semiMinor: 74, tiltX: 0.54, tiltZ: 0.28, opacity: 0.45, color: 0xFFD54F, rotY: 0.0014, rotX: 0.0007 },
+      { semiMajor: 182, semiMinor: 118, tiltX: -0.32, tiltZ: 0.78, opacity: 0.42, color: 0xFFA726, rotY: -0.0010, rotX: 0.0008 },
+      { semiMajor: 166, semiMinor: 98, tiltX: 0.25, tiltZ: -0.62, opacity: 0.38, color: 0xFFCC80, rotY: 0.0008, rotX: -0.0009 }
+    ];
 
-      for (let s = 0; s < arcSegments; s++) {
-        const frac = s / (arcSegments - 1);
-        const angle = arcStart + frac * Math.PI * 2 * arcSpan;
-        let x = Math.cos(angle) * semiMajor;
-        let y = Math.sin(angle) * semiMinor;
+    const flarePositions = [];
+    ringConfigs.forEach((cfg) => {
+      const segs = 128;
+      const positions = new Float32Array((segs + 1) * 3);
+      for (let s = 0; s <= segs; s++) {
+        const angle = (s / segs) * Math.PI * 2;
+        let x = Math.cos(angle) * cfg.semiMajor;
+        let y = Math.sin(angle) * cfg.semiMinor;
         let z = 0;
-        const cosX = Math.cos(tiltX), sinX = Math.sin(tiltX);
+        const cosX = Math.cos(cfg.tiltX), sinX = Math.sin(cfg.tiltX);
         const y1 = y * cosX - z * sinX;
         const z1 = y * sinX + z * cosX;
-        const cosZ = Math.cos(tiltZ), sinZ = Math.sin(tiltZ);
+        const cosZ = Math.cos(cfg.tiltZ), sinZ = Math.sin(cfg.tiltZ);
         const x1 = x * cosZ - y1 * sinZ;
         const y2 = x * sinZ + y1 * cosZ;
         positions[s * 3]     = x1;
         positions[s * 3 + 1] = y2;
         positions[s * 3 + 2] = z1;
+
+        // Place diamond flare beads at cardinal points along primary tracks
+        if (s % 32 === 0 && cfg.semiMajor > 170) {
+          flarePositions.push(x1, y2, z1);
+        }
       }
 
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      const baseOpacity = 0.12 + Math.random() * 0.10;
       const mat = new THREE.LineBasicMaterial({
-        color: new THREE.Color().setHSL(0.07, 0.80, 0.50 + Math.random() * 0.15),
+        color: new THREE.Color(cfg.color),
         transparent: true,
-        opacity: baseOpacity,
+        opacity: cfg.opacity,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         linewidth: 1
       });
-      const arc = new THREE.Line(geo, mat);
-      arc.userData = {
-        baseOpacity: baseOpacity,
-        rotSpeedY: (0.004 + Math.random() * 0.008) * (Math.random() > 0.5 ? 1 : -1),
-        rotSpeedX: (0.002 + Math.random() * 0.004) * (Math.random() > 0.5 ? 1 : -1)
+      const ringLine = new THREE.Line(geo, mat);
+      ringLine.userData = {
+        baseOpacity: cfg.opacity,
+        rotSpeedY: cfg.rotY,
+        rotSpeedX: cfg.rotX
       };
-      arcGroup.add(arc);
+      arcGroup.add(ringLine);
+    });
+
+    // Brilliant diamond flare glints along orbital rings
+    if (flarePositions.length > 0) {
+      const flareGeo = new THREE.BufferGeometry();
+      flareGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(flarePositions), 3));
+      const flareMat = new THREE.PointsMaterial({
+        color: 0xFFF8E7,
+        size: 14.0,
+        map: this.kgStarTex || (typeof makeStarSpriteTex === 'function' ? makeStarSpriteTex() : null),
+        transparent: true,
+        opacity: 0.90,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        sizeAttenuation: true
+      });
+      const flares = new THREE.Points(flareGeo, flareMat);
+      flares.userData = { baseOpacity: 0.90, rotSpeedY: 0.0012, rotSpeedX: 0.0006 };
+      arcGroup.add(flares);
     }
+
     group.add(arcGroup);
     this.orbitalArcs = arcGroup;
+
+    // ─── 6b. coreRays: Sharp radiating light spokes shooting past the shell into deep space ───
+    const rayGroup = new THREE.Group();
+    rayGroup.name = 'coreRays';
+    const rayCount = 28;
+    for (let i = 0; i < rayCount; i++) {
+      const theta = (i / rayCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
+      const phi = Math.acos((Math.random() * 2 - 1) * 0.85); // concentrated around core plane
+      const rInner = 36 + Math.random() * 12;
+      const rOuter = 145 + Math.random() * 70; // shoots far past R=120 shell boundary!
+
+      const x0 = rInner * Math.sin(phi) * Math.cos(theta);
+      const y0 = rInner * Math.sin(phi) * Math.sin(theta);
+      const z0 = rInner * Math.cos(phi);
+
+      const x1 = rOuter * Math.sin(phi) * Math.cos(theta);
+      const y1 = rOuter * Math.sin(phi) * Math.sin(theta);
+      const z1 = rOuter * Math.cos(phi);
+
+      const pts = new Float32Array([x0, y0, z0, x1, y1, z1]);
+      const rayGeo = new THREE.BufferGeometry();
+      rayGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+      const rayColor = (i % 3 === 0) ? 0xFFF8E7 : ((i % 2 === 0) ? 0xFFD54F : 0xFFA726);
+      const rayOpacity = 0.35 + Math.random() * 0.30;
+      const rayMat = new THREE.LineBasicMaterial({
+        color: new THREE.Color(rayColor),
+        transparent: true,
+        opacity: rayOpacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        linewidth: 1
+      });
+      const rayLine = new THREE.Line(rayGeo, rayMat);
+      rayLine.userData = { baseOpacity: rayOpacity };
+      rayGroup.add(rayLine);
+    }
+    group.add(rayGroup);
+    this.coreRays = rayGroup;
 
     // ─── 7. coreParticles: Ambient orbital particle field ───
     const particleCount = 200;
@@ -8708,7 +8866,7 @@ const JarvisKnowledgeGraph = {
       }
     }
 
-    // Orbital arcs: individual rotation and opacity modulation
+    // Orbital arcs: smooth planetary drift & flare glint animation
     if (this.orbitalArcs) {
       const arcs = this.orbitalArcs.children;
       const speedMult = cur.plasmaSpeed;
@@ -8716,11 +8874,25 @@ const JarvisKnowledgeGraph = {
       for (let i = 0; i < arcs.length; i++) {
         const arc = arcs[i];
         if (arc.userData) {
-          arc.rotation.y += (arc.userData.rotSpeedY || 0.006) * speedMult;
-          arc.rotation.x += (arc.userData.rotSpeedX || 0.003) * speedMult;
+          arc.rotation.y += (arc.userData.rotSpeedY || 0.001) * speedMult;
+          arc.rotation.x += (arc.userData.rotSpeedX || 0.0005) * speedMult;
         }
-        if (arc.material && arc.userData) {
-          arc.material.opacity = (arc.userData.baseOpacity || 0.15) * fFactor;
+        if (arc.material && arc.userData && typeof arc.userData.baseOpacity === 'number') {
+          arc.material.opacity = arc.userData.baseOpacity * (0.80 + 0.20 * fFactor);
+        }
+      }
+    }
+
+    // Radiating light rays: axial drift and state breathing intensity
+    if (this.coreRays) {
+      this.coreRays.rotation.z = t * 0.0020 * cur.plasmaSpeed;
+      this.coreRays.rotation.y = t * 0.0012 * cur.plasmaSpeed;
+      const rayFactor = cur.coronaIntensity * (0.80 + 0.20 * Math.sin(t * 2.8));
+      const rays = this.coreRays.children;
+      for (let i = 0; i < rays.length; i++) {
+        const r = rays[i];
+        if (r.material && r.userData && typeof r.userData.baseOpacity === 'number') {
+          r.material.opacity = r.userData.baseOpacity * rayFactor;
         }
       }
     }
@@ -8797,7 +8969,8 @@ const JarvisKnowledgeGraph = {
     if (!this._baseNodeGeometry) {
       this._baseNodeGeometry = new THREE.SphereGeometry(1, 16, 16);
     }
-    const colorHex = node.color || '#FFB84D';
+    const catInfo = CATEGORY_PALETTE[node.type] || CATEGORY_PALETTE.MEMORY_RULE;
+    const colorHex = catInfo ? catInfo.color : (node.color || '#FFB84D');
     const initialEnergy = (typeof node.__energy === 'number') ? node.__energy : (this._hasBootAssembled ? 1.0 : 0.15);
     const mat = this._getNodeMaterial(colorHex, initialEnergy);
     node.__material = mat;
@@ -8959,7 +9132,7 @@ const JarvisKnowledgeGraph = {
     this.fastForwardAssembly();
     this._hasBootAssembled = false;
     const N = rawNodes.length;
-    const R = 210;
+    const R = GRAPH_RADIUS;
     const phi = Math.PI * (3 - Math.sqrt(5)); // Golden angle ~2.39996323
 
     // Deterministically interleave categories so categories & colors are uniformly distributed across the 3D volume
@@ -8986,6 +9159,7 @@ const JarvisKnowledgeGraph = {
       if (node.id === 'core:jarvis') {
         node.x = 0; node.y = 0; node.z = 0;
         node.fx = 0; node.fy = 0; node.fz = 0;
+        node.__homeX = 0; node.__homeY = 0; node.__homeZ = 0;
         node.__energy = 1.0;
         continue;
       }
@@ -9000,6 +9174,9 @@ const JarvisKnowledgeGraph = {
         node.y = y * nodeR;
         node.z = Math.sin(theta) * radiusAtY;
       }
+      node.__homeX = node.x;
+      node.__homeY = node.y;
+      node.__homeZ = node.z;
     }
 
     const fullData = { nodes: nodes, links: allLinks };
@@ -14713,11 +14890,11 @@ const SpatialNav = {
 
     // God's Eye Bottom Voice HUD Dock controller:
     // Visible in The Cold Room (Screen 1) and World Telemetry (Screen 3).
-    // In Tactical HUD (Screen 2), visible when chat panel is collapsed (clean unobstructed view).
+    // In Tactical HUD (Screen 2), strictly hidden (unobstructed cinematic HUD without separate mic block).
     const voiceDock = document.getElementById('gods-eye-bottom-dock');
     if (voiceDock) {
-      const inHudWithOpenChat = (Math.abs(this.currentX) < 450) && !document.body.classList.contains('chat-panel-collapsed');
-      if (inHudWithOpenChat) {
+      const inHud = (Math.abs(this.currentX) < 450);
+      if (inHud) {
         voiceDock.style.opacity = '0';
         voiceDock.style.pointerEvents = 'none';
         voiceDock.style.visibility = 'hidden';
