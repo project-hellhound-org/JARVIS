@@ -21,7 +21,7 @@ Unlike static chat assistants, J.A.R.V.I.S. operates as an active desktop co-pil
 - **Text-to-Speech (TTS)**: High-fidelity zero-shot voice synthesis via **Fish Audio API** (Voice ID: `e81ae965a9a94ed69ff05eed7e7a57c7`) with fallback to local speech engines.
 
 ### C. Language Model & Fast-Path Dispatcher
-- **Primary LLM**: NVIDIA NIM (`nvidia/nemotron-3-super-120b-a12b`).
+- **Primary LLM**: NVIDIA NIM (`nvidia/nemotron-3-ultra-550b-a55b`).
 - **SLM Fallback**: Local Ollama model (`qwen2.5:3b-instruct-q4_0`).
 - **Fast-Path Engine**: Directly intercepts OS commands, app launches, and structured web searches to achieve sub-50ms execution speed, bypassing LLM API roundtrips.
 

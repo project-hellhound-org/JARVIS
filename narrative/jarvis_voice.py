@@ -49,9 +49,10 @@ GEMINI_MODEL = "gemini-2.5-flash"
 
 # ── NVIDIA NIM ────────────────────────────────────────────────
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-NVIDIA_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+NVIDIA_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 NVIDIA_FALLBACK_MODELS = [
-    "nvidia/nemotron-3-super-120b-a12b",
+    "nvidia/nemotron-3-ultra-550b-a55b",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
 ]
 
 # ── J.A.R.V.I.S. Persona Prompts ──────────────────────────
@@ -745,6 +746,9 @@ class JarvisVoice:
                 ]
 
         candidate_models = [self.nvidia_model]
+        for fb in NVIDIA_FALLBACK_MODELS:
+            if fb not in candidate_models:
+                candidate_models.append(fb)
         for model_name in candidate_models:
             try:
                 headers = {
@@ -768,7 +772,7 @@ class JarvisVoice:
                 }
 
                 full_response = []
-                with self.client.stream("POST", NVIDIA_URL, headers=headers, json=payload, timeout=15.0) as r:
+                with self.client.stream("POST", NVIDIA_URL, headers=headers, json=payload, timeout=httpx.Timeout(45.0, connect=10.0)) as r:
                     if r.status_code == 429:
                         self.nvidia_rate_limited = True
                         print(f"[jarvis_voice] NVIDIA NIM API rate-limited (429). Switching to fallback.")

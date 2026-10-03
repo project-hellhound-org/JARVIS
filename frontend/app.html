@@ -5405,7 +5405,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
             </div>
           </div>
           <div class="settings-hint">NVIDIA NIM API key for ultra-fast Nemotron reasoning.</div>
-          <div class="settings-row"><label>NVIDIA Model</label><input type="text" id="cfg-nvidia-model" placeholder="nvidia/nemotron-3-super-120b-a12b" /></div>
+          <div class="settings-row"><label>NVIDIA Model</label><input type="text" id="cfg-nvidia-model" placeholder="nvidia/nemotron-3-ultra-550b-a55b" /></div>
         </div>
       </div>
 
@@ -6793,7 +6793,7 @@ window.openSystemOverlay = function() {
         <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; font-family:var(--mono);">
           <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
             <span style="color:#D1D5DB;">Primary LLM Engine:</span>
-            <span style="color:#22C55E; font-weight:700;">NVIDIA NIM (nemotron-3-super-120b)</span>
+            <span style="color:#22C55E; font-weight:700;">NVIDIA NIM (nemotron-3-ultra-550b)</span>
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
             <span style="color:#D1D5DB;">SLM Fallback Engine:</span>
@@ -6924,7 +6924,7 @@ if (settingsSaveBtn) {
       ollama_url: getVal('#cfg-ollama-url'),
       gemini_api_key: getVal('#cfg-gemini-key'),
       nvidia_api_key: getVal('#cfg-nvidia-key'),
-      nvidia_model: getVal('#cfg-nvidia-model') || 'nvidia/nemotron-3-super-120b-a12b',
+      nvidia_model: getVal('#cfg-nvidia-model') || 'nvidia/nemotron-3-ultra-550b-a55b',
       fish_audio_api_key: getVal('#cfg-fish-key'),
       fish_audio_voice_id: getVal('#cfg-fish-voice') || '05b36da8574341d0803391491850db20',
       cesium_ion_token: getVal('#cfg-cesium-token'),

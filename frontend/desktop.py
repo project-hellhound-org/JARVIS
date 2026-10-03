@@ -1965,7 +1965,7 @@ class JarvisAPI:
                     "ollama_url": config.get("ollama_url", "http://localhost:11434"),
                     "gemini_api_key": clean("gemini_api_key") or os.environ.get("GEMINI_API_KEY", ""),
                     "nvidia_api_key": clean("nvidia_api_key") or os.environ.get("NVIDIA_API_KEY", ""),
-                    "nvidia_model": config.get("nvidia_model", "nvidia/nemotron-3-super-120b-a12b"),
+                    "nvidia_model": config.get("nvidia_model", "nvidia/nemotron-3-ultra-550b-a55b"),
                     "fish_audio_api_key": clean("fish_audio_api_key") or os.environ.get("FISH_AUDIO_API_KEY", ""),
                     "fish_audio_voice_id": config.get("fish_audio_voice_id", "05b36da8574341d0803391491850db20"),
                     "cesium_ion_token": clean("cesium_ion_token") or cesium_env,

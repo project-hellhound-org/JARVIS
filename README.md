@@ -151,7 +151,7 @@ All keys are **optional**. J.A.R.V.I.S. functions completely offline and keyless
 | **Cesium Ion** | `cesium_ion_token` | **High-Resolution 3D World Terrain**, 3D Photorealistic Tiles, and **3D OpenStreetMap Buildings**. | [ion.cesium.com/tokens](https://ion.cesium.com/tokens) |
 | **NASA FIRMS** | `nasa_firms_key` | **Real-time satellite active wildfire & thermal anomaly sensors** (VIIRS NOAA-20, NOAA-21, Suomi-NPP). | [firms.modaps.eosdis.nasa.gov/api/map_key/](https://firms.modaps.eosdis.nasa.gov/api/map_key/) |
 | **Groq LPU** | `groq_api_key` | **Sub-100ms ultra-fast inference** with `llama-3.3-70b-versatile` & Groq Whisper transcription (~800 tokens/sec). | [console.groq.com/keys](https://console.groq.com/keys) |
-| **NVIDIA NIM** | `nvidia_api_key` | **Frontier 70B–120B reasoning** (`nvidia/nemotron-3-super-120b-a12b`, `meta/llama-3.3-70b`). | [build.nvidia.com](https://build.nvidia.com) |
+| **NVIDIA NIM** | `nvidia_api_key` | **Frontier 550B MoE reasoning** (`nvidia/nemotron-3-ultra-550b-a55b`). | [build.nvidia.com](https://build.nvidia.com) |
 | **Google Gemini** | `gemini_api_key` | Multimodal vision analysis and deep entity correlation. | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | **Fish Audio** | `fish_audio_api_key` | Ultra-realistic British tactical voice synthesis (`05b36da8574341d0803391491850db20`). | [fish.audio/app/developers](https://fish.audio/app/developers) |
 
@@ -184,10 +184,10 @@ Operator keys can be configured instantly in the GUI via the **Settings Panel** 
   4. Paste into the **Groq LPU API Key** field in Settings and click **Save Settings**.
 
 #### 4. NVIDIA NIM API Key (`nvidia_api_key`)
-* **What it unlocks:** Frontier-class 70B–120B reasoning engines (`nvidia/nemotron-3-super-120b-a12b` and `meta/llama-3.3-70b-instruct`).
+* **What it unlocks:** Frontier-class 550B MoE reasoning engine (`nvidia/nemotron-3-ultra-550b-a55b`).
 * **Steps to obtain (100% Free):**
   1. Go to [build.nvidia.com](https://build.nvidia.com) and log in.
-  2. Select `nvidia/nemotron-3-super-120b-a12b` or search for any Nemotron model.
+  2. Select `nvidia/nemotron-3-ultra-550b-a55b` or search for any Nemotron model.
   3. Click **Get API Key** and generate your key (`nvapi-...`). NVIDIA provides generous free tier credits.
   4. Paste into **NVIDIA NIM API Key** in Settings.
 
@@ -220,7 +220,7 @@ Autonomous intelligence gathering and personal assistant reasoning utilize fast 
 
 > [!TIP]
 > ### 💡 Recommended AI Engines
-> - **NVIDIA NIM (Strongly Recommended for Cloud)**: Use **NVIDIA NIM** (`meta/llama-3.3-70b-instruct` or `nvidia/nemotron-3-super-120b-a12b`). It is **instant, ultra-fast**, and provides generous free API credits for frontier-class 70B–120B reasoning at zero cost.
+> - **NVIDIA NIM (Strongly Recommended for Cloud)**: Use **NVIDIA NIM** (`nvidia/nemotron-3-ultra-550b-a55b`). It is **instant, ultra-fast**, and provides generous free API credits for frontier-class 550B reasoning at zero cost.
 > - **Local Qwen (Strongly Recommended for Offline)**: Run **Qwen** (`qwen2.5:7b` or `qwen2.5:14b`) locally via Ollama. Delivers exceptional local reasoning, structured output adherence, and 100% offline privacy with zero data leaving your machine.
 
 ---

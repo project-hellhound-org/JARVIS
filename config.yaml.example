@@ -14,7 +14,7 @@ ollama_url: http://localhost:11434
 #
 # Or paste it here (less secure — make sure config.yaml is gitignored):
 nvidia_api_key: YOUR_NVIDIA_API_KEY_HERE
-nvidia_model: nvidia/nemotron-3-super-120b-a12b
+nvidia_model: nvidia/nemotron-3-ultra-550b-a55b
 # ── Gemini API (free tier, fast) ───────────────────────────────
 # Get your free key at: https://aistudio.google.com/apikey
 # Then set it as an environment variable (recommended):
