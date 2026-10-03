@@ -1704,10 +1704,10 @@
     min-height: 76px !important;
     margin: 0 !important;
     border: 1px solid rgba(255, 157, 46, 0.28) !important;
-    background: rgba(6, 10, 18, 0.78) !important;
+    background: rgba(6, 10, 18, 0.76) !important;
     border-radius: 8px !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
+    backdrop-filter: blur(10px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 157, 46, 0.08) !important;
     overflow: hidden !important;
     z-index: 250 !important;
@@ -1731,8 +1731,10 @@
     align-items: center !important;
     justify-content: space-between !important;
     padding: 5px 12px !important;
-    background: rgba(10, 16, 26, 0.88) !important;
-    border-bottom: 1px solid rgba(255, 157, 46, 0.20) !important;
+    background: rgba(6, 10, 18, 0.45) !important;
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+    border-bottom: 1px solid rgba(255, 157, 46, 0.18) !important;
     user-select: none !important;
     pointer-events: auto !important;
     font-family: var(--mono) !important;
@@ -1893,11 +1895,11 @@
   #composer {
     width: 100% !important;
     max-width: none !important;
-    background: rgba(5,6,7,0.78) !important;
-    border-color: rgba(255,157,46,0.24) !important;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.58), 0 0 28px rgba(255,157,46,0.05) !important;
-    backdrop-filter: blur(18px) !important;
-    -webkit-backdrop-filter: blur(18px) !important;
+    background: rgba(6, 10, 18, 0.76) !important;
+    border-color: rgba(255, 157, 46, 0.24) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.58), 0 0 28px rgba(255, 157, 46, 0.05) !important;
+    backdrop-filter: blur(10px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
   }
 
   /* Small, information-dense system readout: no status dots, no fake state. */
@@ -3507,21 +3509,35 @@ body.app-ready {
 /* God's Eye Bottom Voice HUD Dock (Image 5 Parity) */
 #gods-eye-bottom-dock {
   position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 27px;
+  left: calc(50% + min(360px, 29vw) + 16px);
+  transform: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
   z-index: 9992;
   user-select: none;
   font-family: var(--mono);
   pointer-events: auto;
+  transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.28s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* When chat panel is collapsed, voice widget centers cleanly at the bottom below chevron launcher */
+body.chat-panel-collapsed #gods-eye-bottom-dock {
+  left: 50% !important;
+  bottom: 24px !important;
+  transform: translateX(-50%) !important;
+}
+
+/* Hide duplicate text block and eq bars on Screen 2 HUD */
+#gods-eye-bottom-dock #dock-voice-center {
+  display: none !important;
+}
+
 .dock-nav-pill {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -3545,25 +3561,31 @@ body.app-ready {
 #dock-voice-widget {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: rgba(4, 8, 16, 0.94);
-  border: 1px solid rgba(255, 157, 46, 0.45);
-  border-radius: 8px;
-  padding: 4px 14px 4px 6px;
+  justify-content: center;
+  gap: 0;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
   cursor: pointer;
   transition: all 0.25s ease;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.85), 0 0 10px rgba(255, 157, 46, 0.15);
+  box-shadow: none !important;
   user-select: none;
   touch-action: none;
 }
 #dock-voice-widget:hover {
-  border-color: #FF9D2E;
-  box-shadow: 0 0 18px rgba(255, 157, 46, 0.4);
+  border: none !important;
+  box-shadow: none !important;
 }
 #dock-voice-widget:active {
-  transform: scale(0.98);
-  border-color: #FF9D2E;
-  box-shadow: 0 0 24px rgba(255, 157, 46, 0.6);
+  transform: scale(0.96);
+  border: none !important;
+  box-shadow: none !important;
+}
+#dock-voice-widget:hover #dock-mic-btn {
+  transform: scale(1.08);
+  border-color: #FFB84D !important;
+  box-shadow: 0 0 14px rgba(255, 157, 46, 0.6) !important;
 }
 
 /* Idle / Standby State: waiting for "Hey Jarvis" */
@@ -7766,8 +7788,8 @@ const JarvisKnowledgeGraph = {
         controls.dampingFactor = 0.06;
         controls.rotateSpeed = 0.7;
         controls.zoomSpeed = 0.9;
-        controls.minDistance = 10;
-        controls.maxDistance = 16000;
+        controls.minDistance = 60;
+        controls.maxDistance = 850;
         controls.autoRotate = false;
         controls.autoRotateSpeed = 0.35;
 
@@ -7827,14 +7849,14 @@ const JarvisKnowledgeGraph = {
         };
 
         const kgStarGroup = new THREE.Group();
-        // Near field tactical stars (crisp, brilliant diamond pinpricks around the core at camera z=400)
-        const starNear = makeStarField(950, 500, 1800, 0xffffff, 5.2, 0.95);
+        // Near field tactical stars (dense, brilliant diamond pinpricks immediately framing the core at camera z=400)
+        const starNear = makeStarField(4200, 280, 1600, 0xffffff, 8.5, 0.96);
         // Mid deep space layer (diamond silver & pale amber cosmic stars)
-        const starFar = makeStarField(2400, 1800, 5200, 0xffeedd, 9.0, 0.88);
-        // Outer cosmic envelope (soft golden stardust visible both default and zoomed out)
-        const starWarm = makeStarField(3200, 4500, 14000, 0xffd180, 18.0, 0.82);
+        const starFar = makeStarField(6000, 1200, 4800, 0xffeedd, 12.0, 0.90);
+        // Outer cosmic envelope (soft golden stardust visible across the wide FOV)
+        const starWarm = makeStarField(4000, 3000, 11000, 0xffd180, 18.0, 0.85);
         // Guide beacon stars (high-magnitude diamond accents)
-        const starGuide = makeStarField(600, 900, 9000, 0xffffff, 14.0, 0.95);
+        const starGuide = makeStarField(1000, 450, 4500, 0xffffff, 15.0, 0.98);
 
         kgStarGroup.add(starNear, starFar, starWarm, starGuide);
         scene.add(kgStarGroup);
@@ -8551,7 +8573,7 @@ const JarvisKnowledgeGraph = {
     group.add(arcGroup);
     this.orbitalArcs = arcGroup;
 
-    // ─── 6b. coreRays: Sharp radiating light spokes shooting past the shell into deep space ───
+    // ─── 6b. coreRays: Soft radiating light spokes tapered into the aura boundary ───
     const rayGroup = new THREE.Group();
     rayGroup.name = 'coreRays';
     const rayCount = 28;
@@ -8559,7 +8581,7 @@ const JarvisKnowledgeGraph = {
       const theta = (i / rayCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
       const phi = Math.acos((Math.random() * 2 - 1) * 0.85); // concentrated around core plane
       const rInner = 36 + Math.random() * 12;
-      const rOuter = 145 + Math.random() * 70; // shoots far past R=120 shell boundary!
+      const rOuter = 115 + Math.random() * 28; // restrained inside aura boundary [115, 143]
 
       const x0 = rInner * Math.sin(phi) * Math.cos(theta);
       const y0 = rInner * Math.sin(phi) * Math.sin(theta);
@@ -8572,10 +8594,20 @@ const JarvisKnowledgeGraph = {
       const pts = new Float32Array([x0, y0, z0, x1, y1, z1]);
       const rayGeo = new THREE.BufferGeometry();
       rayGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-      const rayColor = (i % 3 === 0) ? 0xFFF8E7 : ((i % 2 === 0) ? 0xFFD54F : 0xFFA726);
-      const rayOpacity = 0.35 + Math.random() * 0.30;
+
+      // Linear vertex color gradient: Inner core is brilliant gold/amber, outer tip is pure black (0,0,0)
+      // With AdditiveBlending, fading to black produces a perfectly smooth fade-out with zero abrupt endpoints
+      const baseHex = (i % 3 === 0) ? 0xFFF8E7 : ((i % 2 === 0) ? 0xFFD54F : 0xFFA726);
+      const innerCol = new THREE.Color(baseHex);
+      const colors = new Float32Array([
+        innerCol.r, innerCol.g, innerCol.b,
+        0.0, 0.0, 0.0
+      ]);
+      rayGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const rayOpacity = 0.45 + Math.random() * 0.30;
       const rayMat = new THREE.LineBasicMaterial({
-        color: new THREE.Color(rayColor),
+        vertexColors: true,
         transparent: true,
         opacity: rayOpacity,
         blending: THREE.AdditiveBlending,
@@ -14751,14 +14783,13 @@ const SpatialNav = {
         const shellOpacity = Math.max(0, Math.min(1, 1.0 - (absRatio * 1.18)));
         shell.style.opacity = shellOpacity.toFixed(3);
         const shellTx = (-105 * ratio).toFixed(2);
-        const shellTz = (-360 * absRatio).toFixed(2);
         const shellRotY = (15 * ratio).toFixed(2);
-        shell.style.transform = `translate3d(${shellTx}vw, 0, ${shellTz}px) rotateY(${shellRotY}deg)`;
+        shell.style.transform = `translate3d(${shellTx}vw, 0, 0px) rotateY(${shellRotY}deg)`;
       } else {
         shell.style.visibility = 'hidden';
         shell.style.opacity = '0';
         shell.style.pointerEvents = 'none';
-        shell.style.transform = `translate3d(${-105 * Math.sign(ratio)}vw, 0, -360px)`;
+        shell.style.transform = `translate3d(${-105 * Math.sign(ratio)}vw, 0, 0px)`;
       }
     }
 
@@ -14888,21 +14919,12 @@ const SpatialNav = {
       }
     }
 
-    // God's Eye Bottom Voice HUD Dock controller:
-    // Visible in The Cold Room (Screen 1) and World Telemetry (Screen 3).
-    // In Tactical HUD (Screen 2), strictly hidden (unobstructed cinematic HUD without separate mic block).
+    // Standalone Voice Status Widget: fully visible and interactive on Screen 2 as well as all screens
     const voiceDock = document.getElementById('gods-eye-bottom-dock');
     if (voiceDock) {
-      const inHud = (Math.abs(this.currentX) < 450);
-      if (inHud) {
-        voiceDock.style.opacity = '0';
-        voiceDock.style.pointerEvents = 'none';
-        voiceDock.style.visibility = 'hidden';
-      } else {
-        voiceDock.style.opacity = '1';
-        voiceDock.style.pointerEvents = 'auto';
-        voiceDock.style.visibility = 'visible';
-      }
+      voiceDock.style.opacity = '1';
+      voiceDock.style.pointerEvents = 'auto';
+      voiceDock.style.visibility = 'visible';
     }
 
     if (typeof sfCamera !== 'undefined' && sfCamera) {
