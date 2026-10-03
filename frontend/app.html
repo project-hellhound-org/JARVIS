@@ -1676,7 +1676,8 @@
     margin: 0 !important;
     display: block !important;
     overflow: hidden !important;
-    z-index: 1 !important;
+    z-index: 20 !important;
+    pointer-events: none !important;
   }
   /* Deep-space field: transparent body allows Three.js #starfield canvas to show through */
   #bg-layer, #bg-overlay { display: none !important; }
@@ -1692,38 +1693,123 @@
   #jarvis-task-surfaces-container { pointer-events: none !important; }
   #jarvis-task-surfaces-container .jarvis-task-surface { pointer-events: auto !important; }
 
-  /* Focused Assistant Dialogue HUD directly above input bar (JARVIS / God's Eye pattern) */
+  /* Focused Assistant Dialogue HUD directly above input bar (JARVIS Tactical HUD) */
   #jarvis-chat-container {
     position: fixed !important;
-    bottom: 86px !important;
+    bottom: 78px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
-    width: min(720px, 58vw) !important;
-    max-height: 42vh !important;
+    width: min(680px, 54vw) !important;
+    max-height: 24vh !important;
+    min-height: 76px !important;
     margin: 0 !important;
-    border: none !important;
-    background: transparent !important;
-    box-shadow: none !important;
+    border: 1px solid rgba(255, 157, 46, 0.28) !important;
+    background: rgba(6, 10, 18, 0.78) !important;
+    border-radius: 8px !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 157, 46, 0.08) !important;
     overflow: hidden !important;
     z-index: 250 !important;
     pointer-events: auto !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: flex-end !important;
-    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease, max-height 0.28s ease !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease, max-height 0.28s ease, min-height 0.28s ease, border-color 0.28s ease !important;
   }
   body.chat-panel-collapsed #jarvis-chat-container {
     opacity: 0 !important;
     max-height: 0 !important;
-    transform: translateX(-50%) translateY(40px) scale(0.96) !important;
+    min-height: 0 !important;
+    border: none !important;
+    transform: translateX(-50%) translateY(20px) scale(0.96) !important;
     pointer-events: none !important;
   }
   .workspace-card-header { display: none !important; }
+  .chat-panel-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 5px 12px !important;
+    background: rgba(10, 16, 26, 0.88) !important;
+    border-bottom: 1px solid rgba(255, 157, 46, 0.20) !important;
+    user-select: none !important;
+    pointer-events: auto !important;
+    font-family: var(--mono) !important;
+  }
+  .chat-panel-header-title {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    color: #FFB84D !important;
+    letter-spacing: 1px !important;
+  }
+  .chat-panel-pulse {
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background: #FF9D2E !important;
+    box-shadow: 0 0 8px #FF9D2E !important;
+  }
+  .chat-panel-collapse-btn {
+    background: rgba(255, 157, 46, 0.10) !important;
+    border: 1px solid rgba(255, 157, 46, 0.25) !important;
+    border-radius: 4px !important;
+    color: #FFB84D !important;
+    padding: 2px 6px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.15s ease !important;
+    pointer-events: auto !important;
+  }
+  .chat-panel-collapse-btn:hover {
+    background: rgba(255, 157, 46, 0.25) !important;
+    border-color: #FF9D2E !important;
+    color: #FFF !important;
+  }
+  #chat-expand-launcher {
+    position: fixed !important;
+    bottom: 74px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    display: none;
+    align-items: center !important;
+    gap: 6px !important;
+    background: rgba(6, 10, 18, 0.88) !important;
+    border: 1px solid rgba(255, 157, 46, 0.35) !important;
+    border-radius: 6px !important;
+    padding: 4px 12px !important;
+    color: #FFB84D !important;
+    font-family: var(--mono) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.8px !important;
+    cursor: pointer !important;
+    z-index: 260 !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+    transition: all 0.2s ease !important;
+    pointer-events: auto !important;
+  }
+  body.chat-panel-collapsed #chat-expand-launcher {
+    display: flex !important;
+  }
+  #chat-expand-launcher:hover {
+    background: rgba(255, 157, 46, 0.20) !important;
+    border-color: #FF9D2E !important;
+    color: #FFF !important;
+  }
   #thread {
     width: 100% !important;
-    max-height: 42vh !important;
+    max-height: calc(24vh - 34px) !important;
+    min-height: 44px !important;
     margin: 0 !important;
-    padding: 6px 4px 6px !important;
+    padding: 6px 12px !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     scrollbar-width: thin !important;
@@ -1734,7 +1820,7 @@
     outline: none !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 8px !important;
+    gap: 6px !important;
   }
   #thread::-webkit-scrollbar {
     display: block !important;
@@ -4992,7 +5078,9 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
             <span class="case-sub-inline" id="case-sub"></span>
           </div>
 
-          <div id="thread"></div>
+          <div id="thread">
+            <div class="msg msg-answer" style="margin: 0; padding: 2px 0; font-size: 11px; opacity: 0.90; color: #94A3B8;"><span style="color: #FFB84D; font-weight: 600;">J.A.R.V.I.S. Feed:</span> Systems operational. Standing by for voice or text directives.</div>
+          </div>
 
           <div id="thinking-indicator">
             <div class="thinking-spinner"></div>
@@ -5055,8 +5143,8 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
 
 <!-- Floating Reopen Pill when Chat Panel is Collapsed -->
 <button id="chat-expand-launcher" onclick="window.toggleChatPanel()" title="Expand J.A.R.V.I.S. Chat & Input">
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-  <span>EXPAND CHAT</span>
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
+  <span>EXPAND FEED</span>
 </button>
 
 <!-- 3D Case Graph Overlay -->
@@ -7317,9 +7405,9 @@ const CATEGORY_PALETTE = {
   HEURISTIC: { color: "#2DD4BF", glow: "rgba(45, 212, 191, 0.75)", val: 6 }
 };
 
-const GRAPH_RADIUS = 210;
+const GRAPH_RADIUS = 105;
 
-function _generateOrganicSpherePositions(nodes, R = 210) {
+function _generateOrganicSpherePositions(nodes, R = 105) {
   const N = nodes.length;
   const phi = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < N; i++) {
@@ -7330,7 +7418,8 @@ function _generateOrganicSpherePositions(nodes, R = 210) {
       continue;
     }
     const y = 1 - (2 * i + 1) / N;
-    const rFactor = 0.88 + 0.12 * ((i * 1.6180339887) % 1);
+    // Volumetric embedding: distribute throughout core volume (28% to 95% of radius)
+    const rFactor = 0.28 + 0.67 * ((i * 1.6180339887) % 1);
     const nodeR = R * rFactor;
     const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y)) * nodeR;
     const theta = phi * i;
@@ -7506,13 +7595,13 @@ const JarvisKnowledgeGraph = {
         })
         .nodeThreeObject(node => this.createNodeMesh(node))
         .nodeColor(node => node.color || '#FFB84D')
-        .nodeVal(node => node.type === 'CLUSTER' ? 14 : (node.id === 'core:jarvis' ? 12 : (node.val || 7)))
+        .nodeVal(node => node.type === 'CLUSTER' ? 14 : (node.id === 'core:jarvis' ? 24 : (node.val || 7)))
         .nodeRelSize(3.2)
         .linkOpacity(0.22)
         .linkWidth(link => {
           const s = typeof link.source === 'object' ? link.source.id : link.source;
           const t = typeof link.target === 'object' ? link.target.id : link.target;
-          if (s === 'core:jarvis' || t === 'core:jarvis') return 0.8;
+          if (s === 'core:jarvis' || t === 'core:jarvis') return 1.2;
           if (link.type === 'investigates' || link.type === 'analyzed_by') return 1.3;
           if (link.type === 'applies_skill' || link.type === 'invokes') return 1.1;
           return 0.8;
@@ -7520,7 +7609,7 @@ const JarvisKnowledgeGraph = {
         .linkColor(link => {
           const s = typeof link.source === 'object' ? link.source.id : link.source;
           const t = typeof link.target === 'object' ? link.target.id : link.target;
-          if (s === 'core:jarvis' || t === 'core:jarvis') return 'rgba(255, 184, 77, 0.35)';
+          if (s === 'core:jarvis' || t === 'core:jarvis') return 'rgba(255, 184, 77, 0.45)';
           if (link.type === 'investigates' || link.type === 'analyzed_by') return 'rgba(239, 68, 68, 0.85)';
           if (link.type === 'applies_skill' || link.type === 'invokes') return 'rgba(16, 185, 129, 0.80)';
           if (link.type === 'references' || link.type === 'synthesizes' || link.type === 'learned_from') return 'rgba(192, 132, 252, 0.75)';
@@ -7578,7 +7667,7 @@ const JarvisKnowledgeGraph = {
         this.graph.d3Force('charge').strength(-160);
       }
       if (this.graph.d3Force('link')) {
-        this.graph.d3Force('link').distance(75).strength(0.08);
+        this.graph.d3Force('link').distance(45).strength(0.08);
       }
       this.graph.d3Force('center', null);
 
@@ -7589,10 +7678,10 @@ const JarvisKnowledgeGraph = {
         controls.dampingFactor = 0.06;
         controls.rotateSpeed = 0.7;
         controls.zoomSpeed = 0.9;
-        controls.minDistance = 4;
-        controls.maxDistance = 2500;
-        controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.35; // ~3 minutes per full revolution
+        controls.minDistance = 10;
+        controls.maxDistance = 16000;
+        controls.autoRotate = false;
+        controls.autoRotateSpeed = 0.35;
 
         let interactionTimeout = null;
         const markInteraction = () => {
@@ -7612,7 +7701,7 @@ const JarvisKnowledgeGraph = {
       const camera = this.graph.camera();
       if (camera) {
         camera.near = 0.5; // Pristine close-up rendering with zero clipping inside the node cloud
-        camera.far = 10000; // Encompass vast outer cosmic star shell without clipping (far >= 5000)
+        camera.far = 50000; // Encompass vast outer cosmic star shell without clipping (far >= 5000)
         camera.updateProjectionMatrix();
       }
 
@@ -7650,14 +7739,14 @@ const JarvisKnowledgeGraph = {
         };
 
         const kgStarGroup = new THREE.Group();
-        // Deep/far layer: 3,200 stars distributed between radius 900 and 2,300 (span 1400)
-        const starFar = makeStarField(3200, 900, 1400, 0xd0e0ff, 1.8, 0.65);
-        // Nearer layer: 650 stars between radius 700 and 1,600 (span 900)
-        const starNear = makeStarField(650, 700, 900, 0xffffff, 3.0, 0.85);
-        // Subtle warm accent layer: 750 stars between radius 800 and 2,000 (span 1200)
-        const starWarm = makeStarField(750, 800, 1200, 0xffe4c4, 2.2, 0.70);
-        // Guide beacon stars: 300 stars between radius 1,000 and 2,400 (span 1400)
-        const starGuide = makeStarField(300, 1000, 1400, 0xffffff, 4.5, 0.90);
+        // Deep galaxy layer: 4,000 stars distributed from radius 1,500 to 11,500 (span 10,000)
+        const starFar = makeStarField(4000, 1500, 10000, 0xd0e0ff, 1.6, 0.70);
+        // Nearer layer: 800 stars between radius 700 and 3,200 (span 2,500)
+        const starNear = makeStarField(800, 700, 2500, 0x9fc8ff, 2.8, 0.75);
+        // Outer cosmic envelope: 2,500 stars between radius 4,000 and 26,000 (span 22,000)
+        const starWarm = makeStarField(2500, 4000, 22000, 0xffe4c4, 2.0, 0.70);
+        // Guide beacon stars: 600 bright stars between radius 1,200 and 17,200 (span 16,000)
+        const starGuide = makeStarField(600, 1200, 16000, 0xffffff, 4.2, 0.85);
 
         kgStarGroup.add(starFar, starNear, starWarm, starGuide);
         scene.add(kgStarGroup);
@@ -7669,18 +7758,9 @@ const JarvisKnowledgeGraph = {
         this.hubLabelGroup = new THREE.Group();
         scene.add(this.hubLabelGroup);
 
-        // Continuous slow rotation loop and Core animation via scene.onBeforeRender
+        // Core animation via scene.onBeforeRender (continuous rotation disabled per design specification)
         scene.onBeforeRender = () => {
-          const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-          const shouldRotate = !this.isPaused &&
-                               !prefersReduced &&
-                               !this.focusedNode &&
-                               !this.isNodeDragging &&
-                               !this.isUserInteracting;
-
-          if (controls && controls.autoRotate !== shouldRotate) {
-            controls.autoRotate = shouldRotate;
-          }
+          if (controls) controls.autoRotate = false;
 
           if (!this.isPaused) {
             this._animateJarvisCore();
@@ -7717,6 +7797,7 @@ const JarvisKnowledgeGraph = {
 
       this._bindResizeListeners();
       this.resize();
+      this.graph.cameraPosition({ x: 0, y: 0, z: 400 }, { x: 0, y: 0, z: 0 }, 0);
 
       this._initialized = true;
       this.fetchData();
@@ -7805,8 +7886,8 @@ const JarvisKnowledgeGraph = {
       cz = nz + uz * 72 + tz * 18;
     } else {
       cx = 0;
-      cy = 20;
-      cz = 95;
+      cy = 15;
+      cz = 160;
     }
 
     // 3d-force-graph built-in smooth transition (1100ms) with seamless cubic glide & parallax
@@ -7819,12 +7900,9 @@ const JarvisKnowledgeGraph = {
     this.focusedNode = null;
     const controls = this.graph.controls();
     if (controls) {
-      const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (!prefersReduced && !this.isPaused) {
-        controls.autoRotate = true;
-      }
+      controls.autoRotate = false;
     }
-    this.graph.cameraPosition({ x: 0, y: 0, z: 750 }, { x: 0, y: 0, z: 0 }, 800);
+    this.graph.cameraPosition({ x: 0, y: 0, z: 400 }, { x: 0, y: 0, z: 0 }, 800);
   },
 
   _resizeBound: false,
@@ -7985,7 +8063,7 @@ const JarvisKnowledgeGraph = {
     this._coreUniforms = uniforms;
 
     // ─── 1. coreInner: Compact white-hot computational nucleus ───
-    const innerGeom = new THREE.SphereGeometry(4.0, 32, 32);
+    const innerGeom = new THREE.SphereGeometry(11.0, 32, 32);
     const innerMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: uniforms.uTime,
@@ -8038,7 +8116,7 @@ const JarvisKnowledgeGraph = {
     this.sunMesh = coreInner;
 
     // ─── 2. corePlasma: Multi-scale turbulent plasma with dark gaps and filament structures ───
-    const plasmaGeom = new THREE.SphereGeometry(13.0, 64, 64);
+    const plasmaGeom = new THREE.SphereGeometry(42.0, 64, 64);
     const plasmaMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: uniforms.uTime,
@@ -8091,7 +8169,7 @@ const JarvisKnowledgeGraph = {
           vDisplacement = turb;
 
           // State and audio reactive displacement amplitude
-          float displace = turb * (2.2 * uPlasmaTurbulence) * uPulse;
+          float displace = turb * (4.2 * uPlasmaTurbulence) * uPulse;
           vec3 newPos = position + normal * displace;
           vWorldPos = (modelMatrix * vec4(newPos, 1.0)).xyz;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
@@ -8144,7 +8222,7 @@ const JarvisKnowledgeGraph = {
     this.corePlasma = corePlasma;
 
     // ─── 3. coreCorona: Soft breathing coronal halo (state & audio reactive) ───
-    const coronaGeom = new THREE.SphereGeometry(22, 32, 32);
+    const coronaGeom = new THREE.SphereGeometry(75, 32, 32);
     const coronaMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: uniforms.uTime,
@@ -8187,7 +8265,7 @@ const JarvisKnowledgeGraph = {
     this.coronaMesh = coreCorona;
 
     // ─── 4. coreShell: Translucent computational energy cage (state reactive) ───
-    const shellGeom = new THREE.SphereGeometry(38, 48, 48);
+    const shellGeom = new THREE.SphereGeometry(120, 48, 48);
     const shellMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: uniforms.uTime,
@@ -8253,11 +8331,11 @@ const JarvisKnowledgeGraph = {
     for (let i = 0; i < filamentCount; i++) {
       const segments = 80;
       const positions = new Float32Array(segments * 3);
-      const baseRadius = 10 + Math.random() * 12;
+      const baseRadius = 30 + Math.random() * 35;
       const helixTilt = (Math.random() - 0.5) * Math.PI * 0.7;
       const helixPhase = (i / filamentCount) * Math.PI * 2;
       const windingFreq = 2 + Math.random() * 3;
-      const amplitude = 2.5 + Math.random() * 4;
+      const amplitude = 8.0 + Math.random() * 12.0;
 
       for (let s = 0; s < segments; s++) {
         const frac = s / (segments - 1);
@@ -8307,8 +8385,8 @@ const JarvisKnowledgeGraph = {
     for (let i = 0; i < arcCount; i++) {
       const arcSegments = 100;
       const positions = new Float32Array(arcSegments * 3);
-      const semiMajor = 18 + Math.random() * 14;
-      const semiMinor = 10 + Math.random() * 10;
+      const semiMajor = 55 + Math.random() * 40;
+      const semiMinor = 35 + Math.random() * 25;
       const tiltX = (Math.random() - 0.5) * Math.PI * 0.9;
       const tiltZ = (Math.random() - 0.5) * Math.PI * 0.9;
       const arcSpan = 0.6 + Math.random() * 0.25;
@@ -8361,7 +8439,7 @@ const JarvisKnowledgeGraph = {
     const particleRadii = new Float32Array(particleCount);
 
     for (let i = 0; i < particleCount; i++) {
-      const r = 8 + Math.random() * 30;
+      const r = 25 + Math.random() * 85;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 2 - 1);
       particlePositions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
@@ -8659,7 +8737,7 @@ const JarvisKnowledgeGraph = {
     if (node.id === 'core:jarvis') {
       // Invisible hit sphere for raycasting so tooltip, hover, and camera docking work seamlessly
       // while visual appearance is rendered by the multi-layered jarvisCoreGroup
-      const hitGeom = new THREE.SphereGeometry(14, 16, 16);
+      const hitGeom = new THREE.SphereGeometry(32, 16, 16);
       const hitMat = new THREE.MeshBasicMaterial({
         transparent: true,
         opacity: 0.0,
@@ -8914,7 +8992,7 @@ const JarvisKnowledgeGraph = {
       node.__energy = 0.15; // Non-core nodes start dim/unlit
       if (node.x === undefined || (node.x === 0 && node.y === 0 && node.z === 0)) {
         const y = 1 - (2 * i + 1) / N;
-        const rFactor = 0.88 + 0.12 * ((i * 1.6180339887) % 1);
+        const rFactor = 0.28 + 0.67 * ((i * 1.6180339887) % 1);
         const nodeR = R * rFactor;
         const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y)) * nodeR;
         const theta = phi * i;
@@ -9000,6 +9078,8 @@ const JarvisKnowledgeGraph = {
   },
 
   updateHubLabels() {
+    this._labelSprites = [];
+    this._hubFlares = [];
     if (!this.graph || typeof THREE === 'undefined') return;
     const scene = this.graph.scene();
     if (!scene) return;
@@ -9019,188 +9099,7 @@ const JarvisKnowledgeGraph = {
         child.material.dispose();
       }
     }
-    this._labelSprites = [];
-    this._hubFlares = [];
-
-    const gData = this.graph.graphData();
-    if (!gData || !gData.nodes || gData.nodes.length === 0) return;
-
-    const allNodes = gData.nodes;
-    const allLinks = gData.links || [];
-
-    const connMap = new Map();
-    allLinks.forEach(l => {
-      const s = typeof l.source === 'object' ? l.source.id : l.source;
-      const t = typeof l.target === 'object' ? l.target.id : l.target;
-      connMap.set(s, (connMap.get(s) || 0) + 1);
-      connMap.set(t, (connMap.get(t) || 0) + 1);
-    });
-
-    // Pick candidate real nodes (non-core, non-placeholder, real memory rules / skills / facts / lessons)
-    const candidates = allNodes.filter(n => {
-      if (!n || n.id === 'core:jarvis') return false;
-      if (typeof n.id === 'string' && n.id.startsWith('placeholder_')) return false;
-      return true;
-    });
-
-    const typeWeights = {
-      'MEMORY_RULE': 100,
-      'MEMORY_SKILL': 95,
-      'LESSON': 90,
-      'OSINT_TARGET': 85,
-      'MEMORY_FACT': 80,
-      'SESSION_TOPIC': 75,
-      'CLUSTER': 70
-    };
-
-    candidates.sort((a, b) => {
-      const wA = (typeWeights[a.type] || 50) + (connMap.get(a.id) || 0) * 3;
-      const wB = (typeWeights[b.type] || 50) + (connMap.get(b.id) || 0) * 3;
-      return wB - wA;
-    });
-
-    const selectedHubs = [];
-    const minSeparationDot = 0.52; // Enforce distinct spatial directions across the sphere
-
-    for (let i = 0; i < candidates.length && selectedHubs.length < 7; i++) {
-      const cand = candidates[i];
-      const cx = cand.x || 0;
-      const cy = cand.y || 0;
-      const cz = cand.z || 0;
-      const dist = Math.hypot(cx, cy, cz);
-      if (dist < 25) continue;
-
-      const dir = new THREE.Vector3(cx / dist, cy / dist, cz / dist);
-      let overlaps = false;
-      for (const sh of selectedHubs) {
-        if (dir.dot(sh.dir) > minSeparationDot) {
-          overlaps = true;
-          break;
-        }
-      }
-      if (!overlaps) {
-        selectedHubs.push({ node: cand, dir: dir, dist: dist });
-      }
-    }
-
-    if (selectedHubs.length === 0) return;
-
-    const R_SPHERE = 210;
-    const LABEL_RADIUS = R_SPHERE * 1.22;
-    const ANCHOR_RADIUS = R_SPHERE * 1.08;
-
-    selectedHubs.forEach(({ node, dir }) => {
-      let labelText = node.label || 'Node';
-      if (labelText.length > 24) labelText = labelText.substring(0, 22) + '…';
-
-      const connCount = connMap.get(node.id) || 1;
-      let statText = '';
-      if (node.type === 'MEMORY_RULE') {
-        statText = `DIRECTIVE · ${connCount} LINKS`;
-      } else if (node.type === 'MEMORY_SKILL') {
-        statText = `CAPABILITY · ${connCount} REFS`;
-      } else if (node.type === 'LESSON') {
-        statText = `INSIGHT · ${connCount} REFS`;
-      } else if (node.type === 'MEMORY_FACT') {
-        statText = `KNOWLEDGE · ACTIVE`;
-      } else if (node.type === 'OSINT_TARGET') {
-        statText = `TARGET · TRACKED`;
-      } else {
-        statText = `${(node.type || 'ENTITY').replace(/_/g, ' ')} · ${connCount}`;
-      }
-
-      const nodeColorHex = node.color || '#FFB84D';
-      const nodeColor = new THREE.Color(nodeColorHex);
-
-      // Measure exact text dimensions dynamically
-      const measureCv = document.createElement('canvas');
-      const mCtx = measureCv.getContext('2d');
-      mCtx.font = '600 18px "DM Sans", "JetBrains Mono", sans-serif';
-      const labelW = mCtx.measureText(labelText).width;
-      mCtx.font = '400 13px "DM Sans", "JetBrains Mono", sans-serif';
-      const statW = mCtx.measureText(statText).width;
-
-      const textW = Math.ceil(Math.max(labelW, statW)) + 20;
-      const textH = 54;
-
-      const cv = document.createElement('canvas');
-      cv.width = textW;
-      cv.height = textH;
-      const ctx = cv.getContext('2d');
-
-      // Translucent HUD pill backing
-      ctx.fillStyle = 'rgba(6, 10, 18, 0.88)';
-      if (ctx.roundRect) {
-        ctx.roundRect(0, 0, textW, textH, 6);
-      } else {
-        ctx.rect(0, 0, textW, textH);
-      }
-      ctx.fill();
-
-      // Category color outline
-      ctx.strokeStyle = nodeColorHex;
-      ctx.lineWidth = 1.5;
-      if (ctx.roundRect) {
-        ctx.roundRect(1, 1, textW - 2, textH - 2, 5);
-      } else {
-        ctx.rect(1, 1, textW - 2, textH - 2);
-      }
-      ctx.stroke();
-
-      // Text Line 1: Name
-      ctx.font = '600 17px "DM Sans", "JetBrains Mono", sans-serif';
-      ctx.fillStyle = '#E2F4FF';
-      ctx.globalAlpha = 0.95;
-      ctx.fillText(labelText, 10, 22);
-
-      // Text Line 2: Category Stat
-      ctx.font = '400 13px "DM Sans", "JetBrains Mono", sans-serif';
-      ctx.fillStyle = nodeColorHex;
-      ctx.globalAlpha = 0.85;
-      ctx.fillText(statText, 10, 42);
-
-      const tex = new THREE.CanvasTexture(cv);
-      tex.needsUpdate = true;
-
-      // World units scaling preserving aspect ratio
-      const spriteH = 15;
-      const spriteW = (textW / textH) * spriteH;
-
-      const labelPos = dir.clone().multiplyScalar(LABEL_RADIUS);
-      const anchorOnShell = dir.clone().multiplyScalar(ANCHOR_RADIUS);
-      const nodePos = new THREE.Vector3(node.x || 0, node.y || 0, node.z || 0);
-
-      // Canvas Sprite
-      const spMat = new THREE.SpriteMaterial({
-        map: tex,
-        transparent: true,
-        opacity: 0.94,
-        depthWrite: false
-      });
-      const sp = new THREE.Sprite(spMat);
-      sp.position.copy(labelPos);
-      sp.scale.set(spriteW, spriteH, 1);
-      this.hubLabelGroup.add(sp);
-      this._labelSprites.push(sp);
-
-      // Leader line: node -> sphere surface anchor -> floating label
-      const leaderPts = [nodePos.clone(), anchorOnShell.clone(), labelPos.clone()];
-      const leaderGeo = new THREE.BufferGeometry().setFromPoints(leaderPts);
-      const leaderMat = new THREE.LineBasicMaterial({
-        color: nodeColor,
-        transparent: true,
-        opacity: 0.55
-      });
-      this.hubLabelGroup.add(new THREE.Line(leaderGeo, leaderMat));
-
-      // Small anchor dot on the sphere surface
-      const dotGeo = new THREE.SphereGeometry(1.6, 8, 8);
-      const dotMat = new THREE.MeshBasicMaterial({ color: nodeColor });
-      const dot = new THREE.Mesh(dotGeo, dotMat);
-      dot.position.copy(anchorOnShell);
-      this.hubLabelGroup.add(dot);
-      this._hubFlares.push(dot);
-    });
+    // Red rectangular cards and leader lines eliminated for clean cinematic HUD composition
   },
 
   async fetchData() {
