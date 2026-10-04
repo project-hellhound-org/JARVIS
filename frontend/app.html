@@ -5995,7 +5995,11 @@ function startStreamingAnswer(turnId) {
 }
 
 function updateStreamingChunk(chunkText, turnId) {
-  const tId = turnId != null ? Number(turnId) : (typeof activeJarvisTtsTurn !== 'undefined' ? activeJarvisTtsTurn : 0);
+  const currentActive = typeof activeJarvisTtsTurn !== 'undefined' ? Number(activeJarvisTtsTurn) : 0;
+  if (turnId != null && Number(turnId) < currentActive) {
+    return;
+  }
+  const tId = turnId != null ? Number(turnId) : currentActive;
   if (!currentStreamingElem || (currentStreamingElem.dataset.turnId && Number(currentStreamingElem.dataset.turnId) !== tId)) {
     startStreamingAnswer(tId);
   }
@@ -9942,6 +9946,20 @@ async function startMicListening() {
             }
           }
 
+          // Regional & accent phonetic corrections
+          fullText = fullText
+            .replace(/\b(?:what\s+category|what-category|kotechiri|eagiri|kotagire|kothagiri)\b/gi, 'Kotagiri')
+            .replace(/\b(?:quimatur|quimador|coimbator|coimbathur)\b/gi, 'Coimbatore')
+            .replace(/\b(?:chepak|chepaku)\b/gi, 'Chepauk')
+            .replace(/\bnilgiris\b/gi, 'Nilgiris')
+            .replace(/\b(?:coonoor|kunur)\b/gi, 'Coonoor')
+            .replace(/\b(?:ooty|uti)\b/gi, 'Ooty');
+
+          if (/^(?:thank\s+you\.?|thanks\s+for\s+watching\.?|subtitles\s+by.*|you)$/i.test(fullText.trim())) {
+            console.log('[JarvisSTT] Hallucination suppressed:', fullText);
+            return;
+          }
+
           let wasWake = false;
           if (fullText.toLowerCase().includes('hey jarvis') || fullText.toLowerCase().includes('jarvis')) {
             wasWake = true;
@@ -10571,7 +10589,7 @@ function enqueueJarvisPcmChunk(audioB64, sampleRate, text, turnId) {
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
       if (window.pywebview && window.pywebview.api && window.pywebview.api.play_native_audio) {
-        window.pywebview.api.play_native_audio(audioB64, sampleRate || 24000);
+        window.pywebview.api.play_native_audio(audioB64, sampleRate || 24000, Number(turnId != null ? turnId : activeJarvisTtsTurn));
       }
     }
 
@@ -12665,6 +12683,10 @@ window.jarvis = window.joe = {
       case 'jarvis_answer':
       case 'joe_answer':
         const ansTurn = data && data.turn_id != null ? Number(data.turn_id) : activeJarvisTtsTurn;
+        if (ansTurn < activeJarvisTtsTurn) {
+          console.warn(`[JarvisText] Dropping stale answer for turn ${ansTurn} (active is ${activeJarvisTtsTurn})`);
+          break;
+        }
         console.log(`[JarvisText] Received answer (turn=${ansTurn}, text_len=${data?.text ? data.text.length : 0})`);
         showThinking(false);
         setHudState('idle');

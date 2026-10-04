@@ -337,7 +337,7 @@ class JarvisCognitiveLoop:
 
     # ── 2. Intent & Plan Synthesis ────────────────────────────────────
 
-    def analyze_goal(self, user_text: str) -> List[Dict[str, Any]]:
+    def analyze_goal(self, user_text: str, active_location: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Decomposes complex user prompts into a structured multi-step tactical plan using unified LLM tool selection.
         Falls back gracefully to heuristic parsing if cloud/SLM inference fails or times out.
@@ -348,11 +348,12 @@ class JarvisCognitiveLoop:
 
         sal = self.get_salutation()
 
+        loc_context = f'\nActive Focused Location on Globe: "{active_location}" (If the user asks about "there", "here", "this area", or asks for traffic/weather/cameras without specifying a location, use this active location)' if active_location else ""
         prompt = f"""You are J.A.R.V.I.S.'s Tactical Goal Decomposition and Tool Selection Engine.
 Analyze the user directive below and select the specialized tools needed to fulfill the request.
 Return a JSON array of objects representing the required actions in execution order.
 
-User Directive: "{text_strip}"
+User Directive: "{text_strip}"{loc_context}
 
 Available Tools:
 - "nav": Pan/glide 3D planetary Earth globe to a location.
@@ -430,22 +431,25 @@ Rules:
                             action = item.get("action")
                             # Check missing location for cctv / traffic / weather
                             if action in ("cctv", "traffic", "weather") and not item.get("location"):
-                                topic = "optical surveillance feeds" if action == "cctv" else ("live traffic telemetry" if action == "traffic" else "atmospheric telemetry")
-                                phrase = (
-                                    f"Which city would you like optical surveillance feeds for, {sal}?"
-                                    if action == "cctv"
-                                    else (
-                                        f"Which city or sector would you like live traffic telemetry for, {sal}?"
-                                        if action == "traffic"
-                                        else f"Which city or region would you like atmospheric telemetry for, {sal}?"
+                                if active_location:
+                                    item["location"] = active_location
+                                else:
+                                    topic = "optical surveillance feeds" if action == "cctv" else ("live traffic telemetry" if action == "traffic" else "atmospheric telemetry")
+                                    phrase = (
+                                        f"Which city would you like optical surveillance feeds for, {sal}?"
+                                        if action == "cctv"
+                                        else (
+                                            f"Which city or sector would you like live traffic telemetry for, {sal}?"
+                                            if action == "traffic"
+                                            else f"Which city or region would you like atmospheric telemetry for, {sal}?"
+                                        )
                                     )
-                                )
-                                plan_steps.append({
-                                    "action": "ask_location",
-                                    "topic": topic,
-                                    "progress_phrase": phrase
-                                })
-                                continue
+                                    plan_steps.append({
+                                        "action": "ask_location",
+                                        "topic": topic,
+                                        "progress_phrase": phrase
+                                    })
+                                    continue
 
                             # Standard progress phrases
                             loc = item.get("location") or ""
@@ -502,9 +506,9 @@ Rules:
                 pass
 
         # Graceful fallback: heuristic flag and location extraction if cloud/SLM is unreachable
-        return self._analyze_goal_fallback(user_text)
+        return self._analyze_goal_fallback(user_text, active_location=active_location)
 
-    def _analyze_goal_fallback(self, user_text: str) -> List[Dict[str, Any]]:
+    def _analyze_goal_fallback(self, user_text: str, active_location: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Deterministic heuristic fallback for goal decomposition when offline or during cloud timeouts.
         """
@@ -580,10 +584,12 @@ Rules:
             "which i am seeing", "which im seeing", "that i am seeing", "that im seeing",
             "where i am seeing", "where i am looking", "where im looking",
             "where we are looking", "what i am seeing", "what im seeing",
-            "here", "the map", "the screen", "the globe"
+            "here", "there", "the map", "the screen", "the globe"
         ]
         if loc_candidate and any(ind in loc_candidate.lower() for ind in viewport_indicators):
-            loc_candidate = ""
+            loc_candidate = active_location or ""
+        elif not loc_candidate and active_location and any(re.search(rf'\b{w}\b', text_lower) for w in ["there", "here", "this area", "this place"]):
+            loc_candidate = active_location
 
         has_cctv = any(w in text_lower for w in ["cctv", "camera", "cameras", "cam", "cams", "optical", "surveillance", "vantage"])
         has_traffic = any(re.search(rf'\b{w}\b', text_lower) for w in ["traffic", "congestion", "road", "roads", "flow", "jam", "commute", "highway"]) and "air traffic" not in text_lower
@@ -799,14 +805,15 @@ Rules:
         self,
         user_text: str,
         on_progress_speak: Optional[Callable[[str], None]] = None,
-        on_progress_ui: Optional[Callable[[str], None]] = None
+        on_progress_ui: Optional[Callable[[str], None]] = None,
+        active_location: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Executes an autonomous multi-step reasoning plan in a closed loop.
         Speaks intermediate progress updates in real-time as steps finish.
         Returns unified execution summary with clean spoken monologue.
         """
-        steps = self.analyze_goal(user_text)
+        steps = self.analyze_goal(user_text, active_location=active_location)
         if not steps:
             return {"handled": False, "text": "", "findings": []}
 

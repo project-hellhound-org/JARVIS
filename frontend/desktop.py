@@ -768,6 +768,10 @@ class JarvisAPI:
         self._turn_playback_events = {}
         self._turn_events_lock = threading.Lock()
         self._current_tts_proc = None
+        self._active_tts_turn_abort = threading.Event()
+        self._active_native_procs = []
+        self._native_procs_lock = threading.Lock()
+        self._active_tts_text_queue = None
         self._pending_debriefs = []
         self._debrief_lock = threading.Lock()
         self._debrief_timer = None
@@ -1638,6 +1642,21 @@ class JarvisAPI:
                         display_query = query if query else text
                         print(f"[desktop] System skill fast-path triggered for: '{text}' (query: '{display_query}')")
 
+                        # Voice Mute / Unmute fast-path
+                        if payload.get("voice_mute_action"):
+                            self.set_voice_mute(True)
+                            self._emit("jarvis_stream_chunk", {"chunk": msg})
+                            self._emit("jarvis_answer", {"text": msg, "mode": "advisor"})
+                            self._speak_and_suppress_echo(msg)
+                            return
+                        if payload.get("voice_unmute_action"):
+                            self.set_voice_mute(False)
+                            self._emit("jarvis_stream_chunk", {"chunk": msg})
+                            self._emit("jarvis_answer", {"text": msg, "mode": "advisor"})
+                            self._speak_and_suppress_echo(msg)
+                            self._start_follow_up_window()
+                            return
+
                         # Custom Rule & Phrase Memory Storage or Direct router responses
                         if payload.get("action_type") in ("MEMORY_STORE", "set_operator_salutation", "creator_provenance") or payload.get("action_type", "").startswith("mode_switch_"):
                             if payload.get("action_type") == "set_operator_salutation":
@@ -1680,8 +1699,9 @@ class JarvisAPI:
             eff_text = text
             if getattr(self, '_context_manager', None):
                 curr_target = getattr(self._target, 'primary', None) if self._target else None
+                active_loc = getattr(self, '_active_geo_label', None)
                 cls_type, intent_name, entities, resolved_q = self._context_manager.classify_and_resolve(
-                    text, current_target_name=curr_target
+                    text, current_target_name=curr_target, active_location=active_loc
                 )
                 print(f"[desktop] Context classification: {cls_type} | Intent: {intent_name} | Entities: {entities} | Resolved: '{resolved_q}'")
 
@@ -1742,7 +1762,8 @@ class JarvisAPI:
             try:
                 from core.jarvis_reasoning_loop import JarvisCognitiveLoop
                 cognitive = JarvisCognitiveLoop(voice_engine=self._voice)
-                steps = cognitive.analyze_goal(eff_text)
+                active_loc = getattr(self, '_active_geo_label', None)
+                steps = cognitive.analyze_goal(eff_text, active_location=active_loc)
                 if steps:
                     print(f"[desktop] Autonomous cognitive loop activated ({len(steps)} steps) for: '{eff_text}'")
                     def _live_speak(phrase: str):
@@ -3024,6 +3045,7 @@ class JarvisAPI:
         self._emit("jarvis_stream_start", {"turn_id": tts_turn_id})
         sentence_buffer = ""
         tts_text_queue = queue.Queue()
+        self._active_tts_text_queue = tts_text_queue
         tts_audio_queue = queue.Queue(maxsize=15)
         sent_count = 0
         tts_state = {"emitted": False}
@@ -3035,10 +3057,15 @@ class JarvisAPI:
         if self._voice and getattr(self._voice, "fish_audio_available", False) and not fish_stream_available:
             print("[desktop] Fish Audio streaming SDK unavailable; using complete-phrase Fish TTS fallback for this answer.")
 
+        def is_turn_stale() -> bool:
+            with self._tts_turn_lock:
+                if self._tts_turn_id != tts_turn_id:
+                    return True
+            return self._active_tts_turn_abort.is_set()
+
         def tts_synthesis_worker():
             def check_interrupted():
-                with self._tts_turn_lock:
-                    return self._tts_turn_id != tts_turn_id
+                return is_turn_stale()
 
             stream_completed_cleanly = False
             streamed_any = False
@@ -3270,6 +3297,8 @@ class JarvisAPI:
 
         def emit_clean_chunk(tok: str):
             nonlocal sentence_buffer, sent_count
+            if is_turn_stale():
+                return
             print(f"[desktop] Emitting stream chunk (turn={tts_turn_id}, len={len(tok)}): {repr(tok[:30])}")
             self._emit("jarvis_stream_chunk", {"chunk": tok, "turn_id": tts_turn_id})
             if self._voice:
@@ -3369,6 +3398,8 @@ class JarvisAPI:
         )
 
         def on_token(chunk: str):
+            if is_turn_stale():
+                return
             prefix_filter.feed(chunk)
 
         result = None
@@ -3462,13 +3493,17 @@ class JarvisAPI:
         # System skill / non-streamed response TTS & text streaming fallback: if no streaming chunks were generated,
         # simulate word-by-word text streaming on screen AND enqueue clean spoken sentences for local voice engine!
         if sent_count == 0 and result.get("text"):
+            if is_turn_stale():
+                return
             raw_text = result["text"]
             raw_text = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', raw_text, flags=re.IGNORECASE).strip()
             # 1. Simulate streaming text on screen word-by-word
             words = raw_text.split(' ')
             for i, w in enumerate(words):
+                if is_turn_stale():
+                    return
                 token = w + (" " if i < len(words) - 1 else "")
-                self._emit("jarvis_stream_chunk", {"chunk": token})
+                self._emit("jarvis_stream_chunk", {"chunk": token, "turn_id": tts_turn_id})
                 time.sleep(0.003)  # 3ms ultra-fast word typing effect
 
             # 2. Extract clean printable sentences for speech synthesis
@@ -3499,7 +3534,7 @@ class JarvisAPI:
             fish_configured = bool(self._voice and getattr(self._voice, "fish_audio_available", False))
             if not fish_configured:
                 synth_thread.join(timeout=2.0)
-                if not tts_state["emitted"] and result.get("text"):
+                if not tts_state["emitted"] and result.get("text") and not is_turn_stale():
                     fallback_text = self._voice._sanitize_text_for_speech(result.get("text", "")) if self._voice else result.get("text", "")
                     self._emit("jarvis_tts_browser_fallback", {"text": fallback_text, "turn_id": tts_turn_id})
 
@@ -3522,6 +3557,10 @@ class JarvisAPI:
                 self._recent_agent_responses.append(clean_full)
                 while len(self._recent_agent_responses) > 35:
                     self._recent_agent_responses.pop(0)
+
+        if is_turn_stale():
+            print(f"[desktop] Turn {tts_turn_id} superseded/interrupted; suppressing jarvis_answer.")
+            return
 
         print(f"[desktop] Emitting jarvis_answer (turn={tts_turn_id}, text_len={len(result.get('text', ''))})")
         self._emit("jarvis_answer", {
@@ -4004,7 +4043,7 @@ class JarvisAPI:
                 with open(wav_path, "rb") as f:
                     wav_bytes = f.read()
                 boundary = "----WebKitFormBoundary" + hex(int(time.time() * 1000))[2:]
-                bias_prompt = "J.A.R.V.I.S., Sir, tactical intelligence, system diagnostics, Chepauk Stadium, Coimbatore, Chennai, Bengaluru, Delhi, Mumbai, Hyderabad, Kolkata, radar, telemetry, screen analysis."
+                bias_prompt = "J.A.R.V.I.S., Sir, tactical intelligence, system diagnostics, Kotagiri, Nilgiris, Coonoor, Ooty, Chepauk Stadium, Coimbatore, Chennai, Bengaluru, Delhi, Mumbai, Hyderabad, Kolkata, radar, telemetry, screen analysis."
                 body = (
                     f"--{boundary}\r\n"
                     f'Content-Disposition: form-data; name="file"; filename="audio.wav"\r\n'
@@ -4077,9 +4116,33 @@ class JarvisAPI:
 
     @staticmethod
     def _sanitize_transcribed_speech(text: str) -> str:
-        """Correct common accent-specific phonetic misrecognitions."""
+        """Correct common accent-specific phonetic misrecognitions and filter Whisper silence hallucinations."""
         if not text:
             return ""
+
+        stripped = text.strip()
+
+        # 1. Silence hallucinations filter (Whisper regurgitating prompt or subtitle artifacts on ambient noise)
+        hallucination_patterns = [
+            r'^(?:thank\s+you\.?|thanks\s+for\s+watching\.?|subtitles\s+by.*|you)$',
+            r'^(?:(?:hey\s+)?j\.?a\.?r\.?v\.?i\.?s\.?[,\s]*)+$',
+            r'^(?:j\.?a\.?r\.?v\.?i\.?s\.?[,\s\.-]*t-?r\.?v\.?i\.?s\.?[,\s\.-]*)+$',
+            r'^(?:tactical\s+intelligence[,\s]*)+$',
+        ]
+        for pat in hallucination_patterns:
+            if re.match(pat, stripped, flags=re.IGNORECASE):
+                print(f"[desktop] Whisper silence hallucination dropped: '{text}'")
+                return ""
+
+        # 2. Regional & accent phonetic corrections
+        # Kotagiri phonetic variants ("what category", "eagiri", "kotechiri", "kotagire", "kothagiri")
+        text = re.sub(r'\b(?:what\s+category|what-category|kotechiri|eagiri|kotagire|kothagiri)\b', 'Kotagiri', text, flags=re.IGNORECASE)
+        # Nilgiris
+        text = re.sub(r'\bnilgiris\b', 'Nilgiris', text, flags=re.IGNORECASE)
+        # Coonoor
+        text = re.sub(r'\b(?:coonoor|kunur)\b', 'Coonoor', text, flags=re.IGNORECASE)
+        # Ooty
+        text = re.sub(r'\b(?:ooty|uti)\b', 'Ooty', text, flags=re.IGNORECASE)
         # Coimbatore phonetic variants
         text = re.sub(r'\b(?:quimatur|quimador|quimatore|coimbator|coimbathur)\b', 'Coimbatore', text, flags=re.IGNORECASE)
         # Chepauk stadium phonetic variants
@@ -4181,6 +4244,7 @@ class JarvisAPI:
         self._tts_speaking = False
         with self._tts_turn_lock:
             self._tts_turn_id += 1
+        self._active_tts_turn_abort.set()
         self._tts_playback_until = 0.0
         with self._turn_events_lock:
             for ev in self._turn_playback_events.values():
@@ -4194,6 +4258,14 @@ class JarvisAPI:
                 self._voice.interrupt()
             except Exception:
                 pass
+        with self._native_procs_lock:
+            for p in self._active_native_procs:
+                try:
+                    p.terminate()
+                    p.kill()
+                except Exception:
+                    pass
+            self._active_native_procs.clear()
         if getattr(self, '_current_tts_proc', None) is not None:
             try:
                 self._current_tts_proc.terminate()
@@ -4207,6 +4279,13 @@ class JarvisAPI:
                     self._shared_audio_queue.get_nowait()
                 except (queue.Empty, AttributeError):
                     break
+        if getattr(self, '_active_tts_text_queue', None):
+            while True:
+                try:
+                    self._active_tts_text_queue.get_nowait()
+                except (queue.Empty, AttributeError):
+                    break
+        self._active_tts_turn_abort = threading.Event()
         return {"success": True, "stopped": True}
 
     def notify_tts_playback_finished(self, turn_id: Optional[int] = None) -> dict:
@@ -4220,8 +4299,14 @@ class JarvisAPI:
                 ev.set()
         return {"success": True, "turn_id": target_turn}
 
-    def play_native_audio(self, audio_b64: str, sample_rate: int = 24000):
+    def play_native_audio(self, audio_b64: str, sample_rate: int = 24000, turn_id: Optional[int] = None):
         """Fallback native speaker playback if browser Web Audio is suspended."""
+        if turn_id is not None:
+            with self._tts_turn_lock:
+                if self._tts_turn_id != turn_id:
+                    return False
+        if self._active_tts_turn_abort.is_set():
+            return False
         try:
             raw_pcm = base64.b64decode(audio_b64)
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
@@ -4241,11 +4326,31 @@ class JarvisAPI:
                 cmd = ["mpg123", "-q", tmp_wav]
 
             if cmd:
-                self._current_tts_proc = subprocess.Popen(cmd)
+                proc = subprocess.Popen(cmd)
+                with self._native_procs_lock:
+                    self._active_native_procs.append(proc)
+                self._current_tts_proc = proc
                 approx_dur = max(1.0, len(raw_pcm) / (sample_rate * 2))
                 self._tts_playback_until = time.time() + approx_dur
+
+                def _cleanup():
+                    try:
+                        proc.wait(timeout=approx_dur + 5.0)
+                    except Exception:
+                        pass
+                    with self._native_procs_lock:
+                        if proc in self._active_native_procs:
+                            self._active_native_procs.remove(proc)
+                    try:
+                        if os.path.exists(tmp_wav):
+                            os.remove(tmp_wav)
+                    except Exception:
+                        pass
+                threading.Thread(target=_cleanup, daemon=True).start()
+                return True
         except Exception as e:
             print(f"[desktop] Native audio playback fallback notice: {e}")
+        return False
 
     def stop_background_voice_listener(self):
         """Stop the background voice listener thread and drain audio queues."""
@@ -4540,7 +4645,15 @@ class JarvisAPI:
                 wf.writeframes(pcm_bytes)
 
             # Boost quiet microphone input before transcribing
-            self.normalize_wav_audio(wav_path)
+            if not self.normalize_wav_audio(wav_path):
+                print("[voice listener] Captured audio below energy threshold (silence), dropping.")
+                self._emit("jarvis_speech_ended", {})
+                try:
+                    if os.path.exists(wav_path):
+                        os.remove(wav_path)
+                except Exception:
+                    pass
+                return
 
             start_stt = time.time()
             text = self._transcribe_audio_fast(wav_path)

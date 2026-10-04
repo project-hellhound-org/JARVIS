@@ -673,6 +673,8 @@ class JarvisVoice:
                 with self.client.stream("POST", url, json=payload, timeout=timeout) as r:
                     if r.status_code == 200:
                         for line in r.iter_lines():
+                            if self._interrupted.is_set():
+                                break
                             if not line:
                                 continue
                             try:
@@ -783,6 +785,8 @@ class JarvisVoice:
                         continue
 
                     for line in r.iter_lines():
+                        if self._interrupted.is_set():
+                            break
                         if not line:
                             continue
                         if line.startswith("data:"):
@@ -858,6 +862,8 @@ class JarvisVoice:
                     return "", False
 
                 for line in r.iter_lines():
+                    if self._interrupted.is_set():
+                        break
                     if not line:
                         continue
                     if line.startswith("data:"):
@@ -923,6 +929,8 @@ class JarvisVoice:
                         continue
 
                     for line in r.iter_lines():
+                        if self._interrupted.is_set():
+                            break
                         if not line:
                             continue
                         if line.startswith("data: "):

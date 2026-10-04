@@ -660,6 +660,22 @@ class SystemSkillEngine:
                         payload = self.hud_engine.build_structured_payload("Media Playback", "MEDIA", [{"title": "Media Playback", "snippet": debrief_msg, "url": "system://media"}], debrief_msg)
                         return True, debrief_msg, False, "", payload
 
+                    elif action_type == "voice_mute":
+                        task_mgr.update_progress(task.task_id, 100, "Muting voice...")
+                        debrief_msg = f"Voice audio and listening suspended, {sal}. Tap microphone or say wake command to reactivate."
+                        task_mgr.complete_task(task.task_id, summary="Voice muted")
+                        payload = self.hud_engine.build_structured_payload("Voice Control", "VOICE", [{"title": "Voice State", "snippet": debrief_msg, "url": "system://voice"}], debrief_msg)
+                        payload["voice_mute_action"] = True
+                        return True, debrief_msg, False, "", payload
+
+                    elif action_type == "voice_unmute":
+                        task_mgr.update_progress(task.task_id, 100, "Restoring voice...")
+                        debrief_msg = f"Voice audio and listening active, {sal}."
+                        task_mgr.complete_task(task.task_id, summary="Voice unmuted")
+                        payload = self.hud_engine.build_structured_payload("Voice Control", "VOICE", [{"title": "Voice State", "snippet": debrief_msg, "url": "system://voice"}], debrief_msg)
+                        payload["voice_unmute_action"] = True
+                        return True, debrief_msg, False, "", payload
+
                     else:  # volume
                         task_mgr.update_progress(task.task_id, 50, "Adjusting audio volume...")
                         if "mute" in cmd_str and "unmute" not in cmd_str:

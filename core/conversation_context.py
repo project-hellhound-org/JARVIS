@@ -68,7 +68,7 @@ class ConversationContextManager:
             "timestamp": time.time(),
         }
 
-    def classify_and_resolve(self, user_text: str, current_target_name: Optional[str] = None) -> Tuple[str, str, Dict[str, Any], str]:
+    def classify_and_resolve(self, user_text: str, current_target_name: Optional[str] = None, active_location: Optional[str] = None) -> Tuple[str, str, Dict[str, Any], str]:
         start_t = time.time()
         clean = (user_text or "").strip()
         lower = clean.lower()
@@ -92,6 +92,26 @@ class ConversationContextManager:
             classification = "clarification_answer"
             latency = (time.time() - start_t) * 1000.0
             self._log_decision(clean, classification, intent, entities, resolved, latency, note="Answered pending clarification slot")
+            return classification, intent, entities, resolved
+
+        # 1.5 Check for geographic / spatial follow-up ("what is the traffic there", "weather there", "cameras there")
+        has_spatial_ref = bool(re.search(r'\b(?:there|here|this area|this place|the area)\b', lower))
+        has_spatial_domain = any(w in lower for w in ["traffic", "weather", "cctv", "camera", "cameras", "radar", "flights"])
+        effective_loc = active_location or (last_turn.entities.get("location") if last_turn else None)
+
+        if has_spatial_ref and has_spatial_domain and effective_loc:
+            classification = "follow_up"
+            intent = "geo_query"
+            entities = {"location": effective_loc}
+            # Replace 'there' / 'here' / etc. with 'in <effective_loc>'
+            resolved = re.sub(
+                r'\b(?:in\s+there|there|in\s+here|here|in\s+this\s+area|this\s+area|this\s+place|the\s+area)\b',
+                f"in {effective_loc}",
+                clean,
+                flags=re.IGNORECASE
+            )
+            latency = (time.time() - start_t) * 1000.0
+            self._log_decision(clean, classification, intent, entities, resolved, latency, note=f"Resolved spatial follow-up to {effective_loc}")
             return classification, intent, entities, resolved
 
         # 2. Check for follow-up / refinement signals

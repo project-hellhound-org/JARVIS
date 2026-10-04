@@ -183,7 +183,29 @@ class AgentRouter:
             )
             return True, f"Executing `{cmd_candidate}` on your system.", task, "terminal_command"
 
-        # ── 4.7 System Agency Controls (Volume, Media, Lock, Process Kill, Clipboard) ──
+        # ── 4.7 Voice Mute / Unmute Agency Directives ──
+        is_voice_unmute = any(p in text_lower for p in [
+            "unmute yourself", "can you unmute yourself", "could you unmute yourself",
+            "unmute jarvis", "unmute your voice", "unmute the voice", "unmute mic",
+            "unmute microphone", "resume listening", "start listening"
+        ])
+        is_voice_mute = not is_voice_unmute and any(p in text_lower for p in [
+            "mute yourself", "can you mute yourself", "could you mute yourself",
+            "mute jarvis", "mute your voice", "mute the voice", "mute mic",
+            "mute microphone", "be quiet jarvis", "be quiet", "stop talking",
+            "shut up jarvis", "shut up", "silence yourself"
+        ])
+        if is_voice_mute or is_voice_unmute:
+            action_type = "voice_mute" if is_voice_mute else "voice_unmute"
+            task = self.task_manager.create_task(
+                type_=TaskType.SYSTEM_CONTROL.value,
+                title=f"Voice Control: {'Mute' if is_voice_mute else 'Unmute'}",
+                data={"action_type": action_type, "command": text_strip}
+            )
+            msg = f"Muting voice system, {sal}." if is_voice_mute else f"Restoring voice system, {sal}."
+            return True, msg, task, "system_control"
+
+        # ── 4.8 System Agency Controls (Volume, Media, Lock, Process Kill, Clipboard) ──
         if any(kw in text_lower for kw in [
             "volume up", "volume down", "mute", "unmute", "set volume", "turn up the volume",
             "turn down the volume", "pause music", "resume music", "play music", "next track",
