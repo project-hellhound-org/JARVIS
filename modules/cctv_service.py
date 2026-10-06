@@ -418,6 +418,141 @@ OFFLINE_FALLBACK_CAMERAS = [
     {"id": "us-ny-fdr-drive-34th", "name": "FDR Drive at E 34th St East River Highway", "city": "New York", "cityId": "nyc", "provider": "NYC DOT", "lat": 40.7423, "lon": -73.9719, "headingDeg": 20, "pitchDeg": -18, "fovDeg": 70, "rangeM": 580, "mountHeightM": 25, "groundElevationM": 4, "feedType": "image", "url": "", "snapshotUrl": "", "sourceKind": "curated-optical", "license": "NYC OpenData"}
 ]
 
+# Authentic HLS Video Feeds (DelDOT Highway Surveillance)
+DELDOT_HLS_CAMERAS = [
+    {
+        "id": "us-de-deldot-100",
+        "name": "DelDOT I-95 at Route 141 Interchange",
+        "city": "Wilmington",
+        "cityId": "deldot-wilmington",
+        "provider": "Delaware Dept of Transportation (DelDOT)",
+        "lat": 39.7153,
+        "lon": -75.5894,
+        "headingDeg": 45,
+        "pitchDeg": -18,
+        "fovDeg": 60,
+        "rangeM": 500,
+        "mountHeightM": 20,
+        "groundElevationM": 25,
+        "feedType": "hls",
+        "url": "https://video.deldot.gov/live/100/playlist.m3u8",
+        "videoUrl": "/api/cctv/media/us-de-deldot-100",
+        "snapshotUrl": "/api/cctv/frame/us-de-deldot-100",
+        "sourceKind": "deldot",
+        "license": "Public Delaware Highway Feed"
+    },
+    {
+        "id": "us-de-deldot-101",
+        "name": "DelDOT US-13 at Route 40 Junction",
+        "city": "New Castle",
+        "cityId": "deldot-new-castle",
+        "provider": "Delaware Dept of Transportation (DelDOT)",
+        "lat": 39.6631,
+        "lon": -75.5997,
+        "headingDeg": 180,
+        "pitchDeg": -18,
+        "fovDeg": 56,
+        "rangeM": 480,
+        "mountHeightM": 18,
+        "groundElevationM": 20,
+        "feedType": "hls",
+        "url": "https://video.deldot.gov/live/101/playlist.m3u8",
+        "videoUrl": "/api/cctv/media/us-de-deldot-101",
+        "snapshotUrl": "/api/cctv/frame/us-de-deldot-101",
+        "sourceKind": "deldot",
+        "license": "Public Delaware Highway Feed"
+    }
+]
+
+# Pilot Streaming MP4 Feeds (Tokyo Surveillance)
+PILOT_MP4_CAMERAS = [
+    {
+        "id": "jp-tokyo-shinjuku-east-mp4",
+        "name": "Tokyo Shinjuku Crossing East Video",
+        "city": "Tokyo",
+        "cityId": "tokyo",
+        "provider": "Pilot Feed Pack",
+        "lat": 35.6896,
+        "lon": 139.7005,
+        "headingDeg": 242,
+        "pitchDeg": -19,
+        "fovDeg": 66,
+        "rangeM": 560,
+        "mountHeightM": 29,
+        "groundElevationM": 40,
+        "feedType": "mp4",
+        "url": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        "videoUrl": "/api/cctv/media/jp-tokyo-shinjuku-east-mp4",
+        "snapshotUrl": "/api/cctv/frame/jp-tokyo-shinjuku-east-mp4",
+        "sourceKind": "pilot",
+        "license": "Demo sample stream for projection pipeline testing"
+    },
+    {
+        "id": "jp-tokyo-shibuya-mp4",
+        "name": "Tokyo Shibuya Scramble North Video",
+        "city": "Tokyo",
+        "cityId": "tokyo",
+        "provider": "Pilot Feed Pack",
+        "lat": 35.6596,
+        "lon": 139.7005,
+        "headingDeg": 26,
+        "pitchDeg": -20,
+        "fovDeg": 74,
+        "rangeM": 610,
+        "mountHeightM": 30,
+        "groundElevationM": 35,
+        "feedType": "mp4",
+        "url": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        "videoUrl": "/api/cctv/media/jp-tokyo-shibuya-mp4",
+        "snapshotUrl": "/api/cctv/frame/jp-tokyo-shibuya-mp4",
+        "sourceKind": "pilot",
+        "license": "Demo sample stream for projection pipeline testing"
+    }
+]
+
+# Municipal MJPEG Camera Feed
+MUNICIPAL_MJPEG_CAMERAS = [
+    {
+        "id": "de-warendorf-marktplatz",
+        "name": "Warendorf Marktplatz / Historisches Rathaus",
+        "city": "Warendorf",
+        "cityId": "warendorf",
+        "provider": "Stadt Warendorf",
+        "lat": 51.9526,
+        "lon": 7.9908,
+        "headingDeg": 221,
+        "pitchDeg": -23,
+        "fovDeg": 84,
+        "rangeM": 260,
+        "mountHeightM": 14,
+        "groundElevationM": 55,
+        "feedType": "mjpeg",
+        "url": "http://webcam.warendorf.de/image/jpeg.cgi",
+        "videoUrl": "/api/cctv/media/de-warendorf-marktplatz",
+        "snapshotUrl": "http://webcam.warendorf.de/image/jpeg.cgi",
+        "sourceKind": "municipal-webcam",
+        "license": "Public municipal webcam data — Stadt Warendorf"
+    }
+]
+
+# Health tracking map
+_cctv_health: Dict[str, Dict[str, Any]] = {}
+_cctv_health_lock = threading.Lock()
+
+def set_camera_health(camera_id: str, status: str, message: str, source_kind: str = ""):
+    with _cctv_health_lock:
+        _cctv_health[camera_id] = {
+            "id": camera_id,
+            "status": status,
+            "sourceKind": source_kind,
+            "message": message,
+            "updatedAt": int(time.time() * 1000)
+        }
+
+def get_cctv_health_status() -> Dict[str, Any]:
+    with _cctv_health_lock:
+        return {"cameras": list(_cctv_health.values())}
+
 # In-memory single-flight caching state
 _cctv_cache: List[Dict[str, Any]] = []
 _cctv_cache_at: float = 0.0
@@ -640,6 +775,15 @@ def get_cctv_sources(force_refresh: bool = False) -> List[Dict[str, Any]]:
     except Exception as e:
         print(f"[cctv] Error fetching Austin sources: {e}")
 
+    # 6. Authentic DelDOT HLS Streams
+    all_cams.extend(DELDOT_HLS_CAMERAS)
+
+    # 7. Tokyo Pilot MP4 Streams
+    all_cams.extend(PILOT_MP4_CAMERAS)
+
+    # 8. Municipal MJPEG Streams
+    all_cams.extend(MUNICIPAL_MJPEG_CAMERAS)
+
     dedup: Dict[str, Dict[str, Any]] = {}
     for cam in all_cams:
         cid = cam.get("id")
@@ -652,18 +796,8 @@ def get_cctv_sources(force_refresh: bool = False) -> List[Dict[str, Any]]:
             if fb["id"] not in dedup:
                 dedup[fb["id"]] = fb
 
-    SAMPLE_VIDEO_STREAMS = [
-        "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-        "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-        "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
-        "https://storage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4",
-        "https://storage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4"
-    ]
-
     final_list = list(dedup.values())[:MAX_GLOBAL_SOURCES]
     for idx, c in enumerate(final_list):
-        if not c.get("videoUrl"):
-            c["videoUrl"] = SAMPLE_VIDEO_STREAMS[idx % len(SAMPLE_VIDEO_STREAMS)]
         if not c.get("snapshotUrl"):
             c["snapshotUrl"] = f"/api/cctv/frame/{c.get('id')}"
 

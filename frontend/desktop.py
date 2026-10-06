@@ -5153,6 +5153,157 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         return [frame] if isinstance(frame, bytes) else (frame or b"")
 
+    @app.route('/api/cctv/health')
+    def _bottle_cctv_health():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        bottle.response.content_type = 'application/json'
+        bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        from modules.cctv_service import get_cctv_health_status
+        return json.dumps(get_cctv_health_status())
+
+    @app.route('/api/cctv/media/<camera_id>', method=['GET', 'DELETE', 'OPTIONS'])
+    def _bottle_cctv_media(camera_id):
+        import uuid
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, DELETE, OPTIONS'
+        bottle.response.headers['Access-Control-Allow-Headers'] = 'Range, Content-Type, Accept'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+
+        from modules.cctv_service import get_cctv_sources, set_camera_health
+        from modules.cctv_security_proxy import (
+            get_hls_puller,
+            sanitize_cctv_range_header,
+            fetch_upstream_bytes,
+            SecurityError,
+            CCTV_MEDIA_MAX_BODY_BYTES
+        )
+
+        sources = get_cctv_sources()
+        cam = next((c for c in sources if c.get('id') == camera_id), None)
+        if not cam:
+            bottle.response.status = 404
+            return json.dumps({"error": f"Camera {camera_id} not found in catalog"})
+
+        feed_type = str(cam.get('feedType') or 'image').lower()
+        media_url = cam.get('videoUrl') or cam.get('url') or ''
+        # If media_url is a local relative route pointing to /api/cctv/media/..., resolve to original camera url
+        if media_url.startswith('/api/cctv/media/'):
+            media_url = cam.get('url') or ''
+        lease_id = bottle.request.query.get('lease') or 'legacy'
+
+        if bottle.request.method == 'DELETE':
+            if feed_type == 'hls':
+                get_hls_puller().release(camera_id, lease_id)
+            bottle.response.status = 204
+            return ""
+
+        # HLS stream handling
+        if feed_type == 'hls':
+            if not lease_id or lease_id == 'legacy':
+                lease_id = str(uuid.uuid4())
+
+            puller = get_hls_puller()
+            try:
+                entry = puller.ensure(camera_id, media_url, lease_id)
+                ready = puller.wait_ready(entry, timeout_sec=6.0)
+                if not ready:
+                    set_camera_health(camera_id, 'degraded', 'Live HLS stream initializing', source_kind='hls')
+                    bottle.response.status = 503
+                    bottle.response.content_type = 'application/json'
+                    return json.dumps({"error": "Live HLS stream initializing"})
+
+                playlist = puller.build_playlist(camera_id, lease_id)
+                if not playlist:
+                    set_camera_health(camera_id, 'degraded', 'No segments available', source_kind='hls')
+                    bottle.response.status = 503
+                    bottle.response.content_type = 'application/json'
+                    return json.dumps({"error": "No segments available"})
+
+                set_camera_health(camera_id, 'ok', 'Live HLS connected', source_kind='hls')
+                bottle.response.content_type = 'application/vnd.apple.mpegurl'
+                bottle.response.set_header('Cache-Control', 'no-store')
+                bottle.response.set_header('X-CCTV-Source', 'hls-pull')
+                bottle.response.set_header('X-CCTV-Session', entry['token'])
+                return playlist
+            except Exception as e:
+                set_camera_health(camera_id, 'degraded', str(e), source_kind='hls')
+                bottle.response.status = 503
+                bottle.response.content_type = 'application/json'
+                return json.dumps({"error": str(e)})
+
+        # Direct video (MP4 / WebM / MJPEG) handling with Range header support
+        if feed_type in ('mp4', 'webm', 'video', 'mjpeg', 'mjpg'):
+            client_range = bottle.request.headers.get('Range') or bottle.request.headers.get('range')
+            sanitized_range = sanitize_cctv_range_header(client_range)
+            req_headers = {}
+            if sanitized_range:
+                req_headers['Range'] = sanitized_range
+
+            try:
+                body, headers, status = fetch_upstream_bytes(
+                    media_url,
+                    max_bytes=CCTV_MEDIA_MAX_BODY_BYTES,
+                    headers=req_headers,
+                    timeout_sec=10.0
+                )
+                ct = headers.get('Content-Type') or headers.get('content-type') or ('video/mp4' if feed_type == 'mp4' else 'application/octet-stream')
+                cr = headers.get('Content-Range') or headers.get('content-range')
+                ar = headers.get('Accept-Ranges') or headers.get('accept-ranges') or 'bytes'
+                cl = str(len(body))
+
+                bottle.response.status = status
+                bottle.response.content_type = ct
+                bottle.response.set_header('Cache-Control', 'no-store')
+                bottle.response.set_header('Accept-Ranges', ar)
+                if cr:
+                    bottle.response.set_header('Content-Range', cr)
+                bottle.response.set_header('Content-Length', cl)
+                set_camera_health(camera_id, 'ok', 'Direct media stream connected', source_kind=feed_type)
+                return [body]
+            except SecurityError as se:
+                set_camera_health(camera_id, 'blocked', str(se), source_kind=feed_type)
+                bottle.response.status = 403
+                bottle.response.content_type = 'application/json'
+                return json.dumps({"error": str(se)})
+            except Exception as e:
+                set_camera_health(camera_id, 'degraded', str(e), source_kind=feed_type)
+                bottle.response.status = 502
+                bottle.response.content_type = 'application/json'
+                return json.dumps({"error": f"Upstream media error: {e}"})
+
+        bottle.response.status = 400
+        return json.dumps({"error": "Camera is a still image feed; use /api/cctv/frame/<camera_id>"})
+
+    @app.route('/api/cctv/media/<camera_id>/<seg_name>', method=['GET', 'OPTIONS'])
+    def _bottle_cctv_segment(camera_id, seg_name):
+        import re
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+
+        m = re.match(r"^seg_(\d+)\.ts$", seg_name)
+        if not m:
+            bottle.response.status = 404
+            return ""
+
+        seq = int(m.group(1))
+        session_token = bottle.request.query.get('session') or ''
+        lease_id = bottle.request.query.get('lease') or 'legacy'
+
+        from modules.cctv_security_proxy import get_hls_puller
+        body = get_hls_puller().get_segment(camera_id, session_token, seq, lease_id)
+        if not body:
+            bottle.response.status = 404
+            return ""
+
+        bottle.response.content_type = 'video/mp2t'
+        bottle.response.set_header('Cache-Control', 'no-store')
+        bottle.response.set_header('Content-Length', str(len(body)))
+        return [body]
+
     @app.route('/api/firms')
     def _bottle_firms():
         bottle.response.content_type = 'application/json'

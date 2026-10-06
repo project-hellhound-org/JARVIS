@@ -111,6 +111,13 @@
 </script>
 <script src="UnrealBloomPass.bundle.js"></script>
 <script src="3d-force-graph.min.js"></script>
+<script src="vendor/hls.min.js"></script>
+<script type="module">
+  import { attachCctvVideo } from './js/videoPlayback.js';
+  import { createCctvVideoSurface } from './js/cctvVideo.js';
+  window.attachCctvVideo = attachCctvVideo;
+  window.createCctvVideoSurface = createCctvVideoSurface;
+</script>
 <style>
   :root {
     --bg-0: #000005;
@@ -18340,6 +18347,10 @@ function initCctvDraggable() {
 }
 
 window.cctvToggleFeedMode = function() {
+  const found = (window._cctvSourcesList && window._cctvSourcesList.find(s => s.id === _activeCctvCameraId)) ||
+                (typeof CCTV_CAMERAS !== 'undefined' && CCTV_CAMERAS.find(s => s.id === _activeCctvCameraId));
+  const cls = classifyCctvSource(found);
+  if (!cls.isVideo) return; // Still image feeds cannot switch to video
   _cctvFeedMode = (_cctvFeedMode === 'video') ? 'snapshot' : 'video';
   updateCctvDisplayFeeds();
 };
@@ -18351,8 +18362,6 @@ function updateCctvDisplayFeeds() {
   const fsImg = document.getElementById('cctv-fs-img');
   const modeBtn = document.getElementById('cctv-feed-mode-btn');
   const fsModeBtn = document.getElementById('cctv-fs-mode-btn');
-  const badge = document.getElementById('cctv-dock-stream-badge');
-  const statusLine = document.getElementById('cctv-dock-feed-status');
 
   const isVideo = (_cctvFeedMode === 'video');
   if (dockVid) dockVid.style.display = isVideo ? 'block' : 'none';
@@ -18360,10 +18369,8 @@ function updateCctvDisplayFeeds() {
   if (fsVid) fsVid.style.display = isVideo ? 'block' : 'none';
   if (fsImg) fsImg.style.display = isVideo ? 'none' : 'block';
 
-  if (modeBtn) modeBtn.textContent = isVideo ? '📹 VIDEO' : '📸 1 FPS';
-  if (fsModeBtn) fsModeBtn.textContent = isVideo ? 'MODE: LIVE VIDEO' : 'MODE: 1 FPS SNAPSHOT';
-  if (badge) badge.textContent = isVideo ? 'OPTICAL STREAM' : 'SNAPSHOT FEED';
-  if (statusLine) statusLine.textContent = isVideo ? 'LIVE STREAM • OK' : 'SNAPSHOT • 1 FPS OK';
+  if (modeBtn) modeBtn.textContent = isVideo ? '📹 VIDEO' : '📸 SNAPSHOT';
+  if (fsModeBtn) fsModeBtn.textContent = isVideo ? 'MODE: LIVE VIDEO' : 'MODE: SNAPSHOT';
 }
 
 window.cctvToggleFullscreen = function() {
@@ -18445,6 +18452,42 @@ window.cctvSetZoom = function(zoom) {
   });
 };
 
+function classifyCctvSource(data) {
+  if (!data) return { kind: 'unknown', isVideo: false, feedType: 'image', streamUrl: '' };
+  const rawFeed = String(data.feedType || '').toLowerCase();
+  const url = String(data.url || '');
+  const videoUrl = String(data.videoUrl || '');
+  const sourceKind = String(data.sourceKind || '').toLowerCase();
+
+  const isIframe = rawFeed === 'iframe' || url.includes('youtube.com') || url.includes('/embed/');
+  if (isIframe) {
+    return { kind: 'iframe', isVideo: false, feedType: 'iframe', streamUrl: url, sourceKind };
+  }
+
+  if (rawFeed === 'image' || rawFeed === 'snapshot' || sourceKind === 'curated-optical') {
+    const frameUrl = `/api/cctv/frame/${encodeURIComponent(data.id)}`;
+    return { kind: 'snapshot', isVideo: false, feedType: 'image', frameUrl, sourceKind };
+  }
+
+  const isHls = rawFeed === 'hls' || url.includes('.m3u8') || videoUrl.includes('.m3u8') || sourceKind === 'deldot';
+  if (isHls) {
+    const streamUrl = `/api/cctv/media/${encodeURIComponent(data.id)}`;
+    return { kind: 'hls', isVideo: true, feedType: 'hls', streamUrl, sourceKind };
+  }
+
+  const isMp4 = rawFeed === 'mp4' || rawFeed === 'video' || rawFeed === 'webm' ||
+                url.endsWith('.mp4') || videoUrl.endsWith('.mp4') || sourceKind === 'pilot';
+  if (isMp4) {
+    const streamUrl = `/api/cctv/media/${encodeURIComponent(data.id)}`;
+    return { kind: 'video', isVideo: true, feedType: 'mp4', streamUrl, sourceKind };
+  }
+
+  // Still image snapshot camera fallback
+  const frameUrl = `/api/cctv/frame/${encodeURIComponent(data.id)}`;
+  return { kind: 'snapshot', isVideo: false, feedType: 'image', frameUrl, sourceKind };
+}
+window.classifyCctvSource = classifyCctvSource;
+
 function syncCctvFullscreenData(data) {
   const fsTitle = document.getElementById('cctv-fs-camera-title');
   const fsCoords = document.getElementById('cctv-fs-coords');
@@ -18461,29 +18504,28 @@ function syncCctvFullscreenData(data) {
   if (fsTime) fsTime.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
   if (fsSel && fsSel.value !== data.id) fsSel.value = data.id;
 
-  const frameUrl = `/api/cctv/frame/${encodeURIComponent(data.id)}?t=${Date.now()}`;
-  if (fsImg) fsImg.src = frameUrl;
-
-  const isIframe = data.feedType === 'iframe' || (data.url && (data.url.includes('youtube.com') || data.url.includes('embed')));
-  if (isIframe && fsIframe) {
-    fsIframe.src = data.url;
+  const cls = classifyCctvSource(data);
+  if (cls.kind === 'iframe' && fsIframe) {
+    fsIframe.src = cls.streamUrl;
     fsIframe.style.display = 'block';
     if (fsVid) fsVid.style.display = 'none';
     if (fsImg) fsImg.style.display = 'none';
+  } else if (cls.isVideo && fsVid) {
+    if (fsIframe) { fsIframe.style.display = 'none'; fsIframe.src = ''; }
+    fsVid.style.display = 'block';
+    if (fsImg) fsImg.style.display = 'none';
+    const dockVid = document.getElementById('cctv-dock-video');
+    if (dockVid && dockVid.src && fsVid.src !== dockVid.src) {
+      fsVid.src = dockVid.src;
+      fsVid.currentTime = dockVid.currentTime;
+      fsVid.play().catch(()=>{});
+    }
   } else {
     if (fsIframe) { fsIframe.style.display = 'none'; fsIframe.src = ''; }
-    const sampleVideos = [
-      'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-      'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-      'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-      'https://storage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
-      'https://storage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4'
-    ];
-    const vUrl = data.videoUrl || sampleVideos[Math.abs(data.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % sampleVideos.length];
-    if (fsVid && fsVid.src !== vUrl) {
-      fsVid.src = vUrl;
-      fsVid.load();
-      fsVid.play().catch(()=>{});
+    if (fsVid) { fsVid.style.display = 'none'; fsVid.pause(); }
+    if (fsImg) {
+      fsImg.style.display = 'block';
+      fsImg.src = `/api/cctv/frame/${encodeURIComponent(data.id)}?t=${Date.now()}`;
     }
   }
 }
@@ -18503,52 +18545,228 @@ window.openCctvDock = function(data) {
   const vid = document.getElementById('cctv-dock-video');
   const iframe = document.getElementById('cctv-dock-iframe');
   const sel = document.getElementById('cctv-dock-camera-select');
+  const badge = document.getElementById('cctv-dock-stream-badge');
+  const statusLine = document.getElementById('cctv-dock-feed-status');
+  const metaActive = document.getElementById('cctv-dock-meta-active');
+  const modeBtn = document.getElementById('cctv-feed-mode-btn');
 
-  if (meta1) meta1.textContent = `${data.city || 'METRO'} • HDG ${data.heading || 0}° • FOV ${data.fov || 72}° • RNG ${data.rangeM || 450}m`;
-  if (meta2) meta2.textContent = `MONITOR • RAW PRIOR • ${data.label || 'Surveillance Feed'}`;
-  if (elev) elev.textContent = `ALT: ${Math.round(data.alt || 100)}M MSL`;
+  if (meta1) meta1.textContent = `${data.city || 'METRO'} • HDG ${data.heading || data.headingDeg || 0}° • FOV ${data.fov || data.fovDeg || 72}° • RNG ${data.rangeM || 450}m`;
+  if (meta2) meta2.textContent = `MONITOR • RAW PRIOR • ${data.label || data.name || 'Surveillance Feed'}`;
+  if (elev) elev.textContent = `ALT: ${Math.round(data.alt || data.groundElevationM || 100)}M MSL`;
   if (clock) clock.textContent = new Date().toLocaleTimeString();
-
-  const frameUrl = `/api/cctv/frame/${encodeURIComponent(data.id)}?t=${Date.now()}`;
-  if (img) img.src = frameUrl;
-
-  const isIframe = data.feedType === 'iframe' || (data.url && (data.url.includes('youtube.com') || data.url.includes('embed')));
-  if (isIframe && iframe) {
-    iframe.src = data.url;
-    iframe.style.display = 'block';
-    if (vid) vid.style.display = 'none';
-    if (img) img.style.display = 'none';
-  } else {
-    if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
-    const sampleVideos = [
-      'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-      'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-      'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-      'https://storage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
-      'https://storage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4'
-    ];
-    const vUrl = data.videoUrl || sampleVideos[Math.abs(data.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % sampleVideos.length];
-    if (vid && vid.src !== vUrl) {
-      vid.src = vUrl;
-      vid.load();
-      vid.play().catch(()=>{});
-    }
-  }
-
   if (sel && sel.value !== data.id) sel.value = data.id;
 
-  updateCctvDisplayFeeds();
+  // Clean up any ongoing playback and monitor timers
+  if (window._activeCctvPlayback) {
+    try { window._activeCctvPlayback.dispose(); } catch (e) {}
+    window._activeCctvPlayback = null;
+  }
+  if (window._cctvPlaybackMonitor) {
+    clearInterval(window._cctvPlaybackMonitor);
+    window._cctvPlaybackMonitor = null;
+  }
+  if (_cctvAnimInterval) {
+    clearInterval(_cctvAnimInterval);
+    _cctvAnimInterval = null;
+  }
+
+  const cls = classifyCctvSource(data);
+  _cctvFeedMode = cls.isVideo ? 'video' : 'snapshot';
+
+  if (cls.kind === 'iframe') {
+    if (iframe) {
+      iframe.src = cls.streamUrl;
+      iframe.style.display = 'block';
+    }
+    if (vid) { vid.style.display = 'none'; vid.pause(); }
+    if (img) img.style.display = 'none';
+    if (modeBtn) { modeBtn.textContent = 'IFRAME'; modeBtn.disabled = true; }
+    if (badge) badge.textContent = 'EXTERNAL STREAM';
+    if (statusLine) statusLine.textContent = 'IFRAME EMBED • ACTIVE';
+    if (metaActive) metaActive.textContent = '● External optical embed active';
+  } else if (cls.isVideo) {
+    // Real video stream (HLS or MP4)
+    if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
+    if (img) img.style.display = 'none';
+    if (vid) {
+      vid.style.display = 'block';
+      vid.currentTime = 0;
+    }
+    if (modeBtn) { modeBtn.textContent = '📹 VIDEO'; modeBtn.disabled = false; }
+
+    // Initial state: connecting (NEVER claim LIVE until currentTime advances)
+    if (badge) {
+      badge.textContent = 'CONNECTING...';
+      if (badge.parentElement) {
+        badge.parentElement.style.color = '#F59E0B';
+        badge.parentElement.style.borderColor = 'rgba(245,158,11,0.4)';
+        badge.parentElement.style.background = 'rgba(245,158,11,0.15)';
+      }
+    }
+    if (statusLine) {
+      statusLine.textContent = 'STREAM • CONNECTING';
+      if (statusLine.parentElement) statusLine.parentElement.style.color = '#F59E0B';
+    }
+    if (metaActive) {
+      metaActive.textContent = '○ Connecting upstream media...';
+      metaActive.style.color = '#F59E0B';
+    }
+
+    let lastSampleTime = -1;
+    let lastAdvanceTimestamp = Date.now();
+    let isCurrentlyLive = false;
+
+    const checkAdvancement = () => {
+      if (!vid) return;
+      const cur = vid.currentTime;
+      const now = Date.now();
+      if (!vid.paused && cur > 0 && cur !== lastSampleTime) {
+        lastSampleTime = cur;
+        lastAdvanceTimestamp = now;
+        if (!isCurrentlyLive) {
+          isCurrentlyLive = true;
+          if (badge) {
+            badge.textContent = 'LIVE';
+            if (badge.parentElement) {
+              badge.parentElement.style.color = '#22C55E';
+              badge.parentElement.style.borderColor = 'rgba(34,197,94,0.4)';
+              badge.parentElement.style.background = 'rgba(34,197,94,0.15)';
+            }
+          }
+          if (statusLine) {
+            statusLine.textContent = 'LIVE STREAM • OK';
+            if (statusLine.parentElement) statusLine.parentElement.style.color = '#22C55E';
+          }
+          if (metaActive) {
+            metaActive.textContent = '● Upstream live stream active';
+            metaActive.style.color = '#22C55E';
+          }
+        }
+      } else if (isCurrentlyLive && (now - lastAdvanceTimestamp > 3500)) {
+        isCurrentlyLive = false;
+        if (badge) {
+          badge.textContent = 'BUFFERING';
+          if (badge.parentElement) {
+            badge.parentElement.style.color = '#F59E0B';
+            badge.parentElement.style.borderColor = 'rgba(245,158,11,0.4)';
+            badge.parentElement.style.background = 'rgba(245,158,11,0.15)';
+          }
+        }
+        if (statusLine) {
+          statusLine.textContent = 'STREAM • BUFFERING';
+          if (statusLine.parentElement) statusLine.parentElement.style.color = '#F59E0B';
+        }
+        if (metaActive) {
+          metaActive.textContent = '▲ Upstream stream buffering';
+          metaActive.style.color = '#F59E0B';
+        }
+      }
+    };
+
+    window._cctvPlaybackMonitor = setInterval(checkAdvancement, 500);
+    vid.addEventListener('timeupdate', checkAdvancement);
+
+    if (typeof window.attachCctvVideo === 'function') {
+      window._activeCctvPlayback = window.attachCctvVideo(vid, cls.streamUrl, cls.feedType, {
+        onFailure: () => {
+          isCurrentlyLive = false;
+          if (badge) {
+            badge.textContent = 'OFFLINE';
+            if (badge.parentElement) {
+              badge.parentElement.style.color = '#EF4444';
+              badge.parentElement.style.borderColor = 'rgba(239,68,68,0.4)';
+              badge.parentElement.style.background = 'rgba(239,68,68,0.15)';
+            }
+          }
+          if (statusLine) {
+            statusLine.textContent = 'STREAM ERROR • OFFLINE';
+            if (statusLine.parentElement) statusLine.parentElement.style.color = '#EF4444';
+          }
+          if (metaActive) {
+            metaActive.textContent = '✕ Upstream media stream offline';
+            metaActive.style.color = '#EF4444';
+          }
+        }
+      });
+    }
+  } else {
+    // Still-image camera: auto-refresh with SNAPSHOT badge + timestamp
+    if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
+    if (vid) {
+      vid.pause();
+      vid.removeAttribute('src');
+      vid.load();
+      vid.style.display = 'none';
+    }
+    if (img) img.style.display = 'block';
+    if (modeBtn) { modeBtn.textContent = '📸 SNAPSHOT'; modeBtn.disabled = true; }
+
+    const updateSnapshot = () => {
+      if (!_activeCctvCameraId) return;
+      const curImg = document.getElementById('cctv-dock-preview-img');
+      const curClock = document.getElementById('cctv-dock-overlay-timestamp');
+      const curBadge = document.getElementById('cctv-dock-stream-badge');
+      const curStatus = document.getElementById('cctv-dock-feed-status');
+      const curMeta = document.getElementById('cctv-dock-meta-active');
+      const timeStr = new Date().toLocaleTimeString();
+      const frameUrl = `/api/cctv/frame/${encodeURIComponent(data.id)}?t=${Date.now()}`;
+
+      if (curImg) {
+        curImg.onload = () => {
+          if (curBadge) {
+            curBadge.textContent = `SNAPSHOT • ${timeStr}`;
+            if (curBadge.parentElement) {
+              curBadge.parentElement.style.color = '#00F0FF';
+              curBadge.parentElement.style.borderColor = 'rgba(0,240,255,0.4)';
+              curBadge.parentElement.style.background = 'rgba(0,240,255,0.15)';
+            }
+          }
+          if (curStatus) {
+            curStatus.textContent = 'SNAPSHOT • OK';
+            if (curStatus.parentElement) curStatus.parentElement.style.color = '#00F0FF';
+          }
+          if (curMeta) {
+            curMeta.textContent = '○ Auto-refreshing optical snapshot';
+            curMeta.style.color = '#00F0FF';
+          }
+          if (curClock) curClock.textContent = timeStr;
+        };
+        curImg.onerror = () => {
+          if (curBadge) {
+            curBadge.textContent = 'SNAPSHOT • ERROR';
+            if (curBadge.parentElement) {
+              curBadge.parentElement.style.color = '#EF4444';
+              curBadge.parentElement.style.borderColor = 'rgba(239,68,68,0.4)';
+              curBadge.parentElement.style.background = 'rgba(239,68,68,0.15)';
+            }
+          }
+          if (curStatus) {
+            curStatus.textContent = 'FRAME UNAVAILABLE';
+            if (curStatus.parentElement) curStatus.parentElement.style.color = '#EF4444';
+          }
+          if (curMeta) {
+            curMeta.textContent = '✕ Camera snapshot unreachable';
+            curMeta.style.color = '#EF4444';
+          }
+        };
+        curImg.src = frameUrl;
+      }
+      if (typeof window.updateCctvMonitorPlaneImage === 'function') {
+        window.updateCctvMonitorPlaneImage(data.id);
+      }
+    };
+
+    updateSnapshot();
+    _cctvAnimInterval = setInterval(updateSnapshot, 5000);
+  }
+
   syncCctvFullscreenData(data);
 
   // Reveal in-world 3D monitor plane and label badge on globe
   if (_cctvDataSource && _cctvDataSource.entities) {
     _cctvDataSource.entities.values.forEach(ent => {
-      if (ent.plane) {
-        ent.show = (ent.id === `cctv-${data.id}-plane`);
-      }
-      if (ent.id && ent.id.endsWith('-label')) {
-        ent.show = (ent.id === `cctv-${data.id}-label`);
-      }
+      if (ent.plane) ent.show = (ent.id === `cctv-${data.id}-plane`);
+      if (ent.id && ent.id.endsWith('-label')) ent.show = (ent.id === `cctv-${data.id}-label`);
     });
     if (typeof window.updateCctvMonitorPlaneImage === 'function') {
       window.updateCctvMonitorPlaneImage(data.id);
@@ -18559,24 +18777,6 @@ window.openCctvDock = function(data) {
   }
 
   dock.style.display = 'block';
-
-  // 4-second live frame refresh for snapshot previews and in-world plane
-  if (_cctvAnimInterval) clearInterval(_cctvAnimInterval);
-  _cctvAnimInterval = setInterval(() => {
-    if (!_activeCctvCameraId) return;
-    const curImg = document.getElementById('cctv-dock-preview-img');
-    const curClock = document.getElementById('cctv-dock-overlay-timestamp');
-    const fsImg = document.getElementById('cctv-fs-img');
-    const fsTime = document.getElementById('cctv-fs-time');
-    const u = `/api/cctv/frame/${encodeURIComponent(_activeCctvCameraId)}?t=${Date.now()}`;
-    if (curImg && _cctvFeedMode === 'snapshot') curImg.src = u;
-    if (fsImg && _cctvFeedMode === 'snapshot') fsImg.src = u;
-    if (curClock) curClock.textContent = new Date().toLocaleTimeString();
-    if (fsTime) fsTime.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-    if (typeof window.updateCctvMonitorPlaneImage === 'function') {
-      window.updateCctvMonitorPlaneImage(_activeCctvCameraId);
-    }
-  }, 4000);
 };
 
 window.closeCctvDock = function() {
@@ -18586,16 +18786,25 @@ window.closeCctvDock = function() {
   if (fsModal) fsModal.style.display = 'none';
   _cctvIsFullscreen = false;
 
-  const vid = document.getElementById('cctv-dock-video');
-  const fsVid = document.getElementById('cctv-fs-video');
-  if (vid) vid.pause();
-  if (fsVid) fsVid.pause();
-
-  _activeCctvCameraId = null;
+  if (window._activeCctvPlayback) {
+    try { window._activeCctvPlayback.dispose(); } catch (e) {}
+    window._activeCctvPlayback = null;
+  }
+  if (window._cctvPlaybackMonitor) {
+    clearInterval(window._cctvPlaybackMonitor);
+    window._cctvPlaybackMonitor = null;
+  }
   if (_cctvAnimInterval) {
     clearInterval(_cctvAnimInterval);
     _cctvAnimInterval = null;
   }
+
+  const vid = document.getElementById('cctv-dock-video');
+  const fsVid = document.getElementById('cctv-fs-video');
+  if (vid) { vid.pause(); vid.removeAttribute('src'); vid.load(); }
+  if (fsVid) { fsVid.pause(); fsVid.removeAttribute('src'); fsVid.load(); }
+
+  _activeCctvCameraId = null;
   if (_cctvDataSource && _cctvDataSource.entities) {
     _cctvDataSource.entities.values.forEach(ent => {
       if (ent.plane) ent.show = false;
@@ -18613,6 +18822,7 @@ window.cctvSelectFromDropdown = function(cameraId) {
                 (typeof CCTV_CAMERAS !== 'undefined' && CCTV_CAMERAS.find(s => s.id === cameraId));
   if (!found) return;
   const tact = {
+    ...found,
     type: 'CCTV',
     id: found.id,
     label: found.name || found.label || 'CCTV',
@@ -18623,7 +18833,6 @@ window.cctvSelectFromDropdown = function(cameraId) {
     heading: found.headingDeg || 0,
     pitch: found.pitchDeg || -18,
     rangeM: found.rangeM || 450,
-    videoUrl: found.videoUrl
   };
   window.openCctvDock(tact);
   window.flyToCameraPOV(tact);
