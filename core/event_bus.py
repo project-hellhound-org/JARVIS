@@ -48,13 +48,17 @@ class EventBus:
         # Forward over PyWebview bridge
         if self._bridge_callback:
             try:
-                # Direct event emit for frontend top-level switch handlers
-                self._bridge_callback(event_name, payload)
-                # Task event emit for TaskSurfaceManager
-                self._bridge_callback("jarvis_task_event", {
-                    "event": event_name,
-                    "payload": payload
-                })
+                if event_name.startswith("task."):
+                    # Task lifecycle events routed to TaskSurfaceManager
+                    self._bridge_callback("jarvis_task_event", {
+                        "event": event_name,
+                        "payload": payload
+                    })
+                elif event_name == "jarvis_task_event":
+                    self._bridge_callback("jarvis_task_event", payload)
+                else:
+                    # Direct single event emit for frontend top-level switch handlers
+                    self._bridge_callback(event_name, payload)
             except Exception as e:
                 print(f"[event_bus] PyWebview bridge emit error for '{event_name}': {e}")
 

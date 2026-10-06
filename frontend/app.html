@@ -12320,14 +12320,6 @@ window.jarvis = window.joe = {
       case 'jarvis_task_event':
         if (data && data.event && data.payload) {
           TaskSurfaceManager.handleEvent(data.event, data.payload);
-          if (data.event === 'control_ground_intel' && typeof window.renderGroundMediaPoints === 'function') {
-            if (data.payload.points) window.renderGroundMediaPoints(data.payload.points);
-            if (data.payload.open_first && data.payload.points && data.payload.points.length > 0 && typeof window.openGroundMediaCard === 'function') {
-              window.openGroundMediaCard(data.payload.points[0]);
-            }
-          } else if (data.event === 'control_tactical_layer' && typeof window.toggleTacticalLayer === 'function') {
-            window.toggleTacticalLayer(data.payload.layer, data.payload.state);
-          }
         }
         break;
       case 'set_app_mode':
@@ -17838,6 +17830,7 @@ window.updateSectorWeather = async function(lat, lon, label) {
 // Tactical Layer Toggles
 window.toggleTacticalLayer = function(layerName, forceState) {
   if (typeof forceState === 'boolean') {
+    if (_tacticalLayers[layerName] === forceState) return;
     _tacticalLayers[layerName] = forceState;
   } else {
     _tacticalLayers[layerName] = !_tacticalLayers[layerName];
