@@ -17868,9 +17868,23 @@ window.toggleTacticalLayer = function(layerName, forceState) {
     }
   } else if (layerName === 'radio' && _radioDataSource) {
     _radioDataSource.show = _tacticalLayers.radio;
-  } else if (layerName === 'space' && _spaceDataSource) {
-    _spaceDataSource.show = _tacticalLayers.space;
-    if (_tacticalLayers.space && window._updateISSPosition) window._updateISSPosition();
+  } else if (layerName === 'space') {
+    if (_spaceDataSource) {
+      _spaceDataSource.show = _tacticalLayers.space;
+      if (_tacticalLayers.space && window._updateISSPosition) window._updateISSPosition();
+    }
+    if (window._satellitePoints) {
+      window._satellitePoints.show = _tacticalLayers.space;
+    }
+    if (window._osirisSatellitesDS) {
+      window._osirisSatellitesDS.show = _tacticalLayers.space;
+    }
+    if (_tacticalLayers.space) {
+      if (typeof window.fetchOsirisSatellites === 'function') window.fetchOsirisSatellites();
+      if (typeof window.startOsirisSatellitePolling === 'function') window.startOsirisSatellitePolling();
+    } else {
+      if (typeof window.clearFocusedSatelliteTrack === 'function') window.clearFocusedSatelliteTrack();
+    }
   } else if (layerName === 'seismic' && _seismicDataSource) {
     _seismicDataSource.show = _tacticalLayers.seismic;
     if (_tacticalLayers.seismic && window._fetchLiveSeismic) window._fetchLiveSeismic();
@@ -17922,6 +17936,9 @@ window.clearAllTacticalLayers = function() {
   if (window._setTrafficLayerEnabled) window._setTrafficLayerEnabled(false);
   if (_radioDataSource) _radioDataSource.show = false;
   if (_spaceDataSource) _spaceDataSource.show = false;
+  if (window._satellitePoints) window._satellitePoints.show = false;
+  if (window._osirisSatellitesDS) window._osirisSatellitesDS.show = false;
+  if (typeof window.clearFocusedSatelliteTrack === 'function') window.clearFocusedSatelliteTrack();
   if (_seismicDataSource) _seismicDataSource.show = false;
   if (_thermalDataSource) _thermalDataSource.show = false;
   if (_weatherImageryLayer && window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
@@ -21817,6 +21834,8 @@ function initGlobeIntelligence(viewer) {
     const _satellitePoints = new Cesium.PointPrimitiveCollection();
     _satellitePoints.show = false;
     viewer.scene.primitives.add(_satellitePoints);
+    window._satellitePoints = _satellitePoints;
+    window._osirisSatellitesDS = _osirisSatellitesDS;
 
     _osirisSatellitesDS.show = false;
     _osirisConflictsDS.show = false;
@@ -22071,8 +22090,9 @@ function initGlobeIntelligence(viewer) {
       }
     }
 
+    window.fetchOsirisSatellites = fetchOsirisSatellites;
     async function fetchOsirisSatellites() {
-      if (!_osirisActive) return;
+      if (!_osirisActive && !_tacticalLayers.space) return;
       try {
         let data = null;
         if (api() && typeof api().get_active_satellites === 'function') {
@@ -22176,14 +22196,19 @@ function initGlobeIntelligence(viewer) {
       return SATELLITE_STYLES.default;
     }
 
+    const _satellitePointsMap = new Map();
+
     function renderOsirisSatellites(sats) {
       if (!_satellitePoints) return;
-      _satellitePoints.removeAll();
 
       if (!Array.isArray(sats) || sats.length === 0) {
+        _satellitePoints.removeAll();
+        _satellitePointsMap.clear();
         if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
         return;
       }
+
+      const activeKeys = new Set();
 
       for (let i = 0; i < sats.length; i++) {
         const sat = sats[i];
@@ -22195,7 +22220,10 @@ function initGlobeIntelligence(viewer) {
         const pos = Cesium.Cartesian3.fromDegrees(satLon, satLat, altM);
 
         const style = getSatelliteStyle(sat);
-        const safeKey = String(sat.noradId || sat.name || ('SAT_' + i)).replace(/[^a-zA-Z0-9_\-]/g, '_');
+        const noradKey = String(sat.noradId || sat.name || ('SAT_' + i));
+        activeKeys.add(noradKey);
+
+        const safeKey = noradKey.replace(/[^a-zA-Z0-9_\-]/g, '_');
         const satId = `osiris-sat-${safeKey}`;
 
         const tacticalData = {
@@ -22211,16 +22239,36 @@ function initGlobeIntelligence(viewer) {
           inclination: sat.inclination != null ? sat.inclination : 51.64
         };
 
-        const pt = _satellitePoints.add({
-          position: pos,
-          pixelSize: style.pixelSize,
-          color: style.color,
-          outlineColor: style.outlineColor,
-          outlineWidth: style.outlineWidth,
-          id: tacticalData
-        });
-        pt._tacticalData = tacticalData;
+        let existingPt = _satellitePointsMap.get(noradKey);
+        if (existingPt) {
+          existingPt.position = pos;
+          existingPt.pixelSize = style.pixelSize;
+          existingPt.color = style.color;
+          existingPt.outlineColor = style.outlineColor;
+          existingPt.outlineWidth = style.outlineWidth;
+          existingPt.id = tacticalData;
+          existingPt._tacticalData = tacticalData;
+        } else {
+          const pt = _satellitePoints.add({
+            position: pos,
+            pixelSize: style.pixelSize,
+            color: style.color,
+            outlineColor: style.outlineColor,
+            outlineWidth: style.outlineWidth,
+            id: tacticalData
+          });
+          pt._tacticalData = tacticalData;
+          _satellitePointsMap.set(noradKey, pt);
+        }
       }
+
+      // Remove stale points no longer present
+      _satellitePointsMap.forEach((pt, key) => {
+        if (!activeKeys.has(key)) {
+          _satellitePoints.remove(pt);
+          _satellitePointsMap.delete(key);
+        }
+      });
 
       if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
     }
@@ -22471,32 +22519,46 @@ function initGlobeIntelligence(viewer) {
         fetchOsirisConflicts();
         updateLOD();
 
-        if (!_osirisPollTimer) {
-          _osirisPollTimer = setInterval(() => {
-            if (_osirisActive) {
-              fetchOsirisSatellites();
-              fetchOsirisConflicts();
-            }
-          }, 12000);
+        function ensureOsirisPollTimer() {
+          if (!_osirisPollTimer) {
+            _osirisPollTimer = setInterval(() => {
+              if (_osirisActive || _tacticalLayers.space) {
+                fetchOsirisSatellites();
+              }
+              if (_osirisActive) {
+                fetchOsirisConflicts();
+              }
+              if (!_osirisActive && !_tacticalLayers.space) {
+                clearInterval(_osirisPollTimer);
+                _osirisPollTimer = null;
+              }
+            }, 12000);
+          }
         }
+        window.startOsirisSatellitePolling = ensureOsirisPollTimer;
+        ensureOsirisPollTimer();
+
         if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
       },
       disable: () => {
         _osirisActive = false;
         _activeLOD = null;
-        _satellitePoints.show = false;
-        _satellitePoints.removeAll();
-        _osirisSatellitesDS.show = false;
+        if (!_tacticalLayers.space) {
+          _satellitePoints.show = false;
+          _satellitePoints.removeAll();
+          _satellitePointsMap.clear();
+          _osirisSatellitesDS.show = false;
+          _osirisSatellitesDS.entities.removeAll();
+        }
         _osirisConflictsDS.show = false;
         _osirisCctvDS.show = false;
         _osirisClustersDS.show = false;
 
-        _osirisSatellitesDS.entities.removeAll();
         _osirisConflictsDS.entities.removeAll();
         _osirisCctvDS.entities.removeAll();
         _osirisClustersDS.entities.removeAll();
 
-        if (_osirisPollTimer) {
+        if (_osirisPollTimer && !_tacticalLayers.space) {
           clearInterval(_osirisPollTimer);
           _osirisPollTimer = null;
         }
