@@ -293,7 +293,7 @@ class JarvisVoice:
         raw_groq = config.get("groq_api_key") or os.environ.get("GROQ_API_KEY")
         self.groq_key = self._clean_key(raw_groq)
         self.groq_available = bool(self.groq_key)
-        self.groq_model = config.get("groq_model") or "qwen/qwen3.8-27b"
+        self.groq_model = config.get("groq_model") or "openai/gpt-oss-120b"
         self._groq_rate_limited_until = 0.0
 
         # Detect available SLM
@@ -901,7 +901,7 @@ class JarvisVoice:
             "Authorization": f"Bearer {self.groq_key}",
             "Content-Type": "application/json",
         }
-        raw_models = [self.groq_model, "qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+        raw_models = [self.groq_model, "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
         seen = set()
         models_to_try = [m for m in raw_models if m and not (m in seen or seen.add(m))]
         for model in models_to_try:
@@ -954,15 +954,13 @@ class JarvisVoice:
                             except Exception:
                                 continue
                 text = "".join(full_response).strip()
-                # If content was empty but reasoning model completed, extract from reasoning
+                # If content was empty but reasoning model completed, extract JSON only if explicitly requested
                 if not text and reasoning_chunks:
                     r_text = "".join(reasoning_chunks).strip()
-                    # Check if reasoning contains JSON or usable answer
-                    json_m = re.search(r'\{.*\}', r_text, re.DOTALL)
-                    if json_m:
-                        text = json_m.group(0)
-                    elif len(r_text) > 0 and len(r_text) < 300:
-                        text = r_text
+                    if "json" in system.lower() or "json" in prompt.lower():
+                        json_m = re.search(r'\{.*\}', r_text, re.DOTALL)
+                        if json_m:
+                            text = json_m.group(0)
                 if text:
                     self.groq_model = model
                     return text, False
@@ -2169,7 +2167,6 @@ Output only the raw target string. No markdown, no quotes, no explanation."""
         # 7. Strip roleplay stage directions and action asterisks (*grins*, *cracks knuckles*, etc.)
         result = re.sub(r'\*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks knuckles|clears throat|pauses|leans)[^*]*\*', '', result, flags=re.IGNORECASE)
         result = re.sub(r'\([^)]*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks|leans|snort)[^)]*\)', '', result, flags=re.IGNORECASE)
-        result = re.sub(r'[*_`]', '', result)
         result = re.sub(r'[ \t]+', ' ', result).strip()
 
         return result if result else text.strip()
