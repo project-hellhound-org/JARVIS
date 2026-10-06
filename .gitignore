@@ -10,6 +10,7 @@ dist/
 build/
 .eggs/
 *.whl
+.cache/
 
 # Virtual environments
 venv/

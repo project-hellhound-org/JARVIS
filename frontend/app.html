@@ -4424,12 +4424,17 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
           <span>🌧️ PRECIPITATION RADAR (RAINVIEWER)</span>
           <div class="toggle-pill"></div>
         </div>
+        <div class="globe-layer-toggle" id="layer-toggle-groundMedia" onclick="window.toggleTacticalLayer('groundMedia')">
+          <span>📍 GROUND MEDIA (OSINT)</span>
+          <div class="toggle-pill"></div>
+        </div>
       </div>
-      <div style="font-size:9px; color:#8A8D91; font-family:var(--mono); margin-top:8px; display:grid; grid-template-columns:repeat(5, 1fr); gap:4px;">
+      <div style="font-size:9px; color:#8A8D91; font-family:var(--mono); margin-top:8px; display:grid; grid-template-columns:repeat(6, 1fr); gap:4px;">
         <span>RADAR: <span id="radar-contact-count" style="color:#00F0FF;">0</span></span>
         <span>VESSELS: <span id="vessel-contact-count" style="color:#38BDF8;">0</span></span>
         <span>CCTV: <span id="cctv-contact-count" style="color:#FFB84D;">0</span></span>
         <span>TRAFFIC: <span id="traffic-contact-count" style="color:#2ECC71;">0</span></span>
+        <span>MEDIA: <span id="ground-media-contact-count" style="color:#A78BFA;">0</span></span>
         <span>FIRMS: <span id="thermal-contact-count" style="color:#EF4444;">0</span></span>
       </div>
 
@@ -4541,7 +4546,6 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   </div>
   <div style="margin-top:10px; display:flex; gap:6px;">
     <button class="globe-hud-btn" id="inspect-action-btn" style="flex:1; background:rgba(0,240,255,0.15); border-color:#00F0FF; color:#00F0FF;" onclick="window.lockInspectTarget()">LOCK TARGET</button>
-    <button class="globe-hud-btn" id="inspect-chase-btn" style="display:none; flex:1; background:rgba(255,157,46,0.2); border-color:#FF9D2E; color:#FFB84D;" onclick="window.startCockpitChase()">🎮 CHASE CAM</button>
     <button class="globe-hud-btn" style="flex:0.6;" onclick="window.closeGlobeInspectCard()">CLOSE</button>
   </div>
 </div>
@@ -4612,6 +4616,58 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
     <span>GSD: 0.04M</span>
     <span>NIIRS: 9.0</span>
     <span id="cctv-dock-elev">ALT: ---M MSL</span>
+  </div>
+</div>
+
+<!-- Open-Source Ground Media & Eyewitness Tactical Floating Callout (God's Eye Style) -->
+<div id="ground-media-dock-panel" class="ground-media-callout-card" style="position:fixed; z-index:9996; display:none; width:360px; max-width:calc(100vw - 32px); font-family:var(--mono); color:#E6E6E6; user-select:none; pointer-events:auto;">
+  <!-- SVG Leader Line from Card Edge down to Ground Pin Anchor -->
+  <svg class="ground-media-leader" style="position:absolute; top:0; left:0; width:1px; height:1px; overflow:visible; pointer-events:none;">
+    <path d="" fill="none" stroke="#00F0FF" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.85" />
+    <circle cx="0" cy="0" r="4.5" fill="#00F0FF" stroke="#FFFFFF" stroke-width="1.5" />
+  </svg>
+
+  <div class="ground-media-callout-body" style="background:rgba(4,10,18,0.95); border:1px solid rgba(0,240,255,0.45); border-radius:8px; padding:12px; box-shadow:0 18px 50px rgba(0,0,0,0.85), 0 0 20px rgba(0,240,255,0.18); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px;">
+      <div style="display:flex; align-items:center; gap:7px;">
+        <span style="font-size:13px; color:#00F0FF;" id="ground-media-dock-icon">📹</span>
+        <span style="font-size:10px; font-weight:800; color:#FFFFFF; letter-spacing:1px;" id="ground-media-dock-category">OSINT GROUND INTEL</span>
+        <span id="ground-media-dock-platform" style="font-size:8px; font-weight:700; color:#00F0FF; background:rgba(0,240,255,0.12); border:1px solid rgba(0,240,255,0.35); padding:1px 5px; border-radius:3px;">YOUTUBE</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <!-- Audio Mute/Unmute Toggle Button -->
+        <button id="ground-media-dock-mute-btn" onclick="window.toggleGroundMediaMute()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#A1A1AA; font-family:var(--mono); font-size:8.5px; font-weight:700; padding:2px 6px; border-radius:3px; cursor:pointer;" title="Toggle Audio (Muted by default)">🔇 MUTED</button>
+        <button onclick="window.closeGroundMediaCard()" style="background:transparent; border:none; color:#8A8D91; cursor:pointer; font-size:14px; padding:2px; line-height:1;" title="Dismiss Media Card (Escape)">✕</button>
+      </div>
+    </div>
+
+    <!-- 16:9 Media Display Stage -->
+    <div style="position:relative; width:100%; aspect-ratio:16/9; background:#02060D; border:1px solid rgba(0,240,255,0.3); border-radius:5px; overflow:hidden; margin-bottom:8px;">
+      <iframe id="ground-media-dock-iframe" src="" allow="autoplay; encrypted-media; fullscreen" style="width:100%; height:100%; border:none; display:none;"></iframe>
+      <video id="ground-media-dock-video" autoplay muted loop playsinline controls style="width:100%; height:100%; object-fit:cover; display:none;"></video>
+      <img id="ground-media-dock-img" src="" alt="Ground photograph" style="width:100%; height:100%; object-fit:cover; display:none;" />
+      
+      <!-- Fallback Error Overlay (if YouTube player fails) -->
+      <div id="ground-media-dock-fallback" style="display:none; position:absolute; inset:0; background:rgba(4,8,16,0.92); flex-direction:column; align-items:center; justify-content:center; padding:12px; text-align:center;">
+        <span style="font-size:18px; margin-bottom:4px;">📡</span>
+        <span style="font-size:10px; font-weight:700; color:#00F0FF; margin-bottom:2px;">EMBED FEED RESTRICTED</span>
+        <span style="font-size:8.5px; color:#94A3B8; margin-bottom:8px;">Direct provider playback available via link</span>
+        <a id="ground-media-dock-fallback-btn" href="#" target="_blank" rel="noopener noreferrer" style="font-size:9px; font-weight:700; color:#02060D; background:#00F0FF; padding:4px 10px; border-radius:3px; text-decoration:none;">OPEN ON YOUTUBE ↗</a>
+      </div>
+
+      <div id="ground-media-dock-badge" style="position:absolute; bottom:5px; left:5px; background:rgba(0,0,0,0.85); font-size:8px; color:#00F0FF; padding:1px 5px; border-radius:3px; border:1px solid rgba(0,240,255,0.4); font-weight:700;">VERIFIED GEOLOCATION</div>
+    </div>
+
+    <div id="ground-media-dock-title" style="font-size:11.5px; font-weight:700; color:#FFFFFF; line-height:1.35; margin-bottom:4px;">Title</div>
+    <div id="ground-media-dock-desc" style="font-size:9px; color:#94A3B8; line-height:1.4; margin-bottom:6px;">Description</div>
+    <div style="display:flex; justify-content:space-between; font-size:8px; color:#64748B; border-top:1px solid rgba(255,255,255,0.06); padding-top:5px;">
+      <span id="ground-media-dock-coords">11.0183° N, 76.9644° E</span>
+      <span id="ground-media-dock-time">Recent Dispatch</span>
+    </div>
+    <div style="display:flex; gap:6px; margin-top:8px;">
+      <button id="ground-media-dock-btn-focus" style="flex:1; background:rgba(0,240,255,0.14); border:1px solid #00F0FF; color:#00F0FF; font-family:var(--mono); font-size:9px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;" onclick="window.focusGroundMediaLocation()">🎯 FOCUS GROUND ZERO</button>
+      <a id="ground-media-dock-link" href="#" target="_blank" rel="noopener noreferrer" style="flex:1; text-align:center; text-decoration:none; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#E2E8F0; font-family:var(--mono); font-size:9px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;">🌐 OPEN SOURCE ↗</a>
+    </div>
   </div>
 </div>
 
@@ -5089,7 +5145,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
               <span class="chat-panel-pulse"></span>
               <span>J.A.R.V.I.S. INTELLIGENCE FEED</span>
             </div>
-            <button type="button" class="chat-panel-collapse-btn" onclick="event.stopPropagation(); window.toggleChatPanel()" title="Collapse Chat Panel (Hide Text Box)">
+            <button type="button" class="chat-panel-collapse-btn composer-collapse-btn" onclick="event.stopPropagation(); window.toggleChatPanel()" title="Collapse Chat Panel (Hide Text Box)">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
           </div>
@@ -5794,9 +5850,8 @@ function cleanSpeakerPrefix(text) {
   clean = clean.replace(/\[CMD(?::|\s)[^\]]*\]/gi, '');
   clean = clean.replace(/\[CMD(?::|\s)[^\]]*$/gi, '');
   clean = clean.replace(/\[CMD[^\]]*\]/gi, '');
-  // Strip stage directions, roleplay actions, asterisks and parenthetical signs (*grins*, *cracks knuckles*, (chuckles), etc.)
-  clean = clean.replace(/\*[^*]+\*/g, '');
-  clean = clean.replace(/\*[^*]*$/g, ''); // in-flight asterisk action being typed
+  // Strip stage directions and roleplay actions (*grins*, *cracks knuckles*, (chuckles), etc.) - do NOT strip markdown asterisks!
+  clean = clean.replace(/\*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks knuckles|clears throat|pauses|leans)[^*]*\*/gi, '');
   clean = clean.replace(/\([^)]*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks|leans|snort)[^)]*\)/gi, '');
   return clean.replace(/[ \t]+/g, ' ').trimStart();
 }
@@ -10597,9 +10652,10 @@ function enqueueJarvisPcmChunk(audioB64, sampleRate, text, turnId) {
     source.buffer = buffer;
     source.connect(ctx.destination);
     const now = ctx.currentTime;
-    // Keep chunks ordered; if generation stalls, resume immediately rather than
-    // playing old audio over a newer answer.
-    const startAt = Math.max(now + 0.01, jarvisPcmNextStartTime);
+    // Keep chunks ordered; pre-buffer initial chunk or underruns by 180ms to prevent stuttering
+    const isUnderRun = (activePlayingChunkCount === 0 || now >= jarvisPcmNextStartTime);
+    const leadTime = isUnderRun ? 0.18 : 0.02;
+    const startAt = Math.max(now + leadTime, jarvisPcmNextStartTime);
     jarvisPcmNextStartTime = startAt + buffer.duration;
     ttsPlaybackEndTime = Math.max(
       ttsPlaybackEndTime,
@@ -12263,6 +12319,14 @@ window.jarvis = window.joe = {
       case 'jarvis_task_event':
         if (data && data.event && data.payload) {
           TaskSurfaceManager.handleEvent(data.event, data.payload);
+          if (data.event === 'control_ground_intel' && typeof window.renderGroundMediaPoints === 'function') {
+            if (data.payload.points) window.renderGroundMediaPoints(data.payload.points);
+            if (data.payload.open_first && data.payload.points && data.payload.points.length > 0 && typeof window.openGroundMediaCard === 'function') {
+              window.openGroundMediaCard(data.payload.points[0]);
+            }
+          } else if (data.event === 'control_tactical_layer' && typeof window.toggleTacticalLayer === 'function') {
+            window.toggleTacticalLayer(data.payload.layer, data.payload.state);
+          }
         }
         break;
       case 'set_app_mode':
@@ -12529,11 +12593,57 @@ window.jarvis = window.joe = {
         break;
 
       case 'toggle_tactical_layer':
+      case 'control_tactical_layer':
         if (data) {
           if (data.layer === 'clear' && typeof window.clearAllTacticalLayers === 'function') {
             window.clearAllTacticalLayers();
           } else if (typeof window.toggleTacticalLayer === 'function') {
             window.toggleTacticalLayer(data.layer, data.state);
+            if (data.layer === 'groundMedia' && data.location && typeof window.loadGroundMedia === 'function') {
+              window.loadGroundMedia(data.location);
+            }
+          }
+        }
+        break;
+
+      case 'control_ground_intel':
+        if (data) {
+          if (typeof window.toggleTacticalLayer === 'function') {
+            window.toggleTacticalLayer('groundMedia', true);
+          }
+          if (data.points && Array.isArray(data.points) && data.points.length > 0) {
+            if (typeof window.renderGroundMediaPoints === 'function') {
+              window.renderGroundMediaPoints(data.points);
+            }
+            const countEl = document.getElementById('groundmedia-contact-count');
+            if (countEl) countEl.textContent = String(data.points.length);
+            if (data.open_first && typeof window.openGroundMediaCard === 'function') {
+              window.openGroundMediaCard(data.points[0]);
+            }
+          } else if (typeof window.loadGroundMedia === 'function') {
+            window.loadGroundMedia(data.location || data.target).then(res => {
+              if (data.open_first && res && res.points && res.points.length > 0 && typeof window.openGroundMediaCard === 'function') {
+                window.openGroundMediaCard(res.points[0]);
+              }
+            });
+          }
+        }
+        break;
+
+      case 'cctv_camera_selected':
+      case 'select_cctv':
+        if (data) {
+          const cam = data.camera || data.cctv || data;
+          if (cam && (cam.id || cam.lat !== undefined)) {
+            if (typeof window.toggleTacticalLayer === 'function') {
+              window.toggleTacticalLayer('cctv', true);
+            }
+            if (typeof window.openCctvDock === 'function') {
+              window.openCctvDock(cam);
+            }
+            if (typeof window.flyToCameraPOV === 'function') {
+              window.flyToCameraPOV(cam);
+            }
           }
         }
         break;
@@ -14682,7 +14792,10 @@ const SpatialNav = {
         // Temporarily disable OrbitControls so screen dragging doesn't spin the 3D sphere simultaneously
         if (window.JarvisKnowledgeGraph && window.JarvisKnowledgeGraph.graph) {
           const controls = window.JarvisKnowledgeGraph.graph.controls();
-          if (controls) controls.enabled = false;
+          if (controls) {
+            controls.enabled = false;
+            controls.enableRotate = false;
+          }
         }
       } else {
         // Vertical or circular drag: let underlying 3D controls (OrbitControls / Cesium) handle it
@@ -14709,7 +14822,10 @@ const SpatialNav = {
     // Restore OrbitControls if previously locked during drag
     if (window.JarvisKnowledgeGraph && window.JarvisKnowledgeGraph.graph) {
       const controls = window.JarvisKnowledgeGraph.graph.controls();
-      if (controls) controls.enabled = true;
+      if (controls) {
+        controls.enabled = true;
+        controls.enableRotate = true;
+      }
     }
 
     if (wasDragging) {
@@ -14805,8 +14921,9 @@ const SpatialNav = {
         const shellOpacity = Math.max(0, Math.min(1, 1.0 - (absRatio * 1.18)));
         shell.style.opacity = shellOpacity.toFixed(3);
         const shellTx = (-105 * ratio).toFixed(2);
+        const shellTz = 0;
         const shellRotY = (15 * ratio).toFixed(2);
-        shell.style.transform = `translate3d(${shellTx}vw, 0, 0px) rotateY(${shellRotY}deg)`;
+        shell.style.transform = `translate3d(${shellTx}vw, 0, ${shellTz}px) rotateY(${shellRotY}deg)`;
       } else {
         shell.style.visibility = 'hidden';
         shell.style.opacity = '0';
@@ -15101,17 +15218,23 @@ window.focusGlobeCoordinates = function(lat, lon, label) {
     window.updateSectorWeather(lat, lon, label);
   }
 
-  // Smoothly fly Cesium 3D World Terrain camera to the target sector at tactical 35-degree angle
-  if (window.cesiumViewer && typeof Cesium !== 'undefined' && !window.cesiumViewer.isDestroyed()) {
-    window.cesiumViewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(lon, lat, 14000),
-      orientation: {
-        heading: Cesium.Math.toRadians(0),
-        pitch: Cesium.Math.toRadians(-35),
-        roll: 0.0
-      },
-      duration: 2.2
-    });
+  // Automatically fetch & render open-source ground media / videos / photos for the newly focused sector
+  if (typeof window.loadGroundMedia === 'function') {
+    window.loadGroundMedia(label || `${lat.toFixed(4)},${lon.toFixed(4)}`);
+  }
+
+    // Smoothly fly Cesium 3D World Terrain camera to the target sector with centered tactical framing
+    if (window.cesiumViewer && typeof Cesium !== 'undefined' && !window.cesiumViewer.isDestroyed()) {
+      const targetCartesian = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
+      const boundingSphere = new Cesium.BoundingSphere(targetCartesian, 25000);
+      window.cesiumViewer.camera.flyToBoundingSphere(boundingSphere, {
+        offset: new Cesium.HeadingPitchRange(
+          Cesium.Math.toRadians(0),
+          Cesium.Math.toRadians(-45),
+          42000
+        ),
+        duration: 2.2
+      });
 
     window._isTargetViewLocked = true;
     if (typeof window.updateCesiumLabelVisibility === 'function') {
@@ -16707,19 +16830,64 @@ function initCesiumGlobe() {
     if (scene.sun) scene.sun.show = true;
     if (scene.moon) scene.moon.show = false;
 
-    // Tactical globe base appearance & deep space atmosphere
+    // Tactical globe base appearance & deep space atmosphere (God's Eye View Official Presets)
     scene.globe.show = true;
     scene.globe.depthTestAgainstTerrain = true;
     scene.globe.baseColor = Cesium.Color.fromCssColorString('#020611');
     scene.globe.showGroundAtmosphere = true;
     scene.globe.enableLighting = false;
-    scene.globe.atmosphereBrightnessShift = 0.04;
+    scene.globe.atmosphereBrightnessShift = -0.08;
     scene.globe.atmosphereHueShift = 0.0;
-    scene.globe.atmosphereSaturationShift = 0.04;
+    scene.globe.atmosphereSaturationShift = -0.12;
     if (scene.skyAtmosphere) {
       scene.skyAtmosphere.show = true;
-      scene.skyAtmosphere.saturation = 1.04;
-      scene.skyAtmosphere.brightnessShift = 0.02;
+      scene.skyAtmosphere.atmosphereLightIntensity = 18;
+      scene.skyAtmosphere.saturationShift = -0.12;
+      scene.skyAtmosphere.brightnessShift = -0.08;
+    }
+
+    // God's Eye View Photorealistic Unsharp-Mask Shader Stage (Official God's Eye View amount=1.08)
+    try {
+      const SHARPEN_SHADER = `
+        uniform sampler2D colorTexture;
+        uniform vec2 colorTextureDimensions;
+        uniform float amount;
+        in vec2 v_textureCoordinates;
+
+        void main() {
+          vec2 uv = v_textureCoordinates;
+          vec2 texel = 1.0 / colorTextureDimensions;
+          vec4 center = texture(colorTexture, uv);
+          vec4 blur = (
+            texture(colorTexture, uv + vec2(-texel.x, -texel.y)) +
+            texture(colorTexture, uv + vec2( 0.0,     -texel.y)) +
+            texture(colorTexture, uv + vec2( texel.x, -texel.y)) +
+            texture(colorTexture, uv + vec2(-texel.x,  0.0))     +
+            center +
+            texture(colorTexture, uv + vec2( texel.x,  0.0))     +
+            texture(colorTexture, uv + vec2(-texel.x,  texel.y)) +
+            texture(colorTexture, uv + vec2( 0.0,      texel.y)) +
+            texture(colorTexture, uv + vec2( texel.x,  texel.y))
+          ) / 9.0;
+          vec4 sharpened = center + (center - blur) * amount;
+          out_FragColor = vec4(clamp(sharpened.rgb, 0.0, 1.0), center.a);
+        }
+      `;
+      if (Cesium.PostProcessStage && scene.postProcessStages) {
+        const sharpenStage = new Cesium.PostProcessStage({
+          name: 'godsEyeView_sharpen',
+          fragmentShader: SHARPEN_SHADER,
+          uniforms: {
+            amount: 1.08
+          }
+        });
+        sharpenStage.enabled = true;
+        scene.postProcessStages.add(sharpenStage);
+        window._godsEyeSharpenStage = sharpenStage;
+        console.log('[Cesium] God\'s Eye View unsharp-mask filter stage active (amount=1.08)');
+      }
+    } catch (shaderErr) {
+      console.warn('[Cesium] Could not initialize sharpen post-process stage:', shaderErr);
     }
 
     // Keyless High-Resolution Satellite Imagery (ESRI World Imagery + OSM Fallback)
@@ -16751,11 +16919,11 @@ function initCesiumGlobe() {
       if (imageryProvider && cesiumViewer && !cesiumViewer.isDestroyed()) {
         cesiumViewer.imageryLayers.removeAll();
         const baseLayer = cesiumViewer.imageryLayers.addImageryProvider(imageryProvider);
-        baseLayer.saturation = 1.05;
-        baseLayer.contrast = 1.06;
+        baseLayer.saturation = 1.00;
+        baseLayer.contrast = 1.00;
         baseLayer.brightness = 1.00;
         baseLayer.gamma = 1.00;
-        console.log('[Cesium] Satellite imagery provider active with photorealistic true-color Earth tones');
+        console.log('[Cesium] Satellite imagery provider active with clean photorealistic God\'s Eye Earth color tones');
 
         // Dynamic Altitude-Culled Reference Labels & Boundaries Overlay (cities, places, landmarks)
         // Hidden from planetary space orbit to keep Earth pristine; fades in when zoomed in (<1.5M m) or target locked.
@@ -17026,7 +17194,7 @@ function initCesiumGlobe() {
       }
     });
 
-    // Single-click on Cesium entities (aircraft, CCTV cameras, radio pins) opens target inspection
+    // Single-click on Cesium entities (aircraft, CCTV cameras, ground media pins) opens target inspection
     handler.setInputAction((click) => {
       if (window.JarvisPatrol && window.JarvisPatrol.active) {
         window.JarvisPatrol.stop();
@@ -17040,10 +17208,129 @@ function initCesiumGlobe() {
         }
       }
       const picked = scene.pick(click.position);
-      if (Cesium.defined(picked) && picked.id && picked.id._tacticalData) {
-        window.inspectTarget(picked.id._tacticalData);
+      let tacticalData = null;
+      if (Cesium.defined(picked)) {
+        if (picked.id && picked.id._tacticalData) {
+          tacticalData = picked.id._tacticalData;
+        } else if (picked.primitive && picked.primitive._tacticalData) {
+          tacticalData = picked.primitive._tacticalData;
+        } else if (picked.id && typeof picked.id === 'object' && picked.id.type) {
+          tacticalData = picked.id;
+        }
+      }
+
+      if (tacticalData) {
+        if (tacticalData.type === 'GROUND_MEDIA') {
+          if (typeof window.openGroundMediaCard === 'function') {
+            window.openGroundMediaCard(tacticalData);
+          }
+        } else {
+          window.inspectTarget(tacticalData);
+          if (tacticalData.type === 'SATELLITE' && typeof window.setFocusedSatelliteTrack === 'function') {
+            window.setFocusedSatelliteTrack(tacticalData);
+          }
+        }
+      } else {
+        // Clicking on empty terrain/sky auto-dismisses active ground media card and focused satellite track
+        if (typeof window.closeGroundMediaCard === 'function') {
+          window.closeGroundMediaCard();
+        }
+        if (typeof window.clearFocusedSatelliteTrack === 'function') {
+          window.clearFocusedSatelliteTrack();
+        }
       }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+    // Auto-dismiss ground media dock panel if camera glides/pans > 15 km away or zooms out to orbit (> 350 km)
+    scene.camera.moveEnd.addEventListener(() => {
+      if (!window._activeGroundMediaCoord) return;
+      const panel = document.getElementById('ground-media-dock-panel');
+      if (!panel || panel.style.display === 'none') return;
+      try {
+        const camPos = scene.camera.positionCartographic;
+        if (!camPos) return;
+        const camLat = Cesium.Math.toDegrees(camPos.latitude);
+        const camLon = Cesium.Math.toDegrees(camPos.longitude);
+        const dLat = (camLat - window._activeGroundMediaCoord.lat) * 111.0;
+        const dLon = (camLon - window._activeGroundMediaCoord.lon) * 111.0 * Math.cos(camLat * Math.PI / 180.0);
+        const surfaceDist = Math.sqrt(dLat * dLat + dLon * dLon);
+        const altKm = camPos.height / 1000.0;
+        if (surfaceDist > 15.0 || altKm > 350.0) {
+          if (typeof window.closeGroundMediaCard === 'function') {
+            window.closeGroundMediaCard();
+          }
+        }
+      } catch (e) {}
+    });
+
+    // ── Anchored Callout Tracker ──────────────────────────────────────────────
+    // Register per-frame callback so the floating card always follows the 3D pin
+    // as the globe rotates / camera moves.
+    viewer.scene.preRender.addEventListener(function() {
+      if (typeof window.updateAnchoredGroundMediaCallout === 'function') {
+        window.updateAnchoredGroundMediaCallout();
+      }
+    });
+
+    // ── Dynamic Viewport Video Loader ─────────────────────────────────────────
+    // Whenever the camera comes to rest at ≤ 130 km altitude AND the viewport
+    // center has moved > 12 km from the last query, auto-fetch ground media for
+    // the new location so videos appear for ANY place the user navigates to.
+    window._lastGroundMediaQueryCenter = null;
+    let _viewportMediaDebounce = null;
+
+    scene.camera.moveEnd.addEventListener(() => {
+      if (_viewportMediaDebounce) clearTimeout(_viewportMediaDebounce);
+      _viewportMediaDebounce = setTimeout(() => {
+        try {
+          const camPos = scene.camera.positionCartographic;
+          if (!camPos) return;
+          const altKm = camPos.height / 1000.0;
+          const lat = Cesium.Math.toDegrees(camPos.latitude);
+          const lon = Cesium.Math.toDegrees(camPos.longitude);
+
+          // Synchronize Cesium viewport center with Python backend
+          if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.sync_active_viewport === 'function') {
+            try { window.pywebview.api.sync_active_viewport(lat, lon, altKm); } catch (syncErr) {}
+          }
+
+          if (altKm > 750.0) return;  // too far out in deep orbit — don't query ground pins
+
+          // Distance from last query centre (km)
+          if (window._lastGroundMediaQueryCenter) {
+            const prev = window._lastGroundMediaQueryCenter;
+            const dLat = (lat - prev.lat) * 111.0;
+            const dLon = (lon - prev.lon) * 111.0 * Math.cos(lat * Math.PI / 180.0);
+            const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+            if (dist < 10.0) return;  // hasn't moved enough — skip
+          }
+
+          window._lastGroundMediaQueryCenter = { lat, lon };
+          if (typeof window.loadGroundMedia === 'function') {
+            window.loadGroundMedia(`${lat.toFixed(5)},${lon.toFixed(5)}`);
+          }
+        } catch (e) {}
+      }, 700);
+    });
+
+    // Dismiss media panel on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && typeof window.closeGroundMediaCard === 'function') {
+        window.closeGroundMediaCard();
+      }
+    });
+
+    // Dismiss media panel on click outside
+    document.addEventListener('pointerdown', (e) => {
+      const panel = document.getElementById('ground-media-dock-panel');
+      if (!panel || panel.style.display === 'none') return;
+      const cesiumCont = document.getElementById('cesiumContainer');
+      if (!panel.contains(e.target) && cesiumCont && !cesiumCont.contains(e.target)) {
+        if (typeof window.closeGroundMediaCard === 'function') {
+          window.closeGroundMediaCard();
+        }
+      }
+    });
 
     // Initialize OSINT Intelligence Layers (Flight Radar, CCTV Cones, Radio Tuner, Weather Intel)
     initGlobeIntelligence(cesiumViewer);
@@ -17068,11 +17355,13 @@ let _tacticalLayers = {
   space: false,
   seismic: false,
   thermal: false,
-  weather: false
+  weather: false,
+  groundMedia: false
 };
 let _flightsDataSource = null;
 let _vesselsDataSource = null;
 let _cctvDataSource = null;
+let _groundMediaDataSource = null;
 let _trafficDataSource = null;
 let _radioDataSource = null;
 let _spaceDataSource = null;
@@ -17409,15 +17698,24 @@ window.setEarthVisualStyle = function(styleName) {
 
   if (styleName === 'satellite') {
     globe.enableLighting = false;
-    globe.baseColor = Cesium.Color.fromCssColorString('#061324');
-    globe.atmosphereBrightnessShift = 0.25;
-    globe.atmosphereHueShift = 0.05;
-    globe.atmosphereSaturationShift = 0.55;
+    globe.baseColor = Cesium.Color.fromCssColorString('#020611');
+    globe.atmosphereBrightnessShift = -0.08;
+    globe.atmosphereHueShift = 0.0;
+    globe.atmosphereSaturationShift = -0.12;
+    if (scene.skyAtmosphere) {
+      scene.skyAtmosphere.show = true;
+      scene.skyAtmosphere.atmosphereLightIntensity = 18;
+      scene.skyAtmosphere.saturationShift = -0.12;
+      scene.skyAtmosphere.brightnessShift = -0.08;
+    }
     if (baseLayer) {
-      baseLayer.saturation = 1.75;
-      baseLayer.contrast = 1.35;
-      baseLayer.brightness = 1.08;
-      baseLayer.gamma = 0.90;
+      baseLayer.saturation = 1.00;
+      baseLayer.contrast = 1.00;
+      baseLayer.brightness = 1.00;
+      baseLayer.gamma = 1.00;
+    }
+    if (window._godsEyeSharpenStage) {
+      window._godsEyeSharpenStage.enabled = true;
     }
   } else if (styleName === 'flir') {
     globe.enableLighting = false;
@@ -17594,6 +17892,20 @@ window.toggleTacticalLayer = function(layerName, forceState) {
       window.cesiumViewer.imageryLayers.remove(_weatherImageryLayer);
       _weatherImageryLayer = null;
     }
+  } else if (layerName === 'groundMedia' && _groundMediaDataSource) {
+    _groundMediaDataSource.show = _tacticalLayers.groundMedia;
+    const el = document.getElementById('groundmedia-contact-count');
+    if (_tacticalLayers.groundMedia) {
+      if (typeof window.loadGroundMedia === 'function' && _groundMediaDataSource.entities.values.length === 0) {
+        window.loadGroundMedia();
+      }
+      if (el) el.textContent = String(_groundMediaDataSource.entities.values.length || '0');
+    } else {
+      if (el) el.textContent = '0';
+      if (typeof window.closeGroundMediaCard === 'function') {
+        window.closeGroundMediaCard();
+      }
+    }
   }
 
   if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
@@ -17609,7 +17921,9 @@ window.clearAllTacticalLayers = function() {
   });
   if (_flightsDataSource) _flightsDataSource.show = false;
   if (_vesselsDataSource) _vesselsDataSource.show = false;
+  if (_groundMediaDataSource) _groundMediaDataSource.show = false;
   if (_cctvDataSource) _cctvDataSource.show = false;
+  if (typeof window.closeGroundMediaCard === 'function') window.closeGroundMediaCard();
   if (window._setTrafficLayerEnabled) window._setTrafficLayerEnabled(false);
   if (_radioDataSource) _radioDataSource.show = false;
   if (_spaceDataSource) _spaceDataSource.show = false;
@@ -17620,12 +17934,20 @@ window.clearAllTacticalLayers = function() {
     _weatherImageryLayer = null;
   }
   const thEl = document.getElementById('thermal-contact-count'); if (thEl) thEl.textContent = '0';
+  const gmEl = document.getElementById('groundmedia-contact-count'); if (gmEl) gmEl.textContent = '0';
   if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
     window.cesiumViewer.scene.requestRender();
   }
 };
 
-// Tactical Target Inspection Card
+// God's Eye Flight Level Formatter (Bilawal Sidhu / detectionDraw.js)
+function formatFlightLevel(altitudeMeters) {
+  if (!Number.isFinite(altitudeMeters) || altitudeMeters <= 0) return 'GND';
+  const fl = Math.round((altitudeMeters * 3.28084) / 100);
+  return 'FL' + String(fl).padStart(3, '0');
+}
+
+// Tactical Target Inspection Card (God's Eye Parity)
 window.inspectTarget = function(data) {
   _inspectTargetData = data;
   const card = document.getElementById('globe-inspect-card');
@@ -17633,7 +17955,6 @@ window.inspectTarget = function(data) {
   const title = document.getElementById('inspect-card-title');
   const body = document.getElementById('inspect-card-body');
   const actBtn = document.getElementById('inspect-action-btn');
-  const chaseBtn = document.getElementById('inspect-chase-btn');
   if (!card || !body) return;
 
   if (_cctvAnimInterval) {
@@ -17641,29 +17962,55 @@ window.inspectTarget = function(data) {
     _cctvAnimInterval = null;
   }
 
-  if (chaseBtn) chaseBtn.style.display = 'none';
-
   if (data.type === 'AIRCRAFT') {
     const isMil = data.isMil;
     const catColor = data.color || (isMil ? '#22C55E' : '#38BDF8');
     const badgeText = data.badge ? `[${data.badge}]` : (isMil ? '[MIL DEFENSE]' : '[CIVIL AIR]');
     if (icon) icon.textContent = data.catType === 'mil' ? '⚔' : (data.catType === 'emergency' ? '🚨' : (data.catType === 'pia' ? '🔒' : (data.catType === 'ladd' ? '🛡' : '✈')));
     const catLabel = data.category || (isMil ? 'MILITARY AIRSPACE CONTACT' : 'COMMERCIAL FLIGHT');
-    if (title) title.textContent = `${badgeText} ${data.callsign}`;
-    const fl = data.alt ? (data.alt > 1000 ? `FL${Math.round(data.alt / 100)} (${Math.round(data.alt * 0.3048)} m)` : `${Math.round(data.alt)} ft`) : 'ON GROUND';
-    const mach = data.speed ? (data.speed / 661).toFixed(2) + ' M' : 'N/A';
+    
+    const altFt = data.alt ? (typeof data.alt === 'number' ? data.alt : Number(data.alt) || 0) : 0;
+    const altM = altFt * 0.3048;
+    const flShort = altFt > 1000 ? formatFlightLevel(altM) : (altFt > 0 ? `${Math.round(altFt)} ft` : 'GND');
+    const speedKnots = data.speed ? Math.round(data.speed) : 0;
+    const mach = speedKnots > 0 ? (speedKnots / 661).toFixed(2) + ' M' : 'N/A';
     const isEmergSqk = data.squawk === '7700' || data.squawk === '7600' || data.squawk === '7500';
     const sqkText = data.squawk ? `${data.squawk}${isEmergSqk ? ' ⚠ (ALERT)' : ''}` : '7000 (VFR)';
+
+    // Authentic God's Eye Header: CALLSIGN · FL · SPEED (Image 2 Parity)
+    if (title) {
+      title.innerHTML = `<span style="color:#00F0FF; font-weight:800;">${data.callsign}</span> <span style="color:#64748B;">·</span> <span style="color:#FFB84D; font-weight:700;">${flShort}</span> <span style="color:#64748B;">·</span> <span style="color:#FFFFFF;">${speedKnots} kts</span>`;
+    }
+
+    const typeLine = [data.airline, data.typeDesc || data.desc || data.typeCode || catLabel].filter(Boolean).join(' · ');
+    const hasRoute = Boolean(data.origin && data.destination);
+
     body.innerHTML = `
-      <div><span style="color:#8A8D91;">CLASSIFICATION:</span> <span style="color:${catColor}; font-weight:700;">${badgeText} ${catLabel}</span></div>
-      <div><span style="color:#8A8D91;">CALLSIGN / HEX:</span> <span style="color:#00F0FF; font-weight:700;">${data.callsign}</span> (${data.hex})</div>
-      <div><span style="color:#8A8D91;">AIRFRAME / TYPE:</span> <span style="color:#E2E8F0; font-weight:600;">${data.typeCode || 'AIR'}${data.desc && data.desc !== data.category ? ' • ' + data.desc : ''}</span></div>
-      <div><span style="color:#8A8D91;">ALTITUDE:</span> <span style="color:#FFB84D;">${fl}</span></div>
-      <div><span style="color:#8A8D91;">GROUND SPEED:</span> <span style="color:#FFFFFF;">${data.speed ? Math.round(data.speed) + ' kts' : 'N/A'}</span> (${mach})</div>
-      <div><span style="color:#8A8D91;">HEADING / COURSE:</span> <span style="color:#FFFFFF;">${data.heading ? Math.round(data.heading) + '°' : 'N/A'}</span></div>
-      <div><span style="color:#8A8D91;">SQUAWK CODE:</span> <span style="color:${isEmergSqk ? '#EF4444; font-weight:800' : '#4ADE80'};">${sqkText}</span></div>
-      <div><span style="color:#8A8D91;">COORDINATES:</span> ${data.lat.toFixed(4)}° N, ${data.lon.toFixed(4)}° E</div>
+      <div id="inspect-card-operator" style="font-size:11.5px; color:#E2E8F0; font-weight:700; margin-bottom:4px; letter-spacing:0.3px;">${typeLine}</div>
+      <div id="inspect-card-route-box" style="margin:6px 0; padding:8px 12px; background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.22); border-radius:6px; display:${hasRoute ? 'flex' : 'none'}; align-items:center; justify-content:space-between;">
+        <div style="text-align:left;">
+          <div style="font-size:15px; font-weight:800; color:#00F0FF; font-family:JetBrains Mono, monospace; letter-spacing:1px;">${data.origin?.code || '---'}</div>
+          <div style="font-size:9.5px; color:#94A3B8; max-width:110px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${data.origin?.name || ''}</div>
+        </div>
+        <div style="color:#00F0FF; font-size:13px; font-weight:700; opacity:0.85;">──✈──></div>
+        <div style="text-align:right;">
+          <div style="font-size:15px; font-weight:800; color:#00F0FF; font-family:JetBrains Mono, monospace; letter-spacing:1px;">${data.destination?.code || '---'}</div>
+          <div style="font-size:9.5px; color:#94A3B8; max-width:110px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${data.destination?.name || ''}</div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:4px;">
+        <div><span style="color:#8A8D91;">CLASSIFICATION:</span> <span style="color:${catColor}; font-weight:700;">${badgeText}</span></div>
+        <div><span style="color:#8A8D91;">TRANSPONDER:</span> <span style="color:#00F0FF; font-weight:600;">ICAO ${data.hex || 'N/A'}</span></div>
+        <div><span style="color:#8A8D91;">AIRFRAME / TYPE:</span> <span id="inspect-card-airframe" style="color:#E2E8F0; font-weight:600;">${data.typeDesc || data.desc || data.typeCode || 'AIR'}</span></div>
+        <div><span style="color:#8A8D91;">ALTITUDE:</span> <span style="color:#FFB84D;">${altFt ? `${flShort} (${Math.round(altM)} m)` : 'ON GROUND'}</span></div>
+        <div><span style="color:#8A8D91;">SPEED:</span> <span style="color:#FFFFFF;">${speedKnots} kts</span> (${mach})</div>
+        <div><span style="color:#8A8D91;">COURSE:</span> <span style="color:#FFFFFF;">${data.heading ? Math.round(data.heading) + '°' : 'N/A'}</span></div>
+        <div><span style="color:#8A8D91;">SQUAWK CODE:</span> <span style="color:${isEmergSqk ? '#EF4444; font-weight:800' : '#4ADE80'};">${sqkText}</span></div>
+        <div><span style="color:#8A8D91;">REG / TAIL:</span> <span id="inspect-card-tail" style="color:#CBD5E1; font-weight:600;">${data.registration || data.hex || 'N/A'}</span></div>
+        <div style="grid-column: span 2;"><span style="color:#8A8D91;">COORDINATES:</span> ${data.lat.toFixed(4)}° N, ${data.lon.toFixed(4)}° E</div>
+      </div>
     `;
+
     if (actBtn) {
       actBtn.textContent = 'LOCK AIRCRAFT';
       actBtn.onclick = () => {
@@ -17671,10 +18018,55 @@ window.inspectTarget = function(data) {
         else window.focusGlobeCoordinates(data.lat, data.lon, data.callsign);
       };
     }
-    if (chaseBtn) {
-      chaseBtn.style.display = 'block';
-      chaseBtn.textContent = '✈ CHASE COCKPIT VIEW';
-      chaseBtn.onclick = () => window.JarvisCockpit.enter(data.callsign);
+
+    // Asynchronous God's Eye Flight Route & Airframe Enrichment (Bilawal Sidhu adsbdbProxy integration)
+    if (data.callsign && !data._enrichmentLoaded) {
+      const curTarget = data;
+      const qCallsign = encodeURIComponent(curTarget.callsign);
+      const qHex = encodeURIComponent(curTarget.hex || '');
+      const qLat = curTarget.lat != null ? curTarget.lat : '';
+      const qLon = curTarget.lon != null ? curTarget.lon : '';
+      fetch(`/api/flights/enrichment?callsign=${qCallsign}&hex=${qHex}&lat=${qLat}&lon=${qLon}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(enrich => {
+          if (!enrich || _inspectTargetData !== curTarget) return;
+          curTarget._enrichmentLoaded = true;
+
+          if (enrich.airline || enrich.type_name) {
+            curTarget.airline = enrich.airline || curTarget.airline;
+            curTarget.typeDesc = enrich.type_name || curTarget.typeDesc;
+            const opEl = document.getElementById('inspect-card-operator');
+            if (opEl) {
+              const parts = [curTarget.airline, curTarget.typeDesc || curTarget.desc || curTarget.typeCode || catLabel].filter(Boolean);
+              opEl.textContent = parts.join(' · ');
+            }
+          }
+          if (enrich.origin && enrich.destination && enrich.route_plausible) {
+            curTarget.origin = enrich.origin;
+            curTarget.destination = enrich.destination;
+            const rBox = document.getElementById('inspect-card-route-box');
+            if (rBox) {
+              rBox.style.display = 'flex';
+              rBox.innerHTML = `
+                <div style="text-align:left;">
+                  <div style="font-size:15px; font-weight:800; color:#00F0FF; font-family:JetBrains Mono, monospace; letter-spacing:1px;">${enrich.origin.code}</div>
+                  <div style="font-size:9.5px; color:#94A3B8; max-width:110px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${enrich.origin.name || ''}</div>
+                </div>
+                <div style="color:#00F0FF; font-size:13px; font-weight:700; opacity:0.85;">──✈──></div>
+                <div style="text-align:right;">
+                  <div style="font-size:15px; font-weight:800; color:#00F0FF; font-family:JetBrains Mono, monospace; letter-spacing:1px;">${enrich.destination.code}</div>
+                  <div style="font-size:9.5px; color:#94A3B8; max-width:110px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${enrich.destination.name || ''}</div>
+                </div>
+              `;
+            }
+          }
+          if (enrich.registration) {
+            curTarget.registration = enrich.registration;
+            const regEl = document.getElementById('inspect-card-tail');
+            if (regEl) regEl.textContent = enrich.registration;
+          }
+        })
+        .catch(() => {});
     }
   } else if (data.type === 'VESSEL') {
     if (icon) icon.textContent = '🚢';
@@ -17701,25 +18093,34 @@ window.inspectTarget = function(data) {
     return;
   } else if (data.type === 'SATELLITE') {
     if (icon) icon.textContent = '🛰';
-    if (title) title.textContent = `ORBITAL: ${data.name}`;
+    const altKm = data.altKm || 420;
+    const regime = altKm > 30000 ? 'GEO' : (altKm > 2000 ? 'MEO' : 'LEO');
+    const velKmh = data.velocityKmh || (regime === 'GEO' ? 11070 : (regime === 'MEO' ? 13800 : 27600));
+    const velKms = (velKmh / 3600).toFixed(2);
+    const noradStr = data.noradId ? `NORAD ${data.noradId}` : 'CATALOG TRACK';
+    const catLabel = data.category || regime;
+
+    // Authentic God's Eye Header: NAME · ALT · VELOCITY
+    if (title) {
+      title.innerHTML = `<span style="color:#00F0FF; font-weight:800;">${data.name}</span> <span style="color:#64748B;">·</span> <span style="color:#FFB84D; font-weight:700;">${altKm} km</span> <span style="color:#64748B;">·</span> <span style="color:#FFFFFF;">${velKms} km/s</span>`;
+    }
+
     body.innerHTML = `
-      <div><span style="color:#8A8D91;">OBJECT NAME:</span> <span style="color:#00F0FF; font-weight:700;">${data.name}</span></div>
-      <div><span style="color:#8A8D91;">ORBIT REGIME:</span> <span style="color:#FFB84D;">LOW EARTH ORBIT (LEO)</span></div>
-      <div><span style="color:#8A8D91;">ORBITAL ALTITUDE:</span> <span style="color:#FFFFFF;">${data.altKm} km</span></div>
-      <div><span style="color:#8A8D91;">ORBITAL VELOCITY:</span> <span style="color:#FFFFFF;">${data.velocityKmh} km/h (7.66 km/s)</span></div>
-      <div><span style="color:#8A8D91;">INCLINATION:</span> 51.64°</div>
-      <div><span style="color:#8A8D91;">GROUND TRACK:</span> ${data.lat.toFixed(4)}° N, ${data.lon.toFixed(4)}° E</div>
+      <div style="font-size:11.5px; color:#E2E8F0; font-weight:700; margin-bottom:6px; letter-spacing:0.3px;">${catLabel} · ${regime} REGIME</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:4px;">
+        <div><span style="color:#8A8D91;">IDENTIFIER:</span> <span style="color:#00F0FF; font-weight:600;">${noradStr}</span></div>
+        <div><span style="color:#8A8D91;">ORBIT REGIME:</span> <span style="color:#FFB84D; font-weight:700;">${regime}</span></div>
+        <div><span style="color:#8A8D91;">ALTITUDE:</span> <span style="color:#FFFFFF;">${altKm} km</span></div>
+        <div><span style="color:#8A8D91;">VELOCITY:</span> <span style="color:#FFFFFF;">${velKmh.toLocaleString()} km/h (${velKms} km/s)</span></div>
+        <div><span style="color:#8A8D91;">INCLINATION:</span> ${data.inclination != null ? data.inclination + '°' : '51.64°'}</div>
+        <div><span style="color:#8A8D91;">GROUND TRACK:</span> ${data.lat.toFixed(4)}° N, ${data.lon.toFixed(4)}° E</div>
+      </div>
     `;
     if (actBtn) {
       actBtn.textContent = 'TRACK SATELLITE';
       actBtn.onclick = () => {
-        if (data._entity) window.lockTarget(data._entity, data);
-        else window.focusGlobeCoordinates(data.lat, data.lon, data.name);
+        window.focusGlobeCoordinates(data.lat, data.lon, data.name);
       };
-    }
-    if (chaseBtn && data._entity) {
-      chaseBtn.style.display = 'block';
-      chaseBtn.textContent = '🛰 ORBITAL CHASE VIEW';
     }
   } else if (data.type === 'RADIO') {
     if (icon) icon.textContent = '📻';
@@ -17784,6 +18185,9 @@ window.closeGlobeInspectCard = function() {
     if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
       window.cesiumViewer.scene.requestRender();
     }
+  }
+  if (typeof window.clearFocusedSatelliteTrack === 'function') {
+    window.clearFocusedSatelliteTrack();
   }
   _inspectTargetData = null;
 };
@@ -19083,6 +19487,513 @@ function initGlobeIntelligence(viewer) {
   const vesselCountEl = document.getElementById('vessel-contact-count');
   if (vesselCountEl) vesselCountEl.textContent = MARITIME_VESSELS.length;
 
+  // Area-Based Tactical Vessel Search & Provider Feed Query
+  window.fetchVesselsInArea = async function(lat, lon, radiusKm = 300) {
+    try {
+      let vessels = [];
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.get_vessels) {
+        try {
+          const res = await window.pywebview.api.get_vessels(lat, lon, radiusKm);
+          if (res && res.vessels) vessels = res.vessels;
+        } catch (e) {}
+      }
+      if (!vessels.length) {
+        let url = '/api/vessels';
+        if (lat !== undefined && lon !== undefined) {
+          url += `?lat=${lat}&lon=${lon}&radius_km=${radiusKm}`;
+        }
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          vessels = data.vessels || [];
+        }
+      }
+      if (vessels.length && _vesselsDataSource) {
+        _vesselsDataSource.entities.removeAll();
+        vessels.forEach(v => {
+          const tacticalData = {
+            type: 'VESSEL',
+            id: v.id,
+            name: v.name,
+            vesselType: v.type,
+            lat: v.lat,
+            lon: v.lon,
+            speedKnots: v.speedKnots,
+            headingDeg: v.headingDeg,
+            mmsi: v.mmsi,
+            destination: v.destination
+          };
+          _vesselsDataSource.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(v.lon, v.lat, 10),
+            billboard: {
+              image: SHIP_ICON,
+              width: 24,
+              height: 24,
+              rotation: Cesium.Math.toRadians(360 - (v.headingDeg || 0)),
+              verticalOrigin: Cesium.VerticalOrigin.CENTER,
+              disableDepthTestDistance: 5000,
+              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000)
+            },
+            label: {
+              text: `🚢 ${v.name} [${v.speedKnots} kts]`,
+              font: 'bold 10px JetBrains Mono, monospace',
+              fillColor: Cesium.Color.fromCssColorString('#38BDF8'),
+              outlineColor: Cesium.Color.BLACK,
+              outlineWidth: 3,
+              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+              pixelOffset: new Cesium.Cartesian2(0, -16),
+              disableDepthTestDistance: 5000,
+              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000)
+            },
+            _tacticalData: tacticalData
+          });
+        });
+        const vesselCountEl = document.getElementById('vessel-contact-count');
+        if (vesselCountEl) vesselCountEl.textContent = vessels.length;
+      }
+      return vessels;
+    } catch (err) {
+      console.warn('[Vessels] Error fetching area vessels:', err);
+      return [];
+    }
+  };
+
+  // =========================================================================
+  // 2B. OPEN-SOURCE GROUND MEDIA & EYEWITNESS INTEL LAYER
+  // =========================================================================
+  _groundMediaDataSource = new Cesium.CustomDataSource('ground-media-layer');
+  _groundMediaDataSource.show = _tacticalLayers.groundMedia;
+  viewer.dataSources.add(_groundMediaDataSource);
+
+  const VIDEO_PIN_ICON = (() => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+      <defs>
+        <radialGradient id="vPinGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#0c2032" stop-opacity="0.96"/>
+          <stop offset="70%" stop-color="#05101a" stop-opacity="0.98"/>
+          <stop offset="100%" stop-color="#010408" stop-opacity="1"/>
+        </radialGradient>
+        <filter id="vPinGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#00F0FF" flood-opacity="0.8"/>
+        </filter>
+      </defs>
+      <!-- Outer cyber reticle ring with tick marks -->
+      <circle cx="22" cy="22" r="19" fill="url(#vPinGrad)" stroke="#00F0FF" stroke-width="1.8" filter="url(#vPinGlow)"/>
+      <circle cx="22" cy="22" r="21" fill="none" stroke="#00F0FF" stroke-width="0.9" stroke-dasharray="3 3" opacity="0.6"/>
+      <!-- Reticle corner ticks -->
+      <line x1="3" y1="22" x2="7" y2="22" stroke="#00F0FF" stroke-width="1.5"/>
+      <line x1="37" y1="22" x2="41" y2="22" stroke="#00F0FF" stroke-width="1.5"/>
+      <line x1="22" y1="3" x2="22" y2="7" stroke="#00F0FF" stroke-width="1.5"/>
+      <line x1="22" y1="37" x2="22" y2="41" stroke="#00F0FF" stroke-width="1.5"/>
+      <!-- High-tech Video Camera Glyph -->
+      <g transform="translate(10, 13)">
+        <rect x="0" y="2" width="14" height="12" rx="2" fill="#081827" stroke="#00F0FF" stroke-width="1.4"/>
+        <path d="M14 5.5 L22 1 L22 15 L14 10.5 Z" fill="#00F0FF" fill-opacity="0.85" stroke="#00F0FF" stroke-width="1"/>
+        <circle cx="7" cy="8" r="3.2" fill="#020810" stroke="#00F0FF" stroke-width="1.2"/>
+        <circle cx="7" cy="8" r="1.3" fill="#38BDF8"/>
+        <!-- Recording beacon dot -->
+        <circle cx="3" cy="4.8" r="1.2" fill="#EF4444"/>
+      </g>
+    </svg>`;
+    return 'data:image/svg+xml;base64,' + btoa(svg);
+  })();
+
+  const PHOTO_PIN_ICON = (() => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+      <defs>
+        <radialGradient id="pPinGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#0a261c" stop-opacity="0.96"/>
+          <stop offset="70%" stop-color="#03140c" stop-opacity="0.98"/>
+          <stop offset="100%" stop-color="#010603" stop-opacity="1"/>
+        </radialGradient>
+        <filter id="pPinGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#10B981" flood-opacity="0.8"/>
+        </filter>
+      </defs>
+      <circle cx="22" cy="22" r="19" fill="url(#pPinGrad)" stroke="#10B981" stroke-width="1.8" filter="url(#pPinGlow)"/>
+      <circle cx="22" cy="22" r="21" fill="none" stroke="#10B981" stroke-width="0.9" stroke-dasharray="3 3" opacity="0.6"/>
+      <line x1="3" y1="22" x2="7" y2="22" stroke="#10B981" stroke-width="1.5"/>
+      <line x1="37" y1="22" x2="41" y2="22" stroke="#10B981" stroke-width="1.5"/>
+      <line x1="22" y1="3" x2="22" y2="7" stroke="#10B981" stroke-width="1.5"/>
+      <line x1="22" y1="37" x2="22" y2="41" stroke="#10B981" stroke-width="1.5"/>
+      <!-- Optical Camera Glyph -->
+      <g transform="translate(11, 13)">
+        <path d="M4 1 L7 1 L9 3 L18 3 C19 3 20 4 20 5 L20 15 C20 16 19 17 18 17 L2 17 C1 17 0 16 0 15 L0 5 C0 4 1 3 2 3 L4 1 Z" fill="#041a10" stroke="#10B981" stroke-width="1.4"/>
+        <circle cx="10" cy="10" r="4.2" fill="#010a05" stroke="#10B981" stroke-width="1.2"/>
+        <circle cx="10" cy="10" r="2" fill="#34D399"/>
+        <circle cx="16.5" cy="5.5" r="1" fill="#FFFFFF"/>
+      </g>
+    </svg>`;
+    return 'data:image/svg+xml;base64,' + btoa(svg);
+  })();
+
+  window.renderGroundMediaPoints = function(points) {
+    if (!_groundMediaDataSource || !points) return;
+    _tacticalLayers.groundMedia = true;
+    _groundMediaDataSource.show = true;
+    const toggleEl = document.getElementById('layer-toggle-groundMedia');
+    if (toggleEl) toggleEl.classList.add('active');
+    _groundMediaDataSource.entities.removeAll();
+
+    points.forEach(p => {
+      const isVideo = (p.media_type === 'youtube' || p.media_type === 'video');
+      const tacticalData = {
+        type: 'GROUND_MEDIA',
+        id: p.id,
+        title: p.title,
+        subtitle: p.subtitle,
+        media_type: p.media_type,
+        source: p.source,
+        source_label: p.source_label,
+        thumbnail_url: p.thumbnail_url,
+        media_url: p.media_url,
+        verified: p.verified,
+        timestamp: p.timestamp,
+        lat: p.lat,
+        lon: p.lon,
+        alt: p.alt || 60,
+        description: p.description,
+        attribution: p.attribution
+      };
+
+      // 3D Billboard Pin: crisp 38px badge with smooth distance scaling
+      _groundMediaDataSource.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.alt || 60),
+        billboard: {
+          image: isVideo ? VIDEO_PIN_ICON : PHOTO_PIN_ICON,
+          width: 38,
+          height: 38,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          disableDepthTestDistance: 5000,
+          // Clear tactical badge at ground level (<50km), scales down smoothly to micro-dot at orbital altitude
+          scaleByDistance: new Cesium.NearFarScalar(500, 1.15, 4000000, 0.20),
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 8000000)
+        },
+        label: {
+          text: `${isVideo ? '▶' : '📷'} ${p.title}`,
+          font: 'bold 10px "JetBrains Mono", monospace',
+          fillColor: Cesium.Color.fromCssColorString('#E2E8F0'),
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -42),
+          disableDepthTestDistance: 5000,
+          // Altitude culled: label only visible within 150 km; never clutters outer space view
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 150000),
+          scaleByDistance: new Cesium.NearFarScalar(1000, 1.0, 150000, 0.75)
+        },
+        polyline: {
+          positions: Cesium.Cartesian3.fromDegreesArrayHeights([
+            p.lon, p.lat, 0,
+            p.lon, p.lat, p.alt || 60
+          ]),
+          width: 1.5,
+          material: new Cesium.ColorMaterialProperty(
+            Cesium.Color.fromCssColorString(isVideo ? '#00F0FF' : '#10B981').withAlpha(0.7)
+          ),
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 150000)
+        },
+        point: {
+          pixelSize: 4.5,
+          color: Cesium.Color.fromCssColorString(isVideo ? '#00F0FF' : '#10B981'),
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 1.5,
+          disableDepthTestDistance: 50000,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 150000)
+        },
+        _tacticalData: tacticalData
+      });
+    });
+
+    const countEl = document.getElementById('groundmedia-contact-count');
+    if (countEl) countEl.textContent = String(points.length);
+
+    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+      window.cesiumViewer.scene.requestRender();
+    }
+  };
+
+  window.loadGroundMedia = async function(locationOrCoords) {
+    try {
+      let loc = locationOrCoords;
+      if (!loc) {
+        if (window._currentFlyTarget && window._currentFlyTarget.label) {
+          loc = window._currentFlyTarget.label;
+        } else if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+          const camPos = window.cesiumViewer.camera.positionCartographic;
+          if (camPos) {
+            const lat = Cesium.Math.toDegrees(camPos.latitude);
+            const lon = Cesium.Math.toDegrees(camPos.longitude);
+            loc = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+          }
+        }
+      }
+      if (!loc) return null;
+
+      let data = null;
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.get_ground_intel) {
+        try {
+          const resp = await window.pywebview.api.get_ground_intel(loc);
+          if (resp) data = resp;
+        } catch (err) {
+          console.warn('[GroundIntel] pywebview bridge query notice:', err);
+        }
+      }
+      if (!data) {
+        const res = await fetch(`/api/ground-intel?location=${encodeURIComponent(loc)}&radius_km=35`);
+        if (res.ok) {
+          data = await res.json();
+        }
+      }
+      if (data && (data.points || data.media_points)) {
+        const points = data.points || data.media_points;
+        _tacticalLayers.groundMedia = true;
+        if (_groundMediaDataSource) _groundMediaDataSource.show = true;
+        const toggleEl = document.getElementById('layer-toggle-groundMedia');
+        if (toggleEl) toggleEl.classList.add('active');
+
+        window.renderGroundMediaPoints(points);
+        const countEl = document.getElementById('groundmedia-contact-count');
+        if (countEl) countEl.textContent = String(data.total_points || data.total || points.length);
+        return { points, total_points: data.total_points || data.total || points.length };
+      }
+    } catch (err) {
+      console.error('[GroundIntel] Error loading ground media:', err);
+    }
+    return null;
+  };
+
+  window._groundMediaMuted = true;
+
+  window.toggleGroundMediaMute = function() {
+    window._groundMediaMuted = !window._groundMediaMuted;
+    const btn = document.getElementById('ground-media-dock-mute-btn');
+    if (btn) {
+      btn.textContent = window._groundMediaMuted ? '🔇 MUTED' : '🔊 UNMUTED';
+      btn.style.color = window._groundMediaMuted ? '#A1A1AA' : '#00F0FF';
+      btn.style.borderColor = window._groundMediaMuted ? 'rgba(255,255,255,0.2)' : '#00F0FF';
+    }
+    const video = document.getElementById('ground-media-dock-video');
+    if (video) {
+      video.muted = window._groundMediaMuted;
+    }
+    const iframe = document.getElementById('ground-media-dock-iframe');
+    if (iframe && iframe.contentWindow) {
+      const cmd = window._groundMediaMuted ? '{"event":"command","func":"mute","args":""}' : '{"event":"command","func":"unMute","args":""}';
+      iframe.contentWindow.postMessage(cmd, '*');
+    }
+  };
+
+  window.updateAnchoredGroundMediaCallout = function() {
+    if (!window._activeGroundMediaCoord || !window.cesiumViewer || window.cesiumViewer.isDestroyed()) return;
+    const panel = document.getElementById('ground-media-dock-panel');
+    if (!panel || panel.style.display === 'none') return;
+    const scene = window.cesiumViewer.scene;
+    const coord = window._activeGroundMediaCoord;
+    const anchorCartesian = Cesium.Cartesian3.fromDegrees(coord.lon, coord.lat, coord.alt || 60);
+
+    // Horizon / Occlusion Check: is the marker on the back side of Earth?
+    const camera = scene.camera;
+    const delta = Cesium.Cartesian3.subtract(anchorCartesian, camera.positionWC, new Cesium.Cartesian3());
+    if (Cesium.Cartesian3.dot(delta, camera.directionWC) <= 0) {
+      panel.style.visibility = 'hidden';
+      return;
+    }
+
+    const canvasPos = Cesium.SceneTransforms.worldToWindowCoordinates(scene, anchorCartesian);
+    if (!canvasPos) {
+      panel.style.visibility = 'hidden';
+      return;
+    }
+
+    // Viewport containment check
+    const canvas = scene.canvas;
+    const rect = canvas.getBoundingClientRect();
+    const anchorX = canvasPos.x + rect.left;
+    const anchorY = canvasPos.y + rect.top;
+
+    if (anchorX < -60 || anchorX > window.innerWidth + 60 || anchorY < -60 || anchorY > window.innerHeight + 60) {
+      panel.style.visibility = 'hidden';
+      return;
+    }
+    panel.style.visibility = 'visible';
+
+    const cardW = panel.offsetWidth || 360;
+    const cardH = panel.offsetHeight || 310;
+    const margin = 16;
+
+    // Smart placement: prefer offset above-right of anchor, shift left/down if near viewport edge
+    let left = anchorX + 32;
+    if (left + cardW > window.innerWidth - margin) {
+      left = anchorX - cardW - 32;
+    }
+    left = Math.max(margin, Math.min(window.innerWidth - cardW - margin, left));
+
+    let top = anchorY - cardH * 0.65;
+    if (top < margin + 64) top = margin + 64;
+    if (top + cardH > window.innerHeight - margin - 40) top = window.innerHeight - cardH - margin - 40;
+
+    panel.style.left = `${Math.round(left)}px`;
+    panel.style.top = `${Math.round(top)}px`;
+
+    // Draw SVG leader line from the card border edge to the anchor coordinate
+    const leader = panel.querySelector('.ground-media-leader');
+    if (leader) {
+      const localAnchorX = Math.round(anchorX - left);
+      const localAnchorY = Math.round(anchorY - top);
+      const edgeX = localAnchorX < cardW / 2 ? 0 : cardW;
+      const edgeY = Math.max(16, Math.min(cardH - 16, localAnchorY));
+
+      const path = leader.querySelector('path');
+      if (path) path.setAttribute('d', `M ${localAnchorX} ${localAnchorY} L ${edgeX} ${edgeY}`);
+      const circle = leader.querySelector('circle');
+      if (circle) {
+        circle.setAttribute('cx', String(localAnchorX));
+        circle.setAttribute('cy', String(localAnchorY));
+      }
+    }
+  };
+
+  window.openGroundMediaCard = function(data) {
+    if (!data) return;
+    const panel = document.getElementById('ground-media-dock-panel');
+    if (!panel) return;
+
+    window._activeGroundMediaCoord = { lat: data.lat, lon: data.lon, alt: data.alt || 60, title: data.title };
+    window._groundMediaMuted = true;
+
+    const muteBtn = document.getElementById('ground-media-dock-mute-btn');
+    if (muteBtn) {
+      muteBtn.textContent = '🔇 MUTED';
+      muteBtn.style.color = '#A1A1AA';
+      muteBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+    }
+
+    const iconEl = document.getElementById('ground-media-dock-icon');
+    const catEl = document.getElementById('ground-media-dock-category');
+    const platEl = document.getElementById('ground-media-dock-platform');
+    const iframe = document.getElementById('ground-media-dock-iframe');
+    const video = document.getElementById('ground-media-dock-video');
+    const img = document.getElementById('ground-media-dock-img');
+    const fallback = document.getElementById('ground-media-dock-fallback');
+    const fallbackBtn = document.getElementById('ground-media-dock-fallback-btn');
+    const titleEl = document.getElementById('ground-media-dock-title');
+    const descEl = document.getElementById('ground-media-dock-desc');
+    const coordsEl = document.getElementById('ground-media-dock-coords');
+    const timeEl = document.getElementById('ground-media-dock-time');
+    const linkEl = document.getElementById('ground-media-dock-link');
+    const badgeEl = document.getElementById('ground-media-dock-badge');
+
+    if (titleEl) titleEl.textContent = data.title || 'Ground Intel Contact';
+    if (descEl) descEl.textContent = data.description || data.subtitle || '';
+    if (coordsEl) coordsEl.textContent = `${Number(data.lat).toFixed(4)}° N, ${Number(data.lon).toFixed(4)}° E`;
+    if (timeEl) timeEl.textContent = data.timestamp || 'Open-Source Dispatch';
+
+    const isVideo = (data.media_type === 'youtube' || data.media_type === 'video' || data.type === 'video');
+    if (platEl) platEl.textContent = (data.source_label || (isVideo ? 'YOUTUBE' : 'WIKIMEDIA')).toUpperCase();
+    if (iconEl) iconEl.textContent = isVideo ? '📹' : '📷';
+    if (badgeEl) badgeEl.textContent = data.verified ? 'VERIFIED GEOLOCATION' : 'OPEN-SOURCE FEED';
+
+    const targetUrl = data.url || data.media_url || data.thumbnail_url || '#';
+    if (linkEl) linkEl.href = targetUrl;
+    if (fallbackBtn) fallbackBtn.href = targetUrl;
+
+    if (fallback) fallback.style.display = 'none';
+
+    const isDirectVideo = data.media_url && (data.media_url.endsWith('.mp4') || data.media_url.endsWith('.webm') || data.media_url.endsWith('.m3u8'));
+
+    if (isDirectVideo) {
+      if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
+      if (img) { img.style.display = 'none'; }
+      if (video) {
+        video.style.display = 'block';
+        video.muted = true;
+        video.src = data.media_url;
+        video.play().catch(() => {});
+      }
+    } else if (isVideo) {
+      if (video) { video.style.display = 'none'; video.pause(); video.src = ''; }
+      if (img) { img.style.display = 'none'; }
+      if (iframe) {
+        iframe.style.display = 'block';
+        let videoId = data.youtube_id || '';
+        if (!videoId && data.media_url) {
+          const m1 = data.media_url.match(/(?:embed\/|v=|youtu\.be\/|\/v\/)([^&?#/]+)/);
+          if (m1) videoId = m1[1];
+        }
+        if (!videoId) videoId = 'LXb3EKWsInQ';
+
+        // Verified embed parameters: default muted, jsapi enabled, modestbranding
+        iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1`;
+        
+        // Safety fallback check: if iframe blocked or fails to load, gracefully display the reconnaissance photo
+        iframe.onerror = function() {
+          iframe.style.display = 'none';
+          if (fallback) fallback.style.display = 'flex';
+          if (img) {
+            img.style.display = 'block';
+            img.src = data.thumbnail_url || 'https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=640&q=80';
+          }
+        };
+      }
+    } else {
+      if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
+      if (video) { video.style.display = 'none'; video.pause(); video.src = ''; }
+      if (img) {
+        img.style.display = 'block';
+        img.src = data.thumbnail_url || data.media_url || '';
+      }
+    }
+
+    panel.style.display = 'block';
+    window.updateAnchoredGroundMediaCallout();
+
+    if (window.JarvisSFX && window.JarvisSFX.targetLock) {
+      window.JarvisSFX.targetLock();
+    }
+  };
+
+  window.closeGroundMediaCard = function() {
+    const panel = document.getElementById('ground-media-dock-panel');
+    if (panel) panel.style.display = 'none';
+    const iframe = document.getElementById('ground-media-dock-iframe');
+    if (iframe) {
+      iframe.src = ''; // Crucial: unmount iframe to kill active video/audio leaks immediately
+      iframe.style.display = 'none';
+    }
+    const video = document.getElementById('ground-media-dock-video');
+    if (video) {
+      video.pause();
+      video.src = '';
+      video.style.display = 'none';
+    }
+    const img = document.getElementById('ground-media-dock-img');
+    if (img) {
+      img.src = '';
+      img.style.display = 'none';
+    }
+    const fallback = document.getElementById('ground-media-dock-fallback');
+    if (fallback) fallback.style.display = 'none';
+    window._activeGroundMediaCoord = null;
+  };
+
+  window.focusGroundMediaLocation = function() {
+    if (!window._activeGroundMediaCoord || !window.cesiumViewer || window.cesiumViewer.isDestroyed()) return;
+    const { lat, lon } = window._activeGroundMediaCoord;
+    const targetCartesian = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
+    const boundingSphere = new Cesium.BoundingSphere(targetCartesian, 1500);
+    window.cesiumViewer.camera.flyToBoundingSphere(boundingSphere, {
+      offset: new Cesium.HeadingPitchRange(
+        Cesium.Math.toRadians(0),
+        Cesium.Math.toRadians(-40),
+        2400
+      ),
+      duration: 1.8
+    });
+  };
+
   // =========================================================================
   // 3. GLOBAL RADIO TRANSMITTER PINS
   // =========================================================================
@@ -19425,7 +20336,15 @@ function initGlobeIntelligence(viewer) {
   window._aircraftFlightMap = _aircraftFlightMap;
   let _lastFlightFrameTime = performance.now();
 
-  // Continuous Kinematic Dead-Reckoning Loop: advances aircraft smoothly across globe every frame
+  // God's Eye Shortest-Arc Angular Interpolation (Bilawal Sidhu / motion.js)
+  function lerpAngleDeg(a, b, t) {
+    let diff = (b - a) % 360;
+    if (diff < -180) diff += 360;
+    if (diff > 180) diff -= 360;
+    return (a + diff * t + 360) % 360;
+  }
+
+  // Continuous Kinematic Interpolation & Dead-Reckoning Loop (God's Eye Motion Smoothing)
   viewer.scene.preUpdate.addEventListener(() => {
     const cockpitActive = window.JarvisCockpit && window.JarvisCockpit.active;
     const trafficActive = _tacticalLayers.traffic && window._trafficVehicles && window._trafficVehicles.length > 0;
@@ -19452,63 +20371,101 @@ function initGlobeIntelligence(viewer) {
       });
     }
 
+    // God's Eye One-Step-Behind Interpolation Buffer (motion.js / RENDER_DELAY_SEC)
+    const RENDER_DELAY_MS = 10000; // 10s delay enables continuous bracketed interpolation
+    const nowMs = Date.now();
+    const renderTimeMs = nowMs - RENDER_DELAY_MS;
+
     _aircraftFlightMap.forEach((ac) => {
-      const speedMps = Math.max(120, (ac.speedKnots || 420) * 0.514444);
-      const distM = speedMps * dt;
+      let newPos = null;
+      let currentHeading = ac.headingDeg || 0;
 
-      const hdgRad = Cesium.Math.toRadians(ac.headingDeg || 0);
-
-      // Spherical dead reckoning step
-      const dNorth = distM * Math.cos(hdgRad);
-      const dEast = distM * Math.sin(hdgRad);
-      const dLat = dNorth / 111139.0;
-      const cosLat = Math.max(0.1, Math.cos(Cesium.Math.toRadians(ac.lat)));
-      const dLon = dEast / (111139.0 * cosLat);
-
-      ac.lat += dLat;
-      ac.lon += dLon;
-
-      // Smoothly nudge toward measured coordinates only when a new transponder ping arrived, then release
-      if (ac.pendingNudge && Number.isFinite(ac.targetLat) && Number.isFinite(ac.targetLon)) {
-        const dLatDiff = ac.targetLat - ac.lat;
-        const dLonDiff = ac.targetLon - ac.lon;
-        ac.lat += dLatDiff * 0.08;
-        ac.lon += dLonDiff * 0.08;
-        if (Math.abs(dLatDiff) < 0.0001 && Math.abs(dLonDiff) < 0.0001) {
-          ac.pendingNudge = false;
-          ac.targetLat = undefined;
-          ac.targetLon = undefined;
+      if (ac.history && ac.history.length >= 2) {
+        let bracketFound = false;
+        for (let i = ac.history.length - 1; i >= 1; i--) {
+          const a = ac.history[i - 1];
+          const b = ac.history[i];
+          if (a.timeMs <= renderTimeMs && renderTimeMs <= b.timeMs) {
+            const span = b.timeMs - a.timeMs;
+            const t = span > 0 ? (renderTimeMs - a.timeMs) / span : 1.0;
+            const clampedT = Math.max(0.0, Math.min(1.0, t));
+            newPos = Cesium.Cartesian3.lerp(a.position, b.position, clampedT, new Cesium.Cartesian3());
+            currentHeading = lerpAngleDeg(a.track, b.track, clampedT);
+            bracketFound = true;
+            break;
+          }
         }
+        if (!bracketFound) {
+          const newest = ac.history[ac.history.length - 1];
+          if (renderTimeMs > newest.timeMs) {
+            // Packet delayed: smoothly extrapolate along last confirmed velocity vector
+            const extraSec = Math.min(45, (renderTimeMs - newest.timeMs) / 1000.0);
+            const distM = (newest.speedMps || 220) * extraSec;
+            const hdgRad = Cesium.Math.toRadians(newest.track || 0);
+            const dNorth = distM * Math.cos(hdgRad);
+            const dEast = distM * Math.sin(hdgRad);
+            const dLat = dNorth / 111139.0;
+            const cosLat = Math.max(0.1, Math.cos(Cesium.Math.toRadians(newest.lat)));
+            const dLon = dEast / (111139.0 * cosLat);
+            newPos = Cesium.Cartesian3.fromDegrees(newest.lon + dLon, newest.lat + dLat, newest.altMeters);
+            currentHeading = newest.track;
+          } else {
+            const oldest = ac.history[0];
+            newPos = Cesium.Cartesian3.clone(oldest.position);
+            currentHeading = oldest.track;
+          }
+        }
+      } else if (ac.history && ac.history.length === 1) {
+        // Initial single fix: project forward smoothly until next telemetry sample
+        const fix = ac.history[0];
+        const ageSec = Math.min(20, (nowMs - fix.timeMs) / 1000.0);
+        const distM = (fix.speedMps || 220) * ageSec;
+        const hdgRad = Cesium.Math.toRadians(fix.track || 0);
+        const dNorth = distM * Math.cos(hdgRad);
+        const dEast = distM * Math.sin(hdgRad);
+        const dLat = dNorth / 111139.0;
+        const cosLat = Math.max(0.1, Math.cos(Cesium.Math.toRadians(fix.lat)));
+        const dLon = dEast / (111139.0 * cosLat);
+        newPos = Cesium.Cartesian3.fromDegrees(fix.lon + dLon, fix.lat + dLat, fix.altMeters);
+        currentHeading = fix.track;
+      } else {
+        newPos = Cesium.Cartesian3.fromDegrees(ac.lon, ac.lat, ac.altMeters);
       }
 
-      // Update Cesium entity position in Cartesian3
-      const newPos = Cesium.Cartesian3.fromDegrees(ac.lon, ac.lat, ac.altMeters);
-      ac.entity.position = newPos;
+      if (newPos) {
+        const carto = Cesium.Cartographic.fromCartesian(newPos);
+        ac.lat = Cesium.Math.toDegrees(carto.latitude);
+        ac.lon = Cesium.Math.toDegrees(carto.longitude);
+        ac.altMeters = carto.height;
+        ac.headingDeg = currentHeading;
 
-      if (ac.entity.orientation) {
-        ac.entity.orientation = Cesium.Transforms.headingPitchRollQuaternion(
-          newPos,
-          new Cesium.HeadingPitchRoll(Cesium.Math.toRadians((ac.headingDeg || 0) + MODEL_HEADING_OFFSET_DEG), 0, 0)
-        );
-      }
-      if (ac.entity.billboard) {
-        ac.entity.billboard.rotation = Cesium.Math.toRadians(360 - (ac.headingDeg || 0));
-      }
+        ac.entity.position = newPos;
 
-      if (ac.entity._tacticalData) {
-        ac.entity._tacticalData.lat = ac.lat;
-        ac.entity._tacticalData.lon = ac.lon;
-        ac.entity._tacticalData.heading = ac.headingDeg;
-        ac.entity._tacticalData.speed = ac.speedKnots;
-        ac.entity._tacticalData.alt = Math.round(ac.altMeters * 3.28084);
-      }
+        if (ac.entity.orientation) {
+          ac.entity.orientation = Cesium.Transforms.headingPitchRollQuaternion(
+            newPos,
+            new Cesium.HeadingPitchRoll(Cesium.Math.toRadians((currentHeading || 0) + MODEL_HEADING_OFFSET_DEG), 0, 0)
+          );
+        }
+        if (ac.entity.billboard) {
+          ac.entity.billboard.rotation = Cesium.Math.toRadians(360 - (currentHeading || 0));
+        }
 
-      // Update altitude drop line
-      if (ac.dropLine && ac.dropLine.polyline) {
-        ac.dropLine.polyline.positions = Cesium.Cartesian3.fromDegreesArrayHeights([
-          ac.lon, ac.lat, 0,
-          ac.lon, ac.lat, ac.altMeters
-        ]);
+        if (ac.entity._tacticalData) {
+          ac.entity._tacticalData.lat = ac.lat;
+          ac.entity._tacticalData.lon = ac.lon;
+          ac.entity._tacticalData.heading = currentHeading;
+          ac.entity._tacticalData.speed = ac.speedKnots;
+          ac.entity._tacticalData.alt = Math.round(ac.altMeters * 3.28084);
+        }
+
+        // Update altitude drop line
+        if (ac.dropLine && ac.dropLine.polyline) {
+          ac.dropLine.polyline.positions = Cesium.Cartesian3.fromDegreesArrayHeights([
+            ac.lon, ac.lat, 0,
+            ac.lon, ac.lat, ac.altMeters
+          ]);
+        }
       }
 
       // If active in cockpit view, continuously update HUD telemetry
@@ -19753,11 +20710,23 @@ function initGlobeIntelligence(viewer) {
           const isCategoryVisible = activeFilter === 'all' || classification.type === activeFilter;
 
           if (_aircraftFlightMap.has(callsign)) {
-            // Update existing contact kinematics smoothly without destroying entity
+            // Update existing contact kinematics smoothly without destroying entity (God's Eye Buffer)
             const existing = _aircraftFlightMap.get(callsign);
+            const newCartesian = Cesium.Cartesian3.fromDegrees(Number(ac.lon), Number(ac.lat), altMeters);
+            if (!existing.history) existing.history = [];
+            existing.history.push({
+              timeMs: nowMs,
+              lat: Number(ac.lat),
+              lon: Number(ac.lon),
+              altMeters: altMeters,
+              position: newCartesian,
+              track: trackAngle,
+              speedMps: Math.max(80, gs * 0.514444)
+            });
+            if (existing.history.length > 8) existing.history.shift();
+
             existing.targetLat = Number(ac.lat);
             existing.targetLon = Number(ac.lon);
-            existing.pendingNudge = true;
             existing.speedKnots = gs;
             existing.headingDeg = trackAngle;
             existing.altMeters = altMeters;
@@ -19885,7 +20854,16 @@ function initGlobeIntelligence(viewer) {
               headingDeg: trackAngle,
               catType: classification.type,
               catColor: classification.color,
-              lastSeen: nowMs
+              lastSeen: nowMs,
+              history: [{
+                timeMs: nowMs,
+                lat: Number(ac.lat),
+                lon: Number(ac.lon),
+                altMeters: altMeters,
+                position: initPos,
+                track: trackAngle,
+                speedMps: Math.max(80, gs * 0.514444)
+              }]
             });
           }
         });
@@ -20800,6 +21778,11 @@ function initGlobeIntelligence(viewer) {
     const _osirisCctvDS = new Cesium.CustomDataSource('osiris-cctv');
     const _osirisClustersDS = new Cesium.CustomDataSource('osiris-clusters');
 
+    // God's Eye High-Density GPU Satellite Constellation (PointPrimitiveCollection)
+    const _satellitePoints = new Cesium.PointPrimitiveCollection();
+    _satellitePoints.show = false;
+    viewer.scene.primitives.add(_satellitePoints);
+
     _osirisSatellitesDS.show = false;
     _osirisConflictsDS.show = false;
     _osirisCctvDS.show = false;
@@ -20809,6 +21792,71 @@ function initGlobeIntelligence(viewer) {
     viewer.dataSources.add(_osirisConflictsDS);
     viewer.dataSources.add(_osirisCctvDS);
     viewer.dataSources.add(_osirisClustersDS);
+
+    // Focused Satellite Track & Nadir Drop Beam (God's Eye Parity)
+    window.setFocusedSatelliteTrack = function(sat) {
+      if (!viewer || viewer.isDestroyed() || !sat) return;
+      _osirisSatellitesDS.entities.removeAll();
+
+      const satLat = Number(sat.lat);
+      const satLon = Number(sat.lon != null ? sat.lon : sat.lng);
+      const altKm = Number(sat.altKm || sat.alt || 420);
+      const altM = altKm * 1000;
+      if (isNaN(satLat) || isNaN(satLon)) return;
+
+      const satPos = Cesium.Cartesian3.fromDegrees(satLon, satLat, altM);
+      const groundPos = Cesium.Cartesian3.fromDegrees(satLon, satLat, 0);
+
+      // Single focused nadir drop line connecting satellite directly to its subsatellite ground point
+      _osirisSatellitesDS.entities.add({
+        id: 'focused-sat-nadir',
+        polyline: {
+          positions: [groundPos, satPos],
+          width: 2.0,
+          material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.75))
+        }
+      });
+
+      // Ground footprint target indicator
+      _osirisSatellitesDS.entities.add({
+        id: 'focused-sat-ground-target',
+        position: groundPos,
+        ellipse: {
+          semiMinorAxis: 120000,
+          semiMajorAxis: 120000,
+          material: Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.2),
+          outline: true,
+          outlineColor: Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.8),
+          outlineWidth: 2
+        }
+      });
+
+      // Ambient tactical callout label on focused satellite
+      _osirisSatellitesDS.entities.add({
+        id: 'focused-sat-label',
+        position: satPos,
+        label: {
+          text: `🛰 ${sat.name || 'SAT'} [${sat.category || 'ORBITAL'}]\nALT: ${altKm} km`,
+          font: 'bold 11px JetBrains Mono, monospace',
+          fillColor: Cesium.Color.fromCssColorString('#00F0FF'),
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -14),
+          disableDepthTestDistance: 50000000
+        }
+      });
+
+      viewer.scene.requestRender();
+    };
+
+    window.clearFocusedSatelliteTrack = function() {
+      if (_osirisSatellitesDS && _osirisSatellitesDS.entities) {
+        _osirisSatellitesDS.entities.removeAll();
+        if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
+      }
+    };
 
     let _osirisActive = false;
     let _activeLOD = null;
@@ -20993,9 +22041,9 @@ function initGlobeIntelligence(viewer) {
       try {
         let data = null;
         if (api() && typeof api().get_active_satellites === 'function') {
-          data = await api().get_active_satellites('all', 60);
+          data = await api().get_active_satellites('all', 1500);
         } else {
-          const res = await fetch('/api/satellites/active?category=all&limit=60');
+          const res = await fetch('/api/satellites/active?category=all&limit=1500');
           if (res.ok) data = await res.json();
         }
         if (!data) return;
@@ -21011,103 +22059,133 @@ function initGlobeIntelligence(viewer) {
       }
     }
 
+    const SATELLITE_STYLES = {
+      iss: {
+        pixelSize: 10,
+        color: Cesium.Color.fromCssColorString('#ff4444'),
+        outlineColor: Cesium.Color.WHITE.withAlpha(0.6),
+        outlineWidth: 2,
+        label: 'STATION · ISS'
+      },
+      station: {
+        pixelSize: 8,
+        color: Cesium.Color.fromCssColorString('#fff6e5'),
+        outlineColor: Cesium.Color.WHITE.withAlpha(0.4),
+        outlineWidth: 1.5,
+        label: 'STATION'
+      },
+      nav: {
+        pixelSize: 5.5,
+        color: Cesium.Color.fromCssColorString('#4fd8ff'),
+        outlineColor: Cesium.Color.TRANSPARENT,
+        outlineWidth: 0,
+        label: 'NAV'
+      },
+      geo: {
+        pixelSize: 4.5,
+        color: Cesium.Color.fromCssColorString('#c89bff'),
+        outlineColor: Cesium.Color.TRANSPARENT,
+        outlineWidth: 0,
+        label: 'GEO'
+      },
+      visual: {
+        pixelSize: 4,
+        color: Cesium.Color.fromCssColorString('#9fb3c4'),
+        outlineColor: Cesium.Color.TRANSPARENT,
+        outlineWidth: 0,
+        label: 'VISUAL'
+      },
+      starlink: {
+        pixelSize: 3,
+        color: Cesium.Color.fromCssColorString('#54697f').withAlpha(0.85),
+        outlineColor: Cesium.Color.TRANSPARENT,
+        outlineWidth: 0,
+        label: 'STARLINK'
+      },
+      default: {
+        pixelSize: 4,
+        color: Cesium.Color.fromCssColorString('#4fd8ff'),
+        outlineColor: Cesium.Color.TRANSPARENT,
+        outlineWidth: 0,
+        label: 'ORBITAL'
+      }
+    };
+
+    function getSatelliteStyle(sat) {
+      const name = (sat.name || '').toUpperCase();
+      const cat = (sat.category || '').toLowerCase();
+      const norad = String(sat.noradId || '');
+      const alt = Number(sat.alt) || 0;
+
+      if (norad === '25544' || name.includes('ISS') || name.includes('ZARYA')) {
+        return SATELLITE_STYLES.iss;
+      }
+      if (cat === 'stations' || cat === 'station' || name.includes('TIANGONG') || name.includes('CSS') || name.includes('TIANHE')) {
+        return SATELLITE_STYLES.station;
+      }
+      if (cat === 'nav' || cat === 'gps' || cat === 'gps-ops' || cat === 'glonass' || cat === 'galileo' || cat === 'beidou' ||
+          name.includes('GPS') || name.includes('NAVSTAR') || name.includes('GLONASS') || name.includes('GALILEO') || name.includes('BEIDOU')) {
+        const subtype = name.includes('GLONASS') ? 'GLONASS' : (name.includes('GALILEO') ? 'GALILEO' : 'GPS');
+        return Object.assign({}, SATELLITE_STYLES.nav, { label: `NAV · ${subtype}` });
+      }
+      if (cat === 'geo' || alt > 34000 || name.includes('GOES') || name.includes('METEOSAT') || name.includes('INMARSAT')) {
+        return SATELLITE_STYLES.geo;
+      }
+      if (cat === 'starlink' || cat === 'dense' || cat === 'comms' || name.includes('STARLINK') || name.includes('ONEWEB')) {
+        const subtype = name.includes('ONEWEB') ? 'ONEWEB' : 'STARLINK';
+        return Object.assign({}, SATELLITE_STYLES.starlink, { label: `COMMS · ${subtype}` });
+      }
+      if (cat === 'visual' || name.includes('HST') || name.includes('HUBBLE') || name.includes('TERRA') || name.includes('AQUA')) {
+        return SATELLITE_STYLES.visual;
+      }
+      return SATELLITE_STYLES.default;
+    }
+
     function renderOsirisSatellites(sats) {
+      if (!_satellitePoints) return;
+      _satellitePoints.removeAll();
+
       if (!Array.isArray(sats) || sats.length === 0) {
-        _osirisSatellitesDS.entities.removeAll();
         if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
         return;
       }
 
-      const activeIds = new Set();
-
-      sats.forEach(sat => {
+      for (let i = 0; i < sats.length; i++) {
+        const sat = sats[i];
         const satLat = Number(sat.lat);
         const satLon = Number(sat.lng != null ? sat.lng : sat.lon);
-        if (isNaN(satLat) || isNaN(satLon)) return;
-        const altM = (Number(sat.alt) || 420) * 1000;
+        if (isNaN(satLat) || isNaN(satLon)) continue;
+        const altKm = Number(sat.alt) || 420;
+        const altM = altKm * 1000;
         const pos = Cesium.Cartesian3.fromDegrees(satLon, satLat, altM);
 
-        const safeKey = String(sat.noradId || sat.name || 'SAT').replace(/[^a-zA-Z0-9_\-]/g, '_');
+        const style = getSatelliteStyle(sat);
+        const safeKey = String(sat.noradId || sat.name || ('SAT_' + i)).replace(/[^a-zA-Z0-9_\-]/g, '_');
         const satId = `osiris-sat-${safeKey}`;
-        const beamId = `osiris-sat-beam-${safeKey}`;
-        activeIds.add(satId);
-        activeIds.add(beamId);
 
         const tacticalData = {
           type: 'SATELLITE',
-          name: sat.name,
-          category: sat.category || 'LEO',
+          id: satId,
+          name: sat.name || 'SAT',
+          category: style.label,
           noradId: sat.noradId || '',
-          altKm: sat.alt || 420,
+          altKm: Math.round(altKm),
           lat: satLat,
-          lon: satLon
+          lon: satLon,
+          velocityKmh: sat.velocityKmh || (altKm > 30000 ? 11070 : (altKm > 2000 ? 13800 : 27600)),
+          inclination: sat.inclination != null ? sat.inclination : 51.64
         };
 
-        const labelText = `🛰 ${sat.name || 'SAT'} (${(sat.category || 'LEO').toUpperCase()})`;
-
-        // 1. Satellite billboard & label entity (reconcile in-place to avoid duplicate stacking)
-        const existingSat = _osirisSatellitesDS.entities.getById(satId);
-        if (existingSat) {
-          existingSat.position = pos;
-          if (existingSat.label) existingSat.label.text = labelText;
-          existingSat._tacticalData = tacticalData;
-        } else {
-          _osirisSatellitesDS.entities.add({
-            id: satId,
-            position: pos,
-            billboard: {
-              image: SATELLITE_ICON,
-              width: 26,
-              height: 26,
-              verticalOrigin: Cesium.VerticalOrigin.CENTER,
-              disableDepthTestDistance: 5000
-            },
-            label: {
-              text: labelText,
-              font: 'bold 9.5px JetBrains Mono, monospace',
-              fillColor: Cesium.Color.fromCssColorString('#38BDF8'),
-              outlineColor: Cesium.Color.BLACK,
-              outlineWidth: 3,
-              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-              pixelOffset: new Cesium.Cartesian2(0, -16),
-              disableDepthTestDistance: 5000,
-              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 30000000)
-            },
-            _tacticalData: tacticalData
-          });
-        }
-
-        // 2. Nadir drop beam connecting satellite to ground track
-        const beamPositions = Cesium.Cartesian3.fromDegreesArrayHeights([
-          satLon, satLat, 0,
-          satLon, satLat, altM
-        ]);
-        const existingBeam = _osirisSatellitesDS.entities.getById(beamId);
-        if (existingBeam) {
-          if (existingBeam.polyline) existingBeam.polyline.positions = beamPositions;
-        } else {
-          _osirisSatellitesDS.entities.add({
-            id: beamId,
-            polyline: {
-              positions: beamPositions,
-              width: 1.2,
-              material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.35))
-            }
-          });
-        }
-      });
-
-      // Reconcile and purge any obsolete entities
-      const toRemove = [];
-      const currentEntities = _osirisSatellitesDS.entities.values;
-      for (let i = 0; i < currentEntities.length; i++) {
-        const ent = currentEntities[i];
-        if (ent && ent.id && !activeIds.has(ent.id)) {
-          toRemove.push(ent.id);
-        }
+        const pt = _satellitePoints.add({
+          position: pos,
+          pixelSize: style.pixelSize,
+          color: style.color,
+          outlineColor: style.outlineColor,
+          outlineWidth: style.outlineWidth,
+          id: tacticalData
+        });
+        pt._tacticalData = tacticalData;
       }
-      toRemove.forEach(id => _osirisSatellitesDS.entities.removeById(id));
 
       if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
     }
@@ -21348,6 +22426,7 @@ function initGlobeIntelligence(viewer) {
       getLOD: () => _activeLOD,
       enable: () => {
         _osirisActive = true;
+        _satellitePoints.show = true;
         _osirisSatellitesDS.show = true;
         _osirisConflictsDS.show = true;
         _osirisCctvDS.show = true;
@@ -21370,6 +22449,8 @@ function initGlobeIntelligence(viewer) {
       disable: () => {
         _osirisActive = false;
         _activeLOD = null;
+        _satellitePoints.show = false;
+        _satellitePoints.removeAll();
         _osirisSatellitesDS.show = false;
         _osirisConflictsDS.show = false;
         _osirisCctvDS.show = false;

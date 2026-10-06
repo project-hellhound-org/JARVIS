@@ -538,5 +538,32 @@ class AgentRouter:
             )
             return True, f"Connecting to live public CCTV surveillance feeds for {city_clean.title()}, {sal}.", task, "cctv_intel"
 
+        elif action == "ground_intel":
+            loc_clean = primary_step.get("location", "").strip() or "Coimbatore"
+            task = self.task_manager.create_task(
+                type_=TaskType.TACTICAL_GOAL.value,
+                title=f"Ground Intel: {loc_clean.title()}",
+                data={"original_prompt": text_strip, "steps": steps}
+            )
+            return True, f"Extracting georeferenced open-source media and video footage for {loc_clean.title()}, {sal}.", task, "tactical_goal"
+
+        elif action == "vessels":
+            loc_clean = primary_step.get("location", "").strip()
+            task = self.task_manager.create_task(
+                type_=TaskType.TACTICAL_GOAL.value,
+                title=f"Maritime AIS Fleet{': ' + loc_clean.title() if loc_clean else ''}",
+                data={"original_prompt": text_strip, "steps": steps}
+            )
+            return True, f"Scanning maritime AIS transponders and naval vessel corridors, {sal}.", task, "tactical_goal"
+
+        elif action == "nav":
+            loc_clean = primary_step.get("location", "").strip()
+            task = self.task_manager.create_task(
+                type_=TaskType.TACTICAL_GOAL.value,
+                title=f"Navigation: {loc_clean.title()}",
+                data={"original_prompt": text_strip, "steps": steps}
+            )
+            return True, f"Navigating orbital telemetry to {loc_clean.title()}, {sal}.", task, "tactical_goal"
+
         return False, "", None, ""
 

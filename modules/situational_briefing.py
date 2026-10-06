@@ -132,6 +132,12 @@ class SituationalBriefingEngine:
                     })
             else:
                 briefing_sections.append("Your calendar is completely clear for the immediate horizon, Sir.")
+                structured_findings.append({
+                    "title": "Agenda Telemetry",
+                    "snippet": "Schedule clear for immediate horizon",
+                    "url": "calendar://status",
+                    "category": "CALENDAR"
+                })
         except Exception:
             pass
 
@@ -153,8 +159,20 @@ class SituationalBriefingEngine:
                     })
             elif unread:
                 briefing_sections.append(f"Communications report {len(unread)} unread dispatch{'es' if len(unread) != 1 else ''}, none classified as critical.")
+                structured_findings.append({
+                    "title": "Communications Status",
+                    "snippet": f"{len(unread)} unread dispatches (nominal)",
+                    "url": "inbox://unread",
+                    "category": "INBOX"
+                })
             else:
                 briefing_sections.append("Zero unread messages in primary communications buffers.")
+                structured_findings.append({
+                    "title": "Communications Status",
+                    "snippet": "Zero unread dispatches",
+                    "url": "inbox://status",
+                    "category": "INBOX"
+                })
         except Exception:
             pass
 

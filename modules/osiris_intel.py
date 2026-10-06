@@ -493,51 +493,41 @@ class OsirisIntelClient:
         self,
         query: Optional[str] = None,
         category: Optional[str] = None,
-        limit: int = 50,
+        limit: int = 1500,
         bounds: Optional[Any] = None,
         return_meta: bool = False,
     ) -> Any:
         """
         Retrieve tracked satellites (18,800+ orbital objects) with real-time TLE positions.
-        Supports category filtering (ISS, Tiangong, GPS, Starlink, Recon, All),
-        sub-satellite ground-track bounding-box filtering, display caps, and explicit fallback states.
+        Supports category filtering (stations, nav/gps, geo, starlink/comms, visual, recon, all),
+        sub-satellite ground-track bounding-box filtering, high-density GPU collection scaling (1500+),
+        and graceful multi-regime orbital contingency fallback.
         """
         parsed_bounds = parse_bounds(bounds)
         res = self._fetch_endpoint("/api/satellites", ttl=DEFAULT_TTLS["satellites"])
 
         if not res or "satellites" not in res:
-            # Contingency satellite fixtures for mission-critical orbits (ISS, Tiangong, GPS)
+            # Contingency satellite fixtures across LEO, MEO, and GEO regimes (God's Eye Parity)
             contingency_sats = [
-                {
-                    "name": "ISS (ZARYA)",
-                    "lat": 25.5,
-                    "lng": -45.2,
-                    "alt": 418,
-                    "mission": "Human Spaceflight Research Laboratory",
-                    "category": "iss",
-                    "noradId": "25544",
-                    "source": "Contingency Ephemeris",
-                },
-                {
-                    "name": "TIANGONG (CSS)",
-                    "lat": 18.2,
-                    "lng": 110.5,
-                    "alt": 389,
-                    "mission": "Chinese Space Station",
-                    "category": "tiangong",
-                    "noradId": "48274",
-                    "source": "Contingency Ephemeris",
-                },
-                {
-                    "name": "NAVSTAR GPS USA-203",
-                    "lat": 32.1,
-                    "lng": -105.4,
-                    "alt": 20180,
-                    "mission": "Global Positioning System",
-                    "category": "gps",
-                    "noradId": "34661",
-                    "source": "Contingency Ephemeris",
-                },
+                # Stations (LEO)
+                {"name": "ISS (ZARYA)", "lat": 25.5, "lng": -45.2, "alt": 418, "mission": "Human Spaceflight Research Laboratory", "category": "stations", "noradId": "25544", "source": "Contingency Ephemeris"},
+                {"name": "TIANGONG (CSS)", "lat": 18.2, "lng": 110.5, "alt": 389, "mission": "Chinese Space Station", "category": "stations", "noradId": "48274", "source": "Contingency Ephemeris"},
+                # Navigation (MEO ~20,000 km)
+                {"name": "NAVSTAR GPS USA-203", "lat": 32.1, "lng": -105.4, "alt": 20180, "mission": "Global Positioning System", "category": "nav", "noradId": "34661", "source": "Contingency Ephemeris"},
+                {"name": "GPS BIIF-12 (USA-266)", "lat": -12.4, "lng": 45.8, "alt": 20200, "mission": "GPS Block IIF Navigation", "category": "nav", "noradId": "41328", "source": "Contingency Ephemeris"},
+                {"name": "GLONASS-M 755", "lat": 44.5, "lng": 82.1, "alt": 19130, "mission": "Russian Navigation Constellation", "category": "nav", "noradId": "41554", "source": "Contingency Ephemeris"},
+                {"name": "GALILEO GSAT-0205", "lat": -28.9, "lng": -32.5, "alt": 23222, "mission": "European Galileo Navigation", "category": "nav", "noradId": "40889", "source": "Contingency Ephemeris"},
+                # Geostationary (GEO ~35,786 km)
+                {"name": "GOES-16 (EAST)", "lat": 0.0, "lng": -75.2, "alt": 35786, "mission": "NOAA Geostationary Weather Satellite", "category": "geo", "noradId": "41866", "source": "Contingency Ephemeris"},
+                {"name": "METEOSAT-11", "lat": 0.0, "lng": 0.0, "alt": 35790, "mission": "EUMETSAT Geostationary Earth Observation", "category": "geo", "noradId": "40732", "source": "Contingency Ephemeris"},
+                {"name": "INMARSAT 5-F4", "lat": 0.0, "lng": 54.5, "alt": 35785, "mission": "Global Xpress Broadband Comms", "category": "geo", "noradId": "42702", "source": "Contingency Ephemeris"},
+                # Visual / Science (LEO)
+                {"name": "HST (HUBBLE)", "lat": -15.4, "lng": -140.2, "alt": 535, "mission": "Hubble Space Telescope", "category": "visual", "noradId": "20580", "source": "Contingency Ephemeris"},
+                {"name": "TERRA (EOS AM-1)", "lat": 68.2, "lng": -92.4, "alt": 705, "mission": "NASA Earth Observing System", "category": "visual", "noradId": "25994", "source": "Contingency Ephemeris"},
+                # Comms / Starlink Shell
+                {"name": "STARLINK-3101", "lat": 42.1, "lng": -65.2, "alt": 550, "mission": "Starlink Broadband Constellation", "category": "starlink", "noradId": "49001", "source": "Contingency Ephemeris"},
+                {"name": "STARLINK-3102", "lat": -38.5, "lng": 142.1, "alt": 550, "mission": "Starlink Broadband Constellation", "category": "starlink", "noradId": "49002", "source": "Contingency Ephemeris"},
+                {"name": "ONEWEB-0128", "lat": 72.0, "lng": 18.5, "alt": 1200, "mission": "OneWeb Broadband LEO Shell", "category": "starlink", "noradId": "45250", "source": "Contingency Ephemeris"},
             ]
             if return_meta:
                 return {
@@ -560,13 +550,14 @@ class OsirisIntelClient:
         cat_lower = (category or "").lower().strip()
 
         # Category keyword matchers for operator-selected constellations:
-        # ISS, Tiangong, GPS, Starlink, recon
+        # stations, nav/gps, geo, starlink/comms, visual, recon
         for sat in sats:
             s_name = str(sat.get("name", "")).lower()
             s_cat = str(sat.get("category", "")).lower()
             s_mission = str(sat.get("mission", "")).lower()
             s_lat = sat.get("lat")
             s_lng = sat.get("lng", sat.get("lon"))
+            s_alt = float(sat.get("alt") or 0)
 
             # Bounding box filter (sub-satellite point)
             if parsed_bounds and not is_point_in_bounds(s_lat, s_lng, parsed_bounds):
@@ -576,19 +567,28 @@ class OsirisIntelClient:
             if q_lower and (q_lower not in s_name and q_lower not in s_mission and q_lower not in s_cat):
                 continue
 
-            # Category filter
+            # Category filter (God's Eye SATELLITE_CLASSES taxonomy + specific vehicle queries)
             if cat_lower and cat_lower not in ("all", "*"):
                 if cat_lower == "iss":
-                    if not ("iss" in s_name or "zarya" in s_name or "international space station" in s_name or s_cat == "iss" or "international space station" in s_mission):
+                    if not ("iss" in s_name or "zarya" in s_name):
                         continue
                 elif cat_lower == "tiangong":
-                    if not ("tiangong" in s_name or "css" in s_name or "tianhe" in s_name or "mengtian" in s_name or "wentian" in s_name or s_cat == "tiangong"):
+                    if not ("tiangong" in s_name or "css" in s_name or "tianhe" in s_name):
                         continue
-                elif cat_lower in ("gps", "gnss", "navigation"):
-                    if not ("gps" in s_name or "navstar" in s_name or "glonass" in s_name or "galileo" in s_name or "beidou" in s_name or "gnss" in s_name or s_cat in ("gps", "gnss", "navigation")):
+                elif cat_lower in ("stations", "station"):
+                    if not ("iss" in s_name or "zarya" in s_name or "tiangong" in s_name or "css" in s_name or "station" in s_cat or "station" in s_mission):
                         continue
-                elif cat_lower == "starlink":
-                    if not ("starlink" in s_name or s_cat == "starlink"):
+                elif cat_lower in ("nav", "gps", "gnss", "navigation", "glonass", "galileo", "beidou"):
+                    if not ("gps" in s_name or "navstar" in s_name or "glonass" in s_name or "galileo" in s_name or "beidou" in s_name or "gnss" in s_name or "nav" in s_cat):
+                        continue
+                elif cat_lower in ("geo", "geostationary", "geosynchronous"):
+                    if not ("geo" in s_cat or s_alt > 34000 or "goes" in s_name or "meteosat" in s_name or "inmarsat" in s_name):
+                        continue
+                elif cat_lower in ("starlink", "comms", "broadband", "oneweb"):
+                    if not ("starlink" in s_name or "starlink" in s_cat or "oneweb" in s_name or "iridium" in s_name):
+                        continue
+                elif cat_lower in ("visual", "bright", "science"):
+                    if not ("visual" in s_cat or "hst" in s_name or "hubble" in s_name or "terra" in s_name or "aqua" in s_name or "landsat" in s_name):
                         continue
                 elif cat_lower in ("recon", "military", "surveillance"):
                     is_nav = ("gps" in s_name or "navstar" in s_name or "glonass" in s_name or "navigation" in s_mission or s_cat in ("gps", "navigation"))

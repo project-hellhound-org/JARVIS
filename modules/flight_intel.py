@@ -1,8 +1,11 @@
 # modules/flight_intel.py
 import json
+import math
+import os
 import time
 import urllib.request
 import urllib.parse
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 ADSB_MIL_URL = 'https://api.adsb.lol/v2/mil'
@@ -247,6 +250,80 @@ OFFLINE_ALL_FIXTURES = (
 )
 
 
+# -------------------------------------------------------------------------
+# God's Eye Flight Route Plausibility & Geometry (Bilawal Sidhu / routePlausible.js)
+# -------------------------------------------------------------------------
+
+D2R = math.pi / 180.0
+R_KM = 6371.0
+
+
+def great_circle_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Haversine great-circle distance in kilometers."""
+    p1 = lat1 * D2R
+    p2 = lat2 * D2R
+    dp = (lat2 - lat1) * D2R
+    dl = (lon2 - lon1) * D2R
+    a = math.sin(dp / 2.0) ** 2 + math.cos(p1) * math.cos(p2) * (math.sin(dl / 2.0) ** 2)
+    return R_KM * 2.0 * math.atan2(math.sqrt(max(0.0, a)), math.sqrt(max(0.0, 1.0 - a)))
+
+
+def bearing_rad(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    p1 = lat1 * D2R
+    p2 = lat2 * D2R
+    dl = (lon2 - lon1) * D2R
+    y = math.sin(dl) * math.cos(p2)
+    x = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    return math.atan2(y, x)
+
+
+def cross_track_km(lat: float, lon: float, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Signed cross-track distance (km) of point from the great circle p1 -> p2."""
+    d13 = great_circle_km(lat1, lon1, lat, lon) / R_KM
+    b13 = bearing_rad(lat1, lon1, lat, lon)
+    b12 = bearing_rad(lat1, lon1, lat2, lon2)
+    return math.asin(max(-1.0, min(1.0, math.sin(d13) * math.sin(b13 - b12)))) * R_KM
+
+
+def route_plausible(
+    lat: Optional[float],
+    lon: Optional[float],
+    origin: Optional[Dict[str, Any]],
+    destination: Optional[Dict[str, Any]],
+    max_cross_track_km: float = 350.0
+) -> bool:
+    """
+    Validates whether an adsbdb scheduled route matches the aircraft's actual position.
+    Rejects wrong-leg routes (e.g. return flights from previous cycle).
+    """
+    if lat is None or lon is None or not origin or not destination:
+        return True
+    o_lat = origin.get("lat")
+    o_lon = origin.get("lon")
+    d_lat = destination.get("lat")
+    d_lon = destination.get("lon")
+    if o_lat is None or o_lon is None or d_lat is None or d_lon is None:
+        return True
+
+    total_corridor = great_circle_km(o_lat, o_lon, d_lat, d_lon)
+    if total_corridor < 50.0:
+        return True
+
+    dist_origin = great_circle_km(lat, lon, o_lat, o_lon)
+    dist_dest = great_circle_km(lat, lon, d_lat, d_lon)
+
+    # Near either terminal
+    if dist_origin < 150.0 or dist_dest < 150.0:
+        return True
+
+    # Far off corridor sum
+    if (dist_origin + dist_dest) > (total_corridor * 1.6 + 250.0):
+        return False
+
+    xt = abs(cross_track_km(lat, lon, o_lat, o_lon, d_lat, d_lon))
+    return xt <= max_cross_track_km
+
+
 class FlightIntelEngine:
     """
     Real-time Airspace & Military Radar Intelligence Engine.
@@ -257,6 +334,7 @@ class FlightIntelEngine:
         self.cache_ttl = 15
         self._last_fetch_time = 0
         self._cached_flights: List[Dict[str, Any]] = []
+        self._init_enrichment_cache()
 
     def get_military_aircraft(self, limit: int = 12) -> List[Dict[str, Any]]:
         """
@@ -384,3 +462,179 @@ class FlightIntelEngine:
             sec_alt_phrase = 'on the ground' if str(sec_alt).lower() == 'ground' else f'at {sec_alt} ft'
             lines.append(f'Secondary target {second.get("flight", "VIPER")} ({second.get("t", "F16")}) {sec_alt_phrase}.')
         return ' '.join(lines)
+
+    # -------------------------------------------------------------------------
+    # God's Eye adsbdb.com Enrichment & Caching (Bilawal Sidhu / enrichment.js)
+    # -------------------------------------------------------------------------
+    def _init_enrichment_cache(self):
+        self._cache_dir = Path(__file__).resolve().parent.parent / '.cache'
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
+        self._adsbdb_cache_file = self._cache_dir / 'adsbdb.json'
+        self._enrich_routes: Dict[str, Any] = {}
+        self._enrich_aircraft: Dict[str, Any] = {}
+        self._enrich_ttl = 24 * 3600  # 24 hours
+
+        if self._adsbdb_cache_file.exists():
+            try:
+                with open(self._adsbdb_cache_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self._enrich_routes = data.get('routes', {})
+                    self._enrich_aircraft = data.get('aircraft', {})
+            except Exception:
+                pass
+
+    def _persist_enrichment_cache(self):
+        try:
+            with open(self._adsbdb_cache_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'routes': self._enrich_routes,
+                    'aircraft': self._enrich_aircraft
+                }, f)
+        except Exception:
+            pass
+
+    def get_flight_route(self, callsign: str) -> Optional[Dict[str, Any]]:
+        callsign_clean = (callsign or '').strip().upper()
+        if not callsign_clean or len(callsign_clean) < 3:
+            return None
+
+        now = time.time()
+        cached = self._enrich_routes.get(callsign_clean)
+        if cached and (now - cached.get('at', 0)) < self._enrich_ttl:
+            return cached.get('data')
+
+        url = f'https://api.adsbdb.com/v0/callsign/{urllib.parse.quote(callsign_clean)}'
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={'User-Agent': 'JARVIS-Tactical/2.0 (Gods-Eye-View-Parity)'}
+            )
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                fr = data.get('response', {}).get('flightroute')
+                if not fr:
+                    self._enrich_routes[callsign_clean] = {'at': now, 'data': None}
+                    self._persist_enrichment_cache()
+                    return None
+
+                origin = fr.get('origin', {})
+                dest = fr.get('destination', {})
+                parsed = {
+                    'airline': (fr.get('airline') or {}).get('name'),
+                    'airline_icao': (fr.get('airline') or {}).get('icao'),
+                    'origin': {
+                        'code': origin.get('iata_code') or origin.get('icao_code') or '',
+                        'name': origin.get('municipality') or origin.get('name') or '',
+                        'lat': origin.get('latitude'),
+                        'lon': origin.get('longitude')
+                    },
+                    'destination': {
+                        'code': dest.get('iata_code') or dest.get('icao_code') or '',
+                        'name': dest.get('municipality') or dest.get('name') or '',
+                        'lat': dest.get('latitude'),
+                        'lon': dest.get('longitude')
+                    }
+                }
+                self._enrich_routes[callsign_clean] = {'at': now, 'data': parsed}
+                self._persist_enrichment_cache()
+                return parsed
+        except urllib.error.HTTPError as he:
+            if he.code == 404:
+                # Negative cache 404 to protect public API from repeated queries on unknown callsigns
+                self._enrich_routes[callsign_clean] = {'at': now, 'data': None}
+                self._persist_enrichment_cache()
+            return None
+        except Exception:
+            return None
+
+    def get_aircraft_meta(self, icao_hex: str) -> Optional[Dict[str, Any]]:
+        hex_clean = (icao_hex or '').strip().lower()
+        if not hex_clean or len(hex_clean) != 6:
+            return None
+
+        now = time.time()
+        cached = self._enrich_aircraft.get(hex_clean)
+        if cached and (now - cached.get('at', 0)) < self._enrich_ttl:
+            return cached.get('data')
+
+        url = f'https://api.adsbdb.com/v0/aircraft/{urllib.parse.quote(hex_clean)}'
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={'User-Agent': 'JARVIS-Tactical/2.0 (Gods-Eye-View-Parity)'}
+            )
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                ac = data.get('response', {}).get('aircraft')
+                if not ac:
+                    self._enrich_aircraft[hex_clean] = {'at': now, 'data': None}
+                    self._persist_enrichment_cache()
+                    return None
+
+                manufacturer = ac.get('manufacturer') or ''
+                ac_type = ac.get('type') or ''
+                type_name = f"{manufacturer} {ac_type}".strip() if manufacturer and ac_type else ac_type
+                parsed = {
+                    'type_code': ac.get('icao_type'),
+                    'type_name': type_name or None,
+                    'registration': ac.get('registration') or None,
+                    'registered_owner': ac.get('registered_owner') or None
+                }
+                self._enrich_aircraft[hex_clean] = {'at': now, 'data': parsed}
+                self._persist_enrichment_cache()
+                return parsed
+        except urllib.error.HTTPError as he:
+            if he.code == 404:
+                self._enrich_aircraft[hex_clean] = {'at': now, 'data': None}
+                self._persist_enrichment_cache()
+            return None
+        except Exception:
+            return None
+
+    def get_flight_enrichment(
+        self,
+        callsign: str,
+        icao_hex: str = '',
+        current_lat: Optional[float] = None,
+        current_lon: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Enrich flight with operator airline name, aircraft type description, and verified origin -> destination route.
+        """
+        route = self.get_flight_route(callsign)
+        meta = self.get_aircraft_meta(icao_hex) if icao_hex else None
+
+        is_plausible = True
+        if route and current_lat is not None and current_lon is not None:
+            is_plausible = route_plausible(
+                current_lat, current_lon,
+                route.get('origin'), route.get('destination')
+            )
+
+        origin_code = (route.get('origin') or {}).get('code', '') if route else ''
+        dest_code = (route.get('destination') or {}).get('code', '') if route else ''
+        route_str = f"{origin_code} → {dest_code}" if (origin_code and dest_code) else None
+
+        return {
+            'callsign': (callsign or '').strip().upper(),
+            'hex': (icao_hex or '').strip().lower() if icao_hex else '',
+            'airline': (route.get('airline') if route else None),
+            'origin': (route.get('origin') if route else None),
+            'destination': (route.get('destination') if route else None),
+            'route_plausible': is_plausible,
+            'route_summary': route_str if is_plausible else None,
+            'type_code': (meta.get('type_code') if meta else None),
+            'type_name': (meta.get('type_name') if meta else None),
+            'registration': (meta.get('registration') if meta else None),
+            'owner': (meta.get('registered_owner') if meta else None),
+        }
+
+
+_DEFAULT_ENGINE = None
+
+def get_flight_intel_engine() -> FlightIntelEngine:
+    global _DEFAULT_ENGINE
+    if _DEFAULT_ENGINE is None:
+        _DEFAULT_ENGINE = FlightIntelEngine()
+    return _DEFAULT_ENGINE
+

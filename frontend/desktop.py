@@ -628,7 +628,23 @@ def resolve_geospatial_coordinates(candidate: str, bias_lat: float = None, bias_
             return 50.7174, 4.3990, "Waterloo, Belgium"
         if (context_name and any(c in context_name.lower() for c in ["canada", "ontario", "toronto"])) or (bias_lat is not None and 42.0 <= bias_lat <= 46.0 and -82.0 <= bias_lon <= -78.0):
             return 43.4643, -80.5204, "Waterloo, Ontario"
-        return 51.5032, -0.1123, "Waterloo, London"
+    if clean in ("random", "a random place", "random place", "somewhere", "anywhere"):
+        import random
+        spots = [
+            (11.0168, 76.9558, "Coimbatore, India"),
+            (35.6762, 139.6503, "Tokyo, Japan"),
+            (48.8566, 2.3522, "Paris, France"),
+            (51.5074, -0.1278, "London, United Kingdom"),
+            (40.7128, -74.0060, "New York City, USA"),
+            (37.7749, -122.4194, "San Francisco, USA"),
+            (-33.8688, 151.2093, "Sydney, Australia"),
+            (12.9716, 77.5946, "Bengaluru, India"),
+            (25.2048, 55.2708, "Dubai, UAE"),
+            (41.9028, 12.4964, "Rome, Italy"),
+            (-22.9068, -43.1729, "Rio de Janeiro, Brazil"),
+            (64.1466, -21.9426, "Reykjavik, Iceland"),
+        ]
+        return random.choice(spots)
 
     # 1. Persistent dynamic geocache
     cache = _get_geo_cache()
@@ -764,6 +780,7 @@ class JarvisAPI:
         self._recent_agent_responses = []
         self._tts_playback_until = 0.0
         self._tts_turn_lock = threading.Lock()
+        self._speak_lock = threading.Lock()
         self._tts_turn_id = 0
         self._turn_playback_events = {}
         self._turn_events_lock = threading.Lock()
@@ -1768,15 +1785,33 @@ class JarvisAPI:
                     print(f"[desktop] Autonomous cognitive loop activated ({len(steps)} steps) for: '{eff_text}'")
                     def _live_speak(phrase: str):
                         self._emit("jarvis_stream_chunk", {"chunk": f"{phrase}\n"})
-                        self._speak_and_suppress_echo(phrase)
+                        # Run non-blocking so plan execution does not stall for seconds
+                        threading.Thread(target=self._speak_and_suppress_echo, args=(phrase,), daemon=True).start()
 
                     def _live_ui(msg: str):
                         self._emit("scan_status", {"message": msg, "is_tactical": True})
 
-                    plan_res = cognitive.execute_plan(eff_text, on_progress_speak=_live_speak, on_progress_ui=_live_ui)
+                    plan_res = cognitive.execute_plan(
+                        eff_text,
+                        on_progress_speak=_live_speak,
+                        on_progress_ui=_live_ui,
+                        active_location=active_loc,
+                        active_lat=getattr(self, '_active_geo_lat', None),
+                        active_lon=getattr(self, '_active_geo_lon', None)
+                    )
                     if plan_res.get("handled"):
+                        if plan_res.get("active_location"):
+                            self._active_geo_label = plan_res["active_location"]
+                        if plan_res.get("active_lat") is not None:
+                            self._active_geo_lat = plan_res["active_lat"]
+                            self._active_geo_lon = plan_res["active_lon"]
                         final_msg = plan_res["text"]
-                        self._emit("jarvis_answer", {"text": final_msg, "mode": "tactical"})
+                        with self._tts_turn_lock:
+                            self._tts_turn_id += 1
+                            t_id = self._tts_turn_id
+                        self._emit("jarvis_stream_start", {"turn_id": t_id})
+                        self._emit("jarvis_stream_chunk", {"chunk": final_msg, "turn_id": t_id})
+                        self._emit("jarvis_answer", {"text": final_msg, "mode": "tactical", "turn_id": t_id})
                         self._speak_and_suppress_echo(final_msg)
                         self._start_follow_up_window()
                         return
@@ -2161,6 +2196,57 @@ class JarvisAPI:
         except Exception:
             return {"ac": []}
 
+    def get_vessels(self, bounds=None, lat=None, lon=None, radius_km=None, type=None, limit=60) -> dict:
+        """Fetch AIS maritime vessels filtered by camera viewport or coordinates."""
+        try:
+            from modules.maritime_intel import get_maritime_client
+            client = get_maritime_client()
+            return client.get_vessels_in_area(
+                lat=float(lat) if lat is not None else None,
+                lon=float(lon) if lon is not None else None,
+                radius_km=float(radius_km) if radius_km is not None else None,
+                bounds=bounds,
+                vessel_type=type,
+                limit=int(limit or 60)
+            )
+        except Exception as e:
+            logger.error(f"[desktop] get_vessels error: {e}")
+            return {"vessels": [], "total": 0, "error": str(e)}
+
+    def sync_active_viewport(self, lat: float, lon: float, alt_km: float = 0.0) -> dict:
+        """Synchronize Cesium 3D camera position so JARVIS knows what location operator is viewing."""
+        try:
+            self._active_geo_lat = float(lat)
+            self._active_geo_lon = float(lon)
+            self._active_geo_label = f"{float(lat):.4f}°N, {float(lon):.4f}°E"
+            return {"status": "ok", "lat": self._active_geo_lat, "lon": self._active_geo_lon}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def get_ground_intel(self, location=None, lat=None, lon=None, radius_km=35.0, limit=20) -> dict:
+        """Fetch georeferenced open-source photos, videos, and YouTube clips for a city or coordinates."""
+        try:
+            from modules.ground_intel import get_ground_intel_client
+            client = get_ground_intel_client()
+            loc_str = str(location or "").strip()
+            # If location is generic, fall back to active camera coordinates
+            if not loc_str or loc_str.lower() in ("current", "here", "this place", "this area", "viewing right now", "now", "none", "unknown"):
+                if lat is None and getattr(self, '_active_geo_lat', None) is not None:
+                    lat = self._active_geo_lat
+                if lon is None and getattr(self, '_active_geo_lon', None) is not None:
+                    lon = self._active_geo_lon
+                loc_str = getattr(self, '_active_geo_label', None) or (f"{lat:.4f},{lon:.4f}" if lat is not None else None)
+            return client.get_ground_media_in_area(
+                lat=float(lat) if lat is not None else None,
+                lon=float(lon) if lon is not None else None,
+                radius_km=float(radius_km or 35.0),
+                location=loc_str,
+                limit=int(limit or 20)
+            )
+        except Exception as e:
+            logger.error(f"[desktop] get_ground_intel error: {e}")
+            return {"location": location or "Unknown", "media_points": [], "total": 0, "error": str(e)}
+
     def get_cctv_synthetic_bmp(self, camera_id: str, label: str = "OPTICAL CAM") -> bytes:
         """Pure-Python standard-library 24-bit BMP generator requiring zero external dependencies."""
         import struct
@@ -2267,7 +2353,7 @@ class JarvisAPI:
             print(f"[desktop] OSIRIS conflicts notice: {e}")
             return {"totalZones": 0, "activeWarzones": 0, "zones": []}
 
-    def get_active_satellites(self, category: str = "", limit: int = 60, bounds: dict = None) -> dict:
+    def get_active_satellites(self, category: str = "", limit: int = 1500, bounds: dict = None) -> dict:
         """Native CesiumJS bridge: Ingest tracked orbital assets by category.
         Categories: 'iss', 'tiangong', 'gps', 'starlink', 'recon', 'all'.
         Degrades gracefully with explicit UI states (ok, zero_results, capped, upstream_error).
@@ -2676,26 +2762,26 @@ class JarvisAPI:
         """Speak text via voice engine while registering it for self-echo suppression and setting TTS playback mute."""
         if not text or getattr(self, '_voice_muted', False):
             return
-        cleaned = self._voice._sanitize_text_for_speech(text) if self._voice else text
-        if cleaned:
-            self._recent_agent_responses.append(cleaned.strip())
-            if len(self._recent_agent_responses) > 25:
-                self._recent_agent_responses.pop(0)
-        # Mute the background voice listener for the entire duration of TTS synthesis + playback.
-        # _tts_speaking is a boolean flag checked by _bg_voice_loop; it stays True while speak() blocks.
-        # After speak() returns, _tts_playback_until provides a 2.5s tail buffer for audio decay/reverb.
-        self._tts_speaking = True
-        if self._voice:
-            try:
-                self._voice.speak(text)
-            except Exception as e:
-                print(f"[desktop] Voice speak error: {e}")
-        self._tts_speaking = False
-        self._tts_playback_until = time.time() + 2.5  # tail buffer after playback completes
-        with self._tts_turn_lock:
-            self._tts_turn_id += 1
-        self._emit("jarvis_interrupt_speech", {})
-        return True
+        with getattr(self, '_speak_lock', threading.Lock()):
+            cleaned = self._voice._sanitize_text_for_speech(text) if self._voice else text
+            if cleaned:
+                self._recent_agent_responses.append(cleaned.strip())
+                if len(self._recent_agent_responses) > 25:
+                    self._recent_agent_responses.pop(0)
+            # Mute the background voice listener for the entire duration of TTS synthesis + playback.
+            # _tts_speaking is a boolean flag checked by _bg_voice_loop; it stays True while speak() blocks.
+            # After speak() returns, _tts_playback_until provides a 2.5s tail buffer for audio decay/reverb.
+            self._tts_speaking = True
+            if self._voice:
+                try:
+                    self._voice.speak(text)
+                except Exception as e:
+                    print(f"[desktop] Voice speak error: {e}")
+            self._tts_speaking = False
+            self._tts_playback_until = time.time() + 2.5  # tail buffer after playback completes
+            with self._tts_turn_lock:
+                self._tts_turn_id += 1
+            return True
 
     def save_config(self, cfg: dict):
         """Save settings from the UI back to config.yaml."""
@@ -3089,26 +3175,55 @@ class JarvisAPI:
                         is_interrupted_fn=check_interrupted,
                         on_clause_sent=on_clause_sent
                     )
+                    pcm_coalesce_buffer = bytearray()
+                    coalesce_text = ""
+                    min_chunk_bytes = 4800  # ~100ms at 24kHz 16-bit mono
+
                     for pcm_bytes, sample_rate in pcm_stream:
                         if check_interrupted():
                             break
                         if not pcm_bytes:
                             continue
                         streamed_any = True
+                        pcm_coalesce_buffer.extend(pcm_bytes)
+                        if active_clause[0]:
+                            coalesce_text = active_clause[0]
+                            active_clause[0] = ""
+
+                        if len(pcm_coalesce_buffer) >= min_chunk_bytes:
+                            tts_state["emitted"] = True
+                            out_pcm = bytes(pcm_coalesce_buffer)
+                            pcm_coalesce_buffer.clear()
+                            chunk_dur = len(out_pcm) / float(sample_rate * 2)
+                            total_ws_audio_dur[0] += chunk_dur
+                            chunk_start = max(getattr(self, '_tts_playback_until', 0.0), time.time())
+                            self._tts_playback_until = chunk_start + chunk_dur
+                            print(f"[desktop] Handoff: Emitting WebSocket PCM chunk ({len(out_pcm)} bytes, {sample_rate}Hz, turn={tts_turn_id}, dur={chunk_dur:.2f}s)")
+                            self._emit("jarvis_pcm_audio_chunk", {
+                                "audio": base64.b64encode(out_pcm).decode("ascii"),
+                                "sample_rate": sample_rate,
+                                "text": coalesce_text,
+                                "turn_id": tts_turn_id,
+                            })
+                            coalesce_text = ""
+
+                    # Flush trailing audio
+                    if pcm_coalesce_buffer and not check_interrupted():
                         tts_state["emitted"] = True
-                        chunk_dur = len(pcm_bytes) / float(sample_rate * 2)
+                        out_pcm = bytes(pcm_coalesce_buffer)
+                        pcm_coalesce_buffer.clear()
+                        chunk_dur = len(out_pcm) / float(sample_rate * 2)
                         total_ws_audio_dur[0] += chunk_dur
                         chunk_start = max(getattr(self, '_tts_playback_until', 0.0), time.time())
                         self._tts_playback_until = chunk_start + chunk_dur
-                        chunk_text = active_clause[0]
-                        active_clause[0] = ""
-                        print(f"[desktop] Handoff: Emitting WebSocket PCM chunk ({len(pcm_bytes)} bytes, {sample_rate}Hz, turn={tts_turn_id}, dur={chunk_dur:.2f}s)")
+                        print(f"[desktop] Handoff: Emitting trailing WebSocket PCM chunk ({len(out_pcm)} bytes, {sample_rate}Hz, turn={tts_turn_id}, dur={chunk_dur:.2f}s)")
                         self._emit("jarvis_pcm_audio_chunk", {
-                            "audio": base64.b64encode(pcm_bytes).decode("ascii"),
+                            "audio": base64.b64encode(out_pcm).decode("ascii"),
                             "sample_rate": sample_rate,
-                            "text": chunk_text,
+                            "text": coalesce_text,
                             "turn_id": tts_turn_id,
                         })
+
                     if not check_interrupted() and streamed_any:
                         stream_completed_cleanly = True
                 except Exception as ws_err:
@@ -3274,9 +3389,10 @@ class JarvisAPI:
             if not text:
                 return
             clean = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', text, flags=re.IGNORECASE).strip()
-            # Strip roleplay stage directions and action asterisks (*grins*, *cracks knuckles*, etc.)
-            clean = re.sub(r'\*[^*]+\*', '', clean)
+            # Strip roleplay stage directions (*grins*, *cracks knuckles*, etc.)
+            clean = re.sub(r'\*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks knuckles|clears throat|pauses|leans)[^*]*\*', '', clean, flags=re.IGNORECASE)
             clean = re.sub(r'\([^)]*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks|leans|snort)[^)]*\)', '', clean, flags=re.IGNORECASE)
+            clean = re.sub(r'[*_`]', '', clean)
             clean = re.sub(r'\s+([.,!?;:])', r'\1', clean)
             clean = re.sub(r'[ \t]+', ' ', clean).strip()
             if not clean:
@@ -3552,7 +3668,8 @@ class JarvisAPI:
         full_resp_text = (result.get("text") or "").strip()
         if full_resp_text:
             clean_full = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', full_resp_text, flags=re.IGNORECASE).strip()
-            clean_full = re.sub(r'\*[^*]+\*', '', clean_full).strip()
+            clean_full = re.sub(r'\*(?:chuckle|grin|laugh|smirk|sigh|snicker|wink|shrug|cough|cracks knuckles|clears throat|pauses|leans)[^*]*\*', '', clean_full, flags=re.IGNORECASE).strip()
+            clean_full = re.sub(r'[*_`]', '', clean_full).strip()
             if len(clean_full) > 3 and clean_full not in self._recent_agent_responses:
                 self._recent_agent_responses.append(clean_full)
                 while len(self._recent_agent_responses) > 35:
@@ -4849,6 +4966,167 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
             return json.dumps(api.get_adsb_flights(feed))
         return json.dumps({"flights": []})
 
+    @app.route('/api/military')
+    def _bottle_military():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['X-Feed-Source'] = 'ADSB.lol Military'
+        bottle.response.headers['X-Feed-Cache'] = 'LIVE'
+        bottle.response.content_type = 'application/json'
+        if api and hasattr(api, 'get_adsb_flights'):
+            return json.dumps(api.get_adsb_flights('mil'))
+        from modules.flight_intel import ADSB_MIL_URL
+        return json.dumps({"ac": []})
+
+    @app.route('/api/flights')
+    def _bottle_flights():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['X-Feed-Source'] = 'Airplanes.Live / OpenSky'
+        bottle.response.headers['X-Feed-Cache'] = 'LIVE'
+        bottle.response.content_type = 'application/json'
+        feed = bottle.request.query.get('feed', 'all')
+        if api and hasattr(api, 'get_adsb_flights'):
+            return json.dumps(api.get_adsb_flights(feed))
+        return json.dumps({"ac": []})
+
+    @app.route('/api/flights/enrichment')
+    def _bottle_flight_enrichment():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.content_type = 'application/json'
+        callsign = bottle.request.query.get('callsign', '')
+        hex_code = bottle.request.query.get('hex', '')
+        lat = bottle.request.query.get('lat')
+        lon = bottle.request.query.get('lon')
+        cur_lat = None
+        cur_lon = None
+        try:
+            if lat is not None and lat != '':
+                cur_lat = float(lat)
+            if lon is not None and lon != '':
+                cur_lon = float(lon)
+        except (ValueError, TypeError):
+            pass
+        from modules.flight_intel import get_flight_intel_engine
+        enrichment = get_flight_intel_engine().get_flight_enrichment(
+            callsign=callsign,
+            icao_hex=hex_code,
+            current_lat=cur_lat,
+            current_lon=cur_lon
+        )
+        return json.dumps(enrichment)
+
+    @app.route('/api/vessels', method=['GET', 'POST', 'OPTIONS'])
+    def _bottle_vessels():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        bottle.response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Origin, Accept'
+        bottle.response.headers['X-Feed-Source'] = 'OSIRIS Maritime AIS'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        bottle.response.content_type = 'application/json'
+
+        from modules.maritime_intel import get_maritime_client
+        client = get_maritime_client()
+
+        lat = None
+        lon = None
+        radius_km = None
+        bounds = None
+        vtype = bottle.request.query.get('type')
+        limit = 60
+
+        if bottle.request.method == 'POST' and bottle.request.json:
+            lat = bottle.request.json.get('lat')
+            lon = bottle.request.json.get('lon')
+            radius_km = bottle.request.json.get('radius_km')
+            bounds = bottle.request.json.get('bounds')
+            vtype = bottle.request.json.get('type', vtype)
+            limit = int(bottle.request.json.get('limit', 60))
+        else:
+            try:
+                if bottle.request.query.get('lat') and bottle.request.query.get('lon'):
+                    lat = float(bottle.request.query.get('lat'))
+                    lon = float(bottle.request.query.get('lon'))
+                    radius_km = float(bottle.request.query.get('radius_km', 250))
+            except (ValueError, TypeError):
+                pass
+            south = bottle.request.query.get('south')
+            if south is not None:
+                try:
+                    bounds = {
+                        'south': float(south),
+                        'west': float(bottle.request.query.get('west', -180)),
+                        'north': float(bottle.request.query.get('north', 90)),
+                        'east': float(bottle.request.query.get('east', 180)),
+                    }
+                except (ValueError, TypeError):
+                    pass
+            try:
+                limit = int(bottle.request.query.get('limit', 60))
+            except (ValueError, TypeError):
+                limit = 60
+
+        query = bottle.request.query.get('query') or bottle.request.query.get('mmsi')
+        if query:
+            match = client.find_vessel(query)
+            if match:
+                return json.dumps({"vessels": [match], "total": 1, "source": "tactical_ais_fleet"})
+            return json.dumps({"vessels": [], "total": 0, "source": "tactical_ais_fleet"})
+
+        return json.dumps(client.get_vessels_in_area(
+            lat=lat,
+            lon=lon,
+            radius_km=radius_km,
+            bounds=bounds,
+            vessel_type=vtype,
+            limit=limit
+        ))
+
+    @app.route('/api/ground-intel', method=['GET', 'POST', 'OPTIONS'])
+    def _bottle_ground_intel():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        bottle.response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Origin, Accept'
+        bottle.response.headers['X-Feed-Source'] = 'OSINT Ground Telemetry'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        bottle.response.content_type = 'application/json'
+
+        from modules.ground_intel import get_ground_intel_client
+        client = get_ground_intel_client()
+
+        lat = None
+        lon = None
+        radius_km = 35.0
+        loc = bottle.request.query.get('location')
+        limit = 20
+
+        if bottle.request.method == 'POST' and bottle.request.json:
+            lat = bottle.request.json.get('lat')
+            lon = bottle.request.json.get('lon')
+            radius_km = float(bottle.request.json.get('radius_km', 35.0))
+            loc = bottle.request.json.get('location', loc)
+            limit = int(bottle.request.json.get('limit', 20))
+        else:
+            try:
+                if bottle.request.query.get('lat') and bottle.request.query.get('lon'):
+                    lat = float(bottle.request.query.get('lat'))
+                    lon = float(bottle.request.query.get('lon'))
+                    radius_km = float(bottle.request.query.get('radius_km', 35.0))
+            except (ValueError, TypeError):
+                pass
+            try:
+                limit = int(bottle.request.query.get('limit', 20))
+            except (ValueError, TypeError):
+                limit = 20
+
+        return json.dumps(client.get_ground_media_in_area(
+            lat=lat,
+            lon=lon,
+            radius_km=radius_km,
+            location=loc,
+            limit=limit
+        ))
+
     @app.route('/api/cctv/sources')
     def _bottle_cctv_sources():
         bottle.response.headers['Access-Control-Allow-Origin'] = '*'
@@ -4888,9 +5166,9 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         bottle.response.content_type = 'application/json'
         cat = bottle.request.query.get('category', '')
         try:
-            limit = int(bottle.request.query.get('limit', 60))
+            limit = int(bottle.request.query.get('limit', 1500))
         except (ValueError, TypeError):
-            limit = 60
+            limit = 1500
         if api and hasattr(api, 'get_active_satellites'):
             return json.dumps(api.get_active_satellites(category=cat, limit=limit))
         from modules.osiris_intel import get_osiris_client

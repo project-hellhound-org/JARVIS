@@ -879,10 +879,29 @@ def find_cctv_for_location(location_name: str, radius_km: float = 75.0) -> List[
        authentic tactical optical vantage points centered on the coordinates with realistic ground elevation.
     """
     loc_clean = (location_name or "").strip().lower()
-    if not loc_clean:
-        return get_cctv_sources()[:12]
-
     all_sources = get_cctv_sources()
+
+    is_random = (
+        not loc_clean
+        or loc_clean in (
+            "random", "any", "random place", "a random place", "random cctv",
+            "a random cctv", "a random cctv footage", "random camera", "random feed",
+            "cctv footage", "cctv", "camera", "cameras", "footage", "somewhere", "anywhere"
+        )
+        or "random" in loc_clean
+    )
+    if is_random:
+        if all_sources:
+            import random
+            curated = [
+                c for c in all_sources
+                if c.get("sourceKind") in ("curated-optical", "caltrans-live", "tfl-jamcam", "austin-open-data")
+                or c.get("cityId") in ("bengaluru", "mumbai", "london", "shibuya", "san-francisco", "los-angeles")
+            ]
+            pool = curated if curated else all_sources
+            sample_size = min(len(pool), 12)
+            return random.sample(pool, sample_size)
+        return []
 
     # 1. Direct textual match with word boundary protection (avoids 'rome' in 'promenade')
     matched = []

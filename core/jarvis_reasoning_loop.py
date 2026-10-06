@@ -43,7 +43,26 @@ class JarvisCognitiveLoop:
     def tool_gods_eye_nav(self, location_name: str, zoom_altitude: Optional[float] = None) -> Dict[str, Any]:
         """Navigates the 3D planetary Earth globe to the specified city or coordinates."""
         from frontend.desktop import resolve_geospatial_coordinates
-        res = resolve_geospatial_coordinates(location_name)
+        clean_loc = (location_name or "").strip().lower()
+        if not clean_loc or clean_loc in ("random", "a random place", "random place", "somewhere", "anywhere") or ("random" in clean_loc and "cctv" not in clean_loc):
+            import random
+            RANDOM_SPOTS = [
+                (11.0168, 76.9558, "Coimbatore, India"),
+                (35.6762, 139.6503, "Tokyo, Japan"),
+                (48.8566, 2.3522, "Paris, France"),
+                (51.5074, -0.1278, "London, United Kingdom"),
+                (40.7128, -74.0060, "New York City, USA"),
+                (37.7749, -122.4194, "San Francisco, USA"),
+                (-33.8688, 151.2093, "Sydney, Australia"),
+                (12.9716, 77.5946, "Bengaluru, India"),
+                (25.2048, 55.2708, "Dubai, UAE"),
+                (41.9028, 12.4964, "Rome, Italy"),
+                (-22.9068, -43.1729, "Rio de Janeiro, Brazil"),
+                (64.1466, -21.9426, "Reykjavik, Iceland"),
+            ]
+            res = random.choice(RANDOM_SPOTS)
+        else:
+            res = resolve_geospatial_coordinates(location_name)
         if not res:
             return {"success": False, "error": f"Coordinates unresolvable for '{location_name}'"}
         lat, lon, matched_name = res
@@ -398,6 +417,10 @@ Available Tools:
   Parameters: {{"action": "live_news"}}
 - "annotate": Mark/illuminate tactical sector perimeter or defense zone on 3D globe.
   Parameters: {{"action": "annotate", "location": "<loc>", "sector_name": "<name>", "radius_km": <float>, "classification": "<NO-FLY ZONE|SURVEILLANCE ZONE|DEFENSE ZONE>"}}
+- "ground_intel": Query georeferenced open-source photos, citizen dispatches, YouTube clips, and drone footage at a specific city or sector.
+  Parameters: {{"action": "ground_intel", "location": "<city name>"}}
+- "vessels": Scan live maritime AIS vessel traffic, naval warships, tankers, and cargo ships in a port, strait, or sea.
+  Parameters: {{"action": "vessels", "location": "<sea/port/region>", "query": "<optional ship name or type>"}}
 
 Rules:
 1. When a specific city/location is referenced for CCTV, traffic, or weather, prepend a "nav" action for that location first if the globe camera should focus there.
@@ -496,6 +519,10 @@ Rules:
                                     item["progress_phrase"] = f"Computing Valhalla turn-by-turn road route between {item.get('from', 'Origin')} and {item.get('to', 'Destination')}..."
                                 elif action == "live_news":
                                     item["progress_phrase"] = f"Accessing 24/7 global SIGINT broadcast network, {sal}..."
+                                elif action == "ground_intel":
+                                    item["progress_phrase"] = f"Extracting georeferenced open-source media and video footage for {item.get('location', 'the target area')}, {sal}..."
+                                elif action == "vessels":
+                                    item["progress_phrase"] = f"Scanning maritime AIS transponders and naval vessel corridors, {sal}..."
                                 else:
                                     item["progress_phrase"] = f"Executing operational action: {action}, {sal}..."
 
@@ -561,14 +588,23 @@ Rules:
         plan_steps = []
 
         loc_candidate = ""
-        m_loc = re.search(r'\b(?:in|at|for|around|over|near|towards)\s+([a-zA-Z\s,\.\-]{2,30})', text_lower)
-        if m_loc:
-            raw_loc = m_loc.group(1).strip()
-            cleaned_loc = re.sub(r'\b(?:and|check|see|show|find|tell|traffic|cctv|camera|flights?|weather|how|what|lock|mark|pull|scan)\b.*$', '', raw_loc).strip()
+
+        # Explicit navigation directives: "navigate to Tokyo", "glide to Paris", "fly to London", "go to Sydney"
+        m_nav = re.search(r'\b(?:navigate\s+to|glide\s+to|fly\s+to|go\s+to|take\s+me\s+to|head\s+to|zoom\s+to|travel\s+to|inspect|visit)\s+([a-zA-Z0-9\s,\.\-]{2,45})', text_lower)
+        if m_nav:
+            raw_loc = m_nav.group(1).strip()
+            cleaned_loc = re.sub(r'\b(?:and|please|now|telemetry|globe|view|satellite|map|ground|media|photos?|videos?)\b.*$', '', raw_loc).strip()
             loc_candidate = cleaned_loc.strip(' ,.?!')
 
         if not loc_candidate:
-            m_scan = re.search(r'\b(?:scan|check|monitor|track|search)\s+([a-zA-Z\s,\.\-]{2,30}?)\s+(?:airspace|radar|weather|cctv|traffic|perimeter|zone)\b', text_lower)
+            m_loc = re.search(r'\b(?:in|at|for|around|over|near|towards|to)\s+([a-zA-Z0-9\s,\.\-]{2,30})', text_lower)
+            if m_loc:
+                raw_loc = m_loc.group(1).strip()
+                cleaned_loc = re.sub(r'\b(?:and|check|see|show|find|tell|traffic|cctv|camera|flights?|weather|how|what|lock|mark|pull|scan|annotate|designate|highlight)\b.*$', '', raw_loc).strip()
+                loc_candidate = cleaned_loc.strip(' ,.?!')
+
+        if not loc_candidate:
+            m_scan = re.search(r'\b(?:scan|check|monitor|track|search)\s+([a-zA-Z0-9\s,\.\-]{2,30}?)\s+(?:airspace|radar|weather|cctv|traffic|perimeter|zone)\b', text_lower)
             if m_scan:
                 loc_candidate = m_scan.group(1).strip(' ,.?!')
 
@@ -576,6 +612,16 @@ Rules:
             m_air = re.search(r'\b([a-zA-Z]{3,20})\s+(?:airspace|weather|traffic|cctv|radar)\b', text_lower)
             if m_air and m_air.group(1).lower() not in ('the', 'local', 'our', 'all', 'pull', 'scan', 'check'):
                 loc_candidate = m_air.group(1).strip()
+
+        # Check for exploratory or random place references
+        if loc_candidate:
+            loc_lower = loc_candidate.lower()
+            if any(p in loc_lower for p in ["random place", "a random place", "somewhere", "anywhere", "a place", "some place"]):
+                loc_candidate = "random"
+            elif loc_lower in ("a place", "place", "random"):
+                loc_candidate = "random"
+        elif any(p in text_lower for p in ["random place", "a random place", "somewhere random", "to a random", "random cctv"]):
+            loc_candidate = "random"
 
         # Viewport relative references check
         viewport_indicators = [
@@ -626,8 +672,25 @@ Rules:
             "surveillance zone", "no-fly zone", "no fly zone", "security perimeter", "annotate sector",
             "mark a", "mark perimeter", "perimeter", "30km"
         ])
+        has_ground_intel = any(w in text_lower for w in [
+            "ground media", "ground footage", "open source media", "photos of", "videos in", "footage of",
+            "footage in", "clips in", "youtube", "citizen report", "what's happening on the ground",
+            "whats happening on the ground", "ground evidence", "show videos", "show photos", "show footage",
+            "stuffs", "stuff", "show me some stuffs", "show me some stuff", "show me stuffs",
+            "show me footages", "show me clips", "show clips", "visual intelligence", "ground intel"
+        ])
+        has_vessels = any(w in text_lower for w in [
+            "vessel", "vessels", "ship", "ships", "maritime", "ais", "warship", "warships",
+            "carrier", "carriers", "naval", "tanker", "tankers", "cargo ship", "boat", "boats", "port traffic"
+        ])
 
-        if loc_candidate:
+        is_cctv_only_nav = False
+        if has_cctv and loc_candidate:
+            if any(w in loc_candidate.lower() for w in ["cctv", "camera", "cam", "footage", "feed", "surveillance"]):
+                is_cctv_only_nav = True
+                loc_candidate = "random" if ("random" in loc_candidate.lower() or "random" in text_lower) else ""
+
+        if loc_candidate and not is_cctv_only_nav:
             plan_steps.append({
                 "action": "nav",
                 "location": loc_candidate,
@@ -656,11 +719,12 @@ Rules:
             })
 
         if has_cctv:
-            if loc_candidate:
+            cctv_loc = loc_candidate or ("random" if ("random" in text_lower or not loc_candidate) else "")
+            if cctv_loc:
                 plan_steps.append({
                     "action": "cctv",
-                    "location": loc_candidate,
-                    "progress_phrase": f"Querying active optical surveillance feeds across {loc_candidate.title()}..."
+                    "location": cctv_loc,
+                    "progress_phrase": f"Querying active optical surveillance feeds across {cctv_loc.title()}..."
                 })
             else:
                 plan_steps.append({
@@ -702,6 +766,21 @@ Rules:
                 "action": "flights",
                 "query": loc_candidate,
                 "progress_phrase": f"Scanning global ADS-B military and civilian airspace transponders, {sal}..."
+            })
+
+        if has_ground_intel:
+            plan_steps.append({
+                "action": "ground_intel",
+                "location": loc_candidate or "Coimbatore",
+                "progress_phrase": f"Extracting georeferenced open-source media and video footage for {(loc_candidate or 'Coimbatore').title()}, {sal}..."
+            })
+
+        if has_vessels:
+            plan_steps.append({
+                "action": "vessels",
+                "location": loc_candidate or "",
+                "query": user_text,
+                "progress_phrase": f"Scanning maritime AIS transponders and naval vessel corridors, {sal}..."
             })
 
         if has_cockpit:
@@ -806,7 +885,9 @@ Rules:
         user_text: str,
         on_progress_speak: Optional[Callable[[str], None]] = None,
         on_progress_ui: Optional[Callable[[str], None]] = None,
-        active_location: Optional[str] = None
+        active_location: Optional[str] = None,
+        active_lat: Optional[float] = None,
+        active_lon: Optional[float] = None
     ) -> Dict[str, Any]:
         """
         Executes an autonomous multi-step reasoning plan in a closed loop.
@@ -861,7 +942,33 @@ Rules:
 
                 elif action == "nav":
                     res = self.tool_gods_eye_nav(step["location"])
-                    obs["result"] = f"Locked orbital camera onto {res.get('label', step['location'])}."
+                    target_label = res.get('label', step['location'])
+                    obs["result"] = f"Locked orbital camera onto {target_label}."
+                    active_location = target_label
+                    if res.get("lat") is not None and res.get("lon") is not None:
+                        active_lat = res.get("lat")
+                        active_lon = res.get("lon")
+                    # Automatically fetch and emit open-source ground media for newly navigated place
+                    try:
+                        from modules.ground_intel import get_ground_intel_client
+                        g_client = get_ground_intel_client()
+                        media_res = g_client.get_ground_media_in_area(
+                            location=target_label,
+                            lat=res.get("lat"),
+                            lon=res.get("lon")
+                        )
+                        pts = media_res.get("points") or media_res.get("media_points") or []
+                        if pts:
+                            want_open = bool(step.get("open_media") or any(s.get("action") == "ground_intel" for s in plan))
+                            if want_open:
+                                self.tool_tactical_layer("groundMedia", True)
+                            self.bus.emit("control_ground_intel", {
+                                "location": target_label,
+                                "points": pts,
+                                "open_first": want_open
+                            })
+                    except Exception as e:
+                        pass
 
                 elif action == "cctv":
                     res = self.tool_cctv_query(step["location"])
@@ -920,6 +1027,58 @@ Rules:
                 elif action == "cockpit":
                     self.bus.emit("control_cockpit", {"action": "enter", "target": step.get("target", "")})
                     obs["result"] = "Tactical cockpit chase camera engaged on selected target vector."
+
+                elif action == "ground_intel":
+                    loc = step.get("location") or ""
+                    is_generic = not loc or str(loc).lower() in ("current", "here", "this place", "this area", "viewing right now", "now", "sector", "none", "random", "a random place")
+                    target_loc = active_location if (is_generic and active_location) else (loc if not is_generic else "")
+                    use_lat = active_lat if (is_generic and active_lat is not None) else None
+                    use_lon = active_lon if (is_generic and active_lon is not None) else None
+
+                    from modules.ground_intel import get_ground_intel_client
+                    client = get_ground_intel_client()
+                    query_loc = target_loc or (f"{use_lat:.4f},{use_lon:.4f}" if use_lat is not None and use_lon is not None else "Coimbatore")
+                    media_res = client.get_ground_media_in_area(
+                        lat=use_lat,
+                        lon=use_lon,
+                        location=query_loc,
+                        radius_km=35.0,
+                        limit=12
+                    )
+                    pts = media_res.get("media_points") or media_res.get("points") or []
+                    count = len(pts)
+                    loc_display = media_res.get("location") or target_loc or "Active Sector"
+                    top_titles = [p.get("title", "") for p in pts[:3]]
+                    self.tool_tactical_layer("groundMedia", True)
+                    self.bus.emit("control_tactical_layer", {"layer": "groundMedia", "state": True, "location": loc_display})
+                    self.bus.emit("control_ground_intel", {"location": loc_display, "points": pts, "open_first": True})
+                    obs["result"] = f"Identified {count} geolocated open-source intelligence nodes across {loc_display}: {'; '.join(top_titles)}."
+                    self.task_manager.add_finding(task.task_id, TaskFinding(
+                        title=f"Ground Telemetry: {loc_display}",
+                        url="#world-telemetry",
+                        snippet=f"{count} media nodes verified | Top: {top_titles[0] if top_titles else 'None'}",
+                        source="ground_intel",
+                        extra=media_res
+                    ))
+
+                elif action == "vessels":
+                    loc = step.get("location") or ""
+                    q = step.get("query") or ""
+                    from modules.maritime_intel import get_maritime_client
+                    client = get_maritime_client()
+                    v_res = client.get_vessels_in_area(limit=40)
+                    v_list = v_res.get("vessels", [])
+                    count = len(v_list)
+                    top_names = [f"{v.get('name')} ({v.get('type')})" for v in v_list[:3]]
+                    self.bus.emit("control_tactical_layer", {"layer": "vessels", "state": True})
+                    obs["result"] = f"Scanning maritime AIS transponders. Tracked {count} active vessels in sector: {'; '.join(top_names)}."
+                    self.task_manager.add_finding(task.task_id, TaskFinding(
+                        title=f"Maritime AIS Fleet: {count} Vessels",
+                        url="#world-telemetry",
+                        snippet=f"Active naval & commercial contacts: {', '.join(top_names[:2])}",
+                        source="maritime_intel",
+                        extra=v_res
+                    ))
 
                 elif action == "satellites":
                     res = self.tool_osiris_satellites(step.get("query", "ISS"))
@@ -1011,5 +1170,8 @@ Rules:
             "text": final_debrief,
             "observations": observations,
             "spoken_updates": spoken_updates,
-            "task_id": task.task_id
+            "task_id": task.task_id,
+            "active_location": active_location,
+            "active_lat": active_lat,
+            "active_lon": active_lon
         }
