@@ -4177,6 +4177,10 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
 <div id="cesium-spatial-wrapper">
   <div id="cesiumContainer"></div>
   <div id="orbital-space-aperture"></div>
+  <button id="btn-reset-view" onclick="window.resetViewToHome()" style="position:fixed; top:80px; left:24px; z-index:9998; display:none; align-items:center; gap:6px; background:rgba(6,10,18,0.92); border:1px solid #00F0FF; color:#00F0FF; font-family:var(--mono); font-size:11px; font-weight:800; padding:8px 14px; border-radius:6px; cursor:pointer; box-shadow:0 0 16px rgba(0,240,255,0.4); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); user-select:none; transition:all 0.2s ease;" title="Reset View to Home Orbital Pose (Shortcut: Home key)">
+    <span>⌂</span>
+    <span>RESET VIEW</span>
+  </button>
 </div>
 <div id="bg-layer"></div>
 <div id="bg-overlay"></div>
@@ -15117,6 +15121,12 @@ document.addEventListener('keydown', function(e) {
     e.preventDefault();
     window.toggleChatPanel(false);
   }
+  if (e.key === 'Home' && !e.target.closest('input, textarea')) {
+    e.preventDefault();
+    if (typeof window.resetViewToHome === 'function') {
+      window.resetViewToHome();
+    }
+  }
 });
 
 // Global error telemetry to terminal
@@ -15225,6 +15235,7 @@ window.focusGlobeCoordinates = function(lat, lon, label) {
 
     // Smoothly fly Cesium 3D World Terrain camera to the target sector with centered tactical framing
     if (window.cesiumViewer && typeof Cesium !== 'undefined' && !window.cesiumViewer.isDestroyed()) {
+      window.cesiumViewer.scene.requestRenderMode = false;
       const targetCartesian = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
       const boundingSphere = new Cesium.BoundingSphere(targetCartesian, 25000);
       window.cesiumViewer.camera.flyToBoundingSphere(boundingSphere, {
@@ -15233,10 +15244,21 @@ window.focusGlobeCoordinates = function(lat, lon, label) {
           Cesium.Math.toRadians(-45),
           42000
         ),
-        duration: 2.2
+        duration: 2.2,
+        complete: () => {
+          if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+            window.cesiumViewer.scene.requestRenderMode = true;
+          }
+          if (typeof window.updateResetButtonVisibility === 'function') {
+            window.updateResetButtonVisibility();
+          }
+        }
       });
 
     window._isTargetViewLocked = true;
+    if (typeof window.updateResetButtonVisibility === 'function') {
+      window.updateResetButtonVisibility();
+    }
     if (typeof window.updateCesiumLabelVisibility === 'function') {
       window.updateCesiumLabelVisibility();
     }
@@ -15279,8 +15301,51 @@ window.focusGlobeCoordinates = function(lat, lon, label) {
   }
 };
 
-window.resetGlobeOrbitView = function() {
+window.isCameraAtHomePose = function() {
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed() || !window._cctvHomePose) return true;
+  const cam = window.cesiumViewer.camera;
+  const homePos = window._cctvHomePose.destination;
+  const dist = Cesium.Cartesian3.distance(cam.position, homePos);
+  const pitchDiff = Math.abs(cam.pitch - window._cctvHomePose.orientation.pitch);
+  return dist < 150000 && pitchDiff < 0.1;
+};
+
+window.shouldShowResetViewButton = function() {
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return false;
+  const isCockpit = !!(window.JarvisCockpit && window.JarvisCockpit.active);
+  const hasTracked = !!window.cesiumViewer.trackedEntity;
+  const isLocked = !!window._isTargetViewLocked;
+  const hasCctvDock = !!window._activeCctvCameraId;
+  const hasSatTrack = !!window._hasFocusedSatelliteTrack;
+  const atHome = window.isCameraAtHomePose();
+  return isCockpit || hasTracked || isLocked || hasCctvDock || hasSatTrack || !atHome;
+};
+
+window.updateResetButtonVisibility = function() {
+  const btn = document.getElementById('btn-reset-view');
+  if (!btn) return;
+  const show = window.shouldShowResetViewButton();
+  btn.style.display = show ? 'flex' : 'none';
+};
+
+window.resetViewToHome = function() {
   window._isTargetViewLocked = false;
+  window._hasFocusedSatelliteTrack = false;
+  if (window.JarvisCockpit && window.JarvisCockpit.active) {
+    window.JarvisCockpit.exit();
+  }
+  if (typeof window.closeCctvDock === 'function') {
+    window.closeCctvDock();
+  }
+  if (typeof window.closeInspectCard === 'function') {
+    window.closeInspectCard();
+  }
+  if (typeof window.closeGroundMediaCard === 'function') {
+    window.closeGroundMediaCard();
+  }
+  if (typeof window.clearFocusedSatelliteTrack === 'function') {
+    window.clearFocusedSatelliteTrack();
+  }
   if (window.cesiumBeacon) window.cesiumBeacon.show = false;
   if (window.JarvisAnnotations && window.JarvisAnnotations.dataSource) {
     const ds = window.JarvisAnnotations.dataSource;
@@ -15292,24 +15357,37 @@ window.resetGlobeOrbitView = function() {
   if (typeof window.updateCesiumLabelVisibility === 'function') {
     window.updateCesiumLabelVisibility();
   }
-  if (window.JarvisCockpit && window.JarvisCockpit.active) {
-    window.JarvisCockpit.exit();
-  }
-  if (window.JarvisSFX) {
+  if (window.JarvisSFX && typeof window.JarvisSFX.flightSwoosh === 'function') {
     window.JarvisSFX.flightSwoosh();
   }
-  if (window.cesiumViewer && typeof Cesium !== 'undefined' && !window.cesiumViewer.isDestroyed()) {
+  if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+    window.cesiumViewer.trackedEntity = undefined;
+    window.cesiumViewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+    const dest = window._cctvHomePose ? window._cctvHomePose.destination : Cesium.Cartesian3.fromDegrees(0.0, 20.0, 25000000);
+    const orient = window._cctvHomePose ? window._cctvHomePose.orientation : {
+      heading: Cesium.Math.toRadians(0),
+      pitch: Cesium.Math.toRadians(-90),
+      roll: 0.0
+    };
+    window.cesiumViewer.scene.requestRenderMode = false;
     window.cesiumViewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(0.0, 20.0, 25000000),
-      orientation: {
-        heading: Cesium.Math.toRadians(0),
-        pitch: Cesium.Math.toRadians(-90),
-        roll: 0.0
-      },
-      duration: 2.0
+      destination: dest,
+      orientation: orient,
+      duration: 2.0,
+      complete: () => {
+        if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+          window.cesiumViewer.scene.requestRenderMode = true;
+          window.cesiumViewer.scene.requestRender();
+        }
+        window.updateResetButtonVisibility();
+      }
     });
+    window.cesiumViewer.scene.requestRender();
   }
+  window.updateResetButtonVisibility();
 };
+
+window.resetGlobeOrbitView = window.resetViewToHome;
 
 window.glideToGlobe = function(lat, lon, label) {
   if (Number.isFinite(lat) && Number.isFinite(lon)) {
@@ -16008,6 +16086,9 @@ const JarvisCockpit = {
     if (window.JarvisSFX) window.JarvisSFX.targetLock();
     if (typeof showSubtitles === 'function') {
       showSubtitles(`🎮 Cockpit camera engaged: ${target._tacticalData?.callsign || 'CONTACT'} [COCKPIT 1ST PERSON]`, 'COCKPIT');
+    }
+    if (typeof window.updateResetButtonVisibility === 'function') {
+      window.updateResetButtonVisibility();
     }
   },
 
@@ -17142,12 +17223,35 @@ function initCesiumGlobe() {
     loadCesiumBuildings();
 
     // Initial God's Eye orbital view: neutral global planetary overview
+    const homeDest = Cesium.Cartesian3.fromDegrees(0.0, 20.0, 25000000);
+    const homeOrient = {
+      heading: Cesium.Math.toRadians(0),
+      pitch: Cesium.Math.toRadians(-90),
+      roll: 0.0
+    };
     cesiumViewer.camera.setView({
-      destination: Cesium.Cartesian3.fromDegrees(0.0, 20.0, 25000000),
-      orientation: {
-        heading: Cesium.Math.toRadians(0),
-        pitch: Cesium.Math.toRadians(-90),
-        roll: 0.0
+      destination: homeDest,
+      orientation: homeOrient
+    });
+    window._cctvHomePose = {
+      destination: homeDest,
+      orientation: homeOrient
+    };
+
+    cesiumViewer.camera.percentageChanged = 0.005;
+    cesiumViewer.camera.moveStart.addEventListener(() => {
+      if (typeof window.updateResetButtonVisibility === 'function') {
+        window.updateResetButtonVisibility();
+      }
+    });
+    cesiumViewer.camera.changed.addEventListener(() => {
+      if (typeof window.updateResetButtonVisibility === 'function') {
+        window.updateResetButtonVisibility();
+      }
+    });
+    cesiumViewer.camera.moveEnd.addEventListener(() => {
+      if (typeof window.updateResetButtonVisibility === 'function') {
+        window.updateResetButtonVisibility();
       }
     });
 
@@ -22111,13 +22215,21 @@ function initGlobeIntelligence(viewer) {
         }
       });
 
+      window._hasFocusedSatelliteTrack = true;
+      if (typeof window.updateResetButtonVisibility === 'function') {
+        window.updateResetButtonVisibility();
+      }
       viewer.scene.requestRender();
     };
 
     window.clearFocusedSatelliteTrack = function() {
+      window._hasFocusedSatelliteTrack = false;
       if (_osirisSatellitesDS && _osirisSatellitesDS.entities) {
         _osirisSatellitesDS.entities.removeAll();
         if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
+      }
+      if (typeof window.updateResetButtonVisibility === 'function') {
+        window.updateResetButtonVisibility();
       }
     };
 
