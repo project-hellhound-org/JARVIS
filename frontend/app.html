@@ -4546,6 +4546,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   </div>
   <div style="margin-top:10px; display:flex; gap:6px;">
     <button class="globe-hud-btn" id="inspect-action-btn" style="flex:1; background:rgba(0,240,255,0.15); border-color:#00F0FF; color:#00F0FF;" onclick="window.lockInspectTarget()">LOCK TARGET</button>
+    <button class="globe-hud-btn" id="inspect-chase-btn" style="display:none; flex:1; background:rgba(255,157,46,0.2); border-color:#FF9D2E; color:#FFB84D;" onclick="window.startCockpitChase()">🎮 CHASE CAM</button>
     <button class="globe-hud-btn" style="flex:0.6;" onclick="window.closeGlobeInspectCard()">CLOSE</button>
   </div>
 </div>
@@ -17956,12 +17957,15 @@ window.inspectTarget = function(data) {
   const title = document.getElementById('inspect-card-title');
   const body = document.getElementById('inspect-card-body');
   const actBtn = document.getElementById('inspect-action-btn');
+  const chaseBtn = document.getElementById('inspect-chase-btn');
   if (!card || !body) return;
 
   if (_cctvAnimInterval) {
     clearInterval(_cctvAnimInterval);
     _cctvAnimInterval = null;
   }
+
+  if (chaseBtn) chaseBtn.style.display = 'none';
 
   if (data.type === 'AIRCRAFT') {
     const isMil = data.isMil;
@@ -18018,6 +18022,11 @@ window.inspectTarget = function(data) {
         if (data._entity) window.lockTarget(data._entity, data);
         else window.focusGlobeCoordinates(data.lat, data.lon, data.callsign);
       };
+    }
+    if (chaseBtn) {
+      chaseBtn.style.display = 'block';
+      chaseBtn.textContent = '✈ CHASE COCKPIT VIEW';
+      chaseBtn.onclick = () => window.JarvisCockpit.enter(data.callsign);
     }
 
     // Asynchronous God's Eye Flight Route & Airframe Enrichment (Bilawal Sidhu adsbdbProxy integration)
@@ -18199,6 +18208,24 @@ window.lockInspectTarget = function() {
   } else if (_inspectTargetData) {
     window.focusGlobeCoordinates(_inspectTargetData.lat, _inspectTargetData.lon, _inspectTargetData.callsign || _inspectTargetData.label || _inspectTargetData.name);
   }
+};
+
+window.startCockpitChase = function() {
+  if (_inspectTargetData && _inspectTargetData.callsign && window.JarvisCockpit) {
+    window.JarvisCockpit.enter(_inspectTargetData.callsign);
+    return;
+  }
+  if (!_inspectTargetData || !_inspectTargetData._entity) return;
+  const viewer = window.cesiumViewer;
+  if (!viewer || viewer.isDestroyed()) return;
+
+  const entity = _inspectTargetData._entity;
+  viewer.trackedEntity = entity;
+
+  const headingRad = Cesium.Math.toRadians(_inspectTargetData.heading || 0);
+  const pitchRad = Cesium.Math.toRadians(-14);
+  const rangeMeters = 3800;
+  viewer.zoomTo(entity, new Cesium.HeadingPitchRange(headingRad + Math.PI, pitchRad, rangeMeters));
 };
 
 // Fly to CCTV Lens Optical Tactical Overhead Perspective (Exact God's Eye Angle)
@@ -20333,9 +20360,27 @@ function initGlobeIntelligence(viewer) {
   _flightsDataSource.show = _tacticalLayers.flights;
   viewer.dataSources.add(_flightsDataSource);
 
+  const FLIGHT_POLL_INTERVAL_MS = 14000;
+  const FLIGHT_RENDER_DELAY_MARGIN_MS = 3000;
+  const FLIGHT_RENDER_DELAY_MS = FLIGHT_POLL_INTERVAL_MS + FLIGHT_RENDER_DELAY_MARGIN_MS; // 17000ms delay enables continuous bracketed interpolation
+
   const _aircraftFlightMap = window._aircraftFlightMap || new Map();
   window._aircraftFlightMap = _aircraftFlightMap;
   let _lastFlightFrameTime = performance.now();
+
+  function deadReckonFromFix(fix, speedKnots, headingDeg, dtSec) {
+    const clampedDt = Math.max(-30, Math.min(30, dtSec));
+    const speedMps = Math.max(50, (speedKnots || (fix.speedMps ? fix.speedMps / 0.514444 : 250)) * 0.514444);
+    const distM = speedMps * clampedDt;
+    const hdgRad = Cesium.Math.toRadians(headingDeg != null ? headingDeg : (fix.track || 0));
+    const dNorth = distM * Math.cos(hdgRad);
+    const dEast = distM * Math.sin(hdgRad);
+    const dLat = dNorth / 111139.0;
+    const cosLat = Math.max(0.1, Math.cos(Cesium.Math.toRadians(fix.lat)));
+    const dLon = dEast / (111139.0 * cosLat);
+    const alt = fix.altMeters != null ? fix.altMeters : 10000;
+    return Cesium.Cartesian3.fromDegrees(fix.lon + dLon, fix.lat + dLat, alt);
+  }
 
   // God's Eye Shortest-Arc Angular Interpolation (Bilawal Sidhu / motion.js)
   function lerpAngleDeg(a, b, t) {
@@ -20373,62 +20418,58 @@ function initGlobeIntelligence(viewer) {
     }
 
     // God's Eye One-Step-Behind Interpolation Buffer (motion.js / RENDER_DELAY_SEC)
-    const RENDER_DELAY_MS = 10000; // 10s delay enables continuous bracketed interpolation
     const nowMs = Date.now();
-    const renderTimeMs = nowMs - RENDER_DELAY_MS;
+    const renderTimeMs = nowMs - FLIGHT_RENDER_DELAY_MS;
 
     _aircraftFlightMap.forEach((ac) => {
       let newPos = null;
       let currentHeading = ac.headingDeg || 0;
 
+      // Ensure history stays trimmed so it never grows unbounded
+      if (ac.history && ac.history.length > 8) {
+        ac.history.splice(0, ac.history.length - 8);
+      }
+
       if (ac.history && ac.history.length >= 2) {
+        const oldest = ac.history[0];
+        const newest = ac.history[ac.history.length - 1];
         let bracketFound = false;
-        for (let i = ac.history.length - 1; i >= 1; i--) {
-          const a = ac.history[i - 1];
-          const b = ac.history[i];
-          if (a.timeMs <= renderTimeMs && renderTimeMs <= b.timeMs) {
-            const span = b.timeMs - a.timeMs;
-            const t = span > 0 ? (renderTimeMs - a.timeMs) / span : 1.0;
-            const clampedT = Math.max(0.0, Math.min(1.0, t));
-            newPos = Cesium.Cartesian3.lerp(a.position, b.position, clampedT, new Cesium.Cartesian3());
-            currentHeading = lerpAngleDeg(a.track, b.track, clampedT);
-            bracketFound = true;
-            break;
+
+        if (renderTimeMs >= oldest.timeMs && renderTimeMs <= newest.timeMs) {
+          for (let i = ac.history.length - 1; i >= 1; i--) {
+            const a = ac.history[i - 1];
+            const b = ac.history[i];
+            if (a.timeMs <= renderTimeMs && renderTimeMs <= b.timeMs) {
+              const span = b.timeMs - a.timeMs;
+              const t = span > 0 ? (renderTimeMs - a.timeMs) / span : 1.0;
+              const clampedT = Math.max(0.0, Math.min(1.0, t));
+              newPos = Cesium.Cartesian3.lerp(a.position, b.position, clampedT, new Cesium.Cartesian3());
+              currentHeading = lerpAngleDeg(a.track, b.track, clampedT);
+              bracketFound = true;
+              break;
+            }
           }
         }
+
         if (!bracketFound) {
-          const newest = ac.history[ac.history.length - 1];
+          // If renderTime falls outside the history, dead-reckon from nearest fix clamped to max 30s
           if (renderTimeMs > newest.timeMs) {
-            // Packet delayed: smoothly extrapolate along last confirmed velocity vector
-            const extraSec = Math.min(45, (renderTimeMs - newest.timeMs) / 1000.0);
-            const distM = (newest.speedMps || 220) * extraSec;
-            const hdgRad = Cesium.Math.toRadians(newest.track || 0);
-            const dNorth = distM * Math.cos(hdgRad);
-            const dEast = distM * Math.sin(hdgRad);
-            const dLat = dNorth / 111139.0;
-            const cosLat = Math.max(0.1, Math.cos(Cesium.Math.toRadians(newest.lat)));
-            const dLon = dEast / (111139.0 * cosLat);
-            newPos = Cesium.Cartesian3.fromDegrees(newest.lon + dLon, newest.lat + dLat, newest.altMeters);
-            currentHeading = newest.track;
+            const dtSec = (renderTimeMs - newest.timeMs) / 1000.0;
+            newPos = deadReckonFromFix(newest, ac.speedKnots, ac.headingDeg, dtSec);
+            currentHeading = ac.headingDeg || newest.track || 0;
           } else {
-            const oldest = ac.history[0];
-            newPos = Cesium.Cartesian3.clone(oldest.position);
-            currentHeading = oldest.track;
+            // renderTimeMs < oldest.timeMs: dead-reckon from oldest fix
+            const dtSec = (renderTimeMs - oldest.timeMs) / 1000.0;
+            newPos = deadReckonFromFix(oldest, ac.speedKnots, ac.headingDeg, dtSec);
+            currentHeading = ac.headingDeg || oldest.track || 0;
           }
         }
       } else if (ac.history && ac.history.length === 1) {
-        // Initial single fix: project forward smoothly until next telemetry sample
+        // Fewer than 2 fixes: dead-reckon from single fix clamped to max 30s
         const fix = ac.history[0];
-        const ageSec = Math.min(20, (nowMs - fix.timeMs) / 1000.0);
-        const distM = (fix.speedMps || 220) * ageSec;
-        const hdgRad = Cesium.Math.toRadians(fix.track || 0);
-        const dNorth = distM * Math.cos(hdgRad);
-        const dEast = distM * Math.sin(hdgRad);
-        const dLat = dNorth / 111139.0;
-        const cosLat = Math.max(0.1, Math.cos(Cesium.Math.toRadians(fix.lat)));
-        const dLon = dEast / (111139.0 * cosLat);
-        newPos = Cesium.Cartesian3.fromDegrees(fix.lon + dLon, fix.lat + dLat, fix.altMeters);
-        currentHeading = fix.track;
+        const dtSec = (renderTimeMs - fix.timeMs) / 1000.0;
+        newPos = deadReckonFromFix(fix, ac.speedKnots, ac.headingDeg, dtSec);
+        currentHeading = ac.headingDeg || fix.track || 0;
       } else {
         newPos = Cesium.Cartesian3.fromDegrees(ac.lon, ac.lat, ac.altMeters);
       }
@@ -20892,7 +20933,7 @@ function initGlobeIntelligence(viewer) {
 
   window._fetchLiveFlights = fetchLiveFlights;
   fetchLiveFlights();
-  setInterval(fetchLiveFlights, 14000);
+  setInterval(fetchLiveFlights, FLIGHT_POLL_INTERVAL_MS);
 
   // =========================================================================
   // 5. ORBITAL SATELLITES LAYER (ISS REAL-TIME TRACKER)
