@@ -22091,6 +22091,7 @@ function initGlobeIntelligence(viewer) {
     }
 
     window.fetchOsirisSatellites = fetchOsirisSatellites;
+    window.renderOsirisSatellites = renderOsirisSatellites;
     async function fetchOsirisSatellites() {
       if (!_osirisActive && !_tacticalLayers.space) return;
       try {
