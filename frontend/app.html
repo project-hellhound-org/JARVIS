@@ -1780,38 +1780,7 @@
     border-color: #FF9D2E !important;
     color: #FFF !important;
   }
-  #chat-expand-launcher {
-    position: fixed !important;
-    bottom: 74px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    display: none;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 28px !important;
-    height: 28px !important;
-    background: rgba(6, 10, 18, 0.88) !important;
-    border: 1px solid rgba(255, 157, 46, 0.35) !important;
-    border-radius: 50% !important;
-    padding: 0 !important;
-    color: #FFB84D !important;
-    cursor: pointer !important;
-    z-index: 260 !important;
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 157, 46, 0.15) !important;
-    transition: all 0.2s ease !important;
-    pointer-events: auto !important;
-  }
-  body.chat-panel-collapsed #chat-expand-launcher {
-    display: flex !important;
-  }
-  #chat-expand-launcher:hover {
-    background: rgba(255, 157, 46, 0.20) !important;
-    border-color: #FF9D2E !important;
-    color: #FFF !important;
-    transform: translateX(-50%) translateY(-2px) !important;
-  }
+
   #thread {
     width: 100% !important;
     max-height: calc(24vh - 34px) !important;
@@ -3857,28 +3826,36 @@ body.chat-panel-collapsed #gods-eye-bottom-dock {
   display: none;
   align-items: center;
   gap: 8px;
-  background: rgba(4, 10, 20, 0.88);
-  border: 1px solid rgba(0, 240, 255, 0.45);
+  background: rgba(6, 10, 18, 0.92);
+  border: 1px solid #00F0FF;
   border-radius: 8px;
   padding: 8px 14px;
   color: #00F0FF;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  font-weight: 800;
   letter-spacing: 1px;
-  cursor: pointer;
-  z-index: 9993;
+  cursor: grab;
+  z-index: 9995;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 12px rgba(0, 240, 255, 0.2);
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7), 0 0 14px rgba(0, 240, 255, 0.35);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  pointer-events: auto !important;
 }
 #chat-expand-launcher:hover {
-  background: rgba(0, 240, 255, 0.15);
+  background: rgba(0, 240, 255, 0.18);
   border-color: #38BDF8;
-  box-shadow: 0 0 18px rgba(0, 240, 255, 0.4);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.55);
   color: #FFF;
+}
+#chat-expand-launcher.is-dragging {
+  cursor: grabbing !important;
+  opacity: 0.95;
+  box-shadow: 0 0 26px rgba(0, 240, 255, 0.75);
 }
 body.chat-panel-collapsed #chat-expand-launcher {
   display: flex !important;
@@ -4017,7 +3994,6 @@ body.hud-mode #sidebar,
 body.hud-mode #jarvis-body-container,
 body.hud-mode #spatial-globe-hud,
 body.hud-mode .overlay,
-body.hud-mode #chat-expand-launcher,
 body.hud-mode #sidebar-backdrop,
 body.hud-mode #bg-layer,
 body.hud-mode #bg-overlay,
@@ -4030,7 +4006,6 @@ body.voiceos-mode #sidebar,
 body.voiceos-mode #jarvis-body-container,
 body.voiceos-mode #spatial-globe-hud,
 body.voiceos-mode .overlay,
-body.voiceos-mode #chat-expand-launcher,
 body.voiceos-mode #sidebar-backdrop,
 body.voiceos-mode #bg-layer,
 body.voiceos-mode #bg-overlay {
@@ -5155,7 +5130,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
           <div id="chat-panel-header" class="chat-panel-header">
             <div class="chat-panel-header-title">
               <span class="chat-panel-pulse"></span>
-              <span>J.A.R.V.I.S. INTELLIGENCE FEED</span>
+              <span>INTELLIGENCE FEED</span>
             </div>
             <button type="button" class="chat-panel-collapse-btn composer-collapse-btn" onclick="event.stopPropagation(); window.toggleChatPanel()" title="Collapse Chat Panel (Hide Text Box)">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -5168,12 +5143,12 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
           </div>
 
           <div id="thread">
-            <div class="msg msg-answer" style="margin: 0; padding: 2px 0; font-size: 11px; opacity: 0.90; color: #94A3B8;"><span style="color: #FFB84D; font-weight: 600;">J.A.R.V.I.S. Feed:</span> Systems operational. Standing by for voice or text directives.</div>
+            <div class="msg msg-answer" style="margin: 0; padding: 2px 0; font-size: 11px; opacity: 0.90; color: #94A3B8;">Systems operational. Standing by for voice or text directives.</div>
           </div>
 
           <div id="thinking-indicator">
             <div class="thinking-spinner"></div>
-            <span>J.A.R.V.I.S. is analyzing telemetry & executing directives...</span>
+            <span>Analyzing telemetry & executing directives...</span>
           </div>
         </div>
       </div>
@@ -5198,7 +5173,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </span>
           </div>
-          <input type="text" id="chat-input" placeholder="Ask J.A.R.V.I.S. anything... (or hold Space to speak)" />
+          <input type="text" id="chat-input" placeholder="Ask anything or enter directive... (or hold Space to speak)" />
           <button type="button" id="mic-btn" class="mic-btn" title="Voice Input (or hold Space to speak)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
@@ -5230,9 +5205,12 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   </div>
 </div>
 
-<!-- Floating Reopen Icon Chevron when Chat Panel is Collapsed -->
-<button id="chat-expand-launcher" onclick="window.toggleChatPanel()" title="Expand J.A.R.V.I.S. Chat Panel">
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
+<!-- Fixed Draggable Floating Launcher when Chat Panel is Collapsed (Visible on all screens) -->
+<button id="chat-expand-launcher" title="Toggle Intelligence Chat Panel (Drag to Reposition)">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+  </svg>
+  <span>CHAT FEED</span>
 </button>
 
 <!-- 3D Case Graph Overlay -->
@@ -5857,7 +5835,7 @@ function showThinking(show) {
 
 function cleanSpeakerPrefix(text) {
   if (!text) return "";
-  let clean = text.replace(/^(\s*(?:ASSISTANT|AI)\s*:\s*)/i, '');
+  let clean = text.replace(/^(\s*(?:ASSISTANT|AI|J\.A\.R\.V\.I\.S\.|JARVIS)\s*:\s*)/i, '');
   // Strip execution directives so they never display in chat text
   clean = clean.replace(/\[CMD(?::|\s)[^\]]*\]/gi, '');
   clean = clean.replace(/\[CMD(?::|\s)[^\]]*$/gi, '');
@@ -6698,7 +6676,7 @@ window.openTasksOverlay = function() {
       <div style="padding:48px 20px; text-align:center; color:#8A8D91; font-family:var(--mono); font-size:13px; background:#0B0D11; border-radius:8px; border:1px dashed rgba(255,255,255,0.08);">
         <div style="font-size:24px; margin-bottom:12px; color:#FF9D2E;">✦</div>
         <div style="font-weight:700; color:#E6E6E6; margin-bottom:6px; font-family:var(--sans); font-size:15px;">NO ACTIVE TASKS IN SESSION</div>
-        <div style="max-width:440px; margin:0 auto; line-height:1.5;">Ask J.A.R.V.I.S. in the chat bar to execute a Google search, investigate an OSINT target, or monitor live feeds to launch autonomous task surfaces.</div>
+        <div style="max-width:440px; margin:0 auto; line-height:1.5;">Ask in the chat bar to execute a Google search, investigate an OSINT target, or monitor live feeds to launch autonomous task surfaces.</div>
       </div>
     `;
     return;
@@ -7105,12 +7083,12 @@ function renderCaseList(cases) {
 }
 
 function setCaseHeader(name, sub, risk) {
-  $('#case-title').textContent = name || 'J.A.R.V.I.S.';
+  $('#case-title').textContent = name || 'INTELLIGENCE FEED';
   $('#case-sub').textContent = sub || '';
   $('#risk-chip').textContent = risk != null ? `risk ${risk}` : 'risk —';
   const exportBtn = $('#export-report-btn');
   if (exportBtn) {
-    exportBtn.style.display = (name && name !== 'J.A.R.V.I.S.' && name !== 'Hello, You.') ? 'inline-flex' : 'none';
+    exportBtn.style.display = (name && name !== 'J.A.R.V.I.S.' && name !== 'INTELLIGENCE FEED' && name !== 'Hello, You.') ? 'inline-flex' : 'none';
   }
 }
 
@@ -7174,7 +7152,7 @@ window.setOperatorSalutation = function(sal) {
   console.log('[Salutation] Operator salutation updated to:', cleanSal);
   const chatInput = document.getElementById('chat-input');
   if (chatInput && !chatInput.value) {
-    chatInput.placeholder = `Ask J.A.R.V.I.S. or enter directive (${cleanSal})...`;
+    chatInput.placeholder = `Ask or enter directive (${cleanSal})...`;
   }
   const salInput = document.getElementById('cfg-operator-salutation');
   if (salInput && salInput.value !== cleanSal) {
@@ -10142,7 +10120,7 @@ async function stopMicListening(aborted = false) {
 
   const micBtnEl = $('#mic-btn');
   if (micBtnEl) micBtnEl.classList.remove('mic-recording');
-  $('#chat-input').placeholder = "Ask J.A.R.V.I.S. anything... (or hold Space to speak)";
+  $('#chat-input').placeholder = "Ask anything or enter directive... (or hold Space to speak)";
 
   if (aborted) {
     console.log('[JarvisSTT] Voice listening cancelled/aborted.');
@@ -10315,7 +10293,7 @@ window.addEventListener('keyup', (e) => {
     const inputEl = $('#chat-input');
     if (inputEl) {
       inputEl.value = ''; // ensure clean input for transcription
-      inputEl.placeholder = "Ask J.A.R.V.I.S. anything... (or hold Space to speak)";
+      inputEl.placeholder = "Ask anything or enter directive... (or hold Space to speak)";
     }
     const hudText = document.getElementById('hud-notch-text');
     if (hudText) {
@@ -15115,6 +15093,106 @@ window.toggleChatPanel = function(forceState) {
     window.SpatialNav._applySpatialProperties();
   }
 };
+
+function initDraggableChatLauncher() {
+  const launcher = document.getElementById('chat-expand-launcher');
+  if (!launcher || launcher._dragInitialized) return;
+  launcher._dragInitialized = true;
+
+  // Restore persistent coordinates if previously stored
+  const saved = localStorage.getItem('jarvis_chat_launcher_pos');
+  if (saved) {
+    try {
+      const pos = JSON.parse(saved);
+      if (typeof pos.left === 'number' && typeof pos.top === 'number') {
+        const maxX = Math.max(10, window.innerWidth - (launcher.offsetWidth || 110) - 10);
+        const maxY = Math.max(10, window.innerHeight - (launcher.offsetHeight || 38) - 10);
+        const left = Math.max(10, Math.min(maxX, pos.left));
+        const top = Math.max(10, Math.min(maxY, pos.top));
+        launcher.style.left = `${left}px`;
+        launcher.style.top = `${top}px`;
+        launcher.style.bottom = 'auto';
+        launcher.style.right = 'auto';
+        launcher.style.transform = 'none';
+      }
+    } catch(e) {}
+  }
+
+  let isDragging = false;
+  let startX = 0, startY = 0;
+  let initialLeft = 0, initialTop = 0;
+
+  launcher.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const rect = launcher.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    initialLeft = rect.left;
+    initialTop = rect.top;
+    isDragging = false;
+
+    const onPointerMove = (ev) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!isDragging && Math.hypot(dx, dy) > 4) {
+        isDragging = true;
+        launcher.classList.add('is-dragging');
+      }
+      if (isDragging) {
+        const maxX = Math.max(10, window.innerWidth - rect.width - 10);
+        const maxY = Math.max(10, window.innerHeight - rect.height - 10);
+        const newLeft = Math.max(10, Math.min(maxX, initialLeft + dx));
+        const newTop = Math.max(10, Math.min(maxY, initialTop + dy));
+        launcher.style.left = `${newLeft}px`;
+        launcher.style.top = `${newTop}px`;
+        launcher.style.bottom = 'auto';
+        launcher.style.right = 'auto';
+        launcher.style.transform = 'none';
+      }
+    };
+
+    const onPointerUp = (ev) => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+
+      if (isDragging) {
+        launcher.classList.remove('is-dragging');
+        const finalRect = launcher.getBoundingClientRect();
+        try {
+          localStorage.setItem('jarvis_chat_launcher_pos', JSON.stringify({
+            left: Math.round(finalRect.left),
+            top: Math.round(finalRect.top)
+          }));
+        } catch(e) {}
+      } else {
+        if (typeof window.toggleChatPanel === 'function') {
+          window.toggleChatPanel();
+        }
+      }
+    };
+
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  });
+
+  window.addEventListener('resize', () => {
+    const rect = launcher.getBoundingClientRect();
+    const maxX = Math.max(10, window.innerWidth - rect.width - 10);
+    const maxY = Math.max(10, window.innerHeight - rect.height - 10);
+    if (rect.left > maxX || rect.top > maxY) {
+      launcher.style.left = `${Math.min(rect.left, maxX)}px`;
+      launcher.style.top = `${Math.min(rect.top, maxY)}px`;
+    }
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDraggableChatLauncher);
+} else {
+  initDraggableChatLauncher();
+}
 
 document.addEventListener('keydown', function(e) {
   if (e.key === '/' && isChatPanelCollapsed && !e.target.closest('input, textarea')) {
