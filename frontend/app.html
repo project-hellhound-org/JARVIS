@@ -3186,6 +3186,8 @@ body.app-ready {
 .globe-hud-scroll-body {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   gap: 10px;
   overflow-y: auto;
   max-height: calc(100vh - 120px);
@@ -3861,6 +3863,91 @@ body.chat-panel-collapsed #chat-expand-launcher {
   display: flex !important;
 }
 
+/* Tactical Panel Drag, Resize & Select Clamping System */
+#cctv-dock-panel,
+#spatial-globe-hud,
+#ground-media-dock-panel,
+#globe-inspect-card,
+#globe-radio-card {
+  box-sizing: border-box;
+  touch-action: none;
+  min-width: 260px;
+  min-height: 120px;
+}
+
+#cctv-dock-panel.is-tactical-dragging,
+#spatial-globe-hud.is-tactical-dragging,
+#ground-media-dock-panel.is-tactical-dragging,
+#globe-inspect-card.is-tactical-dragging,
+#globe-radio-card.is-tactical-dragging {
+  opacity: 0.94;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.95), 0 0 24px rgba(0, 240, 255, 0.6) !important;
+  cursor: grabbing !important;
+}
+
+.tactical-resize-handle {
+  position: absolute;
+  bottom: 2px;
+  right: 3px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  color: #00F0FF;
+  opacity: 0.6;
+  font-size: 11px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  z-index: 100;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.tactical-resize-handle:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+/* Fix White Select Box Contrast & Clamping across all tactical interfaces */
+select,
+.radio-tag-select,
+#cctv-dock-camera-select,
+#cctv-fs-camera-select {
+  background: #060B12 !important;
+  background-color: #060B12 !important;
+  color: #00F0FF !important;
+  border: 1px solid rgba(0, 240, 255, 0.45) !important;
+  border-radius: 4px !important;
+  outline: none !important;
+  font-family: var(--mono, monospace) !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  text-overflow: ellipsis !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6) !important;
+}
+
+select option,
+.radio-tag-select option,
+#cctv-dock-camera-select option,
+#cctv-fs-camera-select option {
+  background: #060B12 !important;
+  background-color: #060B12 !important;
+  color: #E6E6E6 !important;
+  padding: 6px 10px !important;
+}
+
+select:focus,
+.radio-tag-select:focus,
+#cctv-dock-camera-select:focus,
+#cctv-fs-camera-select:focus {
+  border-color: #00F0FF !important;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.45) !important;
+}
+
 #cesium-spatial-wrapper {
   position: absolute;
   top: 0;
@@ -4210,14 +4297,18 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
 
 <!-- Floating Globe Telemetry HUD (Active when panned to Earth) -->
 <div id="spatial-globe-hud">
-  <div class="globe-hud-rail-bar">
-    <div class="globe-hud-rail-tag">
+  <div class="globe-hud-rail-bar" id="osint-rail-drag-header" style="cursor:move; user-select:none;">
+    <div class="globe-hud-rail-tag" style="display:flex; align-items:center; gap:6px;">
+      <span style="font-size:11px; color:#8A8D91;" title="Drag anywhere">⠿</span>
       <span style="color:#00F0FF;">◉</span>
       <span>OSINT INTELLIGENCE RAIL</span>
     </div>
-    <button class="globe-hud-collapse-trigger" onclick="toggleGlobeHudCollapsed()" title="Collapse Panel (Unobstructed View)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-    </button>
+    <div style="display:flex; align-items:center; gap:5px;">
+      <button class="globe-hud-btn" style="padding:2px 6px; font-size:8.5px; background:rgba(0,240,255,0.12); border-color:rgba(0,240,255,0.4); color:#00F0FF;" onclick="window.resetTacticalLayout()" title="Reset All Panels to Default Positions">⟲ RESET</button>
+      <button class="globe-hud-collapse-trigger" onclick="toggleGlobeHudCollapsed()" title="Collapse Panel (Unobstructed View)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+    </div>
   </div>
 
   <div class="globe-hud-scroll-body">
@@ -4444,6 +4535,16 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
 
     <!-- Real God's Eye Tactical Radio Scanner (Image 4 Parity) -->
     <div class="globe-hud-card" id="globe-radio-card">
+      <div id="radio-drag-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:4px; cursor:move; user-select:none;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:11px; color:#8A8D91;" title="Drag anywhere">⠿</span>
+          <span style="font-size:10px; font-weight:800; color:#00F0FF; letter-spacing:1px;">TACTICAL RADIO SCANNER</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button onclick="window.resetTacticalLayout()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#8A8D91; font-size:8.5px; font-weight:700; padding:1px 5px; border-radius:3px; cursor:pointer;" title="Reset Panel Layout">⟲ RESET</button>
+          <span style="font-size:8.5px; color:#8A8D91;">LIVE AUDIO</span>
+        </div>
+      </div>
       <div class="radio-tuner-box">
         <!-- Tag Selector Bar -->
         <div class="radio-tag-bar">
@@ -4502,6 +4603,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
 
         <audio id="globe-radio-audio" preload="none"></audio>
       </div>
+      <div class="tactical-resize-handle" title="Resize Radio Scanner">◢</div>
     </div>
 
     <!-- Navigation actions -->
@@ -4510,22 +4612,30 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         <button class="globe-hud-btn" style="background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.15); color:#E6E6E6;" onclick="toggleGlobeHudCollapsed()">
           COLLAPSE ❯
         </button>
+        <button id="btn-reset-layout" class="globe-hud-btn" style="background:rgba(0,240,255,0.14); border-color:rgba(0,240,255,0.45); color:#00F0FF;" onclick="window.resetTacticalLayout()" title="Reset All Tactical Panels to Default Positions">
+          ⟲ RESET LAYOUT
+        </button>
         <button class="globe-hud-btn" style="background:rgba(255,157,46,0.18); border-color:rgba(255,157,46,0.45); color:#FFB84D;" onclick="window.glideToSpatial(0)">
           ◄ RETURN TO HUD
         </button>
       </div>
     </div>
   </div>
+  <div class="tactical-resize-handle" title="Resize OSINT Rail">◢</div>
 </div>
 
 <!-- Floating Target Inspection Card for Flights, Cameras, Radio Pins -->
 <div id="globe-inspect-card">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:6px;">
+  <div id="inspect-card-drag-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:6px; cursor:move; user-select:none;">
     <div style="display:flex; align-items:center; gap:6px;">
+      <span style="font-size:11px; color:#8A8D91;" title="Drag anywhere">⠿</span>
       <span id="inspect-card-icon" style="color:#00F0FF; font-size:14px;">✈</span>
       <span id="inspect-card-title" style="font-size:11.5px; font-weight:700; color:#FFFFFF;">CONTACT INSPECTION</span>
     </div>
-    <button onclick="window.closeGlobeInspectCard()" style="background:transparent; border:none; color:#8A8D91; cursor:pointer; font-size:14px; padding:2px;">✕</button>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <button onclick="window.resetTacticalLayout()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#8A8D91; font-size:8.5px; font-weight:700; padding:1px 5px; border-radius:3px; cursor:pointer;" title="Reset Panel Layout">⟲ RESET</button>
+      <button onclick="window.closeGlobeInspectCard()" style="background:transparent; border:none; color:#8A8D91; cursor:pointer; font-size:14px; padding:2px;">✕</button>
+    </div>
   </div>
   <div id="inspect-card-body" style="font-size:10.5px; color:#D1D5DB; display:flex; flex-direction:column; gap:4px; line-height:1.4;">
     <!-- Populated dynamically on entity click -->
@@ -4535,10 +4645,11 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
     <button class="globe-hud-btn" id="inspect-chase-btn" style="display:none; flex:1; background:rgba(255,157,46,0.2); border-color:#FF9D2E; color:#FFB84D;" onclick="window.startCockpitChase()">🎮 CHASE CAM</button>
     <button class="globe-hud-btn" style="flex:0.6;" onclick="window.closeGlobeInspectCard()">CLOSE</button>
   </div>
+  <div class="tactical-resize-handle" title="Resize Inspect Card">◢</div>
 </div>
 
-<!-- Real God's Eye CCTV Tactical Dock Panel (Draggable Right Rail) -->
-<div id="cctv-dock-panel" style="position:fixed; top:80px; right:20px; width:340px; max-width:88vw; background:rgba(6,10,18,0.94); border:1px solid rgba(0,240,255,0.45); border-radius:8px; padding:12px; box-shadow:0 12px 36px rgba(0,0,0,0.85); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); z-index:9995; display:none; font-family:var(--mono); color:#E6E6E6; user-select:none; pointer-events:auto;">
+<!-- Real God's Eye CCTV Tactical Dock Panel (Draggable Left Rail) -->
+<div id="cctv-dock-panel" style="position:fixed; top:80px; left:20px; width:340px; max-width:88vw; background:rgba(6,10,18,0.94); border:1px solid rgba(0,240,255,0.45); border-radius:8px; padding:12px; box-shadow:0 12px 36px rgba(0,0,0,0.85); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); z-index:9995; display:none; font-family:var(--mono); color:#E6E6E6; user-select:none; pointer-events:auto;">
   <!-- Draggable Header Bar -->
   <div id="cctv-dock-drag-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; cursor:move; user-select:none;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -4550,6 +4661,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
       </span>
     </div>
     <div style="display:flex; align-items:center; gap:6px;">
+      <button onclick="window.resetTacticalLayout()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#8A8D91; font-size:9px; font-weight:700; padding:2px 5px; border-radius:3px; cursor:pointer;" title="Reset Tactical Panel Layout">⟲ RESET</button>
       <button id="cctv-dock-btn-fullscreen" onclick="window.cctvToggleFullscreen()" style="background:rgba(0,240,255,0.14); border:1px solid rgba(0,240,255,0.5); color:#00F0FF; font-size:10px; font-weight:700; padding:2px 6px; border-radius:3px; cursor:pointer;" title="Fullscreen Tactical Optical Monitor">⛶ FULLSCREEN</button>
       <button onclick="window.closeCctvDock()" style="background:transparent; border:none; color:#8A8D91; cursor:pointer; font-size:14px; padding:2px;" title="Close CCTV Panel">✕</button>
     </div>
@@ -4604,6 +4716,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
     <span>NIIRS: 9.0</span>
     <span id="cctv-dock-elev">ALT: ---M MSL</span>
   </div>
+  <div class="tactical-resize-handle" title="Resize CCTV Dock">◢</div>
 </div>
 
 <!-- Open-Source Ground Media & Eyewitness Tactical Floating Callout (God's Eye Style) -->
@@ -4614,14 +4727,16 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
     <circle cx="0" cy="0" r="4.5" fill="#00F0FF" stroke="#FFFFFF" stroke-width="1.5" />
   </svg>
 
-  <div class="ground-media-callout-body" style="background:rgba(4,10,18,0.95); border:1px solid rgba(0,240,255,0.45); border-radius:8px; padding:12px; box-shadow:0 18px 50px rgba(0,0,0,0.85), 0 0 20px rgba(0,240,255,0.18); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px;">
+  <div class="ground-media-callout-body" style="position:relative; background:rgba(4,10,18,0.95); border:1px solid rgba(0,240,255,0.45); border-radius:8px; padding:12px; box-shadow:0 18px 50px rgba(0,0,0,0.85), 0 0 20px rgba(0,240,255,0.18); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);">
+    <div id="ground-media-drag-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; cursor:move; user-select:none;">
       <div style="display:flex; align-items:center; gap:7px;">
+        <span style="font-size:11px; color:#8A8D91;" title="Drag anywhere">⠿</span>
         <span style="font-size:13px; color:#00F0FF;" id="ground-media-dock-icon">📹</span>
         <span style="font-size:10px; font-weight:800; color:#FFFFFF; letter-spacing:1px;" id="ground-media-dock-category">OSINT GROUND INTEL</span>
         <span id="ground-media-dock-platform" style="font-size:8px; font-weight:700; color:#00F0FF; background:rgba(0,240,255,0.12); border:1px solid rgba(0,240,255,0.35); padding:1px 5px; border-radius:3px;">YOUTUBE</span>
       </div>
       <div style="display:flex; align-items:center; gap:6px;">
+        <button onclick="window.resetTacticalLayout()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#8A8D91; font-size:8.5px; font-weight:700; padding:1px 5px; border-radius:3px; cursor:pointer;" title="Reset Panel Layout">⟲ RESET</button>
         <!-- Audio Mute/Unmute Toggle Button -->
         <button id="ground-media-dock-mute-btn" onclick="window.toggleGroundMediaMute()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#A1A1AA; font-family:var(--mono); font-size:8.5px; font-weight:700; padding:2px 6px; border-radius:3px; cursor:pointer;" title="Toggle Audio (Muted by default)">🔇 MUTED</button>
         <button onclick="window.closeGroundMediaCard()" style="background:transparent; border:none; color:#8A8D91; cursor:pointer; font-size:14px; padding:2px; line-height:1;" title="Dismiss Media Card (Escape)">✕</button>
@@ -4655,6 +4770,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
       <button id="ground-media-dock-btn-focus" style="flex:1; background:rgba(0,240,255,0.14); border:1px solid #00F0FF; color:#00F0FF; font-family:var(--mono); font-size:9px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;" onclick="window.focusGroundMediaLocation()">🎯 FOCUS GROUND ZERO</button>
       <a id="ground-media-dock-link" href="#" target="_blank" rel="noopener noreferrer" style="flex:1; text-align:center; text-decoration:none; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#E2E8F0; font-family:var(--mono); font-size:9px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;">🌐 OPEN SOURCE ↗</a>
     </div>
+    <div class="tactical-resize-handle" title="Resize Ground Media">◢</div>
   </div>
 </div>
 
@@ -18467,66 +18583,349 @@ let _cctvZoom = 1;
 let _cctvIsFullscreen = false;
 let _cctvDraggableInitialized = false;
 
-function makeDraggable(element, handle) {
-  if (!element || !handle) return;
-  let isDragging = false;
-  let startX = 0, startY = 0;
-  let origLeft = 0, origTop = 0;
+// ============================================================================
+// Real God's Eye Tactical Panel Controller & Window Management System
+// Manages: CCTV dock (default LEFT), OSINT rail, Ground Media card, Inspect card, Radio card
+// Features: Free drag, pointer-capture, free resize, viewport clamping,
+//           click-to-front z-index, localStorage persistence, and layout reset.
+// ============================================================================
+const TACTICAL_PANEL_STORAGE_KEY = 'jarvis_tactical_panel_layout';
+let _tacticalTopZ = 9990;
 
-  handle.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    if (['BUTTON', 'SELECT', 'INPUT', 'A'].includes(e.target.tagName)) return;
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
+const TACTICAL_PANELS = {
+  cctv: {
+    elementId: 'cctv-dock-panel',
+    handleId: 'cctv-dock-drag-header',
+    defaultStyles: { left: '20px', top: '80px', right: 'auto', bottom: 'auto', width: '340px', height: '', zIndex: '9995' }
+  },
+  osint: {
+    elementId: 'spatial-globe-hud',
+    handleId: 'osint-rail-drag-header',
+    defaultStyles: { left: '', top: '54px', right: '24px', bottom: 'auto', width: '360px', height: '', transform: '', zIndex: '350' }
+  },
+  groundMedia: {
+    elementId: 'ground-media-dock-panel',
+    handleId: 'ground-media-drag-header',
+    defaultStyles: { left: '', top: '', right: '', bottom: '', width: '360px', height: '', zIndex: '9996' }
+  },
+  inspect: {
+    elementId: 'globe-inspect-card',
+    handleId: 'inspect-card-drag-header',
+    defaultStyles: { left: '24px', top: '', bottom: '24px', right: '', width: '320px', height: '', zIndex: '185' }
+  },
+  radio: {
+    elementId: 'globe-radio-card',
+    handleId: 'radio-drag-header',
+    defaultStyles: { position: '', left: '', top: '', right: '', bottom: '', width: '', height: '', zIndex: '' }
+  }
+};
 
-    const rect = element.getBoundingClientRect();
-    origLeft = rect.left;
-    origTop = rect.top;
+window.TacticalPanelManager = {
+  bringToFront(el) {
+    if (!el) return;
+    _tacticalTopZ = Math.max(_tacticalTopZ + 1, 9991);
+    if (_tacticalTopZ > 99990) _tacticalTopZ = 9991;
+    el.style.zIndex = _tacticalTopZ;
+  },
 
-    element.style.right = 'auto';
-    element.style.bottom = 'auto';
-    element.style.left = origLeft + 'px';
-    element.style.top = origTop + 'px';
-
-    const onMouseMove = (ev) => {
-      if (!isDragging) return;
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-
-      let newLeft = origLeft + dx;
-      let newTop = origTop + dy;
-
-      const maxLeft = window.innerWidth - element.offsetWidth - 8;
-      const maxTop = window.innerHeight - element.offsetHeight - 8;
-      newLeft = Math.max(8, Math.min(newLeft, maxLeft));
-      newTop = Math.max(8, Math.min(newTop, maxTop));
-
-      element.style.left = newLeft + 'px';
-      element.style.top = newTop + 'px';
+  clamp(el, targetLeft, targetTop) {
+    const pad = 8;
+    const elW = el.offsetWidth || 300;
+    const elH = el.offsetHeight || 150;
+    const maxLeft = Math.max(pad, window.innerWidth - elW - pad);
+    const maxTop = Math.max(pad, window.innerHeight - elH - pad);
+    return {
+      left: Math.max(pad, Math.min(targetLeft, maxLeft)),
+      top: Math.max(pad, Math.min(targetTop, maxTop))
     };
+  },
 
-    const onMouseUp = () => {
-      isDragging = false;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
+  clampAll() {
+    Object.values(TACTICAL_PANELS).forEach(cfg => {
+      const el = document.getElementById(cfg.elementId);
+      if (!el || !el.style.left || !el.style.top) return;
+      const curLeft = parseInt(el.style.left, 10);
+      const curTop = parseInt(el.style.top, 10);
+      if (!isNaN(curLeft) && !isNaN(curTop)) {
+        const clamped = this.clamp(el, curLeft, curTop);
+        el.style.left = clamped.left + 'px';
+        el.style.top = clamped.top + 'px';
+      }
+    });
+  },
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    e.preventDefault();
-  });
-}
+  saveLayout() {
+    try {
+      const layout = {};
+      Object.entries(TACTICAL_PANELS).forEach(([key, cfg]) => {
+        const el = document.getElementById(cfg.elementId);
+        if (!el) return;
+        const entry = {
+          zIndex: parseInt(el.style.zIndex, 10) || null
+        };
+        if (el.style.left && el.style.left !== '') entry.left = parseInt(el.style.left, 10);
+        if (el.style.top && el.style.top !== '') entry.top = parseInt(el.style.top, 10);
+        if (el.style.width && el.style.width !== '') entry.width = parseInt(el.style.width, 10);
+        if (el.style.height && el.style.height !== '') entry.height = parseInt(el.style.height, 10);
+        if (key === 'groundMedia' && el.dataset.manuallyPositioned === 'true') {
+          entry.manuallyPositioned = true;
+        }
+        if (key === 'radio' && el.style.position === 'fixed') {
+          entry.detached = true;
+        }
+        if (entry.left !== undefined || entry.width !== undefined || entry.height !== undefined || entry.detached) {
+          layout[key] = entry;
+        }
+      });
+      localStorage.setItem(TACTICAL_PANEL_STORAGE_KEY, JSON.stringify(layout));
+    } catch (e) {
+      console.warn('[TacticalPanelManager] Save error:', e);
+    }
+  },
+
+  loadLayout() {
+    try {
+      const raw = localStorage.getItem(TACTICAL_PANEL_STORAGE_KEY);
+      if (!raw) return;
+      const layout = JSON.parse(raw);
+      if (!layout || typeof layout !== 'object') return;
+
+      Object.entries(layout).forEach(([key, data]) => {
+        const cfg = TACTICAL_PANELS[key];
+        if (!cfg) return;
+        const el = document.getElementById(cfg.elementId);
+        if (!el || !data) return;
+
+        if (key === 'radio' && data.detached) {
+          el.style.position = 'fixed';
+        }
+        if (key === 'groundMedia' && data.manuallyPositioned) {
+          el.dataset.manuallyPositioned = 'true';
+        }
+
+        if (typeof data.width === 'number' && data.width >= 100) {
+          el.style.width = Math.min(data.width, window.innerWidth - 16) + 'px';
+          el.style.maxWidth = 'none';
+        }
+        if (typeof data.height === 'number' && data.height >= 80) {
+          el.style.height = Math.min(data.height, window.innerHeight - 16) + 'px';
+          el.style.maxHeight = 'none';
+        }
+
+        if (typeof data.left === 'number' && typeof data.top === 'number') {
+          const clamped = this.clamp(el, data.left, data.top);
+          el.style.left = clamped.left + 'px';
+          el.style.top = clamped.top + 'px';
+          el.style.right = 'auto';
+          el.style.bottom = 'auto';
+          if (key === 'osint') {
+            el.style.transform = 'none';
+          }
+        }
+
+        if (data.zIndex) {
+          el.style.zIndex = data.zIndex;
+          if (data.zIndex > _tacticalTopZ) _tacticalTopZ = data.zIndex;
+        }
+      });
+    } catch (e) {
+      console.warn('[TacticalPanelManager] Load error:', e);
+    }
+  },
+
+  resetLayout() {
+    try {
+      localStorage.removeItem(TACTICAL_PANEL_STORAGE_KEY);
+    } catch (e) {}
+
+    Object.entries(TACTICAL_PANELS).forEach(([key, cfg]) => {
+      const el = document.getElementById(cfg.elementId);
+      if (!el) return;
+      el.classList.remove('is-tactical-dragging');
+      if (key === 'groundMedia') {
+        delete el.dataset.manuallyPositioned;
+      }
+      el.style.maxWidth = '';
+      el.style.maxHeight = '';
+      Object.entries(cfg.defaultStyles).forEach(([prop, val]) => {
+        el.style[prop] = val;
+      });
+    });
+    console.log('[TacticalPanelManager] Layout reset to default tactical docking.');
+  },
+
+  initPanel(key) {
+    const cfg = TACTICAL_PANELS[key];
+    if (!cfg) return;
+    const el = document.getElementById(cfg.elementId);
+    const handle = document.getElementById(cfg.handleId);
+    if (!el || el._tacticalPanelInit) return;
+    el._tacticalPanelInit = true;
+
+    // Bring to front on pointerdown/click anywhere on panel
+    el.addEventListener('pointerdown', () => {
+      this.bringToFront(el);
+    }, { passive: true });
+
+    // Drag handling
+    if (handle) {
+      let isDragging = false;
+      let startX = 0, startY = 0;
+      let startLeft = 0, startTop = 0;
+
+      handle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        if (e.target.closest('button, select, input, a, textarea')) return;
+
+        this.bringToFront(el);
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+
+        const rect = el.getBoundingClientRect();
+        startLeft = rect.left;
+        startTop = rect.top;
+
+        if (key === 'radio') {
+          el.style.position = 'fixed';
+        }
+        if (key === 'groundMedia') {
+          el.dataset.manuallyPositioned = 'true';
+        }
+
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+        el.style.left = startLeft + 'px';
+        el.style.top = startTop + 'px';
+        if (key === 'osint') {
+          el.style.transform = 'none';
+        }
+
+        el.classList.add('is-tactical-dragging');
+        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+        e.preventDefault();
+      });
+
+      handle.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        const clamped = this.clamp(el, startLeft + dx, startTop + dy);
+        el.style.left = Math.round(clamped.left) + 'px';
+        el.style.top = Math.round(clamped.top) + 'px';
+      });
+
+      const onEndDrag = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        el.classList.remove('is-tactical-dragging');
+        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+        this.saveLayout();
+      };
+
+      handle.addEventListener('pointerup', onEndDrag);
+      handle.addEventListener('pointercancel', onEndDrag);
+    }
+
+    // Resize handling
+    let resizeHandle = el.querySelector('.tactical-resize-handle');
+    if (!resizeHandle) {
+      resizeHandle = document.createElement('div');
+      resizeHandle.className = 'tactical-resize-handle';
+      resizeHandle.setAttribute('title', 'Resize Panel');
+      resizeHandle.innerHTML = '◢';
+      el.appendChild(resizeHandle);
+    }
+
+    if (resizeHandle) {
+      let isResizing = false;
+      let startX = 0, startY = 0;
+      let startW = 0, startH = 0;
+
+      resizeHandle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        this.bringToFront(el);
+        isResizing = true;
+        startX = e.clientX;
+        startY = e.clientY;
+
+        const rect = el.getBoundingClientRect();
+        startW = rect.width;
+        startH = rect.height;
+
+        if (key === 'radio' && el.style.position !== 'fixed') {
+          el.style.position = 'fixed';
+          el.style.left = rect.left + 'px';
+          el.style.top = rect.top + 'px';
+        }
+
+        try { resizeHandle.setPointerCapture(e.pointerId); } catch (_) {}
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      resizeHandle.addEventListener('pointermove', (e) => {
+        if (!isResizing) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        const minW = 260;
+        const minH = 120;
+        const rect = el.getBoundingClientRect();
+        const maxW = window.innerWidth - rect.left - 8;
+        const maxH = window.innerHeight - rect.top - 8;
+
+        const newW = Math.max(minW, Math.min(startW + dx, maxW));
+        const newH = Math.max(minH, Math.min(startH + dy, maxH));
+
+        el.style.width = Math.round(newW) + 'px';
+        el.style.height = Math.round(newH) + 'px';
+        el.style.maxWidth = 'none';
+        el.style.maxHeight = 'none';
+      });
+
+      const onEndResize = (e) => {
+        if (!isResizing) return;
+        isResizing = false;
+        try { resizeHandle.releasePointerCapture(e.pointerId); } catch (_) {}
+        this.saveLayout();
+      };
+
+      resizeHandle.addEventListener('pointerup', onEndResize);
+      resizeHandle.addEventListener('pointercancel', onEndResize);
+    }
+  },
+
+  init() {
+    Object.keys(TACTICAL_PANELS).forEach(key => this.initPanel(key));
+    this.loadLayout();
+  }
+};
+
+window.resetTacticalLayout = function() {
+  window.TacticalPanelManager.resetLayout();
+};
 
 function initCctvDraggable() {
-  if (_cctvDraggableInitialized) return;
-  const panel = document.getElementById('cctv-dock-panel');
-  const handle = document.getElementById('cctv-dock-drag-header');
-  if (panel && handle) {
-    makeDraggable(panel, handle);
-    _cctvDraggableInitialized = true;
-  }
+  window.TacticalPanelManager.initPanel('cctv');
 }
+
+function makeDraggable(element, handle) {
+  if (!element || !handle) return;
+  window.TacticalPanelManager.bringToFront(element);
+}
+
+// Auto-initialize TacticalPanelManager on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => window.TacticalPanelManager.init());
+} else {
+  window.TacticalPanelManager.init();
+}
+
+window.addEventListener('resize', () => {
+  window.TacticalPanelManager.clampAll();
+});
 
 window.cctvToggleFeedMode = function() {
   const found = (window._cctvSourcesList && window._cctvSourcesList.find(s => s.id === _activeCctvCameraId)) ||
@@ -20253,19 +20652,30 @@ function initGlobeIntelligence(viewer) {
     const cardH = panel.offsetHeight || 310;
     const margin = 16;
 
-    // Smart placement: prefer offset above-right of anchor, shift left/down if near viewport edge
-    let left = anchorX + 32;
-    if (left + cardW > window.innerWidth - margin) {
-      left = anchorX - cardW - 32;
+    // Position placement: preserve user dragged / custom position if manually positioned
+    let left, top;
+    if (panel.dataset.manuallyPositioned === 'true' && panel.style.left && panel.style.top) {
+      left = parseFloat(panel.style.left);
+      top = parseFloat(panel.style.top);
+      left = Math.max(margin, Math.min(window.innerWidth - cardW - margin, left));
+      top = Math.max(margin + 64, Math.min(window.innerHeight - cardH - margin - 40, top));
+      panel.style.left = `${Math.round(left)}px`;
+      panel.style.top = `${Math.round(top)}px`;
+    } else {
+      // Smart placement: prefer offset above-right of anchor, shift left/down if near viewport edge
+      left = anchorX + 32;
+      if (left + cardW > window.innerWidth - margin) {
+        left = anchorX - cardW - 32;
+      }
+      left = Math.max(margin, Math.min(window.innerWidth - cardW - margin, left));
+
+      top = anchorY - cardH * 0.65;
+      if (top < margin + 64) top = margin + 64;
+      if (top + cardH > window.innerHeight - margin - 40) top = window.innerHeight - cardH - margin - 40;
+
+      panel.style.left = `${Math.round(left)}px`;
+      panel.style.top = `${Math.round(top)}px`;
     }
-    left = Math.max(margin, Math.min(window.innerWidth - cardW - margin, left));
-
-    let top = anchorY - cardH * 0.65;
-    if (top < margin + 64) top = margin + 64;
-    if (top + cardH > window.innerHeight - margin - 40) top = window.innerHeight - cardH - margin - 40;
-
-    panel.style.left = `${Math.round(left)}px`;
-    panel.style.top = `${Math.round(top)}px`;
 
     // Draw SVG leader line from the card border edge to the anchor coordinate
     const leader = panel.querySelector('.ground-media-leader');
