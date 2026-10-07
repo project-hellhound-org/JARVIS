@@ -4078,7 +4078,7 @@ body.hud-mode #spatial-nav-dock,
 body.hud-mode .spatial-edge-strip,
 body.hud-mode #jarvis-top-bar,
 body.hud-mode #sidebar,
-body.hud-mode #jarvis-body-container,
+body.hud-mode.chat-panel-collapsed #jarvis-body-container,
 body.hud-mode #spatial-globe-hud,
 body.hud-mode .overlay,
 body.hud-mode #sidebar-backdrop,
@@ -4090,13 +4090,56 @@ body.voiceos-mode #spatial-nav-dock,
 body.voiceos-mode .spatial-edge-strip,
 body.voiceos-mode #jarvis-top-bar,
 body.voiceos-mode #sidebar,
-body.voiceos-mode #jarvis-body-container,
+body.voiceos-mode.chat-panel-collapsed #jarvis-body-container,
 body.voiceos-mode #spatial-globe-hud,
 body.voiceos-mode .overlay,
 body.voiceos-mode #sidebar-backdrop,
 body.voiceos-mode #bg-layer,
 body.voiceos-mode #bg-overlay {
   display: none !important;
+}
+
+body.hud-mode:not(.chat-panel-collapsed) #jarvis-body-container,
+body.voiceos-mode:not(.chat-panel-collapsed) #jarvis-body-container {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  background: transparent !important;
+  pointer-events: none !important;
+  z-index: 240 !important;
+}
+
+body.hud-mode:not(.chat-panel-collapsed) #jarvis-main-workspace,
+body.voiceos-mode:not(.chat-panel-collapsed) #jarvis-main-workspace,
+body.hud-mode:not(.chat-panel-collapsed) #workspace-content-grid,
+body.voiceos-mode:not(.chat-panel-collapsed) #workspace-content-grid {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  background: transparent !important;
+  pointer-events: none !important;
+}
+
+body.hud-mode:not(.chat-panel-collapsed) #jarvis-chat-container,
+body.voiceos-mode:not(.chat-panel-collapsed) #jarvis-chat-container {
+  display: flex !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  max-height: 28vh !important;
+  min-height: 76px !important;
+  z-index: 9996 !important;
+}
+
+body.hud-mode:not(.chat-panel-collapsed) #jarvis-input-bar,
+body.voiceos-mode:not(.chat-panel-collapsed) #jarvis-input-bar {
+  display: flex !important;
+  pointer-events: auto !important;
+  position: fixed !important;
+  bottom: 12px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: min(680px, 54vw) !important;
+  z-index: 9996 !important;
 }
 
 #jarvis-hud-notch-wrapper {
@@ -4697,9 +4740,16 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   </div>
 
   <!-- Camera Selector Row -->
-  <div style="display:flex; gap:4px; margin-bottom:6px;">
+  <div style="display:flex; gap:4px; margin-bottom:6px; position:relative;">
     <button onclick="window.cctvCycleCamera(-1)" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#E6E6E6; font-size:9.5px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer;" title="Previous Camera">◀ PREV</button>
-    <select id="cctv-dock-camera-select" onchange="window.cctvSelectFromDropdown(this.value)" style="flex:1; background:#0A0E17; border:1px solid rgba(0,240,255,0.35); color:#00F0FF; font-size:9.5px; font-family:var(--mono); padding:4px 6px; border-radius:4px; cursor:pointer; text-overflow:ellipsis;"></select>
+    <div id="cctv-custom-select-wrapper" style="flex:1; position:relative; min-width:0;">
+      <button type="button" id="cctv-custom-select-trigger" onclick="window.toggleCctvCustomDropdown()" style="width:100%; display:flex; justify-content:space-between; align-items:center; background:#060B12; border:1px solid rgba(0,240,255,0.45); color:#00F0FF; font-size:9.5px; font-family:var(--mono); padding:4px 6px; border-radius:4px; cursor:pointer; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+        <span id="cctv-custom-select-label" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left;">SELECT CAMERA...</span>
+        <span style="font-size:7px; margin-left:4px; opacity:0.7;">▼</span>
+      </button>
+      <div id="cctv-custom-select-menu" style="display:none; position:absolute; bottom:calc(100% + 4px); left:0; right:0; max-height:200px; overflow-y:auto; background:#060B12; border:1px solid rgba(0,240,255,0.6); border-radius:4px; box-shadow:0 8px 24px rgba(0,0,0,0.9); z-index:10000; font-family:var(--mono); font-size:9.5px;"></div>
+      <select id="cctv-dock-camera-select" onchange="window.cctvSelectFromDropdown(this.value)" style="display:none;"></select>
+    </div>
     <button onclick="window.cctvCycleCamera(1)" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#E6E6E6; font-size:9.5px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer;" title="Next Camera">NEXT ▶</button>
   </div>
 
@@ -15315,10 +15365,13 @@ document.addEventListener('keydown', function(e) {
     e.preventDefault();
     window.toggleChatPanel(false);
   }
-  if (e.key === 'Home' && !e.target.closest('input, textarea')) {
-    e.preventDefault();
-    if (typeof window.resetViewToHome === 'function') {
-      window.resetViewToHome();
+  if (e.key === 'Home') {
+    const isInput = !!(e.target.closest('input, textarea, select, [contenteditable="true"]') || e.target.isContentEditable);
+    if (!isInput) {
+      e.preventDefault();
+      if (typeof window.resetViewToHome === 'function') {
+        window.resetViewToHome();
+      }
     }
   }
 });
@@ -15531,7 +15584,10 @@ window.resetViewToHome = function() {
   if (typeof window.closeCctvDock === 'function') {
     window.closeCctvDock();
   }
-  if (typeof window.closeInspectCard === 'function') {
+  if (typeof window.closeGlobeInspectCard === 'function') {
+    window.closeGlobeInspectCard();
+  }
+  if (typeof window.closeInspectCard === 'function' && window.closeInspectCard !== window.closeGlobeInspectCard) {
     window.closeInspectCard();
   }
   if (typeof window.closeGroundMediaCard === 'function') {
@@ -17416,20 +17472,14 @@ function initCesiumGlobe() {
     window.loadCesiumBuildings = loadCesiumBuildings;
     loadCesiumBuildings();
 
-    // Initial God's Eye orbital view: neutral global planetary overview
-    const homeDest = Cesium.Cartesian3.fromDegrees(0.0, 20.0, 25000000);
-    const homeOrient = {
-      heading: Cesium.Math.toRadians(0),
-      pitch: Cesium.Math.toRadians(-90),
-      roll: 0.0
-    };
-    cesiumViewer.camera.setView({
-      destination: homeDest,
-      orientation: homeOrient
-    });
+    // Capture real startup camera pose directly from Cesium Viewer initialization
     window._cctvHomePose = {
-      destination: homeDest,
-      orientation: homeOrient
+      destination: Cesium.Cartesian3.clone(cesiumViewer.camera.position),
+      orientation: {
+        heading: cesiumViewer.camera.heading,
+        pitch: cesiumViewer.camera.pitch,
+        roll: cesiumViewer.camera.roll
+      }
     };
 
     cesiumViewer.camera.percentageChanged = 0.005;
@@ -19136,6 +19186,19 @@ window.openCctvDock = function(data) {
   if (elev) elev.textContent = `ALT: ${Math.round(data.alt || data.groundElevationM || 100)}M MSL`;
   if (clock) clock.textContent = new Date().toLocaleTimeString();
   if (sel && sel.value !== data.id) sel.value = data.id;
+  const customLabel = document.getElementById('cctv-custom-select-label');
+  if (customLabel) {
+    customLabel.textContent = `${data.city || 'METRO'} • ${data.label || data.name || data.id}`;
+  }
+  const customMenu = document.getElementById('cctv-custom-select-menu');
+  if (customMenu) {
+    const items = customMenu.querySelectorAll('.cctv-custom-option');
+    items.forEach(it => {
+      const isSel = it.getAttribute('data-value') === data.id;
+      it.style.color = isSel ? '#00F0FF' : '#E6E6E6';
+      it.style.background = isSel ? 'rgba(0, 240, 255, 0.25)' : 'transparent';
+    });
+  }
 
   // Clean up any ongoing playback and monitor timers
   if (window._activeCctvPlayback) {
@@ -19366,6 +19429,9 @@ window.closeCctvDock = function() {
   const fsModal = document.getElementById('cctv-fullscreen-modal');
   if (fsModal) fsModal.style.display = 'none';
   _cctvIsFullscreen = false;
+  if (typeof window.closeCctvCustomDropdown === 'function') {
+    window.closeCctvCustomDropdown();
+  }
 
   if (window._activeCctvPlayback) {
     try { window._activeCctvPlayback.dispose(); } catch (e) {}
@@ -19402,6 +19468,21 @@ window.cctvSelectFromDropdown = function(cameraId) {
   const found = window._cctvSourcesList.find(s => s.id === cameraId) ||
                 (typeof CCTV_CAMERAS !== 'undefined' && CCTV_CAMERAS.find(s => s.id === cameraId));
   if (!found) return;
+  const sel = document.getElementById('cctv-dock-camera-select');
+  if (sel && sel.value !== cameraId) sel.value = cameraId;
+  const customLabel = document.getElementById('cctv-custom-select-label');
+  if (customLabel) {
+    customLabel.textContent = `${found.city || 'METRO'} • ${found.name || found.label || found.id}`;
+  }
+  const customMenu = document.getElementById('cctv-custom-select-menu');
+  if (customMenu) {
+    const items = customMenu.querySelectorAll('.cctv-custom-option');
+    items.forEach(it => {
+      const isSel = it.getAttribute('data-value') === cameraId;
+      it.style.color = isSel ? '#00F0FF' : '#E6E6E6';
+      it.style.background = isSel ? 'rgba(0, 240, 255, 0.25)' : 'transparent';
+    });
+  }
   const tact = {
     ...found,
     type: 'CCTV',
@@ -19494,9 +19575,30 @@ window.cctvToggleAutoHop = function() {
   }
 };
 
+window.toggleCctvCustomDropdown = function(force) {
+  const menu = document.getElementById('cctv-custom-select-menu');
+  if (!menu) return;
+  const isShow = (typeof force === 'boolean') ? force : (menu.style.display === 'none' || !menu.style.display);
+  menu.style.display = isShow ? 'block' : 'none';
+};
+
+window.closeCctvCustomDropdown = function() {
+  const menu = document.getElementById('cctv-custom-select-menu');
+  if (menu) menu.style.display = 'none';
+};
+
+document.addEventListener('click', function(e) {
+  const wrapper = document.getElementById('cctv-custom-select-wrapper');
+  if (wrapper && !wrapper.contains(e.target)) {
+    window.closeCctvCustomDropdown();
+  }
+});
+
 window._populateCctvDropdown = function(sources) {
   const sel = document.getElementById('cctv-dock-camera-select');
   const fsSel = document.getElementById('cctv-fs-camera-select');
+  const customMenu = document.getElementById('cctv-custom-select-menu');
+  const customLabel = document.getElementById('cctv-custom-select-label');
   if (!Array.isArray(sources) || !sources.length) return;
   [sel, fsSel].forEach(s => {
     if (!s) return;
@@ -19509,6 +19611,40 @@ window._populateCctvDropdown = function(sources) {
     });
     if (_activeCctvCameraId) s.value = _activeCctvCameraId;
   });
+
+  if (customMenu) {
+    customMenu.innerHTML = '';
+    sources.forEach(cam => {
+      const item = document.createElement('div');
+      item.className = 'cctv-custom-option';
+      item.setAttribute('data-value', cam.id);
+      item.textContent = `${cam.city || 'METRO'} • ${cam.name || cam.label || cam.id}`;
+      item.style.padding = '5px 8px';
+      item.style.cursor = 'pointer';
+      item.style.color = (_activeCctvCameraId === cam.id) ? '#00F0FF' : '#E6E6E6';
+      item.style.background = (_activeCctvCameraId === cam.id) ? 'rgba(0, 240, 255, 0.25)' : 'transparent';
+      item.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+      item.onmouseover = () => { item.style.background = 'rgba(0,240,255,0.18)'; item.style.color = '#00F0FF'; };
+      item.onmouseout = () => {
+        const isSel = (_activeCctvCameraId === cam.id);
+        item.style.background = isSel ? 'rgba(0,240,255,0.25)' : 'transparent';
+        item.style.color = isSel ? '#00F0FF' : '#E6E6E6';
+      };
+      item.onclick = (e) => {
+        e.stopPropagation();
+        window.closeCctvCustomDropdown();
+        window.cctvSelectFromDropdown(cam.id);
+      };
+      customMenu.appendChild(item);
+    });
+  }
+
+  if (customLabel && _activeCctvCameraId) {
+    const cur = sources.find(s => s.id === _activeCctvCameraId);
+    if (cur) {
+      customLabel.textContent = `${cur.city || 'METRO'} • ${cur.name || cur.label || cur.id}`;
+    }
+  }
 };
 
 // Cockpit Flight Chase Camera Mode (God's Eye Feature)
