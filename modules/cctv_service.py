@@ -798,6 +798,8 @@ def get_cctv_sources(force_refresh: bool = False) -> List[Dict[str, Any]]:
 
     final_list = list(dedup.values())[:MAX_GLOBAL_SOURCES]
     for idx, c in enumerate(final_list):
+        if not c.get("videoUrl"):
+            c["videoUrl"] = c.get("url") or f"/api/cctv/frame/{c.get('id')}"
         if not c.get("snapshotUrl"):
             c["snapshotUrl"] = f"/api/cctv/frame/{c.get('id')}"
 

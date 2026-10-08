@@ -5129,7 +5129,6 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
 
     @app.route('/api/cctv/sources')
     def _bottle_cctv_sources():
-        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
         bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
         bottle.response.content_type = 'application/json'
         bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
@@ -5138,7 +5137,6 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
 
     @app.route('/api/cctv/frame/<camera_id>')
     def _bottle_cctv(camera_id):
-        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
         bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
         res = api.get_cctv_frame(camera_id) if (api and hasattr(api, 'get_cctv_frame')) else None
         if isinstance(res, tuple) and len(res) == 2:
@@ -5153,9 +5151,19 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         return [frame] if isinstance(frame, bytes) else (frame or b"")
 
+    @app.route('/api/cyber-news', method=['GET', 'OPTIONS'])
+    def _bottle_cyber_news():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        bottle.response.content_type = 'application/json'
+        bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        from modules.cyber_news_service import get_latest_cyber_news
+        return json.dumps(get_latest_cyber_news())
+
     @app.route('/api/cctv/health')
     def _bottle_cctv_health():
-        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
         bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
         bottle.response.content_type = 'application/json'
         bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
@@ -5165,7 +5173,6 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
     @app.route('/api/cctv/media/<camera_id>', method=['GET', 'DELETE', 'OPTIONS'])
     def _bottle_cctv_media(camera_id):
         import uuid
-        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
         bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, DELETE, OPTIONS'
         bottle.response.headers['Access-Control-Allow-Headers'] = 'Range, Content-Type, Accept'
         if bottle.request.method == 'OPTIONS':

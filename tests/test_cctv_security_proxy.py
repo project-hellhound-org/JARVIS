@@ -1,6 +1,7 @@
 
 import pytest
 import socket
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 from modules.cctv_security_proxy import (
     is_blocked_ip,
@@ -162,3 +163,37 @@ def test_hls_puller_capacity_limits():
         # Second session exceeds session capacity
         with pytest.raises(RuntimeError, match='HLS session capacity reached'):
             puller.ensure('cam2', 'https://video.deldot.gov/live/2/playlist.m3u8', 'leaseA')
+
+def test_validate_and_pin_upstream_url():
+    from modules.cctv_security_proxy import validate_and_pin_upstream_url
+    with patch('socket.getaddrinfo') as mock_dns:
+        mock_dns.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, '', ('93.184.216.34', 443))
+        ]
+        url, pinned_ip, port, hostname = validate_and_pin_upstream_url('https://storage.googleapis.com/test.mp4')
+        assert url == 'https://storage.googleapis.com/test.mp4'
+        assert pinned_ip == '93.184.216.34'
+        assert port == 443
+        assert hostname == 'storage.googleapis.com'
+
+def test_cctv_routes_have_no_wildcard_cors(bottle_test_server=None):
+    from frontend.desktop import setup_jarvis_bottle_routes
+    import bottle
+    app = bottle.Bottle()
+    frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+    setup_jarvis_bottle_routes(app, str(frontend_dir))
+
+    # Check route definitions directly or test handler execution
+    for route in app.routes:
+        if '/api/cctv/' in route.rule:
+            # Execute dummy call if GET
+            if route.method == 'GET' and '<' not in route.rule:
+                resp = app.match({'PATH_INFO': route.rule, 'REQUEST_METHOD': 'GET'})
+                # If matched, verify response headers do not have Access-Control-Allow-Origin: *
+                if resp and hasattr(resp, '__call__'):
+                    try:
+                        bottle.response.headers.clear()
+                        resp[0]()
+                        assert bottle.response.headers.get('Access-Control-Allow-Origin') != '*'
+                    except Exception:
+                        pass

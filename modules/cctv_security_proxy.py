@@ -109,12 +109,13 @@ def is_blocked_ip(ip_str: str) -> bool:
     return False
 
 
-def validate_upstream_url(url: str, allowed_hosts: Optional[set] = None, allow_http: bool = False) -> str:
+def validate_and_pin_upstream_url(url: str, allowed_hosts: Optional[set] = None, allow_http: bool = False) -> Tuple[str, str, int, str]:
     """
-    Validate target upstream URL:
+    Validate target upstream URL and pin the resolved IP address:
     - Scheme must be https (unless allow_http=True for explicit testing)
     - Hostname must be in allowed_hosts
     - DNS resolution must NOT return any private, loopback, or link-local IP
+    Returns (url, pinned_ip, port, hostname).
     """
     if not url or not isinstance(url, str):
         raise SecurityError("Missing or invalid URL")
@@ -144,12 +145,24 @@ def validate_upstream_url(url: str, allowed_hosts: Optional[set] = None, allow_h
     if not addr_info:
         raise SecurityError(f"No IP addresses resolved for '{hostname}'")
 
+    pinned_ip = None
     for family, socktype, proto, canonname, sockaddr in addr_info:
         ip_addr = sockaddr[0]
         if is_blocked_ip(ip_addr):
             raise SecurityError(f"Target '{hostname}' resolved to blocked IP '{ip_addr}'")
+        if not pinned_ip:
+            pinned_ip = ip_addr
 
-    return url
+    if not pinned_ip:
+        raise SecurityError(f"No valid non-blocked IP found for '{hostname}'")
+
+    return url, pinned_ip, port, hostname
+
+
+def validate_upstream_url(url: str, allowed_hosts: Optional[set] = None, allow_http: bool = False) -> str:
+    """Validate target upstream URL and return normalized URL string."""
+    val_url, _, _, _ = validate_and_pin_upstream_url(url, allowed_hosts=allowed_hosts, allow_http=allow_http)
+    return val_url
 
 
 def sanitize_cctv_range_header(value: Any, max_bytes: int = CCTV_MEDIA_MAX_BODY_BYTES) -> str:
@@ -223,8 +236,11 @@ def fetch_upstream_bytes(
     if headers:
         req_headers.update(headers)
 
+    import http.client
     for hop in range(3):  # Max 2 redirects (3 attempts)
-        validated_url = validate_upstream_url(current_url, allowed_hosts=allowed_hosts, allow_http=allow_http)
+        validated_url, pinned_ip, port, hostname = validate_and_pin_upstream_url(
+            current_url, allowed_hosts=allowed_hosts, allow_http=allow_http
+        )
 
         class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
             def http_error_302(self, req, fp, code, msg, hdrs):
@@ -234,7 +250,20 @@ def fetch_upstream_bytes(
             http_error_307 = http_error_302
             http_error_308 = http_error_302
 
-        opener = urllib.request.build_opener(NoRedirectHandler)
+        # Pinned IP connection ensuring TCP connects directly to the validated IP (prevents DNS rebinding)
+        class PinnedHTTPSConnection(http.client.HTTPSConnection):
+            def connect(self):
+                self.sock = socket.create_connection((pinned_ip, self.port), self.timeout)
+                if self._tunnel_host:
+                    self._tunnel()
+                server_hostname = getattr(self, '_server_hostname', None) or hostname
+                self.sock = self._context.wrap_socket(self.sock, server_hostname=server_hostname)
+
+        class PinnedHTTPSHandler(urllib.request.HTTPSHandler):
+            def https_open(self, req):
+                return self.do_open(lambda host, **kwargs: PinnedHTTPSConnection(pinned_ip, port=port, **kwargs), req)
+
+        opener = urllib.request.build_opener(NoRedirectHandler, PinnedHTTPSHandler)
         req = urllib.request.Request(validated_url, headers=req_headers)
 
         try:
