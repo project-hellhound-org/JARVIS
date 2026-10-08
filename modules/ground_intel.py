@@ -57,95 +57,31 @@ GEO_LANDMARKS: Dict[str, Tuple[float, float]] = {
     "new york": (40.7128, -74.0060),
 }
 
-# Authentic surveyed assets for offline test environments
-AUTHENTIC_SURVEYED_ASSETS: Dict[str, List[Dict[str, Any]]] = {
-    "coimbatore": [
-        {
-            "id": "cbe-voc-06",
-            "title": "VOC Park & Central Zoological Grounds",
-            "lat": 11.0062,
-            "lon": 76.9721,
-            "alt": 410,
-            "type": "photo",
-            "media_type": "photo",
-            "platform": "Wikimedia Commons",
-            "url": "https://commons.wikimedia.org/wiki/File:VOC_Park_Coimbatore.jpg",
-            "thumbnail_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/VOC_Park_Coimbatore.jpg/640px-VOC_Park_Coimbatore.jpg",
-            "media_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/VOC_Park_Coimbatore.jpg/1280px-VOC_Park_Coimbatore.jpg",
-            "author": "Wikimedia Contributor",
-            "published_time": "2020-03-15T10:00:00Z",
-            "timestamp": "2020-03-15T10:00:00Z",
-            "geolocation_method": "GEOTAGGED",
-            "simulated": False,
-            "category": "Civic & Environment",
-            "description": "Geotagged surveyed photograph of central grounds and public park in Coimbatore."
-        },
-        {
-            "id": "cbe-marudhamalai-04",
-            "title": "Marudhamalai Western Ghats Foothills & Biosphere Ridge",
-            "lat": 11.0463,
-            "lon": 76.8524,
-            "alt": 560,
-            "type": "photo",
-            "media_type": "photo",
-            "platform": "Wikimedia Commons",
-            "url": "https://commons.wikimedia.org/wiki/File:Marudhamalai_Murugan_Temple_Coimbatore.jpg",
-            "thumbnail_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Marudhamalai_Murugan_Temple_Coimbatore.jpg/640px-Marudhamalai_Murugan_Temple_Coimbatore.jpg",
-            "media_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Marudhamalai_Murugan_Temple_Coimbatore.jpg/1280px-Marudhamalai_Murugan_Temple_Coimbatore.jpg",
-            "author": "Wikimedia Contributor",
-            "published_time": "2019-11-20T14:30:00Z",
-            "timestamp": "2019-11-20T14:30:00Z",
-            "geolocation_method": "GEOTAGGED",
-            "simulated": False,
-            "category": "Environmental & Terrain",
-            "description": "Western Ghats biosphere foothills and hill temple approach ridge."
-        }
-    ],
-    "kodagu": [
-        {
-            "id": "kodagu-pushpagiri-01",
-            "title": "Pushpagiri Wildlife Sanctuary Ridge",
-            "lat": 12.5833,
-            "lon": 75.6833,
-            "alt": 1100,
-            "type": "photo",
-            "media_type": "photo",
-            "platform": "Wikimedia Commons",
-            "url": "https://commons.wikimedia.org/wiki/File:Pushpagiri_Sanctuary.jpg",
-            "thumbnail_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Pushpagiri.jpg/640px-Pushpagiri.jpg",
-            "media_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Pushpagiri.jpg/1280px-Pushpagiri.jpg",
-            "author": "Wikimedia Contributor",
-            "published_time": "2018-09-10T11:00:00Z",
-            "timestamp": "2018-09-10T11:00:00Z",
-            "geolocation_method": "GEOTAGGED",
-            "simulated": False,
-            "category": "Environmental & Terrain",
-            "description": "Geotagged surveyed terrain photograph of Pushpagiri sanctuary ridge in Kodagu."
-        }
-    ],
-    "new york": [
-        {
-            "id": "nyc-highline-01",
-            "title": "High Line Park Elevated Promenade",
-            "lat": 40.7480,
-            "lon": -74.0048,
-            "alt": 25,
-            "type": "photo",
-            "media_type": "photo",
-            "platform": "Wikimedia Commons",
-            "url": "https://commons.wikimedia.org/wiki/File:High_Line_NYC.jpg",
-            "thumbnail_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/The_High_Line_Park_NYC.jpg/640px-The_High_Line_Park_NYC.jpg",
-            "media_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/The_High_Line_Park_NYC.jpg/1280px-The_High_Line_Park_NYC.jpg",
-            "author": "Wikimedia Contributor",
-            "published_time": "2019-06-12T15:00:00Z",
-            "timestamp": "2019-06-12T15:00:00Z",
-            "geolocation_method": "GEOTAGGED",
-            "simulated": False,
-            "category": "Civic & Environment",
-            "description": "Geotagged surveyed photograph of the High Line elevated park in Manhattan."
-        }
-    ]
-}
+def compute_geolocation_badge(geolocation_method: Optional[str]) -> str:
+    """
+    Computes UI badge strictly from geolocation_method.
+    GEOTAGGED -> 'VERIFIED GEOLOCATION'.
+    Everything else never receives verified status.
+    """
+    method = (geolocation_method or "").strip().upper()
+    if method == "GEOTAGGED":
+        return "VERIFIED GEOLOCATION"
+    elif method in ("PLACE-MATCHED", "APPROXIMATE", "ESTIMATED", "COUNTRY-LEVEL", "REGION-LEVEL"):
+        return method
+    elif method:
+        return f"UNVERIFIED ({method})"
+    return "UNVERIFIED"
+
+def verify_youtube_oembed(video_id: str) -> bool:
+    """Verify YouTube video is embeddable via public oEmbed endpoint before returning it."""
+    try:
+        url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+        req = urllib.request.Request(url, headers={"User-Agent": "JARVIS-OSINT/2.0"})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            return resp.getcode() == 200
+    except Exception as e:
+        logger.debug(f"[GroundIntel] YouTube oEmbed verification failed for {video_id}: {e}")
+        return False
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371.0
@@ -469,7 +405,7 @@ def fetch_youtube_geosearch(lat: float, lon: float, radius_km: float = 25.0, lim
             data = json.loads(resp.read().decode("utf-8"))
             for entry in data.get("items", []):
                 vid = entry.get("id", {}).get("videoId")
-                if not vid:
+                if not vid or not verify_youtube_oembed(vid):
                     continue
                 snippet = entry.get("snippet", {})
                 title = snippet.get("title") or "YouTube Field Video"
@@ -614,19 +550,9 @@ class GroundIntelClient:
             seen_ids.add(pid)
             deduped.append(p)
 
-        # Fallback to authentic surveyed assets only when live public APIs cannot be reached (e.g. offline sandbox)
-        if not deduped:
-            for pack_loc, pack_items in AUTHENTIC_SURVEYED_ASSETS.items():
-                for item in pack_items:
-                    dist = haversine_distance(lat, lon, item["lat"], item["lon"])
-                    if dist <= radius_km or (canon_loc and pack_loc == canon_loc.lower()):
-                        item_copy = dict(item)
-                        item_copy["distance_km"] = round(dist, 1)
-                        item_copy["fetched_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                        item_copy["badge"] = "VERIFIED GEOLOCATION"
-                        item_copy["source"] = item.get("author") or "Wikimedia Commons"
-                        item_copy["source_label"] = item.get("platform") or "Wikimedia"
-                        deduped.append(item_copy)
+        # Compute UI badge strictly in code from geolocation_method
+        for p in deduped:
+            p["badge"] = compute_geolocation_badge(p.get("geolocation_method"))
 
         deduped.sort(key=lambda x: x.get("distance_km", 9999.0))
         final_points = deduped[:limit]
@@ -634,6 +560,8 @@ class GroundIntelClient:
 
         status = "ok" if final_points else "empty"
         msg = "" if final_points else f"No geotagged intel found within {int(radius_km)} km"
+        has_youtube_key = bool(os.environ.get("YOUTUBE_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+        video_search_status = "active" if has_youtube_key else "video search disabled: no API key"
 
         return {
             "location": loc_label,
@@ -646,7 +574,9 @@ class GroundIntelClient:
             "source": "live_geosearch",
             "status": status,
             "message": msg,
-            "sources_queried": sources_queried
+            "sources_queried": sources_queried,
+            "video_search_status": video_search_status,
+            "has_youtube_key": has_youtube_key
         }
 
 _ground_intel_client: Optional[GroundIntelClient] = None

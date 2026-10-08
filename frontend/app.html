@@ -4731,6 +4731,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
       <span id="ground-media-dock-coords">11.0183° N, 76.9644° E</span>
       <span id="ground-media-dock-time">Recent Dispatch</span>
     </div>
+    <div id="ground-media-video-status" style="font-size:7.5px; color:#F59E0B; margin-top:5px; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">video search disabled: no API key</div>
     <div style="display:flex; gap:6px; margin-top:8px;">
       <button id="ground-media-dock-btn-focus" style="flex:1; background:rgba(0,240,255,0.14); border:1px solid #00F0FF; color:#00F0FF; font-family:var(--mono); font-size:9px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;" onclick="window.focusGroundMediaLocation()">🎯 FOCUS GROUND ZERO</button>
       <a id="ground-media-dock-link" href="#" target="_blank" rel="noopener noreferrer" style="flex:1; text-align:center; text-decoration:none; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#E2E8F0; font-family:var(--mono); font-size:9px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;">🌐 OPEN SOURCE ↗</a>
@@ -18979,6 +18980,16 @@ function initGlobeIntelligence(viewer) {
         window.renderGroundMediaPoints(points);
         const countEl = document.getElementById('groundmedia-contact-count');
         if (countEl) countEl.textContent = String(data.total_points || data.total || points.length);
+
+        const vStatus = document.getElementById('ground-media-video-status');
+        if (vStatus) {
+          if (!data.has_youtube_key || data.video_search_status === 'video search disabled: no API key') {
+            vStatus.style.display = 'block';
+            vStatus.textContent = 'video search disabled: no API key';
+          } else {
+            vStatus.style.display = 'none';
+          }
+        }
         return { points, total_points: data.total_points || data.total || points.length };
       }
     } catch (err) {

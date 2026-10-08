@@ -18,13 +18,20 @@ def test_empty_results_payload():
          patch("modules.ground_intel.fetch_nasa_eonet", return_value=[]), \
          patch("modules.ground_intel.fetch_gdacs_alerts", return_value=[]), \
          patch("modules.ground_intel.fetch_youtube_geosearch", return_value=[]):
-        res = client.get_ground_media_in_area("0.0,0.0", radius_km=25)
+        # Reachable "no results" path for Coimbatore with restored coordinates
+        res = client.get_ground_media_in_area("11.0168,76.9558", radius_km=25)
         assert res["status"] == "empty"
         assert res["total"] == 0
         assert len(res["points"]) == 0
         assert "No geotagged intel found within 25 km" in res["message"]
         assert "Wikimedia Commons" in res["sources_queried"]
         assert "USGS" in res["sources_queried"]
+
+        # Also verifies when queried by location name
+        res_named = client.get_ground_media_in_area(location="Coimbatore", radius_km=25)
+        assert res_named["status"] == "empty"
+        assert res_named["total"] == 0
+        assert len(res_named["points"]) == 0
 
 def test_authentic_item_schema_and_badge_contract():
     client = GroundIntelClient()
@@ -95,3 +102,50 @@ def test_badge_never_verified_for_non_geotagged():
         assert len(res["points"]) == 1
         assert res["points"][0]["badge"] != "VERIFIED GEOLOCATION"
         assert res["points"][0]["badge"] == "PLACE-MATCHED"
+
+def test_badge_recomputation_from_geolocation_method_when_wrong_badge_passed():
+    """
+    Asserts that passing items carrying a WRONG badge has the output badge strictly
+    recomputed in code from geolocation_method.
+    GEOTAGGED -> 'VERIFIED GEOLOCATION'. Everything else -> never verified.
+    """
+    client = GroundIntelClient()
+    wrong_item_1 = {
+        "id": "wrong-1",
+        "platform": "TestNews",
+        "title": "Item falsely claiming verified badge",
+        "lat": 11.0168,
+        "lon": 76.9558,
+        "geolocation_method": "PLACE-MATCHED",
+        "badge": "VERIFIED GEOLOCATION",  # WRONG badge: PLACE-MATCHED must never have verified badge
+        "media_url": "https://example.com/1.jpg",
+        "thumbnail_url": "https://example.com/1_t.jpg",
+    }
+    wrong_item_2 = {
+        "id": "wrong-2",
+        "platform": "TestGeo",
+        "title": "Item with geotagged coords but wrong unverified badge",
+        "lat": 11.0168,
+        "lon": 76.9558,
+        "geolocation_method": "GEOTAGGED",
+        "badge": "UNVERIFIED RANDOM BADGE",  # WRONG badge: GEOTAGGED must be recomputed to VERIFIED GEOLOCATION
+        "media_url": "https://example.com/2.jpg",
+        "thumbnail_url": "https://example.com/2_t.jpg",
+    }
+    with patch("modules.ground_intel.fetch_wikimedia_geosearch", return_value=[wrong_item_1, wrong_item_2]), \
+         patch("modules.ground_intel.fetch_usgs_earthquakes", return_value=[]), \
+         patch("modules.ground_intel.fetch_nasa_eonet", return_value=[]), \
+         patch("modules.ground_intel.fetch_gdacs_alerts", return_value=[]), \
+         patch("modules.ground_intel.fetch_youtube_geosearch", return_value=[]):
+        res = client.get_ground_media_in_area("11.0168,76.9558", radius_km=25)
+        assert res["total"] == 2
+        p1 = next(p for p in res["points"] if p["id"] == "wrong-1")
+        p2 = next(p for p in res["points"] if p["id"] == "wrong-2")
+
+        # p1 had wrong badge "VERIFIED GEOLOCATION" but geolocation_method="PLACE-MATCHED"
+        assert p1["badge"] != "VERIFIED GEOLOCATION"
+        assert p1["badge"] == "PLACE-MATCHED"
+
+        # p2 had wrong badge "UNVERIFIED RANDOM BADGE" but geolocation_method="GEOTAGGED"
+        assert p2["badge"] == "VERIFIED GEOLOCATION"
+
