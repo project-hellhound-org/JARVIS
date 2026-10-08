@@ -4824,7 +4824,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         <a id="ground-media-dock-fallback-btn" href="#" target="_blank" rel="noopener noreferrer" style="font-size:9px; font-weight:700; color:#02060D; background:#00F0FF; padding:4px 10px; border-radius:3px; text-decoration:none;">OPEN ON YOUTUBE ↗</a>
       </div>
 
-      <div id="ground-media-dock-badge" style="position:absolute; bottom:5px; left:5px; background:rgba(0,0,0,0.85); font-size:8px; color:#00F0FF; padding:1px 5px; border-radius:3px; border:1px solid rgba(0,240,255,0.4); font-weight:700;">VERIFIED GEOLOCATION</div>
+      <div id="ground-media-dock-badge" style="position:absolute; bottom:5px; left:5px; background:rgba(0,0,0,0.85); font-size:8px; color:#00F0FF; padding:1px 5px; border-radius:3px; border:1px solid rgba(0,240,255,0.4); font-weight:700;">OSINT GEOLOCATION</div>
     </div>
 
     <div id="ground-media-dock-title" style="font-size:11.5px; font-weight:700; color:#FFFFFF; line-height:1.35; margin-bottom:4px;">Title</div>
@@ -17636,6 +17636,9 @@ function initCesiumGlobe() {
       if (typeof window.updateAnchoredGroundMediaCallout === 'function') {
         window.updateAnchoredGroundMediaCallout();
       }
+      if (typeof window.updateAutoFloatingGroundMediaCards === 'function') {
+        window.updateAutoFloatingGroundMediaCards();
+      }
     });
 
     // ── Dynamic Viewport Video Loader ─────────────────────────────────────────
@@ -17660,23 +17663,12 @@ function initCesiumGlobe() {
             try { window.pywebview.api.sync_active_viewport(lat, lon, altKm); } catch (syncErr) {}
           }
 
-          if (altKm > 750.0) return;  // too far out in deep orbit — don't query ground pins
-
-          // Distance from last query centre (km)
-          if (window._lastGroundMediaQueryCenter) {
-            const prev = window._lastGroundMediaQueryCenter;
-            const dLat = (lat - prev.lat) * 111.0;
-            const dLon = (lon - prev.lon) * 111.0 * Math.cos(lat * Math.PI / 180.0);
-            const dist = Math.sqrt(dLat * dLat + dLon * dLon);
-            if (dist < 10.0) return;  // hasn't moved enough — skip
-          }
-
-          window._lastGroundMediaQueryCenter = { lat, lon };
-          if (typeof window.loadGroundMedia === 'function') {
-            window.loadGroundMedia(`${lat.toFixed(5)},${lon.toFixed(5)}`);
+          // Pins are strictly positioned from stored real coordinates; never recomputed on camera move.
+          if (typeof window.updateAutoFloatingGroundMediaCards === 'function') {
+            window.updateAutoFloatingGroundMediaCards();
           }
         } catch (e) {}
-      }, 700);
+      }, 300);
     });
 
     // Dismiss media panel on Escape key
@@ -20811,6 +20803,7 @@ function initGlobeIntelligence(viewer) {
 
   window.renderGroundMediaPoints = function(points) {
     if (!_groundMediaDataSource || !points) return;
+    window._activeGroundMediaPoints = Array.isArray(points) ? points : [];
     _tacticalLayers.groundMedia = true;
     _groundMediaDataSource.show = true;
     const toggleEl = document.getElementById('layer-toggle-groundMedia');
@@ -20829,7 +20822,8 @@ function initGlobeIntelligence(viewer) {
         source_label: p.source_label,
         thumbnail_url: p.thumbnail_url,
         media_url: p.media_url,
-        verified: p.verified,
+        simulated: Boolean(p.simulated),
+        badge: p.badge || (p.simulated ? 'SIMULATED' : 'WIKIMEDIA'),
         timestamp: p.timestamp,
         lat: p.lat,
         lon: p.lon,
@@ -21048,6 +21042,128 @@ function initGlobeIntelligence(viewer) {
     }
   };
 
+  window.updateAutoFloatingGroundMediaCards = function() {
+    const container = document.getElementById('ground-media-auto-floating-cards');
+    if (!container) return;
+
+    if (!_tacticalLayers.groundMedia || !window._activeGroundMediaPoints || !window._activeGroundMediaPoints.length || !window.cesiumViewer || window.cesiumViewer.isDestroyed()) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const scene = window.cesiumViewer.scene;
+    const camera = scene.camera;
+    const camPos = camera.positionCartographic;
+    if (!camPos) {
+      container.innerHTML = '';
+      return;
+    }
+
+    // Hide cards when zoomed out beyond ~350 km altitude (orbital view)
+    if (camPos.height > 350000) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const camLat = Cesium.Math.toDegrees(camPos.latitude);
+    const camLon = Cesium.Math.toDegrees(camPos.longitude);
+
+    // Compute surface distances to active points and select nearest up to 6
+    const pointsWithDist = window._activeGroundMediaPoints.map(p => {
+      const dLat = (p.lat - camLat) * 111.0;
+      const dLon = (p.lon - camLon) * 111.0 * Math.cos(camLat * Math.PI / 180.0);
+      const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+      return { point: p, dist };
+    });
+
+    pointsWithDist.sort((a, b) => a.dist - b.dist);
+    const nearest = pointsWithDist.slice(0, 6);
+
+    const occluder = new Cesium.EllipsoidalOccluder(scene.globe.ellipsoid, camera.positionWC);
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+
+    let html = '';
+    const placedBoxes = [];
+
+    nearest.forEach((item) => {
+      const p = item.point;
+      const anchor = Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.alt || 60);
+
+      // 1. Globe Occlusion Test (behind the Earth horizon)
+      if (!occluder.isPointVisible(anchor)) return;
+
+      // 2. Camera Plane Direction Test
+      const delta = Cesium.Cartesian3.subtract(anchor, camera.positionWC, new Cesium.Cartesian3());
+      if (Cesium.Cartesian3.dot(delta, camera.directionWC) <= 0) return;
+
+      // 3. Screen Projection
+      const winPos = Cesium.SceneTransforms.worldToWindowCoordinates(scene, anchor);
+      if (!winPos) return;
+
+      // 4. Viewport Clamping & Visibility Check
+      if (winPos.x < 30 || winPos.x > viewportW - 30 || winPos.y < 30 || winPos.y > viewportH - 30) return;
+
+      const cardW = 175;
+      const cardH = 98;
+      let posX = Math.max(12, Math.min(viewportW - cardW - 12, winPos.x + 16));
+      let posY = Math.max(64, Math.min(viewportH - cardH - 32, winPos.y - 75));
+
+      // 5. 2D Bounding-Box Collision Avoidance
+      let currentBox = { left: posX, top: posY, right: posX + cardW, bottom: posY + cardH };
+      let collision = placedBoxes.some(b => !(currentBox.right + 6 < b.left || currentBox.left > b.right + 6 || currentBox.bottom + 6 < b.top || currentBox.top > b.bottom + 6));
+      if (collision) {
+        // Try shifting downward
+        const altY = posY + cardH + 12;
+        if (altY + cardH < viewportH - 32) {
+          const testBox = { left: posX, top: altY, right: posX + cardW, bottom: altY + cardH };
+          if (!placedBoxes.some(b => !(testBox.right + 6 < b.left || testBox.left > b.right + 6 || testBox.bottom + 6 < b.top || testBox.top > b.bottom + 6))) {
+            posY = altY;
+            currentBox = testBox;
+            collision = false;
+          }
+        }
+      }
+      if (collision) return; // Drop card to prevent overlapping clutter
+
+      placedBoxes.push(currentBox);
+
+      const isSim = Boolean(p.simulated);
+      const badgeText = p.badge || (p.geolocation_method === 'GEOTAGGED' ? 'VERIFIED GEOLOCATION' : (p.source_label || 'OSINT'));
+      const badgeColor = (p.badge === 'VERIFIED GEOLOCATION' || p.geolocation_method === 'GEOTAGGED') ? '#10B981' : '#00F0FF';
+      const badgeBg = (p.badge === 'VERIFIED GEOLOCATION' || p.geolocation_method === 'GEOTAGGED') ? 'rgba(16,185,129,0.2)' : 'rgba(0,240,255,0.2)';
+      const thumb = p.thumbnail_url || p.thumbnail || p.media_url || 'https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=320&q=80';
+      const safeTitle = (p.title || 'Ground Contact').replace(/\[SIMULATED\]\s*/i, '').slice(0, 24);
+      const timeStr = p.timestamp || p.published_time || p.captured_at || 'Recent';
+      const latDir = Number(p.lat) >= 0 ? 'N' : 'S';
+      const lonDir = Number(p.lon) >= 0 ? 'E' : 'W';
+      const coordStr = `${Math.abs(Number(p.lat)).toFixed(4)}°${latDir}, ${Math.abs(Number(p.lon)).toFixed(4)}°${lonDir}`;
+      const realUrl = p.url || p.media_url || '#';
+      const idx = window._activeGroundMediaPoints.indexOf(p);
+
+      html += `
+        <div class="ground-floating-card" onclick="if(event.target.tagName==='A'){return;} window.openGroundMediaCard(window._activeGroundMediaPoints[${idx}]); window.open('${realUrl}', '_blank');"
+             style="position:absolute; left:${Math.round(posX)}px; top:${Math.round(posY)}px; width:${cardW}px;
+                    background:rgba(8,14,24,0.88); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+                    border:1px solid rgba(0,240,255,0.45); border-radius:5px;
+                    padding:5px; pointer-events:auto; cursor:pointer; font-family:'JetBrains Mono', monospace;
+                    box-shadow:0 8px 24px rgba(0,0,0,0.6); transition:transform 0.08s ease-out; user-select:none;">
+          <div style="position:relative; width:100%; height:44px; border-radius:3px; overflow:hidden; margin-bottom:4px; background:#02060D;">
+            <img src="${thumb}" alt="" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.display='none'" />
+            <span style="position:absolute; bottom:2px; left:2px; font-size:7px; font-weight:800; color:${badgeColor}; background:${badgeBg}; border:1px solid ${badgeColor}66; padding:0 3px; border-radius:2px;">${badgeText}</span>
+          </div>
+          <div style="font-size:8.5px; font-weight:700; color:#E2E8F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px;" title="${p.title || ''}">${safeTitle}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:7px; color:#64748B;">
+            <span style="color:#00F0FF; font-weight:600;">${coordStr}</span>
+            <span>${timeStr.slice(0, 10)}</span>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  };
+
   window.openGroundMediaCard = function(data) {
     if (!data) return;
     const panel = document.getElementById('ground-media-dock-panel');
@@ -21080,13 +21196,27 @@ function initGlobeIntelligence(viewer) {
 
     if (titleEl) titleEl.textContent = data.title || 'Ground Intel Contact';
     if (descEl) descEl.textContent = data.description || data.subtitle || '';
-    if (coordsEl) coordsEl.textContent = `${Number(data.lat).toFixed(4)}° N, ${Number(data.lon).toFixed(4)}° E`;
-    if (timeEl) timeEl.textContent = data.timestamp || 'Open-Source Dispatch';
+    const latDir = Number(data.lat) >= 0 ? 'N' : 'S';
+    const lonDir = Number(data.lon) >= 0 ? 'E' : 'W';
+    if (coordsEl) coordsEl.textContent = `${Math.abs(Number(data.lat)).toFixed(4)}° ${latDir}, ${Math.abs(Number(data.lon)).toFixed(4)}° ${lonDir}`;
+    if (timeEl) timeEl.textContent = data.published_time || data.timestamp || 'Open-Source Dispatch';
 
     const isVideo = (data.media_type === 'youtube' || data.media_type === 'video' || data.type === 'video');
     if (platEl) platEl.textContent = (data.source_label || (isVideo ? 'YOUTUBE' : 'WIKIMEDIA')).toUpperCase();
     if (iconEl) iconEl.textContent = isVideo ? '📹' : '📷';
-    if (badgeEl) badgeEl.textContent = data.verified ? 'VERIFIED GEOLOCATION' : 'OPEN-SOURCE FEED';
+    if (badgeEl) {
+      if (data.badge === 'VERIFIED GEOLOCATION' || data.geolocation_method === 'GEOTAGGED') {
+        badgeEl.textContent = 'VERIFIED GEOLOCATION';
+        badgeEl.style.color = '#10B981';
+        badgeEl.style.borderColor = 'rgba(16,185,129,0.5)';
+        badgeEl.style.background = 'rgba(16,185,129,0.18)';
+      } else {
+        badgeEl.textContent = data.badge || data.geolocation_method || 'OSINT GEOLOCATION';
+        badgeEl.style.color = '#00F0FF';
+        badgeEl.style.borderColor = 'rgba(0,240,255,0.4)';
+        badgeEl.style.background = 'rgba(0,0,0,0.85)';
+      }
+    }
 
     const targetUrl = data.url || data.media_url || data.thumbnail_url || '#';
     if (linkEl) linkEl.href = targetUrl;
