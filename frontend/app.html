@@ -15575,11 +15575,11 @@ window.focusGlobeCoordinates = function(lat, lon, label) {
 };
 
 window.isCameraAtHomePose = function() {
-  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed() || !window._cctvHomePose) return true;
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed() || !window._homePose) return true;
   const cam = window.cesiumViewer.camera;
-  const homePos = window._cctvHomePose.destination;
+  const homePos = window._homePose.destination;
   const dist = Cesium.Cartesian3.distance(cam.position, homePos);
-  const pitchDiff = Math.abs(cam.pitch - window._cctvHomePose.orientation.pitch);
+  const pitchDiff = Math.abs(cam.pitch - window._homePose.orientation.pitch);
   return dist < 150000 && pitchDiff < 0.1;
 };
 
@@ -15639,8 +15639,8 @@ window.resetViewToHome = function() {
   if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
     window.cesiumViewer.trackedEntity = undefined;
     window.cesiumViewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
-    const dest = window._cctvHomePose ? window._cctvHomePose.destination : Cesium.Cartesian3.fromDegrees(0.0, 20.0, 25000000);
-    const orient = window._cctvHomePose ? window._cctvHomePose.orientation : {
+    const dest = window._homePose ? window._homePose.destination : Cesium.Cartesian3.fromDegrees(0.0, 20.0, 25000000);
+    const orient = window._homePose ? window._homePose.orientation : {
       heading: Cesium.Math.toRadians(0),
       pitch: Cesium.Math.toRadians(-90),
       roll: 0.0
@@ -17487,7 +17487,7 @@ function initCesiumGlobe() {
     loadCesiumBuildings();
 
     // Capture real startup camera pose directly from Cesium Viewer initialization
-    window._cctvHomePose = {
+    window._homePose = {
       destination: Cesium.Cartesian3.clone(cesiumViewer.camera.position),
       orientation: {
         heading: cesiumViewer.camera.heading,
