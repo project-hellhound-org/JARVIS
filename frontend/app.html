@@ -4585,7 +4585,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
           <button onclick="window.resetTacticalLayout()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#8A8D91; font-size:8.5px; font-weight:700; padding:1px 5px; border-radius:3px; cursor:pointer;" title="Reset Panel Layout">⟲ RESET</button>
-          <span style="font-size:8.5px; color:#8A8D91;">LIVE AUDIO</span>
+          <span id="radio-stream-badge" style="font-size:8.5px; font-weight:700; color:#EF4444; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); padding:1px 5px; border-radius:3px; letter-spacing:0.5px;">OFFLINE</span>
         </div>
       </div>
       <div class="radio-tuner-box">
@@ -4593,25 +4593,38 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         <div class="radio-tag-bar">
           <button class="radio-disable-btn" id="radio-disable-btn" onclick="window.stopRadioAudio()">DISABLE</button>
           <select class="radio-tag-select" id="radio-category-select" onchange="window.filterRadioByCategory(this.value)">
-            <option value="weather">● Weather / Emergency (33)</option>
-            <option value="aviation">● Air Traffic Control (ATC)</option>
-            <option value="emergency">● Police / Fire / First Responders</option>
-            <option value="marine">● Marine / Coast Guard VHF</option>
+            <option value="atc">● ATC / Flight Comms (2)</option>
+            <option value="scanner">● Police / Fire Scanners (2)</option>
+            <option value="marine">● Marine VHF Radio (2)</option>
+            <option value="news">● News / Intel Radio (2)</option>
+            <option value="cyber">● Cyber News Intel Feed (RSS)</option>
           </select>
         </div>
 
         <!-- Station Info Card -->
-        <div class="radio-station-card">
-          <div class="radio-station-title" id="radio-now-title">NOAA Weather Radio KEC49, Monterey, California</div>
-          <div class="radio-station-telemetry" id="radio-now-telemetry">California • US / MP3 • 32 kbps</div>
-          <div class="radio-station-tags" id="radio-now-tags">TAGS • local weather • weather • weather radio</div>
+        <div class="radio-station-card" id="radio-station-card-box">
+          <div class="radio-station-title" id="radio-now-title">NASA Mission Control & Space Comms</div>
+          <div class="radio-station-telemetry" id="radio-now-telemetry">Houston/KSC • US / MP3 • 128 kbps</div>
+          <div class="radio-station-tags" id="radio-now-tags">TAGS • spaceflight • air-to-ground • mission control • nasa</div>
+          <div class="radio-station-terms" id="radio-now-terms" style="font-size:8px; color:#64748B; margin-top:4px; line-height:1.25; border-top:1px solid rgba(255,255,255,0.05); padding-top:3px;">TERMS • SomaFM: Listener-supported non-commercial internet radio; authentic NASA spaceflight air-to-ground audio.</div>
+        </div>
+
+        <!-- Cyber News Panel (Shown when cyber category is selected) -->
+        <div id="cyber-news-panel" style="display:none; margin:6px 0; background:rgba(15,23,42,0.65); border:1px solid rgba(56,189,248,0.25); border-radius:4px; padding:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:3px;">
+            <span style="font-size:9px; font-weight:800; color:#38BDF8; letter-spacing:0.5px;">CYBER THREAT ADVISORIES</span>
+            <button onclick="window.fetchCyberNews()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#8A8D91; font-size:7.5px; padding:1px 4px; border-radius:2px; cursor:pointer;">⟲ REFRESH</button>
+          </div>
+          <div id="cyber-news-list" style="max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:5px;">
+            <div style="font-size:8.5px; color:#94A3B8;">Loading advisories from CISA feed...</div>
+          </div>
         </div>
 
         <!-- Tuner Dial Box with Frequency Scale and Orange Needle -->
-        <div class="radio-dial-box">
+        <div class="radio-dial-box" id="radio-dial-container">
           <div class="radio-dial-header">
-            <span id="radio-band-label">WEATHER / EMERGENCY BAND</span>
-            <span id="radio-channel-num" style="color:#FF9D2E;">CH 14</span>
+            <span id="radio-band-label">AVIATION / AIR TRAFFIC BAND</span>
+            <span id="radio-channel-num" style="color:#FF9D2E;">CH 12</span>
           </div>
           <div class="radio-dial-scale" id="radio-dial-scale">
             <div class="radio-dial-tick"><div class="radio-dial-tick-mark"></div><span>10</span></div>
@@ -4622,7 +4635,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
             <div class="radio-dial-needle" id="radio-dial-needle" style="left:50%;"></div>
           </div>
           <div class="radio-dial-footer">
-            <span id="radio-dial-st-name">NOAA Weather Radio KEC49...</span>
+            <span id="radio-dial-st-name">NASA Mission Control...</span>
             <span style="color:#38BDF8;">SNAPS TO AVAILABLE ST.</span>
           </div>
         </div>
@@ -4649,19 +4662,20 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
       <div class="tactical-resize-handle" title="Resize Radio Scanner">◢</div>
     </div>
 
-    <!-- Navigation actions -->
-    <div class="globe-hud-card" style="padding:10px 12px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-        <button class="globe-hud-btn" style="background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.15); color:#E6E6E6;" onclick="toggleGlobeHudCollapsed()">
-          COLLAPSE ❯
-        </button>
-        <button id="btn-reset-layout" class="globe-hud-btn" style="background:rgba(0,240,255,0.14); border-color:rgba(0,240,255,0.45); color:#00F0FF;" onclick="window.resetTacticalLayout()" title="Reset All Tactical Panels to Default Positions">
-          ⟲ RESET LAYOUT
-        </button>
-        <button class="globe-hud-btn" style="background:rgba(255,157,46,0.18); border-color:rgba(255,157,46,0.45); color:#FFB84D;" onclick="window.glideToSpatial(0)">
-          ◄ RETURN TO HUD
-        </button>
-      </div>
+  </div> <!-- closes globe-hud-scroll-body -->
+
+  <!-- Dedicated Non-Overlapping Bottom Bar Slot: NEVER covers Radio Scanner tuner -->
+  <div class="globe-hud-bottom-bar-slot" style="flex-shrink:0; padding:8px 10px; background:#0B0E14; border:1px solid rgba(255,157,46,0.3); border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.8); z-index:10;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+      <button class="globe-hud-btn" style="background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.15); color:#E6E6E6;" onclick="toggleGlobeHudCollapsed()">
+        COLLAPSE ❯
+      </button>
+      <button id="btn-reset-layout" class="globe-hud-btn" style="background:rgba(0,240,255,0.14); border-color:rgba(0,240,255,0.45); color:#00F0FF;" onclick="window.resetTacticalLayout()" title="Reset All Tactical Panels to Default Positions">
+        ⟲ RESET LAYOUT
+      </button>
+      <button class="globe-hud-btn" style="background:rgba(255,157,46,0.18); border-color:rgba(255,157,46,0.45); color:#FFB84D;" onclick="window.glideToSpatial(0)">
+        ◄ RETURN TO HUD
+      </button>
     </div>
   </div>
   <div class="tactical-resize-handle" title="Resize OSINT Rail">◢</div>
@@ -4692,7 +4706,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
 </div>
 
 <!-- Real God's Eye CCTV Tactical Dock Panel (Draggable Left Rail) -->
-<div id="cctv-dock-panel" style="position:fixed; top:80px; left:20px; width:340px; max-width:88vw; background:rgba(6,10,18,0.94); border:1px solid rgba(0,240,255,0.45); border-radius:8px; padding:12px; box-shadow:0 12px 36px rgba(0,0,0,0.85); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); z-index:9995; display:none; font-family:var(--mono); color:#E6E6E6; user-select:none; pointer-events:auto;">
+<div id="cctv-dock-panel" style="position:fixed; top:80px; left:20px; width:340px; max-width:88vw; background:rgba(6,10,18,0.94); border:1px solid rgba(0,240,255,0.45); border-radius:8px; padding:12px; box-shadow:0 12px 36px rgba(0,0,0,0.85); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); z-index:1400; display:none; font-family:var(--mono); color:#E6E6E6; user-select:none; pointer-events:auto;">
   <!-- Draggable Header Bar -->
   <div id="cctv-dock-drag-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; cursor:move; user-select:none;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -4769,8 +4783,11 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   <div class="tactical-resize-handle" title="Resize CCTV Dock">◢</div>
 </div>
 
-<!-- Open-Source Ground Media & Eyewitness Tactical Floating Callout (God's Eye Style) -->
-<div id="ground-media-dock-panel" class="ground-media-callout-card" style="position:fixed; z-index:9996; display:none; width:360px; max-width:calc(100vw - 32px); font-family:var(--mono); color:#E6E6E6; user-select:none; pointer-events:auto;">
+<!-- Auto-Floating Ground Media Tactical Cards (Nearest ~6 Pins Anchored in Real-Time, Tier 2 Cards) -->
+<div id="ground-media-auto-floating-cards" style="position:fixed; inset:0; pointer-events:none; z-index:150; overflow:hidden;"></div>
+
+<!-- Open-Source Ground Media & Eyewitness Tactical Floating Callout (God's Eye Style, Tier 3 Panel) -->
+<div id="ground-media-dock-panel" class="ground-media-callout-card" style="position:fixed; z-index:1450; display:none; width:360px; max-width:calc(100vw - 32px); font-family:var(--mono); color:#E6E6E6; user-select:none; pointer-events:auto;">
   <!-- SVG Leader Line from Card Edge down to Ground Pin Anchor -->
   <svg class="ground-media-leader" style="position:absolute; top:0; left:0; width:1px; height:1px; overflow:visible; pointer-events:none;">
     <path d="" fill="none" stroke="#00F0FF" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.85" />
@@ -17918,57 +17935,35 @@ async function _loadWeatherRadarLayer() {
 
 // Authentic Tactical OSINT Scanner & Emergency Feeds (Zero Random Pop Songs)
 const RADIO_STATIONS = {
-  noaa_monterey: {
-    id: 'noaa_monterey',
-    category: 'weather',
-    channel: 14,
-    name: 'NOAA Weather Radio KEC49, Monterey, California',
-    freq: '162.400 MHz VHF',
-    genre: 'California • US / Scanner • 128 kbps',
-    tags: 'local weather • weather • weather radio',
-    lat: 36.6002,
-    lon: -121.8947,
-    streamUrl: 'https://ice4.somafm.com/missioncontrol-128-mp3'
-  },
-  noaa_nyc: {
-    id: 'noaa_nyc',
-    category: 'weather',
-    channel: 18,
-    name: 'NOAA Weather Radio KWO35, New York Metropolitan',
-    freq: '162.550 MHz VHF',
-    genre: 'New York • US / Scanner • 128 kbps',
-    tags: 'severe weather • marine hazard • northeast coastal',
-    lat: 40.7128,
-    lon: -74.0060,
-    streamUrl: 'https://ice4.somafm.com/defcon-128-mp3'
-  },
-  tokyo_atc: {
-    id: 'tokyo_atc',
-    category: 'aviation',
+  nasa_mission_control: {
+    id: 'nasa_mission_control',
+    category: 'atc',
     channel: 12,
-    name: 'Tokyo Haneda Tower ATC (RJTT)',
-    freq: '118.10 MHz VHF',
-    genre: 'Tokyo • JP / Tower Comm • 128 kbps',
-    tags: 'aviation • air traffic control • tokyo tower • rjtt',
-    lat: 35.5494,
-    lon: 139.7798,
-    streamUrl: 'https://ice4.somafm.com/missioncontrol-128-mp3'
+    name: 'NASA Mission Control & Space Comms',
+    freq: 'VHF Air-to-Ground',
+    genre: 'Houston/KSC • US / MP3 • 128 kbps',
+    tags: 'spaceflight • air-to-ground • mission control • nasa',
+    lat: 29.5593,
+    lon: -95.0900,
+    streamUrl: 'https://ice2.somafm.com/missioncontrol-128-mp3',
+    terms: 'SomaFM: Listener-supported non-commercial internet radio; authentic NASA spaceflight air-to-ground audio.'
   },
-  heathrow_atc: {
-    id: 'heathrow_atc',
-    category: 'aviation',
+  defcon_tactical: {
+    id: 'defcon_tactical',
+    category: 'atc',
     channel: 16,
-    name: 'Heathrow Tower ATC (EGLL)',
-    freq: '118.50 MHz VHF',
-    genre: 'London • UK / Tower Comm • 128 kbps',
-    tags: 'aviation • air traffic control • london tower • egll',
-    lat: 51.4700,
-    lon: -0.4543,
-    streamUrl: 'https://ice4.somafm.com/defcon-128-mp3'
+    name: 'DEF CON Tactical Comms & Cyber Net',
+    freq: 'Tactical Cyber Comms',
+    genre: 'Las Vegas • US / MP3 • 128 kbps',
+    tags: 'tactical comms • cyber ops • defcon net • radio',
+    lat: 36.1699,
+    lon: -115.1398,
+    streamUrl: 'https://ice2.somafm.com/defcon-128-mp3',
+    terms: 'SomaFM / DEF CON: Non-commercial public audio relay for DEF CON net operations.'
   },
-  sf_police: {
-    id: 'sf_police',
-    category: 'emergency',
+  sf_police_dispatch: {
+    id: 'sf_police_dispatch',
+    category: 'scanner',
     channel: 14,
     name: 'SF 10-33 Police & Fire Dispatch',
     freq: '460.025 MHz UHF',
@@ -17976,35 +17971,78 @@ const RADIO_STATIONS = {
     tags: 'public safety • emergency dispatch • police 10-33 • fire',
     lat: 37.7749,
     lon: -122.4194,
-    streamUrl: 'https://ice4.somafm.com/sf1033-128-mp3'
+    streamUrl: 'https://ice2.somafm.com/sf1033-128-mp3',
+    terms: 'SomaFM SF 10-33: Public safety radio stream capturing authentic police dispatch audio.'
   },
-  chicago_fire: {
-    id: 'chicago_fire',
-    category: 'emergency',
-    channel: 10,
-    name: 'Chicago Main Fire & EMS Dispatch',
-    freq: '476.287 MHz UHF',
-    genre: 'Chicago • US / MP3 • 64 kbps',
-    tags: 'emergency • fire dispatch • first responders • ems',
-    lat: 41.8781,
-    lon: -87.6298,
-    streamUrl: 'https://ice4.somafm.com/sf1033-128-mp3'
+  sf_public_safety: {
+    id: 'sf_public_safety',
+    category: 'scanner',
+    channel: 18,
+    name: 'SF Public Safety Scanner Audio',
+    freq: '800 MHz Trunked Radio',
+    genre: 'San Francisco • US / MP3 • 128 kbps',
+    tags: 'public safety • multi-agency scanner • dispatch',
+    lat: 37.7833,
+    lon: -122.4167,
+    streamUrl: 'https://ice6.somafm.com/scanner-128-mp3',
+    terms: 'SomaFM Scanner: Authentic SF public safety scanner relay with ambient audio.'
   },
-  marine_ch16: {
-    id: 'marine_ch16',
+  noaa_puget_marine: {
+    id: 'noaa_puget_marine',
     category: 'marine',
+    channel: 10,
+    name: 'NOAA Weather Radio WWG24 Puget Sound Marine',
+    freq: '162.425 MHz VHF',
+    genre: 'Seattle / Puget Sound • US / MP3 • 32 kbps',
+    tags: 'marine weather • coastal navigation • puget sound • noaa',
+    lat: 47.6062,
+    lon: -122.3321,
+    streamUrl: 'https://wxradio.bobc.io/stream/WWG24',
+    terms: 'NOAA / NWS: Public domain federal maritime weather and coastal alerts.'
+  },
+  noaa_monterey: {
+    id: 'noaa_monterey',
+    category: 'marine',
+    channel: 14,
+    name: 'NOAA Weather Radio KEC49 / WWF64 Monterey Coastal Marine',
+    freq: '162.400 MHz VHF',
+    genre: 'Monterey Bay • US / MP3 • 32 kbps',
+    tags: 'marine coastal • weather • offshore forecast • pacific',
+    lat: 36.6002,
+    lon: -121.8947,
+    streamUrl: 'https://wxradio.org/CA-MontereyMarine-WWF64',
+    terms: 'NOAA / NWS: Public domain federal maritime navigation and weather broadcast.'
+  },
+  bbc_world_service: {
+    id: 'bbc_world_service',
+    category: 'news',
+    channel: 12,
+    name: 'BBC World Service International News',
+    freq: 'Global Shortwave / Web',
+    genre: 'London • UK / MP3 • 96 kbps',
+    tags: 'international news • geopolitical intel • world service',
+    lat: 51.5186,
+    lon: -0.1438,
+    streamUrl: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
+    terms: 'BBC: Free live internet radio stream for personal listening under BBC online terms.'
+  },
+  dlf_news: {
+    id: 'dlf_news',
+    category: 'news',
     channel: 16,
-    name: 'International Marine VHF Ch 16 (Distress & Calling)',
-    freq: '156.800 MHz VHF',
-    genre: 'Global Maritime / VHF • 128 kbps',
-    tags: 'maritime • vhf ch 16 • emergency • distress • vessel safety',
-    lat: 51.9244,
-    lon: 4.4777,
-    streamUrl: 'https://ice4.somafm.com/defcon-128-mp3'
+    name: 'Deutschlandfunk DLF News & Information',
+    freq: 'Cologne • DE / MP3 • 128 kbps',
+    genre: 'Germany • DE / MP3 • 128 kbps',
+    tags: 'european news • current affairs • deutschlandfunk',
+    lat: 50.9375,
+    lon: 6.9603,
+    streamUrl: 'https://st01.sslstream.dlf.de/dlf/01/128/mp3/stream.mp3',
+    terms: 'Deutschlandradio: Public service broadcasting, open online livestream.'
   }
 };
 
-let _currentStationId = 'noaa_monterey';
+let _currentStationId = 'nasa_mission_control';
+let _currentRadioCategory = 'atc';
 
 // CCTV Network Seeds with Elevation-aware FOV, Azimuth, Pitch, Mount Clearances, and Live Stream Feeds
 const CCTV_CAMERAS = [
@@ -18640,41 +18678,42 @@ let _cctvDraggableInitialized = false;
 //           click-to-front z-index, localStorage persistence, and layout reset.
 // ============================================================================
 const TACTICAL_PANEL_STORAGE_KEY = 'jarvis_tactical_panel_layout';
-let _tacticalTopZ = 9990;
+let _tacticalTopZ = 1400;
 
 const TACTICAL_PANELS = {
   cctv: {
     elementId: 'cctv-dock-panel',
     handleId: 'cctv-dock-drag-header',
-    defaultStyles: { left: '20px', top: '80px', right: 'auto', bottom: 'auto', width: '340px', height: '', zIndex: '9995' }
+    defaultStyles: { left: '20px', top: '80px', right: 'auto', bottom: 'auto', width: '340px', height: '', zIndex: '1400' }
   },
   osint: {
     elementId: 'spatial-globe-hud',
     handleId: 'osint-rail-drag-header',
-    defaultStyles: { left: '', top: '54px', right: '24px', bottom: 'auto', width: '360px', height: '', transform: '', zIndex: '350' }
+    defaultStyles: { left: '', top: '54px', right: '24px', bottom: 'auto', width: '360px', height: '', transform: '', zIndex: '1200' }
   },
   groundMedia: {
     elementId: 'ground-media-dock-panel',
     handleId: 'ground-media-drag-header',
-    defaultStyles: { left: '', top: '', right: '', bottom: '', width: '360px', height: '', zIndex: '9996' }
+    defaultStyles: { left: '', top: '', right: '', bottom: '', width: '360px', height: '', zIndex: '1450' }
   },
   inspect: {
     elementId: 'globe-inspect-card',
     handleId: 'inspect-card-drag-header',
-    defaultStyles: { left: '24px', top: '', bottom: '24px', right: '', width: '320px', height: '', zIndex: '185' }
+    defaultStyles: { left: '24px', top: '', bottom: '24px', right: '', width: '320px', height: '', zIndex: '1300' }
   },
   radio: {
     elementId: 'globe-radio-card',
     handleId: 'radio-drag-header',
-    defaultStyles: { position: '', left: '', top: '', right: '', bottom: '', width: '', height: '', zIndex: '' }
+    defaultStyles: { position: '', left: '', top: '', right: '', bottom: '', width: '', height: '', zIndex: '1350' }
   }
 };
 
 window.TacticalPanelManager = {
   bringToFront(el) {
     if (!el) return;
-    _tacticalTopZ = Math.max(_tacticalTopZ + 1, 9991);
-    if (_tacticalTopZ > 99990) _tacticalTopZ = 9991;
+    // Strict Panel Tier: stays in 1400-1800, always below Modals (9500+) and above Cards (150) & Pins (20)
+    _tacticalTopZ = Math.max(_tacticalTopZ + 1, 1401);
+    if (_tacticalTopZ > 1800) _tacticalTopZ = 1401;
     el.style.zIndex = _tacticalTopZ;
   },
 
@@ -19695,16 +19734,62 @@ function playTacticalRfStatic(durationMs = 280) {
 }
 
 // God's Eye Authentic Tactical Radio Scanner Engine (Image 4 Parity)
-let _currentRadioCategory = 'weather';
+function initRadioAudioListeners() {
+  const audio = document.getElementById('globe-radio-audio');
+  const badge = document.getElementById('radio-stream-badge');
+  if (!audio || audio._eventsBound) return;
+  audio._eventsBound = true;
+
+  function updateBadge(state) {
+    if (!badge) return;
+    if (state === 'live') {
+      badge.textContent = 'LIVE';
+      badge.style.color = '#10B981';
+      badge.style.background = 'rgba(16,185,129,0.15)';
+      badge.style.borderColor = 'rgba(16,185,129,0.4)';
+    } else if (state === 'buffering') {
+      badge.textContent = 'BUFFERING';
+      badge.style.color = '#F59E0B';
+      badge.style.background = 'rgba(245,158,11,0.15)';
+      badge.style.borderColor = 'rgba(245,158,11,0.4)';
+    } else if (state === 'paused') {
+      badge.textContent = 'PAUSED';
+      badge.style.color = '#94A3B8';
+      badge.style.background = 'rgba(148,163,184,0.15)';
+      badge.style.borderColor = 'rgba(148,163,184,0.3)';
+    } else {
+      badge.textContent = 'OFFLINE';
+      badge.style.color = '#EF4444';
+      badge.style.background = 'rgba(239,68,68,0.15)';
+      badge.style.borderColor = 'rgba(239,68,68,0.4)';
+    }
+  }
+
+  audio.addEventListener('playing', () => updateBadge('live'));
+  audio.addEventListener('waiting', () => updateBadge('buffering'));
+  audio.addEventListener('loadstart', () => updateBadge('buffering'));
+  audio.addEventListener('pause', () => updateBadge('paused'));
+  audio.addEventListener('error', () => updateBadge('offline'));
+  audio.addEventListener('ended', () => updateBadge('offline'));
+}
 
 window.tuneRadioStation = function(stationId, autoPlay = true) {
   const station = RADIO_STATIONS[stationId];
   if (!station) return;
   _currentStationId = stationId;
-  _currentRadioCategory = station.category || 'weather';
+  _currentRadioCategory = station.category || 'atc';
+
+  initRadioAudioListeners();
 
   const catSel = document.getElementById('radio-category-select');
   if (catSel) catSel.value = _currentRadioCategory;
+
+  const cardBox = document.getElementById('radio-station-card-box');
+  const dialBox = document.getElementById('radio-dial-container');
+  const cyberPanel = document.getElementById('cyber-news-panel');
+  if (cardBox) cardBox.style.display = 'block';
+  if (dialBox) dialBox.style.display = 'block';
+  if (cyberPanel) cyberPanel.style.display = 'none';
 
   if (autoPlay) {
     playTacticalRfStatic(200);
@@ -19713,6 +19798,7 @@ window.tuneRadioStation = function(stationId, autoPlay = true) {
   const titleEl = document.getElementById('radio-now-title');
   const telemEl = document.getElementById('radio-now-telemetry');
   const tagsEl = document.getElementById('radio-now-tags');
+  const termsEl = document.getElementById('radio-now-terms');
   const bandEl = document.getElementById('radio-band-label');
   const chanEl = document.getElementById('radio-channel-num');
   const stNameEl = document.getElementById('radio-dial-st-name');
@@ -19721,15 +19807,17 @@ window.tuneRadioStation = function(stationId, autoPlay = true) {
   if (titleEl) titleEl.textContent = station.name;
   if (telemEl) telemEl.textContent = station.genre || `${station.freq} • 32 kbps`;
   if (tagsEl) tagsEl.textContent = `TAGS • ${station.tags || 'tactical • osint • scanner'}`;
+  if (termsEl) termsEl.textContent = `TERMS • ${station.terms || 'Non-commercial public broadcast stream.'}`;
   if (stNameEl) stNameEl.textContent = station.name.slice(0, 26) + '...';
 
   const catLabels = {
-    weather: 'WEATHER / EMERGENCY BAND',
-    aviation: 'AVIATION / AIR TRAFFIC BAND',
-    emergency: 'FIRST RESPONDER / POLICE BAND',
-    marine: 'MARITIME / COASTAL VHF BAND'
+    atc: 'AVIATION / AIR TRAFFIC BAND',
+    scanner: 'FIRST RESPONDER / POLICE BAND',
+    marine: 'MARITIME / COASTAL VHF BAND',
+    news: 'GLOBAL NEWS / INTEL BROADCAST',
+    cyber: 'CYBER INTELLIGENCE FEED'
   };
-  if (bandEl) bandEl.textContent = catLabels[_currentRadioCategory] || 'EMERGENCY BAND';
+  if (bandEl) bandEl.textContent = catLabels[_currentRadioCategory] || 'TACTICAL OSINT BAND';
   if (chanEl) chanEl.textContent = `CH ${station.channel || 14}`;
 
   // Smooth needle positioning matching Image 4 dial scale (10 to 18)
@@ -19745,13 +19833,6 @@ window.tuneRadioStation = function(stationId, autoPlay = true) {
   const btn = document.getElementById('radio-toggle-btn');
   if (audio) {
     audio.dataset.pendingSrc = station.streamUrl;
-    if (!audio._errorListenerBound) {
-      audio._errorListenerBound = true;
-      audio.addEventListener('error', () => {
-        console.warn('[Radio] Audio stream connection notice:', audio.src);
-        if (btn) btn.textContent = 'PLAY';
-      });
-    }
     if (!autoPlay) {
       if (btn) btn.textContent = 'PLAY';
       return;
@@ -19771,13 +19852,92 @@ window.tuneRadioStation = function(stationId, autoPlay = true) {
 
 window.filterRadioByCategory = function(category) {
   _currentRadioCategory = category;
+  initRadioAudioListeners();
+
+  if (category === 'cyber') {
+    const cardBox = document.getElementById('radio-station-card-box');
+    const dialBox = document.getElementById('radio-dial-container');
+    const cyberPanel = document.getElementById('cyber-news-panel');
+    const bandEl = document.getElementById('radio-band-label');
+    const chanEl = document.getElementById('radio-channel-num');
+    const badge = document.getElementById('radio-stream-badge');
+
+    if (cardBox) cardBox.style.display = 'none';
+    if (dialBox) dialBox.style.display = 'none';
+    if (cyberPanel) cyberPanel.style.display = 'block';
+    if (bandEl) bandEl.textContent = 'CYBER INTELLIGENCE FEED';
+    if (chanEl) chanEl.textContent = 'RSS';
+    if (badge) {
+      badge.textContent = 'INTEL LIVE';
+      badge.style.color = '#38BDF8';
+      badge.style.background = 'rgba(56,189,248,0.15)';
+      badge.style.borderColor = 'rgba(56,189,248,0.4)';
+    }
+    window.stopRadioAudio();
+    window.fetchCyberNews();
+    return;
+  }
+
   const matches = Object.values(RADIO_STATIONS).filter(s => s.category === category);
   if (matches.length > 0) {
     window.tuneRadioStation(matches[0].id, true);
   }
 };
 
+window.fetchCyberNews = async function() {
+  const listEl = document.getElementById('cyber-news-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div style="font-size:8.5px; color:#94A3B8;">Connecting to CISA & OSINT threat feeds...</div>';
+  try {
+    const res = await fetch('/api/cyber-news');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const items = await res.json();
+    window._cachedCyberNews = items;
+    if (!items || items.length === 0) {
+      listEl.innerHTML = '<div style="font-size:8.5px; color:#94A3B8;">No active cyber threat advisories reported.</div>';
+      return;
+    }
+    listEl.innerHTML = items.map((it, idx) => {
+      const sevColor = it.severity === 'CRITICAL' ? '#EF4444' : (it.severity === 'HIGH' ? '#F59E0B' : '#38BDF8');
+      const sevBg = it.severity === 'CRITICAL' ? 'rgba(239,68,68,0.2)' : (it.severity === 'HIGH' ? 'rgba(245,158,11,0.2)' : 'rgba(56,189,248,0.2)');
+      return `
+        <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:3px; padding:4px 6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+            <span style="font-size:7.5px; font-weight:700; color:${sevColor}; background:${sevBg}; padding:1px 3px; border-radius:2px;">${it.severity || 'ALERT'}</span>
+            <span style="font-size:7.5px; color:#64748B;">${it.date || ''}</span>
+          </div>
+          <div style="font-size:8.5px; font-weight:700; color:#E2E8F0; line-height:1.2; margin-bottom:2px;">${it.title}</div>
+          <div style="font-size:7.5px; color:#94A3B8; line-height:1.2; margin-bottom:3px;">${it.summary || ''}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.04); padding-top:2px;">
+            <span style="font-size:7px; color:#64748B;">SRC: ${it.source || 'CISA'}</span>
+            <button onclick="window.speakCyberAdvisory(${idx})" style="background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.35); color:#38BDF8; font-size:7.5px; font-weight:700; padding:1px 4px; border-radius:2px; cursor:pointer;" title="Read aloud using speech synthesis">🔊 READ ADVISORY</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = `<div style="font-size:8.5px; color:#EF4444;">Failed to fetch cyber news: ${e.message}</div>`;
+  }
+};
+
+window.speakCyberAdvisory = function(idx) {
+  if (!('speechSynthesis' in window)) {
+    alert('Web Speech API speech synthesis not supported in this browser.');
+    return;
+  }
+  const items = window._cachedCyberNews;
+  if (!items || !items[idx]) return;
+  const it = items[idx];
+  window.speechSynthesis.cancel();
+  const text = `Cyber Intelligence Advisory from ${it.source}. Severity: ${it.severity}. ${it.title}. Details: ${it.summary}`;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.0;
+  utterance.pitch = 1.0;
+  window.speechSynthesis.speak(utterance);
+};
+
 window.cycleRadioStation = function(delta) {
+  if (_currentRadioCategory === 'cyber') return;
   const currentCatStations = Object.values(RADIO_STATIONS).filter(s => s.category === _currentRadioCategory);
   if (!currentCatStations.length) return;
   const currentIdx = currentCatStations.findIndex(s => s.id === _currentStationId);
@@ -19789,8 +19949,9 @@ window.toggleRadioPlayback = function() {
   const audio = document.getElementById('globe-radio-audio');
   const btn = document.getElementById('radio-toggle-btn');
   if (!audio) return;
+  initRadioAudioListeners();
 
-  const st = RADIO_STATIONS[_currentStationId] || RADIO_STATIONS['noaa_monterey'];
+  const st = RADIO_STATIONS[_currentStationId] || RADIO_STATIONS['nasa_mission_control'];
   const targetSrc = audio.dataset.pendingSrc || st.streamUrl;
   if (!audio.src || audio.src === '' || audio.src.endsWith('/') || audio.src !== targetSrc) {
     audio.src = targetSrc;
@@ -19827,7 +19988,8 @@ window.playRadioAudio = function() {
   const audio = document.getElementById('globe-radio-audio');
   const btn = document.getElementById('radio-toggle-btn');
   if (audio) {
-    const st = RADIO_STATIONS[_currentStationId] || RADIO_STATIONS['noaa_monterey'];
+    initRadioAudioListeners();
+    const st = RADIO_STATIONS[_currentStationId] || RADIO_STATIONS['nasa_mission_control'];
     const targetSrc = audio.dataset.pendingSrc || st.streamUrl;
     if (!audio.src || audio.src === '' || audio.src.endsWith('/') || audio.src !== targetSrc) {
       audio.src = targetSrc;
