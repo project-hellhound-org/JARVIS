@@ -17268,10 +17268,10 @@ function initCesiumGlobe() {
       if (imageryProvider && cesiumViewer && !cesiumViewer.isDestroyed()) {
         cesiumViewer.imageryLayers.removeAll();
         const baseLayer = cesiumViewer.imageryLayers.addImageryProvider(imageryProvider);
-        baseLayer.saturation = 1.00;
-        baseLayer.contrast = 1.00;
-        baseLayer.brightness = 1.00;
-        baseLayer.gamma = 1.00;
+        baseLayer.saturation = 1.35;
+        baseLayer.contrast = 1.15;
+        baseLayer.brightness = 1.05;
+        baseLayer.gamma = 0.95;
         console.log('[Cesium] Satellite imagery provider active with clean photorealistic God\'s Eye Earth color tones');
 
         // Dynamic Altitude-Culled Reference Labels & Boundaries Overlay (cities, places, landmarks)
@@ -18085,7 +18085,7 @@ window.setEarthVisualStyle = function(styleName) {
 
   if (styleName === 'satellite') {
     globe.enableLighting = false;
-    globe.baseColor = Cesium.Color.fromCssColorString('#020611');
+    globe.baseColor = Cesium.Color.fromCssColorString('#020B1E');
     globe.atmosphereBrightnessShift = -0.08;
     globe.atmosphereHueShift = 0.0;
     globe.atmosphereSaturationShift = -0.12;
@@ -18096,10 +18096,10 @@ window.setEarthVisualStyle = function(styleName) {
       scene.skyAtmosphere.brightnessShift = -0.08;
     }
     if (baseLayer) {
-      baseLayer.saturation = 1.00;
-      baseLayer.contrast = 1.00;
-      baseLayer.brightness = 1.00;
-      baseLayer.gamma = 1.00;
+      baseLayer.saturation = 1.35;
+      baseLayer.contrast = 1.15;
+      baseLayer.brightness = 1.05;
+      baseLayer.gamma = 0.95;
     }
     if (window._godsEyeSharpenStage) {
       window._godsEyeSharpenStage.enabled = true;
@@ -18152,6 +18152,59 @@ window.setEarthVisualStyle = function(styleName) {
   }
 
   scene.requestRender();
+};
+
+window.setMapColourPreset = function(presetName = 'vivid') {
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return;
+  const layers = window.cesiumViewer.imageryLayers;
+  if (!layers || layers.length === 0) return;
+  const baseLayer = layers.get(0);
+  if (!baseLayer) return;
+
+  const presets = {
+    vivid: { saturation: 1.40, contrast: 1.20, brightness: 1.06, gamma: 0.92, baseColor: '#020B1E' },
+    natural: { saturation: 1.15, contrast: 1.05, brightness: 1.02, gamma: 0.98, baseColor: '#020611' },
+    contrast: { saturation: 1.30, contrast: 1.35, brightness: 1.04, gamma: 0.90, baseColor: '#01050F' },
+    night: { saturation: 0.85, contrast: 1.25, brightness: 0.80, gamma: 1.10, baseColor: '#010308' }
+  };
+
+  const p = presets[presetName] || presets.vivid;
+  baseLayer.saturation = p.saturation;
+  baseLayer.contrast = p.contrast;
+  baseLayer.brightness = p.brightness;
+  baseLayer.gamma = p.gamma;
+  if (window.cesiumViewer.scene.globe) {
+    window.cesiumViewer.scene.globe.baseColor = Cesium.Color.fromCssColorString(p.baseColor);
+  }
+  window.cesiumViewer.scene.requestRender();
+  console.log(`[MapColour] Preset applied: ${presetName}`);
+};
+
+window.toggleNasaGibsBathymetryBlend = async function(enable = true, alpha = 0.45) {
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return;
+  if (window._gibsBlendLayer) {
+    window.cesiumViewer.imageryLayers.remove(window._gibsBlendLayer);
+    window._gibsBlendLayer = null;
+  }
+  if (!enable) {
+    window.cesiumViewer.scene.requestRender();
+    return;
+  }
+  try {
+    const gibsProvider = new Cesium.UrlTemplateImageryProvider({
+      url: 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_ShadedRelief_Bathymetry/default/2004-08-01/500m/{z}/{y}/{x}.jpeg',
+      tilingScheme: new Cesium.GeographicTilingScheme(),
+      maximumLevel: 8
+    });
+    window._gibsBlendLayer = window.cesiumViewer.imageryLayers.addImageryProvider(gibsProvider, 1);
+    window._gibsBlendLayer.alpha = alpha;
+    window._gibsBlendLayer.saturation = 1.4;
+    window._gibsBlendLayer.contrast = 1.2;
+    window.cesiumViewer.scene.requestRender();
+    console.log('[NASA GIBS] BlueMarble_ShadedRelief_Bathymetry blended successfully');
+  } catch (e) {
+    console.warn('[NASA GIBS] Blend error:', e);
+  }
 };
 
 // Weather Telemetry (Open-Meteo)
