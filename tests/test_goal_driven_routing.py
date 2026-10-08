@@ -3,7 +3,7 @@ Unit tests for Unified Goal-Driven Routing and Zero-LLM Fast-Path Isolation.
 Verifies:
 1. Compound multi-tool goals route via LLM tool-selection without keyword-flag matching.
 2. Previously misrouted queries (e.g. queries with spatial words in investigation contexts) classify correctly.
-3. All fast-path actions (system agency, media, volume, app launch, window mode, spatial glide, salutation, provenance, cockpit/target lock) bypass the LLM entirely (0 cloud calls).
+3. All fast-path actions (system agency, media, volume, app launch, window mode, spatial glide, salutation, provenance, target lock) bypass the LLM entirely (0 cloud calls).
 4. Graceful fallback when cloud calls fail or time out.
 """
 
@@ -92,7 +92,7 @@ def test_fast_paths_bypass_llm_entirely_with_zero_latency():
     Verifies that all specified fast-path actions:
     - Layer 1 (volume, media, app launch, mute, task surface, rules, salutation, provenance, area annotation)
     - Layer 5 (window mode, spatial camera glide, route plot, globe fly-to, satellite pass)
-    - Layer 4 (cockpit chase, target lock, unlock)
+    - Layer 4 (target lock, unlock)
     bypass the LLM entirely and invoke zero cloud calls.
     """
     router = AgentRouter()

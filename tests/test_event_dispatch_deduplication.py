@@ -45,14 +45,14 @@ def test_bridge_single_dispatch_for_cognitive_plan_execution():
             "control_tactical_layer",
             "toggle_tactical_layer",
             "glide_to_location",
-            "control_cockpit",
+            "control_target_lock",
             "jarvis_play_sfx"
         )
 
 def test_six_bridge_events_single_dispatch():
     """
     Directly tests the six events named in Fix 2:
-    control_cockpit, glide_to_location, glide_to_telemetry,
+    control_target_lock, glide_to_location, glide_to_telemetry,
     jarvis_play_sfx, set_operator_salutation, toggle_tactical_layer.
     Verifies each reaches the frontend bridge exactly once.
     """
@@ -65,7 +65,7 @@ def test_six_bridge_events_single_dispatch():
     bus.set_bridge_callback(mock_bridge)
 
     test_events = [
-        ("control_cockpit", {"action": "enter", "target": "AFR123"}),
+        ("control_target_lock", {"action": "lock", "target": "AFR123"}),
         ("glide_to_location", {"lat": 13.0827, "lon": 80.2707, "label": "Chennai"}),
         ("glide_to_telemetry", {}),
         ("jarvis_play_sfx", {"effect": "target_lock"}),

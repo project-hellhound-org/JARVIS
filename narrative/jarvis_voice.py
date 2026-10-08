@@ -133,14 +133,7 @@ CRITICAL IDENTITY & CREATOR PROVENANCE:
       - User: "connect Kotagiri to Bangalore" -> [ANNOTATE: arc from=Kotagiri to=Bengaluru label="LOGISTICS CORRIDOR"] Projecting flight corridor arc from Kotagiri to Bengaluru, Sir.
       - User: "clear map drawings" -> [ANNOTATE: clear] Purging tactical map annotations, Sir.
 
-   6. Tactical 3D Cockpit & Chase Cam:
-      To lock camera behind a tracked airborne contact in a chase cam cockpit view:
-      Emit:
-      [COCKPIT: enter] or [COCKPIT: exit] or [COCKPIT: next]
-      Example:
-      - User: "enter cockpit view" -> [COCKPIT: enter] Engaging entity chase camera and cockpit HUD, Sir.
-
-   7. Holographic Audio SFX:
+   6. Holographic Audio SFX:
       You can accompany tactical actions with procedural HUD audio feedback:
       [SFX: target_lock], [SFX: radar_ping], [SFX: alert], [SFX: flight_swoosh]
 
@@ -1782,11 +1775,6 @@ class JarvisVoice:
                 tactical["annotate"] = m_annotate.group(1).strip()
                 cleaned = re.sub(r'\[\s*ANNOTATE\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
 
-            # Detect [COCKPIT: <directive>]
-            m_cockpit = re.search(r'\[\s*COCKPIT\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_cockpit:
-                tactical["cockpit"] = m_cockpit.group(1).strip()
-                cleaned = re.sub(r'\[\s*COCKPIT\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
 
             # Detect [SEARCH: <directive>]
             m_search_dir = re.search(r'\[\s*SEARCH\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
@@ -1813,7 +1801,7 @@ class JarvisVoice:
                 cleaned = re.sub(r'\[\s*MEDIA\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
 
             # Residual cleanup to ensure zero leaked tactical directives or brackets reach TTS
-            cleaned = re.sub(r'\[\s*(?:NAV|LAYER|CMD|ZOOM|RADIO|SFX|ANNOTATE|COCKPIT|SEARCH|YOUTUBE|APP|MEDIA)[^\]]*\]', '', cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r'\[\s*(?:NAV|LAYER|CMD|ZOOM|RADIO|SFX|ANNOTATE|SEARCH|YOUTUBE|APP|MEDIA)[^\]]*\]', '', cleaned, flags=re.IGNORECASE)
             cleaned = re.sub(r'\s+', ' ', cleaned).strip()
 
             return cleaned, tactical
@@ -1885,7 +1873,6 @@ class JarvisVoice:
                 "radio_action": tactical_directives.get("radio"),
                 "sfx_action": tactical_directives.get("sfx"),
                 "annotate_action": tactical_directives.get("annotate"),
-                "cockpit_action": tactical_directives.get("cockpit"),
                 "search_action": tactical_directives.get("search") or resolved_search_query,
                 "app_action": tactical_directives.get("app"),
                 "media_action": tactical_directives.get("media"),
@@ -1955,7 +1942,6 @@ class JarvisVoice:
             "radio_action": tactical_directives.get("radio"),
             "sfx_action": tactical_directives.get("sfx"),
             "annotate_action": tactical_directives.get("annotate"),
-            "cockpit_action": tactical_directives.get("cockpit"),
             "search_action": tactical_directives.get("search") or resolved_search_query,
             "app_action": tactical_directives.get("app"),
             "media_action": tactical_directives.get("media"),

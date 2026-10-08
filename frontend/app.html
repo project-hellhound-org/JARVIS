@@ -4481,12 +4481,9 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         </div>
       </div>
       <div style="display:flex; flex-direction:column; gap:6px;">
-        <div style="display:flex; gap:6px; align-items:stretch;">
-          <div class="globe-layer-toggle" id="layer-toggle-flights" onclick="window.toggleTacticalLayer('flights')" style="flex:1;">
-            <span>✈ AIRSPACE RADAR (ADS-B)</span>
-            <div class="toggle-pill"></div>
-          </div>
-          <button onclick="window.JarvisCockpit.enter()" style="background:rgba(255,157,46,0.18); border:1px solid rgba(255,157,46,0.6); color:#FFB84D; font-family:var(--mono); font-size:9.5px; font-weight:700; padding:0 8px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s ease;" title="Enter Cockpit Chase Camera on Airborne Flight" onmouseenter="this.style.background='rgba(255,157,46,0.3)'" onmouseleave="this.style.background='rgba(255,157,46,0.18)'">🎮 COCKPIT</button>
+        <div class="globe-layer-toggle" id="layer-toggle-flights" onclick="window.toggleTacticalLayer('flights')">
+          <span>✈ AIRSPACE RADAR (ADS-B)</span>
+          <div class="toggle-pill"></div>
         </div>
         <!-- Airspace Multi-Feed Tactical Category Filters -->
         <div id="flight-category-filters" style="display:flex; gap:4px; flex-wrap:wrap; margin-top:-2px; padding:4px 6px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.08); border-radius:4px;">
@@ -4679,7 +4676,6 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   </div>
   <div style="margin-top:10px; display:flex; gap:6px;">
     <button class="globe-hud-btn" id="inspect-action-btn" style="flex:1; background:rgba(0,240,255,0.15); border-color:#00F0FF; color:#00F0FF;" onclick="window.lockInspectTarget()">LOCK TARGET</button>
-    <button class="globe-hud-btn" id="inspect-chase-btn" style="display:none; flex:1; background:rgba(255,157,46,0.2); border-color:#FF9D2E; color:#FFB84D;" onclick="window.startCockpitChase()">🎮 CHASE CAM</button>
     <button class="globe-hud-btn" style="flex:0.6;" onclick="window.closeGlobeInspectCard()">CLOSE</button>
   </div>
   <div class="tactical-resize-handle" title="Resize Inspect Card">◢</div>
@@ -12691,11 +12687,6 @@ window.jarvis = window.joe = {
         }
         break;
 
-      case 'control_cockpit':
-        if (window.JarvisCockpit && data) {
-          window.JarvisCockpit.handle(data);
-        }
-        break;
 
       case 'control_patrol':
         if (window.JarvisPatrol && data) {
@@ -14960,15 +14951,9 @@ const SpatialNav = {
       }
     }
 
-    // Cleanly exit cockpit camera if user glides away from World Telemetry
-    if (this.currentX < 350 && window.JarvisCockpit && window.JarvisCockpit.active) {
-      window.JarvisCockpit.exit();
-    }
-
     // Cesium RAM & GPU Governor: Suspend render loop when outside World Telemetry
     if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
-      const isCockpit = window.JarvisCockpit && window.JarvisCockpit.active;
-      if (this.currentX <= 250 && !isCockpit) {
+      if (this.currentX <= 250) {
         if (window.cesiumViewer.useDefaultRenderLoop) {
           window.cesiumViewer.useDefaultRenderLoop = false;
         }
@@ -15203,9 +15188,6 @@ window.glideToSpatial = function(x) {
   if (x < 450 && window.JarvisPatrol && window.JarvisPatrol.active) {
     window.JarvisPatrol.stop();
   }
-  if (x < 450 && window.JarvisCockpit && window.JarvisCockpit.active) {
-    window.JarvisCockpit.exit();
-  }
   SpatialNav.glideTo(x);
 };
 
@@ -15266,9 +15248,6 @@ window.setGlobeEngine = function(engine) {
 window.focusGlobeCoordinates = function(lat, lon, label) {
   if (window.JarvisPatrol && window.JarvisPatrol.active && !window.JarvisPatrol._isPatrolling) {
     window.JarvisPatrol.stop();
-  }
-  if (window.JarvisCockpit && window.JarvisCockpit.active) {
-    window.JarvisCockpit.exit();
   }
   if (window.JarvisSFX) {
     window.JarvisSFX.flightSwoosh();
@@ -15382,12 +15361,11 @@ window.isCameraAtHomePose = function() {
 
 window.shouldShowResetViewButton = function() {
   if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return false;
-  const isCockpit = !!(window.JarvisCockpit && window.JarvisCockpit.active);
   const hasTracked = !!window.cesiumViewer.trackedEntity;
   const isLocked = !!window._isTargetViewLocked;
   const hasSatTrack = !!window._hasFocusedSatelliteTrack;
   const atHome = window.isCameraAtHomePose();
-  return isCockpit || hasTracked || isLocked || hasSatTrack || !atHome;
+  return hasTracked || isLocked || hasSatTrack || !atHome;
 };
 
 window.updateResetButtonVisibility = function() {
@@ -15400,9 +15378,6 @@ window.updateResetButtonVisibility = function() {
 window.resetViewToHome = function() {
   window._isTargetViewLocked = false;
   window._hasFocusedSatelliteTrack = false;
-  if (window.JarvisCockpit && window.JarvisCockpit.active) {
-    window.JarvisCockpit.exit();
-  }
   if (typeof window.closeGlobeInspectCard === 'function') {
     window.closeGlobeInspectCard();
   }
@@ -15935,9 +15910,6 @@ window.lockTarget = function(entity, data) {
     return;
   }
 
-  if (window.JarvisCockpit && window.JarvisCockpit.active) {
-    window.JarvisCockpit.exit();
-  }
 
   window.lockedTargetEntity = entity;
   viewer.trackedEntity = entity;
@@ -15960,9 +15932,7 @@ window.unlockTarget = function() {
   const viewer = window.cesiumViewer;
   if (viewer && !viewer.isDestroyed()) {
     viewer.trackedEntity = undefined;
-    if (!window.JarvisCockpit || !window.JarvisCockpit.active) {
-      viewer.scene.requestRenderMode = true;
-    }
+    viewer.scene.requestRenderMode = true;
   }
   window.lockedTargetEntity = null;
   window._updateLockUi(false);
@@ -15995,414 +15965,7 @@ window._updateLockUi = function(isLocked, label = '') {
   }
 };
 
-// ── Phase 4: Tactical 3D Cockpit & Tail Chase Cam Engine (60FPS PreUpdate) ──
 const MODEL_HEADING_OFFSET_DEG = 180; // God's eye standard: GLB models are exported nose 180° reversed
-
-const JarvisCockpit = {
-  active: false,
-  activeEntity: null,
-  activeIdx: 0,
-  viewMode: 'chase',
-  _preUpdateRemover: null,
-  _scratchPos: new Cesium.Cartesian3(),
-  _scratchLocalH: new Cesium.Cartesian3(),
-  _scratchWorldH: new Cesium.Cartesian3(),
-  _scratchSurfaceUp: new Cesium.Cartesian3(),
-  _scratchLocalFwd: new Cesium.Cartesian3(),
-  _scratchWorldFwd: new Cesium.Cartesian3(),
-  _scratchLocalUp: new Cesium.Cartesian3(),
-  _scratchWorldUp: new Cesium.Cartesian3(),
-  _scratchCamPos: new Cesium.Cartesian3(),
-  _scratchCamOffset: new Cesium.Cartesian3(),
-  _scratchEnu: new Cesium.Matrix4(),
-
-  ensureCockpitVisor() {
-    let visor = document.getElementById('jarvis-cockpit-visor');
-    if (!visor) {
-      visor = document.createElement('div');
-      visor.id = 'jarvis-cockpit-visor';
-      visor.style.cssText = 'position:fixed; inset:0; z-index:9990; pointer-events:none; display:none; font-family:"JetBrains Mono",monospace; color:#00F0FF; text-shadow:0 0 8px rgba(0,240,255,0.7); box-sizing:border-box; user-select:none;';
-      visor.innerHTML = `
-        <!-- Top Roll Arc -->
-        <div style="position:absolute; top:24px; left:50%; transform:translateX(-50%); width:460px; height:48px; border-top:1.5px solid rgba(0,240,255,0.6); border-radius:50%; display:flex; justify-content:space-between; padding:4px 30px; font-size:9.5px; color:rgba(0,240,255,0.75);">
-          <span>-30°</span><span>-20°</span><span>-10°</span><span style="color:#FFFFFF; font-weight:800;">▲ 0°</span><span>+10°</span><span>+20°</span><span>+30°</span>
-        </div>
-        <!-- Left Pitch Ladder -->
-        <div style="position:absolute; left:25%; top:33%; bottom:33%; display:flex; flex-direction:column; justify-content:space-between; font-size:10px; color:rgba(0,240,255,0.7); text-align:right;">
-          <div style="border-bottom:1px dashed rgba(0,240,255,0.45); padding-bottom:2px;">+20 ──</div>
-          <div style="border-bottom:1px dashed rgba(0,240,255,0.45); padding-bottom:2px;">+10 ──</div>
-          <div style="border-bottom:2px solid rgba(0,240,255,0.9); padding-bottom:2px; color:#FFFFFF; font-weight:800;">00 ──</div>
-          <div style="border-bottom:1px dashed rgba(0,240,255,0.45); padding-bottom:2px;">-10 ──</div>
-          <div style="border-bottom:1px dashed rgba(0,240,255,0.45); padding-bottom:2px;">-20 ──</div>
-        </div>
-        <!-- Right Pitch Ladder -->
-        <div style="position:absolute; right:25%; top:33%; bottom:33%; display:flex; flex-direction:column; justify-content:space-between; font-size:10px; color:rgba(0,240,255,0.7); text-align:left;">
-          <div style="border-bottom:1px dashed rgba(0,240,255,0.45); padding-bottom:2px;">── +20</div>
-          <div style="border-bottom:1px dashed rgba(0,240,255,0.45); padding-bottom:2px;">── +10</div>
-          <div style="border-bottom:2px solid rgba(0,240,255,0.9); padding-bottom:2px; color:#FFFFFF; font-weight:800;">── 00</div>
-          <div style="border-bottom:1px dashed rgba(0,240,255,0.45); padding-bottom:2px;">── -10</div>
-          <div style="border-bottom:1px dashed rgba(0,240,255,0.45); padding-bottom:2px;">── -20</div>
-        </div>
-        <!-- Center Artificial Horizon & Flight Path Marker -->
-        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); display:flex; align-items:center; gap:16px;">
-          <div style="width:120px; height:1.5px; background:linear-gradient(90deg, transparent, #00F0FF); box-shadow:0 0 8px #00F0FF;"></div>
-          <div style="width:28px; height:28px; border:2px solid #00F0FF; border-radius:50%; position:relative; display:flex; align-items:center; justify-content:center; box-shadow:0 0 14px rgba(0,240,255,0.6);">
-            <div style="width:5px; height:5px; background:#FF9D2E; border-radius:50%; box-shadow:0 0 8px #FF9D2E;"></div>
-            <div style="position:absolute; top:-14px; font-size:8.5px; color:#FF9D2E; letter-spacing:0.12em; font-weight:800;">LEVEL</div>
-          </div>
-          <div style="width:120px; height:1.5px; background:linear-gradient(90deg, #00F0FF, transparent); box-shadow:0 0 8px #00F0FF;"></div>
-        </div>
-        <!-- Left Speed Tape -->
-        <div style="position:absolute; left:36px; top:50%; transform:translateY(-50%); background:rgba(6,10,18,0.85); border:1px solid rgba(0,240,255,0.5); border-left:3px solid #00F0FF; border-radius:6px; padding:10px 14px; backdrop-filter:blur(10px); box-shadow:0 0 24px rgba(0,240,255,0.3);">
-          <div style="font-size:9px; color:#A0AEC0; margin-bottom:4px; letter-spacing:0.08em;">AIRSPEED (GS)</div>
-          <div id="cockpit-visor-spd" style="font-size:20px; font-weight:800; color:#FFFFFF;">--- KTS</div>
-          <div style="font-size:8.5px; color:#00F0FF; margin-top:3px;">MACH <span id="cockpit-visor-mach">0.00</span></div>
-        </div>
-        <!-- Right Altitude Tape -->
-        <div style="position:absolute; right:36px; top:50%; transform:translateY(-50%); background:rgba(6,10,18,0.85); border:1px solid rgba(255,157,46,0.5); border-right:3px solid #FF9D2E; border-radius:6px; padding:10px 14px; backdrop-filter:blur(10px); text-align:right; box-shadow:0 0 24px rgba(255,157,46,0.3);">
-          <div style="font-size:9px; color:#A0AEC0; margin-bottom:4px; letter-spacing:0.08em;">ALTITUDE MSL</div>
-          <div id="cockpit-visor-alt" style="font-size:20px; font-weight:800; color:#FFB84D;">--- FT</div>
-          <div style="font-size:8.5px; color:#FF9D2E; margin-top:3px;"><span id="cockpit-visor-fl">FL---</span></div>
-        </div>
-        <!-- Bottom Visor Status Line -->
-        <div style="position:absolute; bottom:24px; left:50%; transform:translateX(-50%); display:flex; gap:24px; font-size:9.5px; color:rgba(255,255,255,0.75); background:rgba(6,10,18,0.75); padding:6px 20px; border-radius:20px; border:1px solid rgba(0,240,255,0.35); backdrop-filter:blur(8px);">
-          <span>CANOPY: <strong style="color:#00F0FF;">HEADS-UP DISPLAY</strong></span>
-          <span>MODE: <strong style="color:#4ADE80;">COCKPIT 1ST PERSON</strong></span>
-          <span>FLIGHT SYSTEM: <strong style="color:#FFB84D;">ONLINE</strong></span>
-        </div>
-      `;
-      document.body.appendChild(visor);
-    }
-    return visor;
-  },
-
-  enter(targetCallsignOrId = null) {
-    const viewer = window.cesiumViewer;
-    if (!viewer || viewer.isDestroyed()) return;
-
-    // Immediately glide into God's Eye 3D Earth view if on Screen 1
-    if (typeof SpatialNav !== 'undefined' && SpatialNav.currentX < 850) {
-      if (window.glideToSpatial) window.glideToSpatial(950);
-      else SpatialNav.glideTo(950);
-    }
-
-    // Ensure Cesium render loop is active and continuously rendering at 60 FPS
-    viewer.useDefaultRenderLoop = true;
-    viewer.scene.requestRenderMode = false;
-
-    if (window.lockedTargetEntity) {
-      window.unlockTarget();
-    }
-
-    if (!_tacticalLayers.flights) {
-      window.toggleTacticalLayer('flights');
-    }
-
-    let target = null;
-    if (typeof _flightsDataSource !== 'undefined' && _flightsDataSource && _flightsDataSource.entities.values.length > 0) {
-      const entities = _flightsDataSource.entities.values.filter(e => e._tacticalData && e.billboard);
-      if (entities.length > 0) {
-        if (targetCallsignOrId) {
-          target = entities.find(e => (e._tacticalData.callsign || '').toLowerCase() === String(targetCallsignOrId).toLowerCase()) || entities[0];
-        } else if (typeof _inspectTargetData !== 'undefined' && _inspectTargetData && _inspectTargetData._entity) {
-          target = _inspectTargetData._entity;
-        } else {
-          target = entities.find(e => e._tacticalData.isMil) || entities[0];
-        }
-      }
-    }
-
-    if (!target) {
-      console.warn('[Cockpit] No airborne contact currently detected in radar layer.');
-      if (typeof showSubtitles === 'function') {
-        showSubtitles('⚠ No airborne contact detected in radar layer to enter cockpit view.', 'WARN');
-      }
-      return;
-    }
-
-    this.active = true;
-    this.activeEntity = target;
-    this.viewMode = 'cockpit';
-    this.activeEntity.show = false; // God's Eye standard: contact hidden while in 1st person cockpit
-
-    viewer.trackedEntity = undefined;
-    viewer.scene.screenSpaceCameraController.enableInputs = false;
-
-    if (this._preUpdateRemover) {
-      this._preUpdateRemover();
-      this._preUpdateRemover = null;
-    }
-    const updateCb = () => this.updateFrame();
-    viewer.scene.preUpdate.addEventListener(updateCb);
-    this._preUpdateRemover = () => viewer.scene.preUpdate.removeEventListener(updateCb);
-
-    this.showCockpitHud(target._tacticalData);
-    const visor = this.ensureCockpitVisor();
-    if (visor) visor.style.display = 'block';
-
-    if (window.JarvisSFX) window.JarvisSFX.targetLock();
-    if (typeof showSubtitles === 'function') {
-      showSubtitles(`🎮 Cockpit camera engaged: ${target._tacticalData?.callsign || 'CONTACT'} [COCKPIT 1ST PERSON]`, 'COCKPIT');
-    }
-    if (typeof window.updateResetButtonVisibility === 'function') {
-      window.updateResetButtonVisibility();
-    }
-  },
-
-  updateFrame() {
-    if (!this.active || !this.activeEntity) return;
-    const viewer = window.cesiumViewer;
-    if (!viewer || viewer.isDestroyed()) {
-      this.exit();
-      return;
-    }
-
-    const currentTime = viewer.clock.currentTime;
-    let targetPos = null;
-    if (this.activeEntity.position) {
-      if (typeof this.activeEntity.position.getValue === 'function') {
-        targetPos = this.activeEntity.position.getValue(currentTime, this._scratchPos);
-      } else {
-        targetPos = this.activeEntity.position;
-      }
-    }
-    if (!targetPos) return;
-
-    const data = this.activeEntity._tacticalData || {};
-    const headingDeg = Number(data.heading || 0);
-    const headingRad = Cesium.Math.toRadians(headingDeg);
-
-    // Rebuild local ENU reference frame at target aircraft position
-    Cesium.Transforms.eastNorthUpToFixedFrame(targetPos, Cesium.Ellipsoid.WGS84, this._scratchEnu);
-
-    // 1. Pure horizontal direction vector in local ENU tangent plane
-    this._scratchLocalH.x = Math.sin(headingRad);
-    this._scratchLocalH.y = Math.cos(headingRad);
-    this._scratchLocalH.z = 0;
-    Cesium.Matrix4.multiplyByPointAsVector(this._scratchEnu, this._scratchLocalH, this._scratchWorldH);
-    Cesium.Cartesian3.normalize(this._scratchWorldH, this._scratchWorldH);
-
-    // 2. Local surface normal (Up from Earth surface)
-    Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(targetPos, this._scratchSurfaceUp);
-
-    // 3. Camera forward look direction with downward pitch
-    const isCockpit = (this.viewMode === 'cockpit');
-    const viewPitchRad = isCockpit ? Cesium.Math.toRadians(-4.0) : Cesium.Math.toRadians(-6.0);
-
-    this._scratchLocalFwd.x = Math.sin(headingRad) * Math.cos(viewPitchRad);
-    this._scratchLocalFwd.y = Math.cos(headingRad) * Math.cos(viewPitchRad);
-    this._scratchLocalFwd.z = Math.sin(viewPitchRad);
-    Cesium.Matrix4.multiplyByPointAsVector(this._scratchEnu, this._scratchLocalFwd, this._scratchWorldFwd);
-    Cesium.Cartesian3.normalize(this._scratchWorldFwd, this._scratchWorldFwd);
-
-    // 4. Camera Up vector
-    this._scratchLocalUp.x = -Math.sin(headingRad) * Math.sin(viewPitchRad);
-    this._scratchLocalUp.y = -Math.cos(headingRad) * Math.sin(viewPitchRad);
-    this._scratchLocalUp.z = Math.cos(viewPitchRad);
-    Cesium.Matrix4.multiplyByPointAsVector(this._scratchEnu, this._scratchLocalUp, this._scratchWorldUp);
-    Cesium.Cartesian3.normalize(this._scratchWorldUp, this._scratchWorldUp);
-
-    // 5. Camera placement: First-person Cockpit (windshield/nose) vs Third-person Chase (tail offset)
-    const forwardDist = isCockpit ? 7.0 : -140.0;
-    const upDist = isCockpit ? 2.6 : 32.0;
-
-    Cesium.Cartesian3.multiplyByScalar(this._scratchWorldH, forwardDist, this._scratchCamPos);
-    Cesium.Cartesian3.add(targetPos, this._scratchCamPos, this._scratchCamPos);
-    Cesium.Cartesian3.multiplyByScalar(this._scratchSurfaceUp, upDist, this._scratchCamOffset);
-    Cesium.Cartesian3.add(this._scratchCamPos, this._scratchCamOffset, this._scratchCamPos);
-
-    viewer.camera.setView({
-      destination: this._scratchCamPos,
-      orientation: {
-        direction: this._scratchWorldFwd,
-        up: this._scratchWorldUp
-      }
-    });
-
-    if (this.activeEntity) {
-      this.activeEntity.show = !isCockpit; // Entity shown in 3rd person chase; hidden in 1st person cockpit
-    }
-
-    const visor = this.ensureCockpitVisor();
-    if (visor) {
-      visor.style.display = isCockpit ? 'block' : 'none';
-    }
-
-    this.updateHudTelemetry(data);
-  },
-
-  toggleViewMode() {
-    this.viewMode = (this.viewMode === 'cockpit') ? 'chase' : 'cockpit';
-    const btn = document.getElementById('cockpit-viewmode-btn');
-    const isCockpit = (this.viewMode === 'cockpit');
-    if (btn) {
-      btn.innerHTML = isCockpit 
-        ? '<span style="color:#00F0FF;">🕹️ COCKPIT POV</span> ❯ <span style="color:#A0AEC0;">[SWITCH TO CHASE]</span>' 
-        : '<span style="color:#FFB84D;">🎥 CHASE CAM</span> ❯ <span style="color:#A0AEC0;">[SWITCH TO COCKPIT]</span>';
-    }
-    const visor = document.getElementById('jarvis-cockpit-visor');
-    if (visor) visor.style.display = isCockpit ? 'block' : 'none';
-    if (this.activeEntity) this.activeEntity.show = !isCockpit;
-    if (window.JarvisSFX) window.JarvisSFX.uiClick();
-    if (typeof showSubtitles === 'function') {
-      showSubtitles(isCockpit ? 'Cockpit Camera: 1st Person Pilot POV' : 'Cockpit Camera: 3rd Person Tail Chase View', 'COCKPIT');
-    }
-  },
-
-  exit() {
-    if (!this.active) return;
-    this.active = false;
-    const visor = document.getElementById('jarvis-cockpit-visor');
-    if (visor) visor.style.display = 'none';
-    this.hideCockpitHud();
-
-    const viewer = window.cesiumViewer;
-    if (viewer && !viewer.isDestroyed()) {
-      if (this._preUpdateRemover) {
-        this._preUpdateRemover();
-        this._preUpdateRemover = null;
-      }
-      viewer.scene.screenSpaceCameraController.enableInputs = true;
-      viewer.scene.requestRenderMode = false;
-      viewer.trackedEntity = undefined;
-
-      if (this.activeEntity) {
-        this.activeEntity.show = true;
-      }
-
-      // If still on 3D Earth, elevate camera to safe tactical overview above aircraft
-      if (this.activeEntity && typeof SpatialNav !== 'undefined' && SpatialNav.currentX > 500) {
-        const curPos = this.activeEntity.position ? (typeof this.activeEntity.position.getValue === 'function' ? this.activeEntity.position.getValue(viewer.clock.currentTime) : this.activeEntity.position) : null;
-        if (curPos) {
-          const carto = Cesium.Cartographic.fromCartesian(curPos);
-          if (carto) {
-            viewer.camera.flyTo({
-              destination: Cesium.Cartesian3.fromDegrees(
-                Cesium.Math.toDegrees(carto.longitude),
-                Cesium.Math.toDegrees(carto.latitude),
-                Math.max(carto.height + 6000, 16000)
-              ),
-              orientation: {
-                heading: viewer.camera.heading,
-                pitch: Cesium.Math.toRadians(-40),
-                roll: 0.0
-              },
-              duration: 1.2
-            });
-          }
-        }
-      }
-    }
-    this.activeEntity = null;
-    if (this.activeEntity) {
-      this.activeEntity.show = true;
-    }
-    this.hideCockpitHud();
-    if (window.JarvisSFX) window.JarvisSFX.flightSwoosh();
-    if (typeof showSubtitles === 'function') {
-      showSubtitles('Cockpit camera disengaged.', 'COCKPIT');
-    }
-    this.activeEntity = null;
-  },
-
-  next() {
-    if (typeof _flightsDataSource === 'undefined' || !_flightsDataSource) return;
-    const entities = _flightsDataSource.entities.values.filter(e => e._tacticalData && (e.billboard || e.model));
-    if (entities.length === 0) return;
-    if (this.activeEntity) this.activeEntity.show = true;
-    this.activeIdx = (this.activeIdx + 1) % entities.length;
-    this.enter(entities[this.activeIdx]._tacticalData.callsign);
-  },
-
-  prev() {
-    if (typeof _flightsDataSource === 'undefined' || !_flightsDataSource) return;
-    const entities = _flightsDataSource.entities.values.filter(e => e._tacticalData && (e.billboard || e.model));
-    if (entities.length === 0) return;
-    if (this.activeEntity) this.activeEntity.show = true;
-    this.activeIdx = (this.activeIdx - 1 + entities.length) % entities.length;
-    this.enter(entities[this.activeIdx]._tacticalData.callsign);
-  },
-
-  updateHudTelemetry(data) {
-    const spdEl = document.getElementById('cockpit-telemetry-spd');
-    const altEl = document.getElementById('cockpit-telemetry-alt');
-    const hdgEl = document.getElementById('cockpit-telemetry-hdg');
-    if (spdEl && data?.speed) spdEl.textContent = `${Math.round(data.speed)} KTS`;
-    if (altEl && data?.alt) altEl.textContent = `${Math.round(data.alt)} FT`;
-    if (hdgEl && data?.heading !== undefined) hdgEl.textContent = `${Math.round(data.heading)}°`;
-
-    const visorSpd = document.getElementById('cockpit-visor-spd');
-    const visorMach = document.getElementById('cockpit-visor-mach');
-    const visorAlt = document.getElementById('cockpit-visor-alt');
-    const visorFl = document.getElementById('cockpit-visor-fl');
-    if (visorSpd && data?.speed) visorSpd.textContent = `${Math.round(data.speed)} KTS`;
-    if (visorMach && data?.speed) visorMach.textContent = (data.speed / 661.47).toFixed(2);
-    if (visorAlt && data?.alt) visorAlt.textContent = `${Math.round(data.alt).toLocaleString()} FT`;
-    if (visorFl && data?.alt) visorFl.textContent = `FL${Math.round(data.alt / 100)}`;
-  },
-
-  updateTelemetry(ac) {
-    if (!ac) return;
-    const knots = Math.round(ac.speedKnots || 440);
-    const altFt = Math.round((ac.altMeters || 8500) * 3.28084);
-    const hdg = Math.round(ac.headingDeg || 0);
-    this.updateHudTelemetry({ speed: knots, alt: altFt, heading: hdg });
-  },
-
-  showCockpitHud(data) {
-    let hud = document.getElementById('jarvis-cockpit-hud');
-    if (!hud) {
-      hud = document.createElement('div');
-      hud.id = 'jarvis-cockpit-hud';
-      hud.style.cssText = 'position:fixed; top:64px; left:50%; transform:translateX(-50%); z-index:10001; pointer-events:auto; display:flex; align-items:center; gap:12px; background:rgba(6,10,18,0.92); border:1px solid #FF9D2E; border-radius:8px; padding:8px 16px; box-shadow:0 0 24px rgba(255,157,46,0.35); font-family:"JetBrains Mono",monospace; backdrop-filter:blur(10px); user-select:none;';
-      document.body.appendChild(hud);
-    }
-    const callsign = data?.callsign || 'CONTACT';
-    const alt = data?.alt ? Math.round(Number(data.alt)) : 28000;
-    const spd = data?.speed ? Math.round(Number(data.speed)) : 440;
-    const hdg = data?.heading ? Math.round(Number(data.heading)) : 0;
-    const isCockpit = (this.viewMode === 'cockpit');
-    hud.innerHTML = `
-      <div style="color:#FFB84D; font-weight:700; font-size:12px; display:flex; align-items:center; gap:6px;">
-        <span class="pulse-dot" style="width:8px; height:8px; background:#FF9D2E; border-radius:50%; display:inline-block;"></span>
-        <span id="cockpit-target-callsign">${callsign}</span>
-      </div>
-      <div style="font-size:11px; color:#A0AEC0;">SPD: <span id="cockpit-telemetry-spd" style="color:#FFFFFF; font-weight:700;">${spd} KTS</span></div>
-      <div style="font-size:11px; color:#A0AEC0;">ALT: <span id="cockpit-telemetry-alt" style="color:#FFFFFF; font-weight:700;">${alt} FT</span></div>
-      <div style="font-size:11px; color:#A0AEC0;">HDG: <span id="cockpit-telemetry-hdg" style="color:#FFFFFF; font-weight:700;">${hdg}°</span></div>
-      <button id="cockpit-viewmode-btn" onclick="window.JarvisCockpit.toggleViewMode()" style="background:rgba(0,240,255,0.15); border:1px solid #00F0FF; color:#00F0FF; font-size:9.5px; font-weight:700; padding:4px 10px; border-radius:4px; cursor:pointer;" title="Toggle between Tail Chase and Cockpit POV (Press V)">${isCockpit ? '<span style="color:#00F0FF;">🕹️ COCKPIT POV</span> ❯ <span style="color:#A0AEC0;">[SWITCH TO CHASE]</span>' : '<span style="color:#FFB84D;">🎥 CHASE CAM</span> ❯ <span style="color:#A0AEC0;">[SWITCH TO COCKPIT]</span>'}</button>
-      <button onclick="window.JarvisCockpit.prev()" style="background:rgba(255,157,46,0.15); border:1px solid rgba(255,157,46,0.5); color:#FFB84D; font-size:9.5px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer;" title="Previous Aircraft">PREV</button>
-      <button onclick="window.JarvisCockpit.next()" style="background:rgba(255,157,46,0.15); border:1px solid rgba(255,157,46,0.5); color:#FFB84D; font-size:9.5px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer;" title="Next Aircraft">NEXT</button>
-      <button onclick="window.JarvisCockpit.exit()" style="background:rgba(239,68,68,0.25); border:1px solid #EF4444; color:#FCA5A5; font-size:9.5px; font-weight:700; padding:4px 10px; border-radius:4px; cursor:pointer;" title="Exit Cockpit Camera (Escape)">EXIT</button>
-    `;
-    hud.style.display = 'flex';
-  },
-
-  hideCockpitHud() {
-    const hud = document.getElementById('jarvis-cockpit-hud');
-    if (hud) hud.style.display = 'none';
-    const visor = document.getElementById('jarvis-cockpit-visor');
-    if (visor) visor.style.display = 'none';
-  },
-
-  handle(data) {
-    if (!data || !data.action) return;
-    const act = data.action.toLowerCase();
-    if (act === 'exit' || act === 'stop' || act === 'leave' || act === 'off') {
-      this.exit();
-    } else if (act === 'next') {
-      this.next();
-    } else if (act === 'prev' || act === 'previous') {
-      this.prev();
-    } else if (act === 'toggle' || act === 'viewmode') {
-      this.toggleViewMode();
-    } else {
-      this.enter(data.target || null);
-    }
-  }
-};
-window.JarvisCockpit = JarvisCockpit;
-window.startCockpitChase = (callsign) => JarvisCockpit.enter(callsign);
 
 // ── Autonomous Global Recon Patrol Engine ──
 const JarvisPatrol = {
@@ -16475,9 +16038,6 @@ const JarvisPatrol = {
 
   start() {
     if (this.active) return;
-    if (window.JarvisCockpit && window.JarvisCockpit.active) {
-      window.JarvisCockpit.exit();
-    }
     if (typeof window.unlockTarget === 'function') {
       window.unlockTarget();
     }
@@ -16596,28 +16156,16 @@ const JarvisPatrol = {
 };
 window.JarvisPatrol = JarvisPatrol;
 
-// Keyboard controls for tactical cockpit, chase view & patrol mode
+// Keyboard controls for tactical patrol mode
 window.addEventListener('keydown', (e) => {
   if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
   if (e.key === 'Escape') {
     if (window.JarvisPatrol && window.JarvisPatrol.active) {
       e.preventDefault();
       window.JarvisPatrol.stop();
-    } else if (window.JarvisCockpit && window.JarvisCockpit.active) {
-      e.preventDefault();
-      window.JarvisCockpit.exit();
     } else if (window.lockedTargetEntity) {
       e.preventDefault();
       window.unlockTarget();
-    }
-  } else if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    if (window.JarvisCockpit) {
-      if (window.JarvisCockpit.active) window.JarvisCockpit.exit();
-      else window.JarvisCockpit.enter();
-    }
-  } else if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    if (window.JarvisCockpit && window.JarvisCockpit.active) {
-      window.JarvisCockpit.toggleViewMode();
     }
   } else if ((e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (window.JarvisPatrol) {
@@ -17578,7 +17126,6 @@ function _renderPinnedTargets() {
         <div style="color:#8A8D91; font-size:9px; font-family:var(--mono);">${t.lat.toFixed(3)}°, ${t.lon.toFixed(3)}°</div>
       </div>
       <div style="display:flex; gap:3px; margin-left:6px; flex-shrink:0;">
-        <button onclick="window.JarvisCockpit.enter('${t.label}')" style="background:rgba(255,157,46,0.2); border:1px solid #FF9D2E; color:#FFB84D; font-size:9px; font-weight:700; border-radius:3px; padding:2px 5px; cursor:pointer;" title="Chase this contact">CHASE</button>
         <button onclick="window.focusPinnedTarget('${t.id}')" style="background:rgba(56,189,248,0.2); border:1px solid #38BDF8; color:#38BDF8; font-size:9px; font-weight:700; border-radius:3px; padding:2px 5px; cursor:pointer;" title="Lock & Track Target">LOCK</button>
         <button onclick="window.unpinTarget('${t.id}')" style="background:rgba(239,68,68,0.2); border:1px solid #EF4444; color:#EF4444; font-size:9px; font-weight:700; border-radius:3px; padding:2px 5px; cursor:pointer;">✕</button>
       </div>
@@ -18230,11 +17777,6 @@ window.inspectTarget = function(data) {
         else window.focusGlobeCoordinates(data.lat, data.lon, data.callsign);
       };
     }
-    if (chaseBtn) {
-      chaseBtn.style.display = 'block';
-      chaseBtn.textContent = '✈ CHASE COCKPIT VIEW';
-      chaseBtn.onclick = () => window.JarvisCockpit.enter(data.callsign);
-    }
 
     // Asynchronous God's Eye Flight Route & Airframe Enrichment (Bilawal Sidhu adsbdbProxy integration)
     if (data.callsign && !data._enrichmentLoaded) {
@@ -18400,23 +17942,7 @@ window.lockInspectTarget = function() {
   }
 };
 
-window.startCockpitChase = function() {
-  if (_inspectTargetData && _inspectTargetData.callsign && window.JarvisCockpit) {
-    window.JarvisCockpit.enter(_inspectTargetData.callsign);
-    return;
-  }
-  if (!_inspectTargetData || !_inspectTargetData._entity) return;
-  const viewer = window.cesiumViewer;
-  if (!viewer || viewer.isDestroyed()) return;
 
-  const entity = _inspectTargetData._entity;
-  viewer.trackedEntity = entity;
-
-  const headingRad = Cesium.Math.toRadians(_inspectTargetData.heading || 0);
-  const pitchRad = Cesium.Math.toRadians(-14);
-  const rangeMeters = 3800;
-  viewer.zoomTo(entity, new Cesium.HeadingPitchRange(headingRad + Math.PI, pitchRad, rangeMeters));
-};
 
 // ============================================================================
 // Real God's Eye Tactical Panel Controller & Window Management System
@@ -18755,13 +18281,7 @@ window.addEventListener('resize', () => {
 });
 
 
-// Cockpit Flight Chase Camera Mode (God's Eye Feature)
-window.startCockpitChase = function() {
-  if (window.JarvisCockpit) {
-    const callsign = _inspectTargetData?.callsign || null;
-    window.JarvisCockpit.enter(callsign);
-  }
-};
+
 
 // Tactical RF Radio Tuning Static Synthesizer (God's Eye Audio Architecture)
 let _rfAudioCtx = null;
@@ -20213,9 +19733,8 @@ function initGlobeIntelligence(viewer) {
 
   // Continuous Kinematic Interpolation & Dead-Reckoning Loop (God's Eye Motion Smoothing)
   viewer.scene.preUpdate.addEventListener(() => {
-    const cockpitActive = window.JarvisCockpit && window.JarvisCockpit.active;
     const trafficActive = _tacticalLayers.traffic && window._trafficVehicles && window._trafficVehicles.length > 0;
-    if (!_tacticalLayers.flights && !cockpitActive && !trafficActive) return;
+    if (!_tacticalLayers.flights && !trafficActive) return;
     const now = performance.now();
     const dt = Math.min(0.2, (now - _lastFlightFrameTime) / 1000.0);
     _lastFlightFrameTime = now;
@@ -20331,10 +19850,6 @@ function initGlobeIntelligence(viewer) {
         }
       }
 
-      // If active in cockpit view, continuously update HUD telemetry
-      if (window.JarvisCockpit && window.JarvisCockpit.activeEntity === ac.entity) {
-        window.JarvisCockpit.updateTelemetry(ac);
-      }
     });
   });
 
@@ -20731,9 +20246,9 @@ function initGlobeIntelligence(viewer) {
           }
         });
 
-        // Prune stale contacts not seen for > 90 seconds (never prune currently chased cockpit aircraft)
+        // Prune stale contacts not seen for > 90 seconds
         _aircraftFlightMap.forEach((val, key) => {
-          if (nowMs - val.lastSeen > 90000 && (!window.JarvisCockpit || window.JarvisCockpit.activeEntity !== val.entity)) {
+          if (nowMs - val.lastSeen > 90000) {
             _flightsDataSource.entities.remove(val.entity);
             if (val.dropLine) _flightsDataSource.entities.remove(val.dropLine);
             _aircraftFlightMap.delete(key);

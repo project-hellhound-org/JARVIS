@@ -217,18 +217,6 @@ class ConversationContextManager:
             self._log_decision(clean, classification, intent, entities, resolved, latency, note="Direct investigation fast-path")
             return classification, intent, entities, resolved
 
-        # Cockpit chase fast-path
-        chase_match = re.match(r'^(?:chase|follow|cockpit(?:\s+view)?|chase\s+cam)\s*(.*)$', lower)
-        if chase_match:
-            target_callsign = chase_match.group(1).strip().upper()
-            classification = "new_command"
-            intent = "cockpit_chase"
-            entities = {"target": target_callsign} if target_callsign else {}
-            resolved = clean
-            latency = (time.time() - start_t) * 1000.0
-            self._log_decision(clean, classification, intent, entities, resolved, latency, note="Cockpit chase command")
-            return classification, intent, entities, resolved
-
         # Target lock fast-path
         lock_match = re.match(r'^(?:lock(?:\s+(?:target|plane|aircraft|contact))?)\s*(.*)$', lower)
         if lock_match and not lower.startswith("lock screen"):
@@ -242,13 +230,13 @@ class ConversationContextManager:
             return classification, intent, entities, resolved
 
         # Unlock / release fast-path
-        if lower in ("unlock", "release lock", "release target", "exit chase", "leave cockpit", "exit cockpit"):
+        if lower in ("unlock", "release lock", "release target"):
             classification = "new_command"
             intent = "target_unlock"
             entities = {}
             resolved = clean
             latency = (time.time() - start_t) * 1000.0
-            self._log_decision(clean, classification, intent, entities, resolved, latency, note="Release lock / exit chase")
+            self._log_decision(clean, classification, intent, entities, resolved, latency, note="Release lock")
             return classification, intent, entities, resolved
 
         ambiguous_inv_pat = r'^(?:start\s+(?:an?\s+)?(?:investigation|recon)|investigate(?:\s+(?:someone|something|target|person))?|recon(?:\s+(?:someone|something|target|person))?|stalk\s+(?:someone|target))$'

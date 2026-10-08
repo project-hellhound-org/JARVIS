@@ -398,7 +398,7 @@ class AgentRouter:
 
         # Determine non-nav steps
         non_nav_steps = [s for s in steps if s.get("action") != "nav"]
-        if len(non_nav_steps) >= 2 or (steps and steps[0].get("action") in ("annotate", "cockpit", "tactical_goal")):
+        if len(non_nav_steps) >= 2 or (steps and steps[0].get("action") in ("annotate", "tactical_goal")):
             task = self.task_manager.create_task(
                 type_=TaskType.TACTICAL_GOAL.value,
                 title=f"Goal: {text_strip[:35]}",

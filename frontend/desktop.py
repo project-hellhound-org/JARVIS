@@ -133,7 +133,7 @@ class _StreamingPrefixFilter:
     CANDIDATES = ("JARVIS:", "J.A.R.V.I.S.:", "ASSISTANT:", "AI:")
     CLEAN_REGEX = re.compile(r'^\s*(?:JARVIS|J\.A\.R\.V\.I\.S\.|ASSISTANT|AI)\s*:\s*', re.IGNORECASE)
 
-    def __init__(self, on_chunk, on_nav=None, on_layer=None, on_zoom=None, on_radio=None, on_sfx=None, on_annotate=None, on_cockpit=None, on_style=None, on_patrol=None, on_window=None):
+    def __init__(self, on_chunk, on_nav=None, on_layer=None, on_zoom=None, on_radio=None, on_sfx=None, on_annotate=None, on_style=None, on_patrol=None, on_window=None):
         self.on_chunk = on_chunk
         self.on_nav = on_nav
         self.on_layer = on_layer
@@ -141,7 +141,6 @@ class _StreamingPrefixFilter:
         self.on_radio = on_radio
         self.on_sfx = on_sfx
         self.on_annotate = on_annotate
-        self.on_cockpit = on_cockpit
         self.on_style = on_style
         self.on_patrol = on_patrol
         self.on_window = on_window
@@ -186,7 +185,7 @@ class _StreamingPrefixFilter:
 
     DIRECTIVE_PREFIXES = (
         "CMD", "NAV", "LAYER", "ZOOM", "RADIO", "SFX", "ANNOTATE",
-        "COCKPIT", "STYLE", "PATROL", "WINDOW", "MODE", "VOICEOS",
+        "STYLE", "PATROL", "WINDOW", "MODE", "VOICEOS",
         "SEARCH", "YOUTUBE", "APP", "MEDIA"
     )
 
@@ -199,7 +198,6 @@ class _StreamingPrefixFilter:
         m_radio = re.match(r'\[\s*RADIO(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
         m_sfx = re.match(r'\[\s*SFX(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
         m_annotate = re.match(r'\[\s*ANNOTATE(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
-        m_cockpit = re.match(r'\[\s*COCKPIT(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
         m_style = re.match(r'\[\s*STYLE(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
         m_patrol = re.match(r'\[\s*PATROL(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
         m_window = re.match(r'\[\s*(?:WINDOW|MODE|VOICEOS)(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
@@ -252,11 +250,6 @@ class _StreamingPrefixFilter:
                 self.on_annotate(m_annotate.group(1).strip())
             except Exception as e:
                 print(f"[desktop] Streaming ANNOTATE error: {e}")
-        elif m_cockpit and self.on_cockpit:
-            try:
-                self.on_cockpit(m_cockpit.group(1).strip())
-            except Exception as e:
-                print(f"[desktop] Streaming COCKPIT error: {e}")
         elif m_window and self.on_window:
             try:
                 self.on_window(m_window.group(1).strip())
@@ -1225,12 +1218,6 @@ class JarvisAPI:
                 })
             return
 
-    def _execute_tactical_cockpit(self, spec: str):
-        """Execute God's Eye tactical 3D cockpit / chase cam."""
-        act = (spec or "enter").strip().lower()
-        print(f"[desktop] Tactical COCKPIT directive: {act}")
-        self._emit("control_cockpit", {"action": act})
-
     def set_window_mode(self, mode: str) -> dict:
         """Switch desktop display between full tactical God's Eye and top-center HUD notch."""
         m = (mode or "").strip().lower()
@@ -1736,17 +1723,6 @@ class JarvisAPI:
                     self._run_stalk(target_str, None)
                     return
 
-                # Tactical Cockpit Chase dispatch
-                if intent_name == "cockpit_chase":
-                    target_call = entities.get("target", "")
-                    self._emit("control_cockpit", {"action": "enter", "target": target_call})
-                    resp_txt = f"Entering tactical cockpit chase camera on {target_call if target_call else 'airborne contact'}, Sir."
-                    self._emit("jarvis_stream_chunk", {"chunk": resp_txt})
-                    self._emit("jarvis_answer", {"text": resp_txt, "mode": "tactical"})
-                    self._speak_and_suppress_echo(resp_txt)
-                    self._start_follow_up_window()
-                    return
-
                 # Tactical Target Lock dispatch
                 if intent_name == "target_lock":
                     target_call = entities.get("target", "")
@@ -1761,7 +1737,6 @@ class JarvisAPI:
                 # Target Unlock dispatch
                 if intent_name == "target_unlock":
                     self._emit("control_target_lock", {"action": "release"})
-                    self._emit("control_cockpit", {"action": "exit"})
                     resp_txt = "Releasing target lock and restoring tactical orbital overview, Sir."
                     self._emit("jarvis_stream_chunk", {"chunk": resp_txt})
                     self._emit("jarvis_answer", {"text": resp_txt, "mode": "tactical"})
@@ -3347,7 +3322,6 @@ class JarvisAPI:
             on_radio=lambda r: self._execute_tactical_radio(r),
             on_sfx=lambda s: self._execute_tactical_sfx(s),
             on_annotate=lambda a: self._execute_tactical_annotate(a),
-            on_cockpit=lambda c: self._execute_tactical_cockpit(c),
             on_style=lambda s: self._execute_tactical_style(s),
             on_patrol=lambda p: self._execute_tactical_patrol(p),
             on_window=lambda w: self._execute_tactical_window(w),
@@ -3403,8 +3377,6 @@ class JarvisAPI:
             self._execute_tactical_sfx(result["sfx_action"])
         if result.get("annotate_action"):
             self._execute_tactical_annotate(result["annotate_action"])
-        if result.get("cockpit_action"):
-            self._execute_tactical_cockpit(result["cockpit_action"])
         if result.get("app_action") and hasattr(self._voice, 'skills') and self._voice.skills:
             try:
                 self._voice.skills.open_application(result["app_action"])

@@ -43,7 +43,6 @@ def test_flight_query_and_telemetry():
     steps = loop.analyze_goal("show me the nearest flight")
     actions = [s["action"] for s in steps]
     assert "flights" in actions
-    assert "cockpit" in actions
 
     f_res = loop.tool_flight_radar()
     assert f_res["success"] is True

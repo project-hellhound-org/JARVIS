@@ -47,7 +47,7 @@ def test_cognitive_search_directive_stripping():
     assert m is not None
     assert m.group(1).strip() == "live weather Coimbatore"
     
-    clean_text = re.sub(r'\[\s*(?:NAV|LAYER|CMD|ZOOM|RADIO|SFX|ANNOTATE|COCKPIT|SEARCH)[^\]]*\]', '', raw)
+    clean_text = re.sub(r'\[\s*(?:NAV|LAYER|CMD|ZOOM|RADIO|SFX|ANNOTATE|SEARCH)[^\]]*\]', '', raw)
     clean_text = re.sub(r'\s+', ' ', clean_text).strip()
     assert clean_text == "Certainly, Sir. Checking regional telemetry."
 

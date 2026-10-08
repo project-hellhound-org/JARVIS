@@ -386,8 +386,6 @@ Available Tools:
   Parameters: {{"action": "inbox"}}
 - "memory_recall": Search past conversation logs and persistent memory.
   Parameters: {{"action": "memory_recall", "query": "<search topic>"}}
-- "cockpit": Engage 3D tactical cockpit chase camera on target aircraft.
-  Parameters: {{"action": "cockpit", "target": "<callsign or target>"}}
 - "directions": Turn-by-turn road driving route between two points.
   Parameters: {{"action": "directions", "from": "<origin>", "to": "<destination>"}}
 - "live_news": Access 24/7 global SIGINT live news broadcasts.
@@ -482,8 +480,6 @@ Rules:
                                     item["progress_phrase"] = f"Scanning inbox dispatches and priority communications, {sal}..."
                                 elif action == "memory_recall":
                                     item["progress_phrase"] = f"Scanning memory logs for related context, {sal}..."
-                                elif action == "cockpit":
-                                    item["progress_phrase"] = "Acquiring kinematic lock and initializing 3D tactical cockpit chase camera..."
                                 elif action == "annotate":
                                     item["progress_phrase"] = f"Illuminating tactical perimeter and annotating sector boundary on World Telemetry, {sal}..."
                                 elif action == "directions":
@@ -611,7 +607,6 @@ Rules:
         has_traffic = any(re.search(rf'\b{w}\b', text_lower) for w in ["traffic", "congestion", "road", "roads", "flow", "jam", "commute", "highway"]) and "air traffic" not in text_lower
         has_flight = any(w in text_lower for w in ["flight", "flights", "aircraft", "plane", "planes", "radar", "airspace", "ads-b", "adsb", "chase", "air traffic"])
         has_weather = any(w in text_lower for w in ["weather", "forecast", "rain", "temperature", "storm", "wind", "pull the weather"])
-        has_cockpit = any(w in text_lower for w in ["cockpit", "chase cam", "lock on", "track plane", "lock onto", "nearest flight"])
         has_search = bool(re.search(r'\b(?:google\s+search|web\s+search|search\s+(?:the\s+web|google|online))\b', text_lower))
         has_briefing = any(w in text_lower for w in ["good morning", "briefing", "situational briefing", "status report", "morning protocol", "executive briefing", "how is the day looking", "how does the day look"]) and not any(w in text_lower for w in ["warzone", "conflict", "frontline", "cyber", "flight", "weather"])
         has_diag = any(w in text_lower for w in ["diagnostic", "system resource", "hardware stat", "cpu load", "thermals", "system status", "hardware status", "system telemetry", "resource monitor"])
@@ -732,12 +727,6 @@ Rules:
                 "progress_phrase": f"Scanning maritime AIS transponders and naval vessel corridors, {sal}..."
             })
 
-        if has_cockpit:
-            plan_steps.append({
-                "action": "cockpit",
-                "target": loc_candidate or "",
-                "progress_phrase": "Acquiring kinematic lock and initializing 3D tactical cockpit chase camera..."
-            })
 
         if has_briefing:
             plan_steps.append({
@@ -958,9 +947,6 @@ Rules:
                         extra=res
                     ))
 
-                elif action == "cockpit":
-                    self.bus.emit("control_cockpit", {"action": "enter", "target": step.get("target", "")})
-                    obs["result"] = "Tactical cockpit chase camera engaged on selected target vector."
 
                 elif action == "ground_intel":
                     loc = step.get("location") or ""

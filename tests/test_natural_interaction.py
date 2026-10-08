@@ -116,14 +116,8 @@ class TestConversationContextManager:
         assert r2 == "investigate openai.com"
         assert self.mgr.get_active_pending_slot() is None
 
-    def test_tactical_cockpit_and_lock_intents(self):
-        # 1. Cockpit chase
-        c1, i1, e1, r1 = self.mgr.classify_and_resolve("chase VIPER-11")
-        assert c1 == "new_command"
-        assert i1 == "cockpit_chase"
-        assert e1.get("target") == "VIPER-11"
-
-        # 2. Target lock
+    def test_tactical_lock_intents(self):
+        # 1. Target lock
         c2, i2, e2, r2 = self.mgr.classify_and_resolve("lock target SKY-42")
         assert c2 == "new_command"
         assert i2 == "target_lock"

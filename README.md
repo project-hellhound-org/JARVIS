@@ -117,7 +117,6 @@ J.A.R.V.I.S. integrates the spatial intelligence architecture inspired by **God'
 
 ### Keyless Global Intelligence (Works 100% Out of the Box)
 - **Airspace Radar (ADS-B)**: Real-time military and commercial aircraft tracking worldwide via `api.adsb.lol` / `airplanes.live`. Single-click any contact for callsign, altitude, ground speed, Mach velocity, squawk code, and heading.
-- **Flight Cockpit POV & Chase Mode**: Lock onto any aircraft and experience first-person tactical cockpit perspective (`LOCK AIRCRAFT`) or third-person chase camera (`CHASE TARGET`).
 - **Maritime Vessels (AIS)**: Worldwide commercial shipping and naval vessel locations with MMSI, vessel type, and heading indicators.
 - **Global Radio Scanner Tuner**: 100% genuine live audio feeds from major international aviation towers (Tokyo Haneda ATC, Heathrow Tower ATC) and emergency dispatch channels (SF Police/Fire, BBC World Service).
 - **USGS Planetary Seismic Monitor**: Real-time earthquake monitoring ($M \ge 4.5$) with fault zone radius visualization and hypocenter depth telemetry.
