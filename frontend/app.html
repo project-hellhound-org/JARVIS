@@ -18266,7 +18266,9 @@ window.toggleTacticalLayer = function(layerName, forceState) {
       _spaceDataSource.show = _tacticalLayers.space;
       if (_tacticalLayers.space && window._updateISSPosition) window._updateISSPosition();
     }
-    if (window._satellitePoints) {
+    if (window._satelliteBillboards) {
+      window._satelliteBillboards.show = _tacticalLayers.space;
+    } else if (window._satellitePoints) {
       window._satellitePoints.show = _tacticalLayers.space;
     }
     if (window._osirisSatellitesDS) {
@@ -22929,11 +22931,12 @@ function initGlobeIntelligence(viewer) {
     const _osirisCctvDS = new Cesium.CustomDataSource('osiris-cctv');
     const _osirisClustersDS = new Cesium.CustomDataSource('osiris-clusters');
 
-    // God's Eye High-Density GPU Satellite Constellation (PointPrimitiveCollection)
-    const _satellitePoints = new Cesium.PointPrimitiveCollection();
-    _satellitePoints.show = false;
-    viewer.scene.primitives.add(_satellitePoints);
-    window._satellitePoints = _satellitePoints;
+    // God's Eye High-Density GPU Satellite Constellation (Batched BillboardCollection)
+    const _satelliteBillboards = new Cesium.BillboardCollection();
+    _satelliteBillboards.show = false;
+    viewer.scene.primitives.add(_satelliteBillboards);
+    window._satelliteBillboards = _satelliteBillboards;
+    window._satellitePoints = _satelliteBillboards; // backwards compatibility alias
     window._osirisSatellitesDS = _osirisSatellitesDS;
 
     _osirisSatellitesDS.show = false;
@@ -23222,57 +23225,114 @@ function initGlobeIntelligence(viewer) {
       }
     }
 
-    const SATELLITE_STYLES = {
-      iss: {
-        pixelSize: 10,
-        color: Cesium.Color.fromCssColorString('#ff4444'),
-        outlineColor: Cesium.Color.WHITE.withAlpha(0.6),
-        outlineWidth: 2,
-        label: 'STATION · ISS'
-      },
-      station: {
-        pixelSize: 8,
-        color: Cesium.Color.fromCssColorString('#fff6e5'),
-        outlineColor: Cesium.Color.WHITE.withAlpha(0.4),
-        outlineWidth: 1.5,
-        label: 'STATION'
-      },
-      nav: {
-        pixelSize: 5.5,
-        color: Cesium.Color.fromCssColorString('#4fd8ff'),
-        outlineColor: Cesium.Color.TRANSPARENT,
-        outlineWidth: 0,
-        label: 'NAV'
-      },
-      geo: {
-        pixelSize: 4.5,
-        color: Cesium.Color.fromCssColorString('#c89bff'),
-        outlineColor: Cesium.Color.TRANSPARENT,
-        outlineWidth: 0,
-        label: 'GEO'
-      },
-      visual: {
-        pixelSize: 4,
-        color: Cesium.Color.fromCssColorString('#9fb3c4'),
-        outlineColor: Cesium.Color.TRANSPARENT,
-        outlineWidth: 0,
-        label: 'VISUAL'
-      },
-      starlink: {
-        pixelSize: 3,
-        color: Cesium.Color.fromCssColorString('#54697f').withAlpha(0.85),
-        outlineColor: Cesium.Color.TRANSPARENT,
-        outlineWidth: 0,
-        label: 'STARLINK'
-      },
-      default: {
-        pixelSize: 4,
-        color: Cesium.Color.fromCssColorString('#4fd8ff'),
-        outlineColor: Cesium.Color.TRANSPARENT,
-        outlineWidth: 0,
-        label: 'ORBITAL'
-      }
-    };
+    // Procedural Satellite-Silhouette Sprite Atlas Generator (God's Eye Parity)
+    // Dark metallic bus body, dual solar panel wings with photovoltaic cells,
+    // crisp 1px light edge for high-contrast visibility against pitch-black space,
+    // and a distinctive per-class core accent color.
+    const _satelliteSpriteAtlas = {};
+
+    function getSatelliteSpriteCanvas(classKey, accentHex, isLarge = false) {
+      const cacheKey = `${classKey}_${isLarge ? 'lg' : 'sm'}`;
+      if (_satelliteSpriteAtlas[cacheKey]) return _satelliteSpriteAtlas[cacheKey];
+
+      const cvs = document.createElement('canvas');
+      cvs.width = isLarge ? 36 : 28;
+      cvs.height = isLarge ? 20 : 16;
+      const ctx = cvs.getContext('2d');
+      const w = cvs.width;
+      const h = cvs.height;
+      const cx = w / 2;
+      const cy = h / 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Solar Panel Wings (Dual horizontal arrays)
+      const wingW = isLarge ? 11 : 8;
+      const wingH = isLarge ? 10 : 8;
+      const wingY = cy - wingH / 2;
+      const busW = isLarge ? 8 : 6;
+      const busH = isLarge ? 10 : 8;
+      const busX = cx - busW / 2;
+      const busY = cy - busH / 2;
+
+      // Connecting Trusses
+      ctx.strokeStyle = '#94A3B8';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(busX - 2, cy);
+      ctx.lineTo(busX, cy);
+      ctx.moveTo(busX + busW, cy);
+      ctx.lineTo(busX + busW + 2, cy);
+      ctx.stroke();
+
+      // Left and Right Solar Panel Arrays
+      const leftWingX = busX - 2 - wingW;
+      const rightWingX = busX + busW + 2;
+
+      [leftWingX, rightWingX].forEach(wx => {
+        // Photovoltaic cell gradient
+        const pGrad = ctx.createLinearGradient(wx, wingY, wx + wingW, wingY + wingH);
+        pGrad.addColorStop(0, '#0F3B5F');
+        pGrad.addColorStop(0.5, '#0284C7');
+        pGrad.addColorStop(1, '#0369A1');
+        ctx.fillStyle = pGrad;
+        ctx.fillRect(wx, wingY, wingW, wingH);
+
+        // Thin light edge (visible against black space)
+        ctx.strokeStyle = 'rgba(241, 245, 249, 0.9)';
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(wx + 0.4, wingY + 0.4, wingW - 0.8, wingH - 0.8);
+
+        // Photovoltaic grid divider lines
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        // Horizontal cell line
+        ctx.moveTo(wx, cy);
+        ctx.lineTo(wx + wingW, cy);
+        // Vertical cell line
+        ctx.moveTo(wx + wingW / 2, wingY);
+        ctx.lineTo(wx + wingW / 2, wingY + wingH);
+        ctx.stroke();
+      });
+
+      // Central Satellite Bus Body (Dark metallic alloy)
+      const busGrad = ctx.createLinearGradient(busX, busY, busX + busW, busY + busH);
+      busGrad.addColorStop(0, '#1E293B');
+      busGrad.addColorStop(0.5, '#0F172A');
+      busGrad.addColorStop(1, '#020617');
+      ctx.fillStyle = busGrad;
+      ctx.fillRect(busX, busY, busW, busH);
+
+      // Crisp Light Edge around Bus (Crisp silver/white line against black space)
+      ctx.strokeStyle = '#F8FAFC';
+      ctx.lineWidth = 1.0;
+      ctx.strokeRect(busX + 0.5, busY + 0.5, busW - 1, busH - 1);
+
+      // High-Gain Antenna / Sensor Mast Nub (Top & Bottom)
+      ctx.strokeStyle = '#CBD5E1';
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.moveTo(cx, busY);
+      ctx.lineTo(cx, busY - 2.5);
+      ctx.stroke();
+
+      // Per-Class Color Accent Sensor Beacon / Core
+      ctx.fillStyle = accentHex || '#4FD8FF';
+      ctx.beginPath();
+      ctx.arc(cx, cy, isLarge ? 2.0 : 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Accent halo / glow
+      ctx.strokeStyle = accentHex || '#4FD8FF';
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.arc(cx, cy, isLarge ? 3.0 : 2.4, 0, Math.PI * 2);
+      ctx.stroke();
+
+      _satelliteSpriteAtlas[cacheKey] = cvs;
+      return cvs;
+    }
 
     function getSatelliteStyle(sat) {
       const name = (sat.name || '').toUpperCase();
@@ -23281,37 +23341,37 @@ function initGlobeIntelligence(viewer) {
       const alt = Number(sat.alt) || 0;
 
       if (norad === '25544' || name.includes('ISS') || name.includes('ZARYA')) {
-        return SATELLITE_STYLES.iss;
+        return { key: 'station_iss', accentHex: '#fff6e5', label: 'STATION · ISS', isLarge: true };
       }
       if (cat === 'stations' || cat === 'station' || name.includes('TIANGONG') || name.includes('CSS') || name.includes('TIANHE')) {
-        return SATELLITE_STYLES.station;
+        return { key: 'station', accentHex: '#fff6e5', label: 'STATION', isLarge: true };
       }
       if (cat === 'nav' || cat === 'gps' || cat === 'gps-ops' || cat === 'glonass' || cat === 'galileo' || cat === 'beidou' ||
           name.includes('GPS') || name.includes('NAVSTAR') || name.includes('GLONASS') || name.includes('GALILEO') || name.includes('BEIDOU')) {
         const subtype = name.includes('GLONASS') ? 'GLONASS' : (name.includes('GALILEO') ? 'GALILEO' : 'GPS');
-        return Object.assign({}, SATELLITE_STYLES.nav, { label: `NAV · ${subtype}` });
+        return { key: 'nav', accentHex: '#4fd8ff', label: `NAV · ${subtype}`, isLarge: false };
       }
       if (cat === 'geo' || alt > 34000 || name.includes('GOES') || name.includes('METEOSAT') || name.includes('INMARSAT')) {
-        return SATELLITE_STYLES.geo;
+        return { key: 'geo', accentHex: '#c89bff', label: 'GEO', isLarge: false };
       }
       if (cat === 'starlink' || cat === 'dense' || cat === 'comms' || name.includes('STARLINK') || name.includes('ONEWEB')) {
         const subtype = name.includes('ONEWEB') ? 'ONEWEB' : 'STARLINK';
-        return Object.assign({}, SATELLITE_STYLES.starlink, { label: `COMMS · ${subtype}` });
+        return { key: 'comms', accentHex: '#54697f', label: `COMMS · ${subtype}`, isLarge: false };
       }
       if (cat === 'visual' || name.includes('HST') || name.includes('HUBBLE') || name.includes('TERRA') || name.includes('AQUA')) {
-        return SATELLITE_STYLES.visual;
+        return { key: 'visual', accentHex: '#9fb3c4', label: 'VISUAL', isLarge: false };
       }
-      return SATELLITE_STYLES.default;
+      return { key: 'default', accentHex: '#ff9d2e', label: 'ORBITAL', isLarge: false };
     }
 
-    const _satellitePointsMap = new Map();
+    const _satelliteBillboardsMap = new Map();
 
     function renderOsirisSatellites(sats) {
-      if (!_satellitePoints) return;
+      if (!_satelliteBillboards) return;
 
       if (!Array.isArray(sats) || sats.length === 0) {
-        _satellitePoints.removeAll();
-        _satellitePointsMap.clear();
+        _satelliteBillboards.removeAll();
+        _satelliteBillboardsMap.clear();
         if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
         return;
       }
@@ -23347,34 +23407,35 @@ function initGlobeIntelligence(viewer) {
           inclination: sat.inclination != null ? sat.inclination : 51.64
         };
 
-        let existingPt = _satellitePointsMap.get(noradKey);
-        if (existingPt) {
-          existingPt.position = pos;
-          existingPt.pixelSize = style.pixelSize;
-          existingPt.color = style.color;
-          existingPt.outlineColor = style.outlineColor;
-          existingPt.outlineWidth = style.outlineWidth;
-          existingPt.id = tacticalData;
-          existingPt._tacticalData = tacticalData;
+        const spriteCanvas = getSatelliteSpriteCanvas(style.key, style.accentHex, style.isLarge);
+        const spriteW = style.isLarge ? 32 : 24;
+        const spriteH = style.isLarge ? 18 : 14;
+
+        let existingBb = _satelliteBillboardsMap.get(noradKey);
+        if (existingBb) {
+          existingBb.position = pos;
+          existingBb.image = spriteCanvas;
+          existingBb.id = tacticalData;
+          existingBb._tacticalData = tacticalData;
         } else {
-          const pt = _satellitePoints.add({
+          const bb = _satelliteBillboards.add({
             position: pos,
-            pixelSize: style.pixelSize,
-            color: style.color,
-            outlineColor: style.outlineColor,
-            outlineWidth: style.outlineWidth,
-            id: tacticalData
+            image: spriteCanvas,
+            width: spriteW,
+            height: spriteH,
+            id: tacticalData,
+            disableDepthTestDistance: 50000000
           });
-          pt._tacticalData = tacticalData;
-          _satellitePointsMap.set(noradKey, pt);
+          bb._tacticalData = tacticalData;
+          _satelliteBillboardsMap.set(noradKey, bb);
         }
       }
 
-      // Remove stale points no longer present
-      _satellitePointsMap.forEach((pt, key) => {
+      // Remove stale billboards no longer present
+      _satelliteBillboardsMap.forEach((bb, key) => {
         if (!activeKeys.has(key)) {
-          _satellitePoints.remove(pt);
-          _satellitePointsMap.delete(key);
+          _satelliteBillboards.remove(bb);
+          _satelliteBillboardsMap.delete(key);
         }
       });
 
@@ -23430,7 +23491,8 @@ function initGlobeIntelligence(viewer) {
             style: Cesium.LabelStyle.FILL_AND_OUTLINE,
             verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
             pixelOffset: new Cesium.Cartesian2(0, -10),
-            disableDepthTestDistance: 50000
+            disableDepthTestDistance: 50000,
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 3000000)
           },
           _tacticalData: {
             type: 'CONFLICT_ZONE',
@@ -23617,7 +23679,7 @@ function initGlobeIntelligence(viewer) {
       getLOD: () => _activeLOD,
       enable: () => {
         _osirisActive = true;
-        _satellitePoints.show = true;
+        _satelliteBillboards.show = true;
         _osirisSatellitesDS.show = true;
         _osirisConflictsDS.show = true;
         _osirisCctvDS.show = true;
@@ -23652,9 +23714,9 @@ function initGlobeIntelligence(viewer) {
         _osirisActive = false;
         _activeLOD = null;
         if (!_tacticalLayers.space) {
-          _satellitePoints.show = false;
-          _satellitePoints.removeAll();
-          _satellitePointsMap.clear();
+          _satelliteBillboards.show = false;
+          _satelliteBillboards.removeAll();
+          _satelliteBillboardsMap.clear();
           _osirisSatellitesDS.show = false;
           _osirisSatellitesDS.entities.removeAll();
         }
