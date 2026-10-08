@@ -15546,7 +15546,7 @@ window.focusGlobeCoordinates = function(lat, lon, label) {
     // Display Tactical Arrival Notification Pill
     const arrivalPill = document.getElementById('globe-arrival-pill');
     if (arrivalPill) {
-      arrivalPill.innerHTML = `<span>🎯 TRANSIT COMPLETE:</span> <span style="color:#00F0FF; font-weight:800;">${(label || 'SECTOR').toUpperCase()}</span> <span style="color:#94A3B8; font-size:9px;">(${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E)</span>`;
+      arrivalPill.innerHTML = `<span>🎯 TRANSIT COMPLETE · ARRIVAL:</span> <span style="color:#00F0FF; font-weight:800;">${(label || 'SECTOR').toUpperCase()}</span> <span style="color:#94A3B8; font-size:9px;">(${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E)</span>`;
       arrivalPill.style.display = 'flex';
       clearTimeout(window._arrivalPillTimer);
       window._arrivalPillTimer = setTimeout(() => { arrivalPill.style.display = 'none'; }, 7000);
@@ -15969,43 +15969,24 @@ const JarvisAnnotations = {
       }
     });
 
-    // Holographic arrival HUD card billboard at 450m altitude
-    const cardCanvas = this.createHudCardCanvas(
-      label,
-      'TRANSIT COMPLETE · ARRIVAL',
-      `LAT: ${lat.toFixed(4)}°N | LON: ${lon.toFixed(4)}°E`,
-      'STATUS: SECTOR ACQUIRED & SYNCHRONIZED',
-      colorHex
-    );
-
+    // Pulsing glyph waypoint and thin leader line (replacing heavy billboard card canvas & Cesium labels)
     ds.entities.add({
       id: 'jarvis-arrival-waypoint',
-      position: Cesium.Cartesian3.fromDegrees(lon, lat, 450),
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, 60),
       polyline: {
         positions: Cesium.Cartesian3.fromDegreesArrayHeights([
           lon, lat, 0,
-          lon, lat, 450
+          lon, lat, 60
         ]),
-        width: 2.5,
-        material: cesiumColor,
+        width: 1.5,
+        material: new Cesium.ColorMaterialProperty(cesiumColor.withAlpha(0.85)),
         distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0.0, 500000.0)
       },
-      billboard: {
-        image: cardCanvas,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        pixelOffset: new Cesium.Cartesian2(0, -8),
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0.0, 500000.0),
-        disableDepthTestDistance: 500000.0
-      },
-      label: {
-        text: `🎯 ${(label || 'SECTOR').toUpperCase()}`,
-        font: 'bold 12px "JetBrains Mono", monospace',
-        fillColor: Cesium.Color.fromCssColorString('#00F0FF'),
-        outlineColor: Cesium.Color.BLACK,
-        outlineWidth: 3,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        pixelOffset: new Cesium.Cartesian2(0, -22),
+      point: {
+        pixelSize: 8,
+        color: cesiumColor,
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 2,
         distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0.0, 500000.0),
         disableDepthTestDistance: 500000.0
       }
@@ -20844,20 +20825,6 @@ function initGlobeIntelligence(viewer) {
           // Clear tactical badge at ground level (<50km), scales down smoothly to micro-dot at orbital altitude
           scaleByDistance: new Cesium.NearFarScalar(500, 1.15, 4000000, 0.20),
           distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 8000000)
-        },
-        label: {
-          text: `${isVideo ? '▶' : '📷'} ${p.title}`,
-          font: 'bold 10px "JetBrains Mono", monospace',
-          fillColor: Cesium.Color.fromCssColorString('#E2E8F0'),
-          outlineColor: Cesium.Color.BLACK,
-          outlineWidth: 3,
-          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-          pixelOffset: new Cesium.Cartesian2(0, -42),
-          disableDepthTestDistance: 5000,
-          // Altitude culled: label only visible within 150 km; never clutters outer space view
-          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 150000),
-          scaleByDistance: new Cesium.NearFarScalar(1000, 1.0, 150000, 0.75)
         },
         polyline: {
           positions: Cesium.Cartesian3.fromDegreesArrayHeights([
