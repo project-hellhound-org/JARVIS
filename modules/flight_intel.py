@@ -472,7 +472,7 @@ class FlightIntelEngine:
         self._adsbdb_cache_file = self._cache_dir / 'adsbdb.json'
         self._enrich_routes: Dict[str, Any] = {}
         self._enrich_aircraft: Dict[str, Any] = {}
-        self._enrich_ttl = 24 * 3600  # 24 hours
+        self._enrich_ttl = 30 * 24 * 3600  # 30 days
 
         if self._adsbdb_cache_file.exists():
             try:
@@ -543,8 +543,12 @@ class FlightIntelEngine:
                 # Negative cache 404 to protect public API from repeated queries on unknown callsigns
                 self._enrich_routes[callsign_clean] = {'at': now, 'data': None}
                 self._persist_enrichment_cache()
+            if cached and cached.get('data'):
+                return cached.get('data')
             return None
         except Exception:
+            if cached and cached.get('data'):
+                return cached.get('data')
             return None
 
     def get_aircraft_meta(self, icao_hex: str) -> Optional[Dict[str, Any]]:
@@ -587,8 +591,12 @@ class FlightIntelEngine:
             if he.code == 404:
                 self._enrich_aircraft[hex_clean] = {'at': now, 'data': None}
                 self._persist_enrichment_cache()
+            if cached and cached.get('data'):
+                return cached.get('data')
             return None
         except Exception:
+            if cached and cached.get('data'):
+                return cached.get('data')
             return None
 
     def get_flight_enrichment(

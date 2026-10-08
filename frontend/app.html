@@ -15516,6 +15516,15 @@ window.focusGlobeCoordinates = function(lat, lon, label) {
           if (typeof window.updateResetButtonVisibility === 'function') {
             window.updateResetButtonVisibility();
           }
+        },
+        cancel: () => {
+          if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+            window.cesiumViewer.scene.requestRenderMode = true;
+            window.cesiumViewer.scene.requestRender();
+          }
+          if (typeof window.updateResetButtonVisibility === 'function') {
+            window.updateResetButtonVisibility();
+          }
         }
       });
 
@@ -15642,6 +15651,13 @@ window.resetViewToHome = function() {
       orientation: orient,
       duration: 2.0,
       complete: () => {
+        if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+          window.cesiumViewer.scene.requestRenderMode = true;
+          window.cesiumViewer.scene.requestRender();
+        }
+        window.updateResetButtonVisibility();
+      },
+      cancel: () => {
         if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
           window.cesiumViewer.scene.requestRenderMode = true;
           window.cesiumViewer.scene.requestRender();
