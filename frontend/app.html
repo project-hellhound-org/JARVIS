@@ -111,13 +111,6 @@
 </script>
 <script src="UnrealBloomPass.bundle.js"></script>
 <script src="3d-force-graph.min.js"></script>
-<script src="vendor/hls.min.js"></script>
-<script type="module">
-  import { attachCctvVideo } from './js/videoPlayback.js';
-  import { createCctvVideoSurface } from './js/cctvVideo.js';
-  window.attachCctvVideo = attachCctvVideo;
-  window.createCctvVideoSurface = createCctvVideoSurface;
-</script>
 <style>
   :root {
     --bg-0: #000005;
@@ -3237,7 +3230,7 @@ body.app-ready {
   box-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
 }
 
-/* Tactical Layer Toggles (Flights, CCTV, Radio) */
+/* Tactical Layer Toggles (Flights, Vessels, Radio) */
 .globe-layer-toggle {
   display: flex;
   align-items: center;
@@ -3864,7 +3857,6 @@ body.chat-panel-collapsed #chat-expand-launcher {
 }
 
 /* Tactical Panel Drag, Resize & Select Clamping System */
-#cctv-dock-panel,
 #spatial-globe-hud,
 #ground-media-dock-panel,
 #globe-inspect-card,
@@ -3875,7 +3867,6 @@ body.chat-panel-collapsed #chat-expand-launcher {
   min-height: 120px;
 }
 
-#cctv-dock-panel.is-tactical-dragging,
 #spatial-globe-hud.is-tactical-dragging,
 #ground-media-dock-panel.is-tactical-dragging,
 #globe-inspect-card.is-tactical-dragging,
@@ -3912,9 +3903,7 @@ body.chat-panel-collapsed #chat-expand-launcher {
 
 /* Fix White Select Box Contrast & Clamping across all tactical interfaces */
 select,
-.radio-tag-select,
-#cctv-dock-camera-select,
-#cctv-fs-camera-select {
+.radio-tag-select {
   background: #060B12 !important;
   background-color: #060B12 !important;
   color: #00F0FF !important;
@@ -3931,9 +3920,7 @@ select,
 }
 
 select option,
-.radio-tag-select option,
-#cctv-dock-camera-select option,
-#cctv-fs-camera-select option {
+.radio-tag-select option {
   background: #060B12 !important;
   background-color: #060B12 !important;
   color: #E6E6E6 !important;
@@ -3941,9 +3928,7 @@ select option,
 }
 
 select:focus,
-.radio-tag-select:focus,
-#cctv-dock-camera-select:focus,
-#cctv-fs-camera-select:focus {
+.radio-tag-select:focus {
   border-color: #00F0FF !important;
   box-shadow: 0 0 8px rgba(0, 240, 255, 0.45) !important;
 }
@@ -4516,10 +4501,6 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
           <span>🚢 MARITIME VESSELS (AIS)</span>
           <div class="toggle-pill"></div>
         </div>
-        <div class="globe-layer-toggle" id="layer-toggle-cctv" onclick="window.toggleTacticalLayer('cctv')">
-          <span>📹 CCTV / TRAFFIC CONES</span>
-          <div class="toggle-pill"></div>
-        </div>
         <div class="globe-layer-toggle" id="layer-toggle-traffic" onclick="window.toggleTacticalLayer('traffic')">
           <span>🚗 STREET TRAFFIC (LIVE FLOW)</span>
           <div class="toggle-pill"></div>
@@ -4549,10 +4530,9 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
           <div class="toggle-pill"></div>
         </div>
       </div>
-      <div style="font-size:9px; color:#8A8D91; font-family:var(--mono); margin-top:8px; display:grid; grid-template-columns:repeat(6, 1fr); gap:4px;">
+      <div style="font-size:9px; color:#8A8D91; font-family:var(--mono); margin-top:8px; display:grid; grid-template-columns:repeat(5, 1fr); gap:4px;">
         <span>RADAR: <span id="radar-contact-count" style="color:#00F0FF;">0</span></span>
         <span>VESSELS: <span id="vessel-contact-count" style="color:#38BDF8;">0</span></span>
-        <span>CCTV: <span id="cctv-contact-count" style="color:#FFB84D;">0</span></span>
         <span>TRAFFIC: <span id="traffic-contact-count" style="color:#2ECC71;">0</span></span>
         <span>MEDIA: <span id="ground-media-contact-count" style="color:#A78BFA;">0</span></span>
         <span>FIRMS: <span id="thermal-contact-count" style="color:#EF4444;">0</span></span>
@@ -4705,84 +4685,6 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   <div class="tactical-resize-handle" title="Resize Inspect Card">◢</div>
 </div>
 
-<!-- Real God's Eye CCTV Tactical Dock Panel (Draggable Left Rail) -->
-<div id="cctv-dock-panel" style="position:fixed; top:80px; left:20px; width:340px; max-width:88vw; background:rgba(6,10,18,0.94); border:1px solid rgba(0,240,255,0.45); border-radius:8px; padding:12px; box-shadow:0 12px 36px rgba(0,0,0,0.85); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); z-index:1400; display:none; font-family:var(--mono); color:#E6E6E6; user-select:none; pointer-events:auto;">
-  <!-- Draggable Header Bar -->
-  <div id="cctv-dock-drag-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; cursor:move; user-select:none;">
-    <div style="display:flex; align-items:center; gap:8px;">
-      <span style="font-size:11px; color:#8A8D91; letter-spacing:1px;" title="Drag anywhere">⠿</span>
-      <span style="font-size:12px; font-weight:800; color:#00F0FF; letter-spacing:1.5px;">CCTV</span>
-      <span style="display:inline-flex; align-items:center; gap:4px; font-size:9px; color:#22C55E; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.4); padding:1px 5px; border-radius:3px;">
-        <span style="width:5px; height:5px; border-radius:50%; background:#22C55E; display:inline-block; animation:cctvPulse 1.2s infinite alternate;"></span>
-        <span id="cctv-dock-stream-badge">OPTICAL STREAM</span>
-      </span>
-    </div>
-    <div style="display:flex; align-items:center; gap:6px;">
-      <button onclick="window.resetTacticalLayout()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#8A8D91; font-size:9px; font-weight:700; padding:2px 5px; border-radius:3px; cursor:pointer;" title="Reset Tactical Panel Layout">⟲ RESET</button>
-      <button id="cctv-dock-btn-fullscreen" onclick="window.cctvToggleFullscreen()" style="background:rgba(0,240,255,0.14); border:1px solid rgba(0,240,255,0.5); color:#00F0FF; font-size:10px; font-weight:700; padding:2px 6px; border-radius:3px; cursor:pointer;" title="Fullscreen Tactical Optical Monitor">⛶ FULLSCREEN</button>
-      <button onclick="window.closeCctvDock()" style="background:transparent; border:none; color:#8A8D91; cursor:pointer; font-size:14px; padding:2px;" title="Close CCTV Panel">✕</button>
-    </div>
-  </div>
-
-  <!-- 16:9 Live Video & Snapshot Optical Stream Box -->
-  <div style="position:relative; width:100%; aspect-ratio:16/9; background:#02060D; border:1px solid rgba(0,240,255,0.5); border-radius:6px; overflow:hidden; margin-bottom:8px;">
-    <video id="cctv-dock-video" autoplay muted loop playsinline style="width:100%; height:100%; object-fit:cover; display:block;"></video>
-    <iframe id="cctv-dock-iframe" src="" allow="autoplay; encrypted-media; fullscreen" style="width:100%; height:100%; border:none; display:none;"></iframe>
-    <img id="cctv-dock-preview-img" src="" style="width:100%; height:100%; object-fit:cover; display:none;" onerror="this.style.opacity='0.4'">
-    <div id="cctv-dock-overlay-timestamp" style="position:absolute; top:6px; left:8px; font-size:9px; color:#FFFFFF; font-weight:700; background:rgba(0,0,0,0.65); padding:2px 5px; border-radius:3px;">--:--:--</div>
-    <div style="position:absolute; bottom:6px; left:8px; font-size:8.5px; color:#22C55E; background:rgba(0,0,0,0.75); padding:2px 6px; border-radius:3px; border:1px solid rgba(34,197,94,0.3); font-weight:700; display:flex; align-items:center; gap:4px;">
-      <span style="width:5px; height:5px; border-radius:50%; background:#22C55E; display:inline-block;"></span>
-      <span id="cctv-dock-feed-status">LIVE STREAM • OK</span>
-    </div>
-    <div style="position:absolute; bottom:6px; right:8px; display:flex; gap:4px; align-items:center;">
-      <button id="cctv-feed-mode-btn" onclick="window.cctvToggleFeedMode()" style="background:rgba(0,240,255,0.22); border:1px solid #00F0FF; color:#00F0FF; font-size:8px; font-weight:700; padding:2px 5px; border-radius:3px; cursor:pointer;" title="Toggle Video / Snapshot">📹 VIDEO</button>
-      <div id="cctv-dock-overlay-res" style="font-size:8.5px; color:#00F0FF; background:rgba(0,0,0,0.75); padding:2px 5px; border-radius:3px;">1080p HD</div>
-    </div>
-  </div>
-
-  <!-- Telemetry Lines -->
-  <div style="font-size:9.5px; color:#A1A1AA; line-height:1.5; margin-bottom:8px;">
-    <div id="cctv-dock-meta-1" style="color:#FFFFFF; font-weight:700;">OPTICAL CAMERA VANTAGE</div>
-    <div id="cctv-dock-meta-2" style="color:#8A8D91;">MONITOR • RAW PRIOR • Public Traffic Vantage Point</div>
-    <div id="cctv-dock-meta-active" style="color:#22C55E; font-size:8.5px;">● Upstream live stream active</div>
-  </div>
-
-  <!-- Primary Controls -->
-  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-bottom:6px;">
-    <button id="cctv-dock-btn-power" onclick="window.toggleTacticalLayer('cctv')" style="background:rgba(0,240,255,0.18); border:1px solid #00F0FF; color:#00F0FF; font-size:9.5px; font-weight:700; padding:6px; border-radius:4px; cursor:pointer;">CCTV ON</button>
-    <button id="cctv-dock-btn-nearest" onclick="window.cctvFocusNearest()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#E6E6E6; font-size:9.5px; font-weight:700; padding:6px; border-radius:4px; cursor:pointer;">NEAREST</button>
-  </div>
-
-  <!-- Camera Selector Row -->
-  <div style="display:flex; gap:4px; margin-bottom:6px; position:relative;">
-    <button onclick="window.cctvCycleCamera(-1)" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#E6E6E6; font-size:9.5px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer;" title="Previous Camera">◀ PREV</button>
-    <div id="cctv-custom-select-wrapper" style="flex:1; position:relative; min-width:0;">
-      <button type="button" id="cctv-custom-select-trigger" onclick="window.toggleCctvCustomDropdown()" style="width:100%; display:flex; justify-content:space-between; align-items:center; background:#060B12; border:1px solid rgba(0,240,255,0.45); color:#00F0FF; font-size:9.5px; font-family:var(--mono); padding:4px 6px; border-radius:4px; cursor:pointer; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
-        <span id="cctv-custom-select-label" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left;">SELECT CAMERA...</span>
-        <span style="font-size:7px; margin-left:4px; opacity:0.7;">▼</span>
-      </button>
-      <div id="cctv-custom-select-menu" style="display:none; position:absolute; bottom:calc(100% + 4px); left:0; right:0; max-height:200px; overflow-y:auto; background:#060B12; border:1px solid rgba(0,240,255,0.6); border-radius:4px; box-shadow:0 8px 24px rgba(0,0,0,0.9); z-index:10000; font-family:var(--mono); font-size:9.5px;"></div>
-      <select id="cctv-dock-camera-select" onchange="window.cctvSelectFromDropdown(this.value)" style="display:none;"></select>
-    </div>
-    <button onclick="window.cctvCycleCamera(1)" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#E6E6E6; font-size:9.5px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer;" title="Next Camera">NEXT ▶</button>
-  </div>
-
-  <!-- Advanced View Actions -->
-  <div style="display:grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap:4px; margin-bottom:8px;">
-    <button id="cctv-dock-btn-focus" onclick="window.cctvFocusCurrent()" style="background:rgba(0,240,255,0.15); border:1px solid #00F0FF; color:#00F0FF; font-size:9px; font-weight:700; padding:5px 4px; border-radius:4px; cursor:pointer;" title="Fly to Camera POV">FOCUS</button>
-    <button id="cctv-dock-btn-coverage" onclick="window.cctvToggleCoverage()" style="background:rgba(255,157,46,0.15); border:1px solid rgba(255,157,46,0.5); color:#FFB84D; font-size:9px; font-weight:700; padding:5px 4px; border-radius:4px; cursor:pointer;" title="Toggle Frustum Cone Volumes">COVERAGE ON</button>
-    <button id="cctv-dock-btn-autohop" onclick="window.cctvToggleAutoHop()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#8A8D91; font-size:9px; font-weight:700; padding:5px 4px; border-radius:4px; cursor:pointer;" title="Cycle Cameras Automatically">AUTO HOP OFF</button>
-  </div>
-
-  <!-- Telemetry Metrics Bar -->
-  <div style="display:flex; justify-content:space-between; font-size:8.5px; color:#8A8D91; font-family:var(--mono); border-top:1px solid rgba(255,255,255,0.08); padding-top:6px;">
-    <span>GSD: 0.04M</span>
-    <span>NIIRS: 9.0</span>
-    <span id="cctv-dock-elev">ALT: ---M MSL</span>
-  </div>
-  <div class="tactical-resize-handle" title="Resize CCTV Dock">◢</div>
-</div>
-
 <!-- Auto-Floating Ground Media Tactical Cards (Nearest ~6 Pins Anchored in Real-Time, Tier 2 Cards) -->
 <div id="ground-media-auto-floating-cards" style="position:fixed; inset:0; pointer-events:none; z-index:150; overflow:hidden;"></div>
 
@@ -4841,98 +4743,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   </div>
 </div>
 
-<!-- Fullscreen Tactical Optical Surveillance Monitor Modal -->
-<div id="cctv-fullscreen-modal" style="position:fixed; inset:0; z-index:99999; background:rgba(2,6,14,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); display:none; flex-direction:column; font-family:var(--mono); color:#E6E6E6; user-select:none;">
-  <!-- Header Bar -->
-  <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 20px; background:rgba(6,12,22,0.95); border-bottom:1px solid rgba(0,240,255,0.35); box-shadow:0 4px 20px rgba(0,0,0,0.6);">
-    <div style="display:flex; align-items:center; gap:14px;">
-      <span style="font-size:13px; font-weight:800; color:#00F0FF; letter-spacing:2px;">TACTICAL OPTICAL SURVEILLANCE</span>
-      <span style="font-size:10px; color:#22C55E; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.4); padding:2px 8px; border-radius:3px; font-weight:700;">
-        <span style="width:6px; height:6px; border-radius:50%; background:#22C55E; display:inline-block; animation:cctvPulse 1.2s infinite alternate;"></span>
-        LIVE FEED
-      </span>
-      <span id="cctv-fs-camera-title" style="font-size:12px; color:#FFFFFF; font-weight:700;">OPTICAL SENSOR</span>
-    </div>
 
-    <!-- Filters & Zoom Controls -->
-    <div style="display:flex; align-items:center; gap:12px;">
-      <!-- Filter Selectors -->
-      <div style="display:flex; gap:4px; align-items:center;">
-        <span style="font-size:9px; color:#8A8D91; margin-right:4px;">FILTER:</span>
-        <button class="cctv-fs-btn active" id="cctv-filter-normal" onclick="window.cctvSetFilter('normal')" style="padding:3px 8px; font-size:9.5px; font-weight:700; background:rgba(0,240,255,0.2); border:1px solid #00F0FF; color:#00F0FF; border-radius:3px; cursor:pointer;">NORMAL</button>
-        <button class="cctv-fs-btn" id="cctv-filter-nvg" onclick="window.cctvSetFilter('nvg')" style="padding:3px 8px; font-size:9.5px; font-weight:700; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#A1A1AA; border-radius:3px; cursor:pointer;">NVG GREEN</button>
-        <button class="cctv-fs-btn" id="cctv-filter-flir" onclick="window.cctvSetFilter('flir')" style="padding:3px 8px; font-size:9.5px; font-weight:700; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#A1A1AA; border-radius:3px; cursor:pointer;">FLIR THERMAL</button>
-      </div>
-
-      <!-- Digital Zoom Controls -->
-      <div style="display:flex; gap:4px; align-items:center;">
-        <span style="font-size:9px; color:#8A8D91; margin-right:4px;">ZOOM:</span>
-        <button class="cctv-zoom-btn active" id="cctv-zoom-1x" onclick="window.cctvSetZoom(1)" style="padding:3px 8px; font-size:9.5px; font-weight:700; background:rgba(0,240,255,0.2); border:1px solid #00F0FF; color:#00F0FF; border-radius:3px; cursor:pointer;">1X</button>
-        <button class="cctv-zoom-btn" id="cctv-zoom-2x" onclick="window.cctvSetZoom(2)" style="padding:3px 8px; font-size:9.5px; font-weight:700; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#A1A1AA; border-radius:3px; cursor:pointer;">2X</button>
-        <button class="cctv-zoom-btn" id="cctv-zoom-4x" onclick="window.cctvSetZoom(4)" style="padding:3px 8px; font-size:9.5px; font-weight:700; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#A1A1AA; border-radius:3px; cursor:pointer;">4X</button>
-      </div>
-
-      <!-- Exit Fullscreen -->
-      <button onclick="window.cctvToggleFullscreen()" style="background:rgba(239,68,68,0.2); border:1px solid #EF4444; color:#EF4444; font-size:10.5px; font-weight:700; padding:4px 12px; border-radius:4px; cursor:pointer;">✕ EXIT FULLSCREEN (ESC)</button>
-    </div>
-  </div>
-
-  <!-- Center Optical Stage -->
-  <div style="position:relative; flex:1; width:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#010408;">
-    <div id="cctv-fs-viewport" style="position:relative; width:min(92vw, calc(82vh * 16 / 9)); aspect-ratio:16/9; background:#000; border:2px solid rgba(0,240,255,0.6); box-shadow:0 0 50px rgba(0,240,255,0.15); overflow:hidden;">
-      <video id="cctv-fs-video" autoplay muted loop playsinline style="width:100%; height:100%; object-fit:cover; display:block;"></video>
-      <iframe id="cctv-fs-iframe" src="" allow="autoplay; encrypted-media; fullscreen" style="width:100%; height:100%; border:none; display:none;"></iframe>
-      <img id="cctv-fs-img" src="" style="width:100%; height:100%; object-fit:cover; display:none;">
-
-      <!-- Reticle and HUD Overlays -->
-      <div style="position:absolute; inset:0; pointer-events:none;">
-        <!-- Corner brackets -->
-        <div style="position:absolute; top:12px; left:12px; width:30px; height:30px; border-top:3px solid #22C55E; border-left:3px solid #22C55E;"></div>
-        <div style="position:absolute; top:12px; right:12px; width:30px; height:30px; border-top:3px solid #22C55E; border-right:3px solid #22C55E;"></div>
-        <div style="position:absolute; bottom:12px; left:12px; width:30px; height:30px; border-bottom:3px solid #22C55E; border-left:3px solid #22C55E;"></div>
-        <div style="position:absolute; bottom:12px; right:12px; width:30px; height:30px; border-bottom:3px solid #22C55E; border-right:3px solid #22C55E;"></div>
-
-        <!-- Center Crosshair -->
-        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:60px; height:60px;">
-          <div style="position:absolute; top:29px; left:0; width:22px; height:2px; background:rgba(0,240,255,0.7);"></div>
-          <div style="position:absolute; top:29px; right:0; width:22px; height:2px; background:rgba(0,240,255,0.7);"></div>
-          <div style="position:absolute; top:0; left:29px; width:2px; height:22px; background:rgba(0,240,255,0.7);"></div>
-          <div style="position:absolute; bottom:0; left:29px; width:2px; height:22px; background:rgba(0,240,255,0.7);"></div>
-          <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:8px; height:8px; border-radius:50%; border:1px solid #00F0FF;"></div>
-        </div>
-
-        <!-- Top Status Line -->
-        <div style="position:absolute; top:16px; left:24px; font-size:11px; font-weight:700; color:#FFFFFF; background:rgba(0,0,0,0.65); padding:3px 8px; border-radius:3px;">
-          <span id="cctv-fs-time">--:--:-- UTC</span>
-        </div>
-        <div style="position:absolute; top:16px; right:24px; font-size:10px; font-weight:700; color:#22C55E; background:rgba(0,0,0,0.65); padding:3px 8px; border-radius:3px; border:1px solid rgba(34,197,94,0.4);">
-          ● REC [LIVE STREAM]
-        </div>
-
-        <!-- Bottom Telemetry -->
-        <div style="position:absolute; bottom:16px; left:24px; font-size:10.5px; color:#00F0FF; background:rgba(0,0,0,0.75); padding:4px 10px; border-radius:3px; border:1px solid rgba(0,240,255,0.3);">
-          <span id="cctv-fs-coords">LAT/LON: ---</span> | <span id="cctv-fs-hdg">HDG: ---°</span>
-        </div>
-        <div style="position:absolute; bottom:16px; right:24px; font-size:10.5px; color:#A1A1AA; background:rgba(0,0,0,0.75); padding:4px 10px; border-radius:3px;">
-          1080p HD • NIIRS 9.0 • GSD 0.04m
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Bottom Nav & Camera Switcher Bar -->
-  <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 20px; background:rgba(6,12,22,0.95); border-top:1px solid rgba(0,240,255,0.25);">
-    <div style="display:flex; align-items:center; gap:8px;">
-      <button onclick="window.cctvCycleCamera(-1)" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#FFFFFF; font-size:10px; font-weight:700; padding:6px 12px; border-radius:4px; cursor:pointer;">◀ PREV CAMERA</button>
-      <select id="cctv-fs-camera-select" onchange="window.cctvSelectFromDropdown(this.value)" style="background:#0A0E17; border:1px solid rgba(0,240,255,0.4); color:#00F0FF; font-size:11px; font-family:var(--mono); padding:6px 12px; border-radius:4px; cursor:pointer; min-width:280px;"></select>
-      <button onclick="window.cctvCycleCamera(1)" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#FFFFFF; font-size:10px; font-weight:700; padding:6px 12px; border-radius:4px; cursor:pointer;">NEXT CAMERA ▶</button>
-    </div>
-    <div style="display:flex; align-items:center; gap:8px;">
-      <button onclick="window.cctvToggleFeedMode()" id="cctv-fs-mode-btn" style="background:rgba(0,240,255,0.15); border:1px solid #00F0FF; color:#00F0FF; font-size:10px; font-weight:700; padding:6px 14px; border-radius:4px; cursor:pointer;">MODE: LIVE VIDEO</button>
-      <button onclick="window.cctvFocusCurrent(); window.cctvToggleFullscreen();" style="background:rgba(255,157,46,0.2); border:1px solid #FF9D2E; color:#FFB84D; font-size:10px; font-weight:700; padding:6px 14px; border-radius:4px; cursor:pointer;">FLY TO CAMERA ON GLOBE 🌐</button>
-    </div>
-  </div>
-</div>
 
 <!-- Real God's Eye Top Traffic Sync Banner (Image 3 Parity) -->
 <div id="traffic-sync-hud-banner" style="position:fixed; top:68px; left:50%; transform:translateX(-50%); display:none; flex-direction:column; align-items:center; gap:2px; z-index:9990; pointer-events:none; font-family:var(--mono); user-select:none;">
@@ -10691,6 +10502,10 @@ const JarvisSFX = {
     } catch(e) {}
   },
 
+  scanRadar() {
+    this.radarPing();
+  },
+
   alert() {
     if (!this.enabled) return;
     const ctx = ensureJarvisPcmContext();
@@ -12791,24 +12606,6 @@ window.jarvis = window.joe = {
                 window.openGroundMediaCard(res.points[0]);
               }
             });
-          }
-        }
-        break;
-
-      case 'cctv_camera_selected':
-      case 'select_cctv':
-        if (data) {
-          const cam = data.camera || data.cctv || data;
-          if (cam && (cam.id || cam.lat !== undefined)) {
-            if (typeof window.toggleTacticalLayer === 'function') {
-              window.toggleTacticalLayer('cctv', true);
-            }
-            if (typeof window.openCctvDock === 'function') {
-              window.openCctvDock(cam);
-            }
-            if (typeof window.flyToCameraPOV === 'function') {
-              window.flyToCameraPOV(cam);
-            }
           }
         }
         break;
@@ -15437,7 +15234,7 @@ window.setGlobeEngine = function(engine) {
       window.OsirisCesiumLayer.enable();
     }
     if (typeof showSubtitles === 'function') {
-      showSubtitles('⚡ OSIRIS FULL SPECTRUM LAYER ACTIVATED (Satellites • Conflicts • 28k CCTV)', 'OSIRIS 60 FPS');
+      showSubtitles('⚡ OSIRIS FULL SPECTRUM LAYER ACTIVATED (Satellites • Conflicts)', 'OSIRIS 60 FPS');
     }
   } else {
     if (badge) {
@@ -15588,10 +15385,9 @@ window.shouldShowResetViewButton = function() {
   const isCockpit = !!(window.JarvisCockpit && window.JarvisCockpit.active);
   const hasTracked = !!window.cesiumViewer.trackedEntity;
   const isLocked = !!window._isTargetViewLocked;
-  const hasCctvDock = !!window._activeCctvCameraId;
   const hasSatTrack = !!window._hasFocusedSatelliteTrack;
   const atHome = window.isCameraAtHomePose();
-  return isCockpit || hasTracked || isLocked || hasCctvDock || hasSatTrack || !atHome;
+  return isCockpit || hasTracked || isLocked || hasSatTrack || !atHome;
 };
 
 window.updateResetButtonVisibility = function() {
@@ -15606,9 +15402,6 @@ window.resetViewToHome = function() {
   window._hasFocusedSatelliteTrack = false;
   if (window.JarvisCockpit && window.JarvisCockpit.active) {
     window.JarvisCockpit.exit();
-  }
-  if (typeof window.closeCctvDock === 'function') {
-    window.closeCctvDock();
   }
   if (typeof window.closeGlobeInspectCard === 'function') {
     window.closeGlobeInspectCard();
@@ -17557,7 +17350,7 @@ function initCesiumGlobe() {
       }
     });
 
-    // Single-click on Cesium entities (aircraft, CCTV cameras, ground media pins) opens target inspection
+    // Single-click on Cesium entities (aircraft, vessels, ground media pins) opens target inspection
     handler.setInputAction((click) => {
       if (window.JarvisPatrol && window.JarvisPatrol.active) {
         window.JarvisPatrol.stop();
@@ -17687,7 +17480,7 @@ function initCesiumGlobe() {
       }
     });
 
-    // Initialize OSINT Intelligence Layers (Flight Radar, CCTV Cones, Radio Tuner, Weather Intel)
+    // Initialize OSINT Intelligence Layers (Flight Radar, Radio Tuner, Weather Intel)
     initGlobeIntelligence(cesiumViewer);
 
     console.log('[Cesium] God\'s Eye 3D World Terrain Viewer initialized successfully');
@@ -17697,14 +17490,13 @@ function initCesiumGlobe() {
 }
 
 // =========================================================================
-// GOD'S EYE OSINT INTELLIGENCE ENGINE (Weather, Flights, CCTV, Radio, Styles)
+// GOD'S EYE OSINT INTELLIGENCE ENGINE (Weather, Flights, Radio, Styles)
 // =========================================================================
 
 let _activeEarthStyle = 'satellite';
 let _tacticalLayers = {
   flights: false,
   vessels: false,
-  cctv: false,
   traffic: false,
   radio: false,
   space: false,
@@ -17715,7 +17507,6 @@ let _tacticalLayers = {
 };
 let _flightsDataSource = null;
 let _vesselsDataSource = null;
-let _cctvDataSource = null;
 let _groundMediaDataSource = null;
 let _trafficDataSource = null;
 let _radioDataSource = null;
@@ -17724,7 +17515,6 @@ let _seismicDataSource = null;
 let _thermalDataSource = null;
 let _weatherImageryLayer = null;
 let _inspectTargetData = null;
-let _cctvAnimInterval = null;
 
 // Multi-Target Tracking List State
 let _pinnedTargets = [];
@@ -18033,18 +17823,6 @@ const RADIO_STATIONS = {
 let _currentStationId = 'nasa_mission_control';
 let _currentRadioCategory = 'atc';
 
-// CCTV Network Seeds with Elevation-aware FOV, Azimuth, Pitch, Mount Clearances, and Live Stream Feeds
-const CCTV_CAMERAS = [
-  { id: 'cctv-kotagiri-johnstone', label: 'Kotagiri Johnstone Circle', lat: 11.4228, lon: 76.8661, headingDeg: 45, pitchDeg: -16, rangeM: 650, fovDeg: 72, groundAltM: 1800, mountHeightM: 30, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', snapshotUrl: '/api/cctv/frame/cctv-kotagiri-johnstone' },
-  { id: 'cctv-coonoor-sims', label: 'Coonoor Sim\'s Park Junction', lat: 11.3530, lon: 76.7959, headingDeg: 120, pitchDeg: -18, rangeM: 550, fovDeg: 68, groundAltM: 1850, mountHeightM: 28, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', snapshotUrl: '/api/cctv/frame/cctv-coonoor-sims' },
-  { id: 'cctv-ooty-charring', label: 'Ooty Charring Cross Hub', lat: 11.4102, lon: 76.6950, headingDeg: 280, pitchDeg: -15, rangeM: 700, fovDeg: 75, groundAltM: 2240, mountHeightM: 32, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4', snapshotUrl: '/api/cctv/frame/cctv-ooty-charring' },
-  { id: 'cctv-bengaluru-mg', label: 'Bengaluru MG Road Central', lat: 12.9716, lon: 77.5946, headingDeg: 180, pitchDeg: -20, rangeM: 750, fovDeg: 75, groundAltM: 920, mountHeightM: 26, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4', snapshotUrl: '/api/cctv/frame/cctv-bengaluru-mg' },
-  { id: 'cctv-sf-market-5th', label: 'SF Market & 5th St', lat: 37.7833, lon: -122.4080, headingDeg: 320, pitchDeg: -22, rangeM: 800, fovDeg: 70, groundAltM: 15, mountHeightM: 25, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4', snapshotUrl: '/api/cctv/frame/cctv-sf-market-5th' },
-  { id: 'cctv-nyc-times-sq', label: 'NYC Times Square Plaza', lat: 40.7580, lon: -73.9855, headingDeg: 218, pitchDeg: -24, rangeM: 750, fovDeg: 66, groundAltM: 12, mountHeightM: 24, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', snapshotUrl: '/api/cctv/frame/cctv-nyc-times-sq' },
-  { id: 'cctv-tokyo-shibuya', label: 'Tokyo Shibuya Crossing', lat: 35.6595, lon: 139.7005, headingDeg: 18, pitchDeg: -20, rangeM: 750, fovDeg: 82, groundAltM: 18, mountHeightM: 30, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', snapshotUrl: '/api/cctv/frame/cctv-tokyo-shibuya' },
-  { id: 'cctv-london-city', label: 'London City Financial Core', lat: 51.5155, lon: -0.0922, headingDeg: 220, pitchDeg: -20, rangeM: 850, fovDeg: 71, groundAltM: 14, mountHeightM: 28, feedType: 'video', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4', snapshotUrl: '/api/cctv/frame/cctv-london-city' }
-];
-
 // Live AIS Maritime Vessels Catalog
 const MARITIME_VESSELS = [
   { id: 'vessel-ins-vikrant', name: 'INS VIKRANT (R11)', type: 'Aircraft Carrier / Naval Escort', lat: 12.85, lon: 80.45, speedKnots: 24.2, headingDeg: 145, mmsi: '419001234', destination: 'CHENNAI NAVAL RADIAL' },
@@ -18286,17 +18064,6 @@ window.toggleTacticalLayer = function(layerName, forceState) {
     _vesselsDataSource.show = _tacticalLayers.vessels;
     const el = document.getElementById('vessel-contact-count');
     if (el) el.textContent = _tacticalLayers.vessels ? (typeof MARITIME_VESSELS !== 'undefined' ? MARITIME_VESSELS.length : '14') : '0';
-  } else if (layerName === 'cctv' && _cctvDataSource) {
-    _cctvDataSource.show = _tacticalLayers.cctv;
-    const el = document.getElementById('cctv-contact-count');
-    if (_tacticalLayers.cctv) {
-      if (window.loadAndRenderCctvSources && _cctvDataSource.entities.values.length === 0) {
-        window.loadAndRenderCctvSources();
-      }
-      if (el) el.textContent = String(_cctvDataSource.entities.values.length || '63');
-    } else {
-      if (el) el.textContent = '0';
-    }
   } else if (layerName === 'traffic') {
     if (window._setTrafficLayerEnabled) {
       window._setTrafficLayerEnabled(_tacticalLayers.traffic);
@@ -18368,7 +18135,6 @@ window.clearAllTacticalLayers = function() {
   if (_flightsDataSource) _flightsDataSource.show = false;
   if (_vesselsDataSource) _vesselsDataSource.show = false;
   if (_groundMediaDataSource) _groundMediaDataSource.show = false;
-  if (_cctvDataSource) _cctvDataSource.show = false;
   if (typeof window.closeGroundMediaCard === 'function') window.closeGroundMediaCard();
   if (window._setTrafficLayerEnabled) window._setTrafficLayerEnabled(false);
   if (_radioDataSource) _radioDataSource.show = false;
@@ -18404,14 +18170,8 @@ window.inspectTarget = function(data) {
   const title = document.getElementById('inspect-card-title');
   const body = document.getElementById('inspect-card-body');
   const actBtn = document.getElementById('inspect-action-btn');
-  const chaseBtn = document.getElementById('inspect-chase-btn');
   if (!card || !body) return;
-
-  if (_cctvAnimInterval) {
-    clearInterval(_cctvAnimInterval);
-    _cctvAnimInterval = null;
-  }
-
+  const chaseBtn = document.getElementById('inspect-chase-btn');
   if (chaseBtn) chaseBtn.style.display = 'none';
 
   if (data.type === 'AIRCRAFT') {
@@ -18543,11 +18303,6 @@ window.inspectTarget = function(data) {
         else window.focusGlobeCoordinates(data.lat, data.lon, data.name);
       };
     }
-  } else if (data.type === 'CCTV') {
-    // Open authentic God's Eye CCTV Right Rail Dock and frame neat tactical camera POV
-    window.openCctvDock(data);
-    window.flyToCameraPOV(data);
-    return;
   } else if (data.type === 'SATELLITE') {
     if (icon) icon.textContent = '🛰';
     const altKm = data.altKm || 420;
@@ -18631,18 +18386,6 @@ window.inspectTarget = function(data) {
 window.closeGlobeInspectCard = function() {
   const card = document.getElementById('globe-inspect-card');
   if (card) card.classList.remove('visible');
-  if (_cctvAnimInterval) {
-    clearInterval(_cctvAnimInterval);
-    _cctvAnimInterval = null;
-  }
-  if (_cctvDataSource && _cctvDataSource.entities) {
-    _cctvDataSource.entities.values.forEach(ent => {
-      if (ent.plane) ent.show = false;
-    });
-    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
-      window.cesiumViewer.scene.requestRender();
-    }
-  }
   if (typeof window.clearFocusedSatelliteTrack === 'function') {
     window.clearFocusedSatelliteTrack();
   }
@@ -18675,49 +18418,9 @@ window.startCockpitChase = function() {
   viewer.zoomTo(entity, new Cesium.HeadingPitchRange(headingRad + Math.PI, pitchRad, rangeMeters));
 };
 
-// Fly to CCTV Lens Optical Tactical Overhead Perspective (Exact God's Eye Angle)
-window.flyToCameraPOV = function(cam) {
-  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed() || !cam) return;
-  const viewer = window.cesiumViewer;
-  viewer.trackedEntity = undefined;
-
-  const headingDeg = Number(cam.heading || cam.headingDeg || 0);
-  const backAngle = (headingDeg + 180) % 360;
-  const backDistM = 220; // 220 meters behind the mast
-  const camLat = Number(cam.lat);
-  const camLon = Number(cam.lon);
-
-  const backLL = (typeof window.projectPointGeo === 'function')
-    ? window.projectPointGeo(camLat, camLon, backAngle, backDistM)
-    : { lat: camLat, lon: camLon };
-  const ground = Number(cam.groundElevationM) || Number(cam.alt) || 30;
-  const eyeAlt = ground + 135; // 135 meters overhead tactical elevation
-
-  viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(backLL.lon, backLL.lat, eyeAlt),
-    orientation: {
-      heading: Cesium.Math.toRadians(headingDeg),
-      pitch: Cesium.Math.toRadians(-34.0), // Authentic God's Eye tactical isometric pitch
-      roll: 0.0
-    },
-    duration: 1.8,
-    easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT
-  });
-};
-
-// Real God's Eye Tactical CCTV Dock Controller (Draggable Right Rail)
-let _activeCctvCameraId = null;
-let _cctvAutoHopInterval = null;
-let _cctvCoverageMode = true;
-let _cctvFeedMode = 'video'; // 'video' or 'snapshot'
-let _cctvFilter = 'normal';
-let _cctvZoom = 1;
-let _cctvIsFullscreen = false;
-let _cctvDraggableInitialized = false;
-
 // ============================================================================
 // Real God's Eye Tactical Panel Controller & Window Management System
-// Manages: CCTV dock (default LEFT), OSINT rail, Ground Media card, Inspect card, Radio card
+// Manages: OSINT rail, Ground Media card, Inspect card, Radio card
 // Features: Free drag, pointer-capture, free resize, viewport clamping,
 //           click-to-front z-index, localStorage persistence, and layout reset.
 // ============================================================================
@@ -18725,11 +18428,6 @@ const TACTICAL_PANEL_STORAGE_KEY = 'jarvis_tactical_panel_layout';
 let _tacticalTopZ = 1400;
 
 const TACTICAL_PANELS = {
-  cctv: {
-    elementId: 'cctv-dock-panel',
-    handleId: 'cctv-dock-drag-header',
-    defaultStyles: { left: '20px', top: '80px', right: 'auto', bottom: 'auto', width: '340px', height: '', zIndex: '1400' }
-  },
   osint: {
     elementId: 'spatial-globe-hud',
     handleId: 'osint-rail-drag-header',
@@ -19040,10 +18738,6 @@ window.resetTacticalLayout = function() {
   window.TacticalPanelManager.resetLayout();
 };
 
-function initCctvDraggable() {
-  window.TacticalPanelManager.initPanel('cctv');
-}
-
 function makeDraggable(element, handle) {
   if (!element || !handle) return;
   window.TacticalPanelManager.bringToFront(element);
@@ -19060,675 +18754,6 @@ window.addEventListener('resize', () => {
   window.TacticalPanelManager.clampAll();
 });
 
-window.cctvToggleFeedMode = function() {
-  const found = (window._cctvSourcesList && window._cctvSourcesList.find(s => s.id === _activeCctvCameraId)) ||
-                (typeof CCTV_CAMERAS !== 'undefined' && CCTV_CAMERAS.find(s => s.id === _activeCctvCameraId));
-  const cls = classifyCctvSource(found);
-  if (!cls.isVideo) return; // Still image feeds cannot switch to video
-  _cctvFeedMode = (_cctvFeedMode === 'video') ? 'snapshot' : 'video';
-  updateCctvDisplayFeeds();
-};
-
-function updateCctvDisplayFeeds() {
-  const dockVid = document.getElementById('cctv-dock-video');
-  const dockImg = document.getElementById('cctv-dock-preview-img');
-  const fsVid = document.getElementById('cctv-fs-video');
-  const fsImg = document.getElementById('cctv-fs-img');
-  const modeBtn = document.getElementById('cctv-feed-mode-btn');
-  const fsModeBtn = document.getElementById('cctv-fs-mode-btn');
-
-  const isVideo = (_cctvFeedMode === 'video');
-  if (dockVid) dockVid.style.display = isVideo ? 'block' : 'none';
-  if (dockImg) dockImg.style.display = isVideo ? 'none' : 'block';
-  if (fsVid) fsVid.style.display = isVideo ? 'block' : 'none';
-  if (fsImg) fsImg.style.display = isVideo ? 'none' : 'block';
-
-  if (modeBtn) modeBtn.textContent = isVideo ? '📹 VIDEO' : '📸 SNAPSHOT';
-  if (fsModeBtn) fsModeBtn.textContent = isVideo ? 'MODE: LIVE VIDEO' : 'MODE: SNAPSHOT';
-}
-
-window.cctvToggleFullscreen = function() {
-  const modal = document.getElementById('cctv-fullscreen-modal');
-  if (!modal) return;
-  _cctvIsFullscreen = !_cctvIsFullscreen;
-  modal.style.display = _cctvIsFullscreen ? 'flex' : 'none';
-  if (_cctvIsFullscreen && _activeCctvCameraId) {
-    const found = (window._cctvSourcesList && window._cctvSourcesList.find(s => s.id === _activeCctvCameraId)) ||
-                  (typeof CCTV_CAMERAS !== 'undefined' && CCTV_CAMERAS.find(s => s.id === _activeCctvCameraId));
-    if (found) syncCctvFullscreenData(found);
-  }
-};
-
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && _cctvIsFullscreen) {
-    window.cctvToggleFullscreen();
-  }
-});
-
-window.cctvSetFilter = function(filter) {
-  _cctvFilter = filter;
-  const vid = document.getElementById('cctv-fs-video');
-  const img = document.getElementById('cctv-fs-img');
-  const filterMap = {
-    normal: 'none',
-    nvg: 'saturate(2) hue-rotate(85deg) brightness(1.2) contrast(1.4)',
-    flir: 'invert(1) hue-rotate(180deg) saturate(2.5) contrast(1.5)'
-  };
-  const css = filterMap[filter] || 'none';
-  if (vid) vid.style.filter = css;
-  if (img) img.style.filter = css;
-
-  ['normal', 'nvg', 'flir'].forEach(f => {
-    const btn = document.getElementById(`cctv-filter-${f}`);
-    if (btn) {
-      if (f === filter) {
-        btn.style.background = 'rgba(0,240,255,0.2)';
-        btn.style.borderColor = '#00F0FF';
-        btn.style.color = '#00F0FF';
-      } else {
-        btn.style.background = 'rgba(255,255,255,0.06)';
-        btn.style.borderColor = 'rgba(255,255,255,0.18)';
-        btn.style.color = '#A1A1AA';
-      }
-    }
-  });
-};
-
-window.cctvSetZoom = function(zoom) {
-  _cctvZoom = zoom;
-  const vid = document.getElementById('cctv-fs-video');
-  const img = document.getElementById('cctv-fs-img');
-  const scaleCss = `scale(${zoom})`;
-  if (vid) {
-    vid.style.transform = scaleCss;
-    vid.style.transformOrigin = 'center center';
-    vid.style.transition = 'transform 0.25s ease';
-  }
-  if (img) {
-    img.style.transform = scaleCss;
-    img.style.transformOrigin = 'center center';
-    img.style.transition = 'transform 0.25s ease';
-  }
-
-  [1, 2, 4].forEach(z => {
-    const btn = document.getElementById(`cctv-zoom-${z}x`);
-    if (btn) {
-      if (z === zoom) {
-        btn.style.background = 'rgba(0,240,255,0.2)';
-        btn.style.borderColor = '#00F0FF';
-        btn.style.color = '#00F0FF';
-      } else {
-        btn.style.background = 'rgba(255,255,255,0.06)';
-        btn.style.borderColor = 'rgba(255,255,255,0.18)';
-        btn.style.color = '#A1A1AA';
-      }
-    }
-  });
-};
-
-function classifyCctvSource(data) {
-  if (!data) return { kind: 'unknown', isVideo: false, feedType: 'image', streamUrl: '' };
-  const rawFeed = String(data.feedType || '').toLowerCase();
-  const url = String(data.url || '');
-  const videoUrl = String(data.videoUrl || '');
-  const sourceKind = String(data.sourceKind || '').toLowerCase();
-
-  const isIframe = rawFeed === 'iframe' || url.includes('youtube.com') || url.includes('/embed/');
-  if (isIframe) {
-    return { kind: 'iframe', isVideo: false, feedType: 'iframe', streamUrl: url, sourceKind };
-  }
-
-  if (rawFeed === 'image' || rawFeed === 'snapshot' || sourceKind === 'curated-optical') {
-    const frameUrl = `/api/cctv/frame/${encodeURIComponent(data.id)}`;
-    return { kind: 'snapshot', isVideo: false, feedType: 'image', frameUrl, sourceKind };
-  }
-
-  const isHls = rawFeed === 'hls' || url.includes('.m3u8') || videoUrl.includes('.m3u8') || sourceKind === 'deldot';
-  if (isHls) {
-    const streamUrl = `/api/cctv/media/${encodeURIComponent(data.id)}`;
-    return { kind: 'hls', isVideo: true, feedType: 'hls', streamUrl, sourceKind };
-  }
-
-  const isMp4 = rawFeed === 'mp4' || rawFeed === 'video' || rawFeed === 'webm' ||
-                url.endsWith('.mp4') || videoUrl.endsWith('.mp4') || sourceKind === 'pilot';
-  if (isMp4) {
-    const streamUrl = `/api/cctv/media/${encodeURIComponent(data.id)}`;
-    return { kind: 'video', isVideo: true, feedType: 'mp4', streamUrl, sourceKind };
-  }
-
-  // Still image snapshot camera fallback
-  const frameUrl = `/api/cctv/frame/${encodeURIComponent(data.id)}`;
-  return { kind: 'snapshot', isVideo: false, feedType: 'image', frameUrl, sourceKind };
-}
-window.classifyCctvSource = classifyCctvSource;
-
-function syncCctvFullscreenData(data) {
-  const fsTitle = document.getElementById('cctv-fs-camera-title');
-  const fsCoords = document.getElementById('cctv-fs-coords');
-  const fsHdg = document.getElementById('cctv-fs-hdg');
-  const fsTime = document.getElementById('cctv-fs-time');
-  const fsSel = document.getElementById('cctv-fs-camera-select');
-  const fsVid = document.getElementById('cctv-fs-video');
-  const fsImg = document.getElementById('cctv-fs-img');
-  const fsIframe = document.getElementById('cctv-fs-iframe');
-
-  if (fsTitle) fsTitle.textContent = `${data.city ? data.city.toUpperCase() + ' • ' : ''}${data.label || data.name || data.id}`;
-  if (fsCoords) fsCoords.textContent = `LAT: ${Number(data.lat || 0).toFixed(4)}° | LON: ${Number(data.lon || 0).toFixed(4)}°`;
-  if (fsHdg) fsHdg.textContent = `HDG: ${Math.round(data.heading || data.headingDeg || 0)}°`;
-  if (fsTime) fsTime.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-  if (fsSel && fsSel.value !== data.id) fsSel.value = data.id;
-
-  const cls = classifyCctvSource(data);
-  if (cls.kind === 'iframe' && fsIframe) {
-    fsIframe.src = cls.streamUrl;
-    fsIframe.style.display = 'block';
-    if (fsVid) fsVid.style.display = 'none';
-    if (fsImg) fsImg.style.display = 'none';
-  } else if (cls.isVideo && fsVid) {
-    if (fsIframe) { fsIframe.style.display = 'none'; fsIframe.src = ''; }
-    fsVid.style.display = 'block';
-    if (fsImg) fsImg.style.display = 'none';
-    const dockVid = document.getElementById('cctv-dock-video');
-    if (dockVid && dockVid.src && fsVid.src !== dockVid.src) {
-      fsVid.src = dockVid.src;
-      fsVid.currentTime = dockVid.currentTime;
-      fsVid.play().catch(()=>{});
-    }
-  } else {
-    if (fsIframe) { fsIframe.style.display = 'none'; fsIframe.src = ''; }
-    if (fsVid) { fsVid.style.display = 'none'; fsVid.pause(); }
-    if (fsImg) {
-      fsImg.style.display = 'block';
-      fsImg.src = `/api/cctv/frame/${encodeURIComponent(data.id)}?t=${Date.now()}`;
-    }
-  }
-}
-
-window.openCctvDock = function(data) {
-  if (!data || !data.id) return;
-  initCctvDraggable();
-  _activeCctvCameraId = data.id;
-  const dock = document.getElementById('cctv-dock-panel');
-  if (!dock) return;
-
-  const meta1 = document.getElementById('cctv-dock-meta-1');
-  const meta2 = document.getElementById('cctv-dock-meta-2');
-  const elev = document.getElementById('cctv-dock-elev');
-  const clock = document.getElementById('cctv-dock-overlay-timestamp');
-  const img = document.getElementById('cctv-dock-preview-img');
-  const vid = document.getElementById('cctv-dock-video');
-  const iframe = document.getElementById('cctv-dock-iframe');
-  const sel = document.getElementById('cctv-dock-camera-select');
-  const badge = document.getElementById('cctv-dock-stream-badge');
-  const statusLine = document.getElementById('cctv-dock-feed-status');
-  const metaActive = document.getElementById('cctv-dock-meta-active');
-  const modeBtn = document.getElementById('cctv-feed-mode-btn');
-
-  if (meta1) meta1.textContent = `${data.city || 'METRO'} • HDG ${data.heading || data.headingDeg || 0}° • FOV ${data.fov || data.fovDeg || 72}° • RNG ${data.rangeM || 450}m`;
-  if (meta2) meta2.textContent = `MONITOR • RAW PRIOR • ${data.label || data.name || 'Surveillance Feed'}`;
-  if (elev) elev.textContent = `ALT: ${Math.round(data.alt || data.groundElevationM || 100)}M MSL`;
-  if (clock) clock.textContent = new Date().toLocaleTimeString();
-  if (sel && sel.value !== data.id) sel.value = data.id;
-  const customLabel = document.getElementById('cctv-custom-select-label');
-  if (customLabel) {
-    customLabel.textContent = `${data.city || 'METRO'} • ${data.label || data.name || data.id}`;
-  }
-  const customMenu = document.getElementById('cctv-custom-select-menu');
-  if (customMenu) {
-    const items = customMenu.querySelectorAll('.cctv-custom-option');
-    items.forEach(it => {
-      const isSel = it.getAttribute('data-value') === data.id;
-      it.style.color = isSel ? '#00F0FF' : '#E6E6E6';
-      it.style.background = isSel ? 'rgba(0, 240, 255, 0.25)' : 'transparent';
-    });
-  }
-
-  // Clean up any ongoing playback and monitor timers
-  if (window._activeCctvPlayback) {
-    try { window._activeCctvPlayback.dispose(); } catch (e) {}
-    window._activeCctvPlayback = null;
-  }
-  if (window._cctvPlaybackMonitor) {
-    clearInterval(window._cctvPlaybackMonitor);
-    window._cctvPlaybackMonitor = null;
-  }
-  if (_cctvAnimInterval) {
-    clearInterval(_cctvAnimInterval);
-    _cctvAnimInterval = null;
-  }
-
-  const cls = classifyCctvSource(data);
-  _cctvFeedMode = cls.isVideo ? 'video' : 'snapshot';
-
-  if (cls.kind === 'iframe') {
-    if (iframe) {
-      iframe.src = cls.streamUrl;
-      iframe.style.display = 'block';
-    }
-    if (vid) { vid.style.display = 'none'; vid.pause(); }
-    if (img) img.style.display = 'none';
-    if (modeBtn) { modeBtn.textContent = 'IFRAME'; modeBtn.disabled = true; }
-    if (badge) badge.textContent = 'EXTERNAL STREAM';
-    if (statusLine) statusLine.textContent = 'IFRAME EMBED • ACTIVE';
-    if (metaActive) metaActive.textContent = '● External optical embed active';
-  } else if (cls.isVideo) {
-    // Real video stream (HLS or MP4)
-    if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
-    if (img) img.style.display = 'none';
-    if (vid) {
-      vid.style.display = 'block';
-      vid.currentTime = 0;
-    }
-    if (modeBtn) { modeBtn.textContent = '📹 VIDEO'; modeBtn.disabled = false; }
-
-    // Initial state: connecting (NEVER claim LIVE until currentTime advances)
-    if (badge) {
-      badge.textContent = 'CONNECTING...';
-      if (badge.parentElement) {
-        badge.parentElement.style.color = '#F59E0B';
-        badge.parentElement.style.borderColor = 'rgba(245,158,11,0.4)';
-        badge.parentElement.style.background = 'rgba(245,158,11,0.15)';
-      }
-    }
-    if (statusLine) {
-      statusLine.textContent = 'STREAM • CONNECTING';
-      if (statusLine.parentElement) statusLine.parentElement.style.color = '#F59E0B';
-    }
-    if (metaActive) {
-      metaActive.textContent = '○ Connecting upstream media...';
-      metaActive.style.color = '#F59E0B';
-    }
-
-    let lastSampleTime = -1;
-    let lastAdvanceTimestamp = Date.now();
-    let isCurrentlyLive = false;
-
-    const checkAdvancement = () => {
-      if (!vid) return;
-      const cur = vid.currentTime;
-      const now = Date.now();
-      if (!vid.paused && cur > 0 && cur !== lastSampleTime) {
-        lastSampleTime = cur;
-        lastAdvanceTimestamp = now;
-        if (!isCurrentlyLive) {
-          isCurrentlyLive = true;
-          if (badge) {
-            badge.textContent = 'LIVE';
-            if (badge.parentElement) {
-              badge.parentElement.style.color = '#22C55E';
-              badge.parentElement.style.borderColor = 'rgba(34,197,94,0.4)';
-              badge.parentElement.style.background = 'rgba(34,197,94,0.15)';
-            }
-          }
-          if (statusLine) {
-            statusLine.textContent = 'LIVE STREAM • OK';
-            if (statusLine.parentElement) statusLine.parentElement.style.color = '#22C55E';
-          }
-          if (metaActive) {
-            metaActive.textContent = '● Upstream live stream active';
-            metaActive.style.color = '#22C55E';
-          }
-        }
-      } else if (isCurrentlyLive && (now - lastAdvanceTimestamp > 3500)) {
-        isCurrentlyLive = false;
-        if (badge) {
-          badge.textContent = 'BUFFERING';
-          if (badge.parentElement) {
-            badge.parentElement.style.color = '#F59E0B';
-            badge.parentElement.style.borderColor = 'rgba(245,158,11,0.4)';
-            badge.parentElement.style.background = 'rgba(245,158,11,0.15)';
-          }
-        }
-        if (statusLine) {
-          statusLine.textContent = 'STREAM • BUFFERING';
-          if (statusLine.parentElement) statusLine.parentElement.style.color = '#F59E0B';
-        }
-        if (metaActive) {
-          metaActive.textContent = '▲ Upstream stream buffering';
-          metaActive.style.color = '#F59E0B';
-        }
-      }
-    };
-
-    window._cctvPlaybackMonitor = setInterval(checkAdvancement, 500);
-    vid.addEventListener('timeupdate', checkAdvancement);
-
-    if (typeof window.attachCctvVideo === 'function') {
-      window._activeCctvPlayback = window.attachCctvVideo(vid, cls.streamUrl, cls.feedType, {
-        onFailure: () => {
-          isCurrentlyLive = false;
-          if (badge) {
-            badge.textContent = 'OFFLINE';
-            if (badge.parentElement) {
-              badge.parentElement.style.color = '#EF4444';
-              badge.parentElement.style.borderColor = 'rgba(239,68,68,0.4)';
-              badge.parentElement.style.background = 'rgba(239,68,68,0.15)';
-            }
-          }
-          if (statusLine) {
-            statusLine.textContent = 'STREAM ERROR • OFFLINE';
-            if (statusLine.parentElement) statusLine.parentElement.style.color = '#EF4444';
-          }
-          if (metaActive) {
-            metaActive.textContent = '✕ Upstream media stream offline';
-            metaActive.style.color = '#EF4444';
-          }
-        }
-      });
-    }
-  } else {
-    // Still-image camera: auto-refresh with SNAPSHOT badge + timestamp
-    if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
-    if (vid) {
-      vid.pause();
-      vid.removeAttribute('src');
-      vid.load();
-      vid.style.display = 'none';
-    }
-    if (img) img.style.display = 'block';
-    if (modeBtn) { modeBtn.textContent = '📸 SNAPSHOT'; modeBtn.disabled = true; }
-
-    const updateSnapshot = () => {
-      if (!_activeCctvCameraId) return;
-      const curImg = document.getElementById('cctv-dock-preview-img');
-      const curClock = document.getElementById('cctv-dock-overlay-timestamp');
-      const curBadge = document.getElementById('cctv-dock-stream-badge');
-      const curStatus = document.getElementById('cctv-dock-feed-status');
-      const curMeta = document.getElementById('cctv-dock-meta-active');
-      const timeStr = new Date().toLocaleTimeString();
-      const frameUrl = `/api/cctv/frame/${encodeURIComponent(data.id)}?t=${Date.now()}`;
-
-      if (curImg) {
-        curImg.onload = () => {
-          if (curBadge) {
-            curBadge.textContent = `SNAPSHOT • ${timeStr}`;
-            if (curBadge.parentElement) {
-              curBadge.parentElement.style.color = '#00F0FF';
-              curBadge.parentElement.style.borderColor = 'rgba(0,240,255,0.4)';
-              curBadge.parentElement.style.background = 'rgba(0,240,255,0.15)';
-            }
-          }
-          if (curStatus) {
-            curStatus.textContent = 'SNAPSHOT • OK';
-            if (curStatus.parentElement) curStatus.parentElement.style.color = '#00F0FF';
-          }
-          if (curMeta) {
-            curMeta.textContent = '○ Auto-refreshing optical snapshot';
-            curMeta.style.color = '#00F0FF';
-          }
-          if (curClock) curClock.textContent = timeStr;
-        };
-        curImg.onerror = () => {
-          if (curBadge) {
-            curBadge.textContent = 'SNAPSHOT • ERROR';
-            if (curBadge.parentElement) {
-              curBadge.parentElement.style.color = '#EF4444';
-              curBadge.parentElement.style.borderColor = 'rgba(239,68,68,0.4)';
-              curBadge.parentElement.style.background = 'rgba(239,68,68,0.15)';
-            }
-          }
-          if (curStatus) {
-            curStatus.textContent = 'FRAME UNAVAILABLE';
-            if (curStatus.parentElement) curStatus.parentElement.style.color = '#EF4444';
-          }
-          if (curMeta) {
-            curMeta.textContent = '✕ Camera snapshot unreachable';
-            curMeta.style.color = '#EF4444';
-          }
-        };
-        curImg.src = frameUrl;
-      }
-      if (typeof window.updateCctvMonitorPlaneImage === 'function') {
-        window.updateCctvMonitorPlaneImage(data.id);
-      }
-    };
-
-    updateSnapshot();
-    _cctvAnimInterval = setInterval(updateSnapshot, 5000);
-  }
-
-  syncCctvFullscreenData(data);
-
-  // Reveal in-world 3D monitor plane and label badge on globe
-  if (_cctvDataSource && _cctvDataSource.entities) {
-    _cctvDataSource.entities.values.forEach(ent => {
-      if (ent.plane) ent.show = (ent.id === `cctv-${data.id}-plane`);
-      if (ent.id && ent.id.endsWith('-label')) ent.show = (ent.id === `cctv-${data.id}-label`);
-    });
-    if (typeof window.updateCctvMonitorPlaneImage === 'function') {
-      window.updateCctvMonitorPlaneImage(data.id);
-    }
-    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
-      window.cesiumViewer.scene.requestRender();
-    }
-  }
-
-  dock.style.display = 'block';
-};
-
-window.closeCctvDock = function() {
-  const dock = document.getElementById('cctv-dock-panel');
-  if (dock) dock.style.display = 'none';
-  const fsModal = document.getElementById('cctv-fullscreen-modal');
-  if (fsModal) fsModal.style.display = 'none';
-  _cctvIsFullscreen = false;
-  if (typeof window.closeCctvCustomDropdown === 'function') {
-    window.closeCctvCustomDropdown();
-  }
-
-  if (window._activeCctvPlayback) {
-    try { window._activeCctvPlayback.dispose(); } catch (e) {}
-    window._activeCctvPlayback = null;
-  }
-  if (window._cctvPlaybackMonitor) {
-    clearInterval(window._cctvPlaybackMonitor);
-    window._cctvPlaybackMonitor = null;
-  }
-  if (_cctvAnimInterval) {
-    clearInterval(_cctvAnimInterval);
-    _cctvAnimInterval = null;
-  }
-
-  const vid = document.getElementById('cctv-dock-video');
-  const fsVid = document.getElementById('cctv-fs-video');
-  if (vid) { vid.pause(); vid.removeAttribute('src'); vid.load(); }
-  if (fsVid) { fsVid.pause(); fsVid.removeAttribute('src'); fsVid.load(); }
-
-  _activeCctvCameraId = null;
-  if (_cctvDataSource && _cctvDataSource.entities) {
-    _cctvDataSource.entities.values.forEach(ent => {
-      if (ent.plane) ent.show = false;
-      if (ent.id && ent.id.endsWith('-label')) ent.show = false;
-    });
-    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
-      window.cesiumViewer.scene.requestRender();
-    }
-  }
-};
-
-window.cctvSelectFromDropdown = function(cameraId) {
-  if (!cameraId || !window._cctvSourcesList) return;
-  const found = window._cctvSourcesList.find(s => s.id === cameraId) ||
-                (typeof CCTV_CAMERAS !== 'undefined' && CCTV_CAMERAS.find(s => s.id === cameraId));
-  if (!found) return;
-  const sel = document.getElementById('cctv-dock-camera-select');
-  if (sel && sel.value !== cameraId) sel.value = cameraId;
-  const customLabel = document.getElementById('cctv-custom-select-label');
-  if (customLabel) {
-    customLabel.textContent = `${found.city || 'METRO'} • ${found.name || found.label || found.id}`;
-  }
-  const customMenu = document.getElementById('cctv-custom-select-menu');
-  if (customMenu) {
-    const items = customMenu.querySelectorAll('.cctv-custom-option');
-    items.forEach(it => {
-      const isSel = it.getAttribute('data-value') === cameraId;
-      it.style.color = isSel ? '#00F0FF' : '#E6E6E6';
-      it.style.background = isSel ? 'rgba(0, 240, 255, 0.25)' : 'transparent';
-    });
-  }
-  const tact = {
-    ...found,
-    type: 'CCTV',
-    id: found.id,
-    label: found.name || found.label || 'CCTV',
-    city: found.city || '',
-    lat: found.lat,
-    lon: found.lon,
-    alt: found.groundElevationM || found.groundAltM || 100,
-    heading: found.headingDeg || 0,
-    pitch: found.pitchDeg || -18,
-    rangeM: found.rangeM || 450,
-  };
-  window.openCctvDock(tact);
-  window.flyToCameraPOV(tact);
-};
-
-window.cctvCycleCamera = function(delta) {
-  if (!window._cctvSourcesList || !window._cctvSourcesList.length) return;
-  const curIdx = window._cctvSourcesList.findIndex(s => s.id === _activeCctvCameraId);
-  const nextIdx = (curIdx + delta + window._cctvSourcesList.length) % window._cctvSourcesList.length;
-  window.cctvSelectFromDropdown(window._cctvSourcesList[nextIdx].id);
-};
-
-window.cctvFocusCurrent = function() {
-  if (!_activeCctvCameraId || !window._cctvSourcesList) return;
-  const found = window._cctvSourcesList.find(s => s.id === _activeCctvCameraId);
-  if (found) {
-    window.flyToCameraPOV(found);
-  }
-};
-
-window.cctvFocusNearest = function() {
-  if (!window._cctvSourcesList || !window._cctvSourcesList.length || !window.cesiumViewer) return;
-  const cameraPos = window.cesiumViewer.camera.positionCartographic;
-  const camLat = Cesium.Math.toDegrees(cameraPos.latitude);
-  const camLon = Cesium.Math.toDegrees(cameraPos.longitude);
-
-  let nearest = window._cctvSourcesList[0];
-  let minDist = 1e12;
-  window._cctvSourcesList.forEach(s => {
-    const dLat = s.lat - camLat;
-    const dLon = s.lon - camLon;
-    const dist = dLat * dLat + dLon * dLon;
-    if (dist < minDist) {
-      minDist = dist;
-      nearest = s;
-    }
-  });
-  if (nearest) {
-    window.cctvSelectFromDropdown(nearest.id);
-  }
-};
-
-window.cctvToggleCoverage = function() {
-  _cctvCoverageMode = !_cctvCoverageMode;
-  const btn = document.getElementById('cctv-dock-btn-coverage');
-  if (btn) btn.textContent = _cctvCoverageMode ? 'COVERAGE ON' : 'COVERAGE OFF';
-  if (_cctvDataSource && _cctvDataSource.entities) {
-    _cctvDataSource.entities.values.forEach(ent => {
-      if (ent.polygon || (ent.polyline && ent.id && !ent.id.includes('mast'))) {
-        ent.show = _cctvCoverageMode;
-      }
-    });
-    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
-      window.cesiumViewer.scene.requestRender();
-    }
-  }
-};
-
-window.cctvToggleAutoHop = function() {
-  const btn = document.getElementById('cctv-dock-btn-autohop');
-  if (_cctvAutoHopInterval) {
-    clearInterval(_cctvAutoHopInterval);
-    _cctvAutoHopInterval = null;
-    if (btn) {
-      btn.textContent = 'AUTO HOP OFF';
-      btn.style.color = '#8A8D91';
-      btn.style.borderColor = 'rgba(255,255,255,0.18)';
-    }
-  } else {
-    if (btn) {
-      btn.textContent = 'AUTO HOP ON';
-      btn.style.color = '#22C55E';
-      btn.style.borderColor = '#22C55E';
-    }
-    _cctvAutoHopInterval = setInterval(() => {
-      window.cctvCycleCamera(1);
-    }, 10000);
-  }
-};
-
-window.toggleCctvCustomDropdown = function(force) {
-  const menu = document.getElementById('cctv-custom-select-menu');
-  if (!menu) return;
-  const isShow = (typeof force === 'boolean') ? force : (menu.style.display === 'none' || !menu.style.display);
-  menu.style.display = isShow ? 'block' : 'none';
-};
-
-window.closeCctvCustomDropdown = function() {
-  const menu = document.getElementById('cctv-custom-select-menu');
-  if (menu) menu.style.display = 'none';
-};
-
-document.addEventListener('click', function(e) {
-  const wrapper = document.getElementById('cctv-custom-select-wrapper');
-  if (wrapper && !wrapper.contains(e.target)) {
-    window.closeCctvCustomDropdown();
-  }
-});
-
-window._populateCctvDropdown = function(sources) {
-  const sel = document.getElementById('cctv-dock-camera-select');
-  const fsSel = document.getElementById('cctv-fs-camera-select');
-  const customMenu = document.getElementById('cctv-custom-select-menu');
-  const customLabel = document.getElementById('cctv-custom-select-label');
-  if (!Array.isArray(sources) || !sources.length) return;
-  [sel, fsSel].forEach(s => {
-    if (!s) return;
-    s.innerHTML = '';
-    sources.forEach(cam => {
-      const opt = document.createElement('option');
-      opt.value = cam.id;
-      opt.textContent = `${cam.city || 'METRO'} • ${cam.name || cam.label || cam.id}`;
-      s.appendChild(opt);
-    });
-    if (_activeCctvCameraId) s.value = _activeCctvCameraId;
-  });
-
-  if (customMenu) {
-    customMenu.innerHTML = '';
-    sources.forEach(cam => {
-      const item = document.createElement('div');
-      item.className = 'cctv-custom-option';
-      item.setAttribute('data-value', cam.id);
-      item.textContent = `${cam.city || 'METRO'} • ${cam.name || cam.label || cam.id}`;
-      item.style.padding = '5px 8px';
-      item.style.cursor = 'pointer';
-      item.style.color = (_activeCctvCameraId === cam.id) ? '#00F0FF' : '#E6E6E6';
-      item.style.background = (_activeCctvCameraId === cam.id) ? 'rgba(0, 240, 255, 0.25)' : 'transparent';
-      item.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
-      item.onmouseover = () => { item.style.background = 'rgba(0,240,255,0.18)'; item.style.color = '#00F0FF'; };
-      item.onmouseout = () => {
-        const isSel = (_activeCctvCameraId === cam.id);
-        item.style.background = isSel ? 'rgba(0,240,255,0.25)' : 'transparent';
-        item.style.color = isSel ? '#00F0FF' : '#E6E6E6';
-      };
-      item.onclick = (e) => {
-        e.stopPropagation();
-        window.closeCctvCustomDropdown();
-        window.cctvSelectFromDropdown(cam.id);
-      };
-      customMenu.appendChild(item);
-    });
-  }
-
-  if (customLabel && _activeCctvCameraId) {
-    const cur = sources.find(s => s.id === _activeCctvCameraId);
-    if (cur) {
-      customLabel.textContent = `${cur.city || 'METRO'} • ${cur.name || cur.label || cur.id}`;
-    }
-  }
-};
 
 // Cockpit Flight Chase Camera Mode (God's Eye Feature)
 window.startCockpitChase = function() {
@@ -20061,34 +19086,6 @@ window.setRadioVolume = function(val) {
 function initGlobeIntelligence(viewer) {
   if (!viewer || viewer.isDestroyed()) return;
 
-  // =========================================================================
-  // 1. CCTV CAMERAS & TRUE 3D PITCHED WIREFRAME PYRAMIDS (GOD'S EYE VIEW)
-  // =========================================================================
-  _cctvDataSource = new Cesium.CustomDataSource('cctv-layer');
-  _cctvDataSource.show = _tacticalLayers.cctv;
-  viewer.dataSources.add(_cctvDataSource);
-
-  // Optical Camera Icon for 3D Gizmo Billboards
-  const CAMERA_ICON = (() => {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
-      <defs>
-        <linearGradient id="lens" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#c9f6ff"/>
-          <stop offset="45%" stop-color="#6fd9ff"/>
-          <stop offset="100%" stop-color="#1a5f78"/>
-        </linearGradient>
-      </defs>
-      <g transform="translate(4 6)">
-        <rect x="0" y="8" width="20" height="9" rx="2.5" fill="#0e1720" stroke="#75e7ff" stroke-width="1.2"/>
-        <rect x="17" y="10" width="10" height="5" rx="1.5" fill="#132433" stroke="#75e7ff" stroke-width="1"/>
-        <circle cx="24" cy="12.5" r="3.1" fill="url(#lens)" stroke="#dbfbff" stroke-width="0.8"/>
-        <rect x="6.4" y="17" width="4.2" height="8.5" rx="1.2" fill="#10212d" stroke="#75e7ff" stroke-width="1"/>
-        <rect x="4.2" y="24" width="8.6" height="2.5" rx="1.1" fill="#0b151d" stroke="#4ecde7" stroke-width="0.8"/>
-      </g>
-    </svg>`;
-    return 'data:image/svg+xml;base64,' + btoa(svg);
-  })();
-
   function projectPointGeo(latDeg, lonDeg, bearingDeg, distanceM) {
     const angular = distanceM / 6371000;
     const bearing = Cesium.Math.toRadians(bearingDeg);
@@ -20107,459 +19104,6 @@ function initGlobeIntelligence(viewer) {
     };
   }
   window.projectPointGeo = projectPointGeo;
-
-  function computeCameraFrustum(cam) {
-    const terrainSample = (viewer.scene && viewer.scene.globe) ? viewer.scene.globe.getHeight(Cesium.Cartographic.fromDegrees(cam.lon, cam.lat)) : undefined;
-    const hasTerrain = Number.isFinite(terrainSample) && terrainSample > 0;
-    const priorAlt = Number(cam.groundElevationM) || Number(cam.groundAltM) || 0;
-    const ground = (hasTerrain && terrainSample > 0) ? Math.max(terrainSample, priorAlt) : (priorAlt > 0 ? priorAlt : 15);
-    const mountAlt = ground + (cam.mountHeightM || 28);
-    
-    // In God's Eye street scale:
-    // Street projection distance R is neatly scaled for intersection viewing (~80m to 140m)
-    const R = Math.min(140, Math.max(75, (Number(cam.rangeM) || 200) * 0.35));
-    const pitchRad = Cesium.Math.toRadians(cam.pitchDeg || -18);
-    const heading = cam.headingDeg || 0;
-
-    const horiz = R * Math.cos(pitchRad);
-    const capLL = projectPointGeo(cam.lat, cam.lon, heading, horiz);
-    
-    const aspect = 16 / 9;
-    // God's Eye compact street projection scale (approx 21m wide, ~2 road lanes)
-    const halfW = 10.5;
-    const halfH = halfW / aspect; // ~5.9m tall
-    const capAlt = ground + halfH + 1.2; // Bottom of projection plane grounded on street
-
-    const upVert = Math.cos(pitchRad) * halfH;
-    const upHoriz = -Math.sin(pitchRad) * halfH;
-
-    const capL = projectPointGeo(capLL.lat, capLL.lon, heading - 90, halfW);
-    const capR = projectPointGeo(capLL.lat, capLL.lon, heading + 90, halfW);
-
-    const corner = (base, sign) => {
-      const ll = projectPointGeo(base.lat, base.lon, heading, sign * upHoriz);
-      return { lat: ll.lat, lon: ll.lon, alt: capAlt + sign * upVert };
-    };
-
-    return {
-      halfW,
-      halfH,
-      mount: { lat: cam.lat, lon: cam.lon, alt: mountAlt },
-      capCenter: { lat: capLL.lat, lon: capLL.lon, alt: capAlt },
-      corners: {
-        tl: corner(capL, 1),
-        tr: corner(capR, 1),
-        br: corner(capR, -1),
-        bl: corner(capL, -1)
-      }
-    };
-  }
-
-  // God's Eye Local ENU to ECEF View Frame
-  function frustumFrameEcef(camera, atPos) {
-    const h = Cesium.Math.toRadians(camera.headingDeg || 0);
-    const p = Cesium.Math.toRadians(camera.pitchDeg || -18);
-    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(atPos);
-    const rot = Cesium.Matrix4.getMatrix3(enu, new Cesium.Matrix3());
-    const dirEnu = new Cesium.Cartesian3(
-      Math.sin(h) * Math.cos(p),
-      Math.cos(h) * Math.cos(p),
-      Math.sin(p)
-    );
-    const upEnu = new Cesium.Cartesian3(
-      -Math.sin(p) * Math.sin(h),
-      -Math.sin(p) * Math.cos(h),
-      Math.cos(p)
-    );
-    return {
-      dir: Cesium.Matrix3.multiplyByVector(rot, dirEnu, new Cesium.Cartesian3()),
-      up: Cesium.Matrix3.multiplyByVector(rot, upEnu, new Cesium.Cartesian3()),
-    };
-  }
-
-  // God's Eye Monitor Plane ECEF Orientation Quaternion
-  function planeOrientationFor(camera, capCenterPos) {
-    const frame = frustumFrameEcef(camera, capCenterPos);
-    const right = Cesium.Cartesian3.cross(frame.dir, frame.up, new Cesium.Cartesian3());
-    const normal = Cesium.Cartesian3.negate(frame.dir, new Cesium.Cartesian3());
-    const m = new Cesium.Matrix3(
-      right.x, frame.up.x, normal.x,
-      right.y, frame.up.y, normal.y,
-      right.z, frame.up.z, normal.z
-    );
-    return Cesium.Quaternion.fromRotationMatrix(m);
-  }
-
-  // God's Eye In-Memory Tactical Canvas Renderer for CCTV Monitor Plane (Zero White Boxes)
-  function paintProjectionPlaceholder(ctx, camera) {
-    if (!ctx) return;
-    const w = ctx.canvas.width;
-    const h = ctx.canvas.height;
-    ctx.clearRect(0, 0, w, h);
-    const g = ctx.createLinearGradient(0, 0, w, h);
-    g.addColorStop(0, '#05111a');
-    g.addColorStop(1, '#01070c');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w, h);
-
-    const label = String(camera?.label || camera?.name || 'CCTV');
-    const city = String(camera?.city || camera?.location || 'OPTICAL SENSOR FEED');
-
-    ctx.strokeStyle = 'rgba(0, 220, 255, 0.28)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(16, 16, w - 32, h - 32);
-    ctx.strokeRect(32, 32, w - 64, h - 64);
-
-    // Center crosshair
-    const cx = w / 2;
-    const cy = h / 2;
-    ctx.strokeStyle = 'rgba(0, 220, 255, 0.45)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cx - 24, cy); ctx.lineTo(cx + 24, cy);
-    ctx.moveTo(cx, cy - 24); ctx.lineTo(cx, cy + 24);
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(170, 242, 255, 0.95)';
-    ctx.font = 'bold 20px "JetBrains Mono", monospace';
-    ctx.fillText(label.slice(0, 42), 44, 68);
-
-    ctx.fillStyle = 'rgba(127, 216, 231, 0.8)';
-    ctx.font = '500 14px "JetBrains Mono", monospace';
-    ctx.fillText(city.toUpperCase(), 44, 96);
-
-    // Blinking REC status
-    ctx.fillStyle = '#22C55E';
-    ctx.beginPath();
-    ctx.arc(46, h - 36, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#22C55E';
-    ctx.font = 'bold 14px "JetBrains Mono", monospace';
-    ctx.fillText('● REC [LIVE OPTICAL FEED]', 60, h - 31);
-
-    const timeStr = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-    ctx.fillStyle = '#FF9D2E';
-    ctx.font = '500 13px "JetBrains Mono", monospace';
-    ctx.fillText(timeStr, w - 215, 68);
-  }
-
-  function renderCctvFrustum(cam, targetDS) {
-    const ds = targetDS || _cctvDataSource;
-    if (!cam || !cam.lat || !(cam.lon != null || cam.lng != null) || !ds) return;
-    const cLon = (cam.lon != null) ? Number(cam.lon) : Number(cam.lng);
-    const cLat = Number(cam.lat);
-    cam.lon = cLon;
-    cam.lat = cLat;
-
-    const geom = computeCameraFrustum(cam);
-    const posMount = Cesium.Cartesian3.fromDegrees(geom.mount.lon, geom.mount.lat, geom.mount.alt);
-    const posCapCenter = Cesium.Cartesian3.fromDegrees(geom.capCenter.lon, geom.capCenter.lat, geom.capCenter.alt);
-    const posTL = Cesium.Cartesian3.fromDegrees(geom.corners.tl.lon, geom.corners.tl.lat, geom.corners.tl.alt);
-    const posTR = Cesium.Cartesian3.fromDegrees(geom.corners.tr.lon, geom.corners.tr.lat, geom.corners.tr.alt);
-    const posBR = Cesium.Cartesian3.fromDegrees(geom.corners.br.lon, geom.corners.br.lat, geom.corners.br.alt);
-    const posBL = Cesium.Cartesian3.fromDegrees(geom.corners.bl.lon, geom.corners.bl.lat, geom.corners.bl.alt);
-
-    const tacticalData = {
-      type: 'CCTV',
-      id: cam.id,
-      label: cam.name || cam.label || 'OPTICAL SENSOR',
-      city: cam.city || '',
-      lat: cam.lat,
-      lon: cam.lon,
-      alt: geom.mount.alt,
-      heading: cam.headingDeg || 0,
-      pitch: cam.pitchDeg || -18,
-      rangeM: cam.rangeM || 450,
-      status: 'ONLINE',
-      fps: '30 FPS'
-    };
-
-    // 1. Camera Mount Optical Gizmo Billboard with Label (God's Eye always-on-top)
-    ds.entities.add({
-      position: posMount,
-      billboard: {
-        image: CAMERA_ICON,
-        width: 28,
-        height: 28,
-        verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        disableDepthTestDistance: 5000,
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000),
-        scaleByDistance: new Cesium.NearFarScalar(350, 1.25, 4000000, 0.45)
-      },
-      label: {
-        text: `📹 ${cam.name || cam.label || 'CCTV'}`,
-        font: 'bold 10px JetBrains Mono, monospace',
-        fillColor: Cesium.Color.fromCssColorString('#38BDF8'),
-        outlineColor: Cesium.Color.BLACK,
-        outlineWidth: 3,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        pixelOffset: new Cesium.Cartesian2(0, -18),
-        disableDepthTestDistance: 5000,
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 8000000)
-      },
-      _tacticalData: tacticalData
-    });
-
-    // 2. Optical Mast Line Anchoring Camera to Ground Terrain (Snapped to actual elevation, never sea-level 0m)
-    const groundBaseAlt = Math.max(0, geom.mount.alt - (cam.mountHeightM || 28));
-    ds.entities.add({
-      polyline: {
-        positions: [
-          Cesium.Cartesian3.fromDegrees(cam.lon, cam.lat, groundBaseAlt),
-          posMount
-        ],
-        width: 1.5,
-        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.65))
-      },
-      _tacticalData: tacticalData
-    });
-
-    // 3. The 4 Corner Rays of the 3D Frustum Pyramid
-    const rayMaterial = new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.85));
-    [posTL, posTR, posBR, posBL].forEach(cornerPos => {
-      ds.entities.add({
-        polyline: {
-          positions: [posMount, cornerPos],
-          width: 1.6,
-          material: rayMaterial
-        },
-        _tacticalData: tacticalData
-      });
-    });
-
-    // 3b. Translucent Frustum Volume Pyramid (God's Eye Parity)
-    const coneFill = Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.08);
-    [
-      [posMount, posTL, posTR],
-      [posMount, posTR, posBR],
-      [posMount, posBR, posBL],
-      [posMount, posBL, posTL]
-    ].forEach((tri) => {
-      ds.entities.add({
-        polygon: {
-          hierarchy: new Cesium.PolygonHierarchy(tri),
-          material: new Cesium.ColorMaterialProperty(coneFill),
-          perPositionHeight: true
-        },
-        _tacticalData: tacticalData
-      });
-    });
-
-    // 4. The Pitched Far-Cap Closed Rectangle Polyline
-    ds.entities.add({
-      polyline: {
-        positions: [posTL, posTR, posBR, posBL, posTL],
-        width: 2.2,
-        material: rayMaterial
-      },
-      _tacticalData: tacticalData
-    });
-
-    // 5. The 3D Monitor Plane Entity (show: false by default — revealed only when active/inspected)
-    const initCvs = document.createElement('canvas');
-    initCvs.width = 960;
-    initCvs.height = 540;
-    paintProjectionPlaceholder(initCvs.getContext('2d'), cam);
-
-    ds.entities.add({
-      id: `cctv-${cam.id}-plane`,
-      show: false,
-      position: posCapCenter,
-      orientation: planeOrientationFor(cam, posCapCenter),
-      plane: {
-        plane: new Cesium.Plane(Cesium.Cartesian3.UNIT_Z, 0.0),
-        dimensions: new Cesium.Cartesian2(geom.halfW * 2, geom.halfH * 2),
-        material: new Cesium.ImageMaterialProperty({
-          image: initCvs,
-          transparent: false,
-          color: Cesium.Color.WHITE
-        }),
-        outline: false
-      },
-      _tacticalData: tacticalData
-    });
-
-    // 5b. Floating In-World Street Name Badge (God's Eye Parity: e.g. "Upper St Nth/Duncan St" / "IH 35 SVRD / 6TH ST")
-    ds.entities.add({
-      id: `cctv-${cam.id}-label`,
-      show: false,
-      position: Cesium.Cartesian3.fromDegrees(geom.capCenter.lon, geom.capCenter.lat, geom.capCenter.alt + geom.halfH + 3.8),
-      label: {
-        text: `  ${(cam.name || cam.label || 'SURVEILLANCE VANTAGE').toUpperCase()}  `,
-        font: 'bold 11px "JetBrains Mono", monospace',
-        fillColor: Cesium.Color.fromCssColorString('#00F0FF'),
-        outlineColor: Cesium.Color.BLACK,
-        outlineWidth: 3,
-        showBackground: true,
-        backgroundColor: Cesium.Color.fromCssColorString('rgba(4, 18, 30, 0.90)'),
-        backgroundPadding: new Cesium.Cartesian2(8, 5),
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        disableDepthTestDistance: 5000,
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 45000)
-      },
-      _tacticalData: tacticalData
-    });
-  }
-  window.renderCctvFrustum = renderCctvFrustum;
-
-  // God's Eye High-Resolution In-World 3D Monitor Plane Tactical Painter
-  window.updateCctvMonitorPlaneImage = function(cameraId) {
-    if (!cameraId || !_cctvDataSource || !_cctvDataSource.entities) return;
-    const planeEnt = _cctvDataSource.entities.getById(`cctv-${cameraId}-plane`) ||
-                     _cctvDataSource.entities.values.find(e => e.id === `cctv-${cameraId}-plane`);
-    if (!planeEnt) return;
-
-    const frameUrl = `/api/cctv/frame/${encodeURIComponent(cameraId)}?t=${Date.now()}`;
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = function() {
-      const cvs = document.createElement('canvas');
-      cvs.width = 960;
-      cvs.height = 540;
-      const ctx = cvs.getContext('2d');
-
-      // 1. Draw authentic camera frame
-      ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
-
-      // 2. Tactical edge darkening vignette
-      const grad = ctx.createRadialGradient(cvs.width/2, cvs.height/2, cvs.width/4, cvs.width/2, cvs.height/2, cvs.width/1.8);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(1, 'rgba(0,10,20,0.45)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, cvs.width, cvs.height);
-
-      // 3. Crisp cyan/green God's Eye border frame
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.9)';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(6, 6, cvs.width - 12, cvs.height - 12);
-
-      // Signature corner brackets
-      ctx.strokeStyle = '#22C55E';
-      ctx.lineWidth = 6;
-      const bl = 28;
-      // TL
-      ctx.beginPath(); ctx.moveTo(6, 6 + bl); ctx.lineTo(6, 6); ctx.lineTo(6 + bl, 6); ctx.stroke();
-      // TR
-      ctx.beginPath(); ctx.moveTo(cvs.width - 6 - bl, 6); ctx.lineTo(cvs.width - 6, 6); ctx.lineTo(cvs.width - 6, 6 + bl); ctx.stroke();
-      // BR
-      ctx.beginPath(); ctx.moveTo(cvs.width - 6, cvs.height - 6 - bl); ctx.lineTo(cvs.width - 6, cvs.height - 6); ctx.lineTo(cvs.width - 6 - bl, cvs.height - 6); ctx.stroke();
-      // BL
-      ctx.beginPath(); ctx.moveTo(6 + bl, cvs.height - 6); ctx.lineTo(6, cvs.height - 6); ctx.lineTo(6, cvs.height - 6 - bl); ctx.stroke();
-
-      // 4. Center optical crosshair
-      const cx = cvs.width / 2;
-      const cy = cvs.height / 2;
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(cx - 24, cy); ctx.lineTo(cx + 24, cy);
-      ctx.moveTo(cx, cy - 24); ctx.lineTo(cx, cy + 24);
-      ctx.stroke();
-
-      // 5. Top metadata banner
-      ctx.fillStyle = 'rgba(4, 10, 18, 0.75)';
-      ctx.fillRect(10, 10, cvs.width - 20, 38);
-
-      const timeStr = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 16px "JetBrains Mono", monospace';
-      ctx.fillText(timeStr, 24, 34);
-
-      // Pulsing green REC badge
-      ctx.fillStyle = '#22C55E';
-      ctx.beginPath();
-      ctx.arc(cvs.width - 160, 28, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.font = 'bold 14px "JetBrains Mono", monospace';
-      ctx.fillText('REC [LIVE FEED]', cvs.width - 146, 33);
-
-      // 6. Bottom camera label badge
-      const camData = planeEnt._tacticalData || {};
-      const label = camData.label || cameraId;
-      ctx.fillStyle = 'rgba(4, 10, 18, 0.85)';
-      ctx.fillRect(16, cvs.height - 54, Math.min(680, label.length * 15 + 40), 40);
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.6)';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(16, cvs.height - 54, Math.min(680, label.length * 15 + 40), 40);
-      ctx.fillStyle = '#00F0FF';
-      ctx.font = 'bold 16px "JetBrains Mono", monospace';
-      ctx.fillText(label, 28, cvs.height - 28);
-
-      // Update 3D plane entity material
-      planeEnt.plane.material = new Cesium.ImageMaterialProperty({
-        image: cvs,
-        transparent: false,
-        color: Cesium.Color.WHITE
-      });
-
-      if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
-        window.cesiumViewer.scene.requestRender();
-      }
-    };
-    img.onerror = function() {
-      const fallbackCvs = document.createElement('canvas');
-      fallbackCvs.width = 960;
-      fallbackCvs.height = 540;
-      paintProjectionPlaceholder(fallbackCvs.getContext('2d'), planeEnt._tacticalData || { id: cameraId });
-      planeEnt.plane.material = new Cesium.ImageMaterialProperty({
-        image: fallbackCvs,
-        transparent: false,
-        color: Cesium.Color.WHITE
-      });
-      if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
-        window.cesiumViewer.scene.requestRender();
-      }
-    };
-    img.src = frameUrl;
-  };
-
-  // Multi-Region Dynamic CCTV Catalog Loader (India, Caltrans, London, Austin, Tokyo)
-  window.loadAndRenderCctvSources = async function() {
-    try {
-      const res = await fetch('/api/cctv/sources');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      const sources = Array.isArray(data?.sources) ? data.sources : [];
-      if (!sources.length) return;
-      window._cctvSourcesList = sources;
-      if (typeof window._populateCctvDropdown === 'function') {
-        window._populateCctvDropdown(sources);
-      }
-      if (typeof initCctvDraggable === 'function') {
-        initCctvDraggable();
-      }
-      if (_cctvDataSource) {
-        _cctvDataSource.entities.removeAll();
-      }
-      let idx = 0;
-      function renderBatch() {
-        const end = Math.min(idx + 30, sources.length);
-        for (; idx < end; idx++) {
-          renderCctvFrustum(sources[idx]);
-        }
-        if (idx < sources.length) {
-          requestAnimationFrame(renderBatch);
-        }
-      }
-      renderBatch();
-      console.log('[Cesium CCTV] Multi-region optical camera network online (' + sources.length + ' feeds across India, US, UK, Japan).');
-    } catch (e) {
-      console.warn('[Cesium CCTV] Error fetching sources, using fallback seed:', e);
-      window._cctvSourcesList = CCTV_CAMERAS;
-      if (typeof window._populateCctvDropdown === 'function') {
-        window._populateCctvDropdown(CCTV_CAMERAS);
-      }
-      CCTV_CAMERAS.forEach(renderCctvFrustum);
-    }
-  };
-
-  // Dynamic CCTV catalog is loaded on-demand when the operator explicitly enables the CCTV layer
-  if (_tacticalLayers && _tacticalLayers.cctv) {
-    window.loadAndRenderCctvSources();
-  }
 
   // =========================================================================
   // 2. LIVE AIS MARITIME VESSELS LAYER
@@ -23094,8 +21638,6 @@ function initGlobeIntelligence(viewer) {
 
     const _osirisSatellitesDS = new Cesium.CustomDataSource('osiris-satellites');
     const _osirisConflictsDS = new Cesium.CustomDataSource('osiris-conflicts');
-    const _osirisCctvDS = new Cesium.CustomDataSource('osiris-cctv');
-    const _osirisClustersDS = new Cesium.CustomDataSource('osiris-clusters');
 
     // God's Eye High-Density GPU Satellite Constellation (Batched BillboardCollection)
     const _satelliteBillboards = new Cesium.BillboardCollection();
@@ -23107,13 +21649,9 @@ function initGlobeIntelligence(viewer) {
 
     _osirisSatellitesDS.show = false;
     _osirisConflictsDS.show = false;
-    _osirisCctvDS.show = false;
-    _osirisClustersDS.show = false;
 
     viewer.dataSources.add(_osirisSatellitesDS);
     viewer.dataSources.add(_osirisConflictsDS);
-    viewer.dataSources.add(_osirisCctvDS);
-    viewer.dataSources.add(_osirisClustersDS);
 
     // Focused Satellite Track & Nadir Drop Beam (God's Eye Parity)
     window.setFocusedSatelliteTrack = function(sat) {
@@ -23189,78 +21727,11 @@ function initGlobeIntelligence(viewer) {
     };
 
     let _osirisActive = false;
-    let _activeLOD = null;
-    let _lodDebounceTimer = null;
     let _osirisPollTimer = null;
-    let _isFetchingCctv = false;
-
-    // High-altitude regional clusters (> 1,200 km)
-    const OSIRIS_GLOBAL_CLUSTERS = [
-      { label: "OSIRIS GLOBAL CORE\n28,400+ SURVEILLANCE FEEDS", lat: 20.0, lon: 10.0, radiusM: 900000 },
-      { label: "NORTH AMERICA SECTOR\n12,840 CAMERAS", lat: 38.5, lon: -98.0, radiusM: 700000 },
-      { label: "EUROPEAN SECTOR\n8,420 CAMERAS", lat: 50.0, lon: 10.5, radiusM: 550000 },
-      { label: "ASIA-PACIFIC / INDIA\n5,610 CAMERAS", lat: 20.5, lon: 78.9, radiusM: 650000 },
-      { label: "TOKYO METROPOLITAN\n1,120 CAMERAS", lat: 35.68, lon: 139.75, radiusM: 250000 },
-      { label: "OCEANIA SECTOR\n410 CAMERAS", lat: -25.2, lon: 133.7, radiusM: 400000 },
-    ];
-
-    function populateHighAltitudeClusters() {
-      _osirisClustersDS.entities.removeAll();
-      OSIRIS_GLOBAL_CLUSTERS.forEach(cl => {
-        const pos = Cesium.Cartesian3.fromDegrees(cl.lon, cl.lat, 0);
-        _osirisClustersDS.entities.add({
-          position: pos,
-          ellipse: {
-            semiMajorAxis: cl.radiusM,
-            semiMinorAxis: cl.radiusM,
-            material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.12)),
-            outline: false
-          },
-          label: {
-            text: `📷 ${cl.label}`,
-            font: 'bold 11px JetBrains Mono, monospace',
-            fillColor: Cesium.Color.fromCssColorString('#00F0FF'),
-            outlineColor: Cesium.Color.BLACK,
-            outlineWidth: 3,
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            verticalOrigin: Cesium.VerticalOrigin.CENTER,
-            horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-            disableDepthTestDistance: 500000
-          }
-        });
-      });
-    }
-
-    function getCesiumViewportBounds() {
-      if (!viewer || viewer.isDestroyed()) return null;
-      try {
-        const rect = viewer.camera.computeViewRectangle(viewer.scene.globe.ellipsoid);
-        if (rect) {
-          return {
-            south: Cesium.Math.toDegrees(rect.south),
-            west: Cesium.Math.toDegrees(rect.west),
-            north: Cesium.Math.toDegrees(rect.north),
-            east: Cesium.Math.toDegrees(rect.east)
-          };
-        }
-      } catch(e) {}
-      const carto = viewer.camera.positionCartographic;
-      if (!carto) return null;
-      const lat = Cesium.Math.toDegrees(carto.latitude);
-      const lon = Cesium.Math.toDegrees(carto.longitude);
-      const span = Math.min(25.0, Math.max(0.08, (carto.height / 111000) * 0.7));
-      return {
-        south: Math.max(-90, lat - span),
-        west: ((lon - span + 540) % 360) - 180,
-        north: Math.min(90, lat + span),
-        east: ((lon + span + 540) % 360) - 180
-      };
-    }
 
     const _osirisFeedStatus = {
       satellites: { status: 'ok', debrief: '' },
-      conflicts: { status: 'ok', debrief: '' },
-      cctv: { status: 'ok', debrief: '' }
+      conflicts: { status: 'ok', debrief: '' }
     };
 
     function emitTacticalHudAlert(text, tag = 'OFFLINE CONTINGENCY') {
@@ -23710,150 +22181,17 @@ function initGlobeIntelligence(viewer) {
       if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
     }
 
-    async function fetchOsirisCctvViewport(lodTier) {
-      if (!_osirisActive || _isFetchingCctv) return;
-      const bounds = getCesiumViewportBounds();
-      if (!bounds) return;
-      _isFetchingCctv = true;
-      const limit = (lodTier === 'LOW') ? 40 : 60;
-
-      try {
-        let data = null;
-        if (api() && typeof api().get_cctv_in_viewport === 'function') {
-          data = await api().get_cctv_in_viewport(bounds, limit);
-        } else {
-          const res = await fetch('/api/cctv/viewport', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bounds, limit })
-          });
-          if (res.ok) data = await res.json();
-        }
-        if (!data) return;
-        if (data.status && data.status !== 'ok') {
-          setOsirisHudDebrief(data.status, data.debrief, 'CCTV');
-        } else if (data.debrief) {
-          setOsirisHudDebrief(data.status || 'ok', data.debrief, 'CCTV');
-        }
-        const cams = Array.isArray(data.cameras) ? data.cameras : [];
-        renderOsirisCctv(cams, lodTier);
-      } catch(e) {
-        console.warn('[OSIRIS Layer] Viewport CCTV fetch error:', e);
-      } finally {
-        _isFetchingCctv = false;
-      }
-    }
-
-    function renderOsirisCctv(cameras, lodTier) {
-      _osirisCctvDS.entities.removeAll();
-      if (lodTier === 'MEDIUM') {
-        cameras.forEach(cam => {
-          const cLat = Number(cam.lat);
-          const cLon = Number(cam.lon != null ? cam.lon : cam.lng);
-          if (isNaN(cLat) || isNaN(cLon)) return;
-          const pos = Cesium.Cartesian3.fromDegrees(cLon, cLat, 25);
-          _osirisCctvDS.entities.add({
-            position: pos,
-            billboard: {
-              image: CAMERA_ICON,
-              width: 20,
-              height: 20,
-              verticalOrigin: Cesium.VerticalOrigin.CENTER,
-              disableDepthTestDistance: 5000,
-              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 1500000)
-            },
-            label: {
-              text: `📹 ${cam.name || cam.label || 'CAM'}`,
-              font: '9px JetBrains Mono, monospace',
-              fillColor: Cesium.Color.fromCssColorString('#00F0FF'),
-              outlineColor: Cesium.Color.BLACK,
-              outlineWidth: 2,
-              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-              pixelOffset: new Cesium.Cartesian2(0, -14),
-              disableDepthTestDistance: 5000,
-              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 800000)
-            },
-            _tacticalData: {
-              type: 'CCTV',
-              id: cam.id,
-              label: cam.name || cam.label || 'OPTICAL NODE',
-              city: cam.city,
-              country: cam.country,
-              lat: cLat,
-              lon: cLon
-            }
-          });
-        });
-      } else if (lodTier === 'LOW') {
-        cameras.forEach(cam => {
-          renderCctvFrustum(cam, _osirisCctvDS);
-        });
-      }
-      if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
-    }
-
-    function updateLOD() {
-      if (!_osirisActive) return;
-      const carto = viewer.camera.positionCartographic;
-      if (!carto) return;
-      const alt = carto.height;
-
-      let targetTier = 'LOW';
-      if (alt > 1200000) {
-        targetTier = 'HIGH';
-      } else if (alt >= 80000) {
-        targetTier = 'MEDIUM';
-      } else {
-        targetTier = 'LOW';
-      }
-
-      if (targetTier === 'HIGH') {
-        _osirisClustersDS.show = true;
-        _osirisCctvDS.show = false;
-        if (_activeLOD !== 'HIGH') {
-          populateHighAltitudeClusters();
-          _activeLOD = 'HIGH';
-        }
-      } else if (targetTier === 'MEDIUM') {
-        _osirisClustersDS.show = false;
-        _osirisCctvDS.show = true;
-        _activeLOD = 'MEDIUM';
-        fetchOsirisCctvViewport('MEDIUM');
-      } else {
-        _osirisClustersDS.show = false;
-        _osirisCctvDS.show = true;
-        _activeLOD = 'LOW';
-        fetchOsirisCctvViewport('LOW');
-      }
-
-      if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
-    }
-
-    function onCameraMoved() {
-      if (!_osirisActive) return;
-      if (_lodDebounceTimer) clearTimeout(_lodDebounceTimer);
-      _lodDebounceTimer = setTimeout(() => {
-        updateLOD();
-      }, 350);
-    }
-
-    viewer.camera.moveEnd.addEventListener(onCameraMoved);
-
     window.OsirisCesiumLayer = {
       isActive: () => _osirisActive,
-      getLOD: () => _activeLOD,
+      getLOD: () => null,
       enable: () => {
         _osirisActive = true;
         _satelliteBillboards.show = true;
         _osirisSatellitesDS.show = true;
         _osirisConflictsDS.show = true;
-        _osirisCctvDS.show = true;
-        _osirisClustersDS.show = true;
 
         fetchOsirisSatellites();
         fetchOsirisConflicts();
-        updateLOD();
 
         function ensureOsirisPollTimer() {
           if (!_osirisPollTimer) {
@@ -23878,7 +22216,6 @@ function initGlobeIntelligence(viewer) {
       },
       disable: () => {
         _osirisActive = false;
-        _activeLOD = null;
         if (!_tacticalLayers.space) {
           _satelliteBillboards.show = false;
           _satelliteBillboards.removeAll();
@@ -23887,12 +22224,7 @@ function initGlobeIntelligence(viewer) {
           _osirisSatellitesDS.entities.removeAll();
         }
         _osirisConflictsDS.show = false;
-        _osirisCctvDS.show = false;
-        _osirisClustersDS.show = false;
-
         _osirisConflictsDS.entities.removeAll();
-        _osirisCctvDS.entities.removeAll();
-        _osirisClustersDS.entities.removeAll();
 
         if (_osirisPollTimer && !_tacticalLayers.space) {
           clearInterval(_osirisPollTimer);
@@ -23904,7 +22236,6 @@ function initGlobeIntelligence(viewer) {
         if (_osirisActive) {
           fetchOsirisSatellites();
           fetchOsirisConflicts();
-          updateLOD();
         }
       }
     };

@@ -97,7 +97,6 @@ CRITICAL IDENTITY & CREATOR PROVENANCE:
      Available Layer IDs:
      - flights (ADS-B military & civil airspace radar)
      - vessels (AIS live maritime shipping)
-     - cctv (Public traffic and surveillance camera frustums)
      - space (Orbital satellites & ISS live tracking)
      - seismic (USGS global seismic & earthquake hazards)
      - thermal (NASA FIRMS active wildfires & thermal hotspots)

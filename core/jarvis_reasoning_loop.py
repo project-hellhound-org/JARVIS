@@ -2,7 +2,7 @@
 J.A.R.V.I.S. Autonomous Tactical Reasoning Engine ("JARVIS-Level Thinking").
 
 Orchestrates multi-step cognitive plans, dynamically inspects and activates tactical tools
-(God's Eye 3D navigation, CCTV networks across India/US/UK/Japan/Global, live ADS-B radar,
+(God's Eye 3D navigation, live ADS-B radar,
 traffic vectors, terminal diagnostics, atmospheric telemetry, web intelligence),
 and streams real-time spoken progress phrases ("I am checking X... and I found Y")
 to the voice pipeline until the goal is fully accomplished.
@@ -44,7 +44,7 @@ class JarvisCognitiveLoop:
         """Navigates the 3D planetary Earth globe to the specified city or coordinates."""
         from frontend.desktop import resolve_geospatial_coordinates
         clean_loc = (location_name or "").strip().lower()
-        if not clean_loc or clean_loc in ("random", "a random place", "random place", "somewhere", "anywhere") or ("random" in clean_loc and "cctv" not in clean_loc):
+        if not clean_loc or clean_loc in ("random", "a random place", "random place", "somewhere", "anywhere") or "random" in clean_loc:
             import random
             RANDOM_SPOTS = [
                 (11.0168, 76.9558, "Coimbatore, India"),
@@ -74,13 +74,12 @@ class JarvisCognitiveLoop:
         return {"success": True, "lat": lat, "lon": lon, "label": matched_name}
 
     def tool_tactical_layer(self, layer: str, state: bool = True) -> Dict[str, Any]:
-        """Toggles God's Eye tactical HUD overlay layers (cctv, traffic, flights, weather, space, etc.)."""
-        valid_layers = {"cctv", "traffic", "flights", "satellites", "seismic", "wildfires", "weather", "space", "radio"}
+        """Toggles God's Eye tactical HUD overlay layers (traffic, flights, weather, space, etc.)."""
+        valid_layers = {"traffic", "flights", "satellites", "seismic", "wildfires", "weather", "space", "radio"}
         clean_layer = layer.lower().strip()
         if clean_layer not in valid_layers:
             alias_map = {
                 "flight": "flights", "radar": "flights", "plane": "flights", "airspace": "flights",
-                "camera": "cctv", "cam": "cctv", "surveillance": "cctv",
                 "road": "traffic", "roads": "traffic", "flow": "traffic",
                 "satellite": "space", "orbit": "space", "iss": "space",
                 "earthquake": "seismic", "quake": "seismic",
@@ -91,26 +90,6 @@ class JarvisCognitiveLoop:
 
         self.bus.emit("toggle_tactical_layer", {"layer": clean_layer, "state": state})
         return {"success": True, "layer": clean_layer, "state": state}
-
-    def tool_cctv_query(self, location_name: str, radius_km: float = 60.0) -> Dict[str, Any]:
-        """Discovers live and optical surveillance cameras across India, US, UK, Japan, or worldwide."""
-        from modules.cctv_service import find_cctv_for_location
-        cameras = find_cctv_for_location(location_name, radius_km=radius_km)
-        if cameras:
-            self.tool_tactical_layer("cctv", True)
-            first_cam = cameras[0]
-            self.bus.emit("glide_to_location", {
-                "lat": first_cam["lat"],
-                "lon": first_cam["lon"],
-                "label": first_cam.get("city", location_name).title()
-            })
-            self.bus.emit("cctv_camera_selected", {"camera": first_cam})
-        return {
-            "success": bool(cameras),
-            "count": len(cameras),
-            "cameras": cameras[:5],
-            "city": cameras[0].get("city", location_name) if cameras else location_name
-        }
 
     def tool_annotate_area(self, location_or_target: str = "", sector_name: str = "", radius_km: float = 30.0, classification: str = "DEFENSE ZONE") -> Dict[str, Any]:
         """
@@ -377,8 +356,6 @@ User Directive: "{text_strip}"{loc_context}
 Available Tools:
 - "nav": Pan/glide 3D planetary Earth globe to a location.
   Parameters: {{"action": "nav", "location": "<city or country name>"}}
-- "cctv": Query live optical surveillance and traffic camera feeds in a city or area.
-  Parameters: {{"action": "cctv", "location": "<city name or null>"}}
 - "traffic": Check live street traffic conditions, speeds, congestion, and road telemetry.
   Parameters: {{"action": "traffic", "location": "<city name or null>"}}
 - "weather": Pull regional atmospheric radar, precipitation, temperature, and forecasts.
@@ -423,9 +400,9 @@ Available Tools:
   Parameters: {{"action": "vessels", "location": "<sea/port/region>", "query": "<optional ship name or type>"}}
 
 Rules:
-1. When a specific city/location is referenced for CCTV, traffic, or weather, prepend a "nav" action for that location first if the globe camera should focus there.
-2. If weather, cctv, or traffic is requested but NO location was provided at all in the prompt, set location to null.
-3. For compound directives (e.g. "Check the cameras in Mumbai and see how traffic is flowing"), return all required actions in execution order: nav, cctv, traffic.
+1. When a specific city/location is referenced for traffic or weather, prepend a "nav" action for that location first if the globe camera should focus there.
+2. If weather or traffic is requested but NO location was provided at all in the prompt, set location to null.
+3. For compound directives (e.g. "Navigate to Mumbai and see how traffic is flowing"), return all required actions in execution order: nav, traffic.
 4. If the directive is general conversation, a question answerable without tools, or does not need these tools, return [].
 5. Output ONLY a valid raw JSON array of objects. No markdown formatting, no explanations."""
 
@@ -452,20 +429,16 @@ Rules:
                             if not isinstance(item, dict) or "action" not in item:
                                 continue
                             action = item.get("action")
-                            # Check missing location for cctv / traffic / weather
-                            if action in ("cctv", "traffic", "weather") and not item.get("location"):
+                            # Check missing location for traffic / weather
+                            if action in ("traffic", "weather") and not item.get("location"):
                                 if active_location:
                                     item["location"] = active_location
                                 else:
-                                    topic = "optical surveillance feeds" if action == "cctv" else ("live traffic telemetry" if action == "traffic" else "atmospheric telemetry")
+                                    topic = "live traffic telemetry" if action == "traffic" else "atmospheric telemetry"
                                     phrase = (
-                                        f"Which city would you like optical surveillance feeds for, {sal}?"
-                                        if action == "cctv"
-                                        else (
-                                            f"Which city or sector would you like live traffic telemetry for, {sal}?"
-                                            if action == "traffic"
-                                            else f"Which city or region would you like atmospheric telemetry for, {sal}?"
-                                        )
+                                        f"Which city or sector would you like live traffic telemetry for, {sal}?"
+                                        if action == "traffic"
+                                        else f"Which city or region would you like atmospheric telemetry for, {sal}?"
                                     )
                                     plan_steps.append({
                                         "action": "ask_location",
@@ -479,8 +452,6 @@ Rules:
                             if "progress_phrase" not in item:
                                 if action == "nav":
                                     item["progress_phrase"] = f"Navigating orbital telemetry to {loc.title()}, {sal}..."
-                                elif action == "cctv":
-                                    item["progress_phrase"] = f"Querying active optical surveillance feeds across {loc.title()}..."
                                 elif action == "traffic":
                                     item["progress_phrase"] = f"Cross-referencing live street traffic and GIS flow vectors for {loc.title()}, {sal}..."
                                 elif action == "weather":
@@ -600,16 +571,16 @@ Rules:
             m_loc = re.search(r'\b(?:in|at|for|around|over|near|towards|to)\s+([a-zA-Z0-9\s,\.\-]{2,30})', text_lower)
             if m_loc:
                 raw_loc = m_loc.group(1).strip()
-                cleaned_loc = re.sub(r'\b(?:and|check|see|show|find|tell|traffic|cctv|camera|flights?|weather|how|what|lock|mark|pull|scan|annotate|designate|highlight)\b.*$', '', raw_loc).strip()
+                cleaned_loc = re.sub(r'\b(?:and|check|see|show|find|tell|traffic|flights?|weather|how|what|lock|mark|pull|scan|annotate|designate|highlight)\b.*$', '', raw_loc).strip()
                 loc_candidate = cleaned_loc.strip(' ,.?!')
 
         if not loc_candidate:
-            m_scan = re.search(r'\b(?:scan|check|monitor|track|search)\s+([a-zA-Z0-9\s,\.\-]{2,30}?)\s+(?:airspace|radar|weather|cctv|traffic|perimeter|zone)\b', text_lower)
+            m_scan = re.search(r'\b(?:scan|check|monitor|track|search)\s+([a-zA-Z0-9\s,\.\-]{2,30}?)\s+(?:airspace|radar|weather|traffic|perimeter|zone)\b', text_lower)
             if m_scan:
                 loc_candidate = m_scan.group(1).strip(' ,.?!')
 
         if not loc_candidate:
-            m_air = re.search(r'\b([a-zA-Z]{3,20})\s+(?:airspace|weather|traffic|cctv|radar)\b', text_lower)
+            m_air = re.search(r'\b([a-zA-Z]{3,20})\s+(?:airspace|weather|traffic|radar)\b', text_lower)
             if m_air and m_air.group(1).lower() not in ('the', 'local', 'our', 'all', 'pull', 'scan', 'check'):
                 loc_candidate = m_air.group(1).strip()
 
@@ -620,7 +591,7 @@ Rules:
                 loc_candidate = "random"
             elif loc_lower in ("a place", "place", "random"):
                 loc_candidate = "random"
-        elif any(p in text_lower for p in ["random place", "a random place", "somewhere random", "to a random", "random cctv"]):
+        elif any(p in text_lower for p in ["random place", "a random place", "somewhere random", "to a random"]):
             loc_candidate = "random"
 
         # Viewport relative references check
@@ -637,7 +608,6 @@ Rules:
         elif not loc_candidate and active_location and any(re.search(rf'\b{w}\b', text_lower) for w in ["there", "here", "this area", "this place"]):
             loc_candidate = active_location
 
-        has_cctv = any(w in text_lower for w in ["cctv", "camera", "cameras", "cam", "cams", "optical", "surveillance", "vantage"])
         has_traffic = any(re.search(rf'\b{w}\b', text_lower) for w in ["traffic", "congestion", "road", "roads", "flow", "jam", "commute", "highway"]) and "air traffic" not in text_lower
         has_flight = any(w in text_lower for w in ["flight", "flights", "aircraft", "plane", "planes", "radar", "airspace", "ads-b", "adsb", "chase", "air traffic"])
         has_weather = any(w in text_lower for w in ["weather", "forecast", "rain", "temperature", "storm", "wind", "pull the weather"])
@@ -684,13 +654,7 @@ Rules:
             "carrier", "carriers", "naval", "tanker", "tankers", "cargo ship", "boat", "boats", "port traffic"
         ])
 
-        is_cctv_only_nav = False
-        if has_cctv and loc_candidate:
-            if any(w in loc_candidate.lower() for w in ["cctv", "camera", "cam", "footage", "feed", "surveillance"]):
-                is_cctv_only_nav = True
-                loc_candidate = "random" if ("random" in loc_candidate.lower() or "random" in text_lower) else ""
-
-        if loc_candidate and not is_cctv_only_nav:
+        if loc_candidate:
             plan_steps.append({
                 "action": "nav",
                 "location": loc_candidate,
@@ -717,21 +681,6 @@ Rules:
                 "classification": classification,
                 "progress_phrase": f"Illuminating tactical perimeter and annotating sector boundary on World Telemetry, {sal}..."
             })
-
-        if has_cctv:
-            cctv_loc = loc_candidate or ("random" if ("random" in text_lower or not loc_candidate) else "")
-            if cctv_loc:
-                plan_steps.append({
-                    "action": "cctv",
-                    "location": cctv_loc,
-                    "progress_phrase": f"Querying active optical surveillance feeds across {cctv_loc.title()}..."
-                })
-            else:
-                plan_steps.append({
-                    "action": "ask_location",
-                    "topic": "optical surveillance feeds",
-                    "progress_phrase": f"Which city would you like optical surveillance feeds for, {sal}?"
-                })
 
         if has_traffic:
             if loc_candidate:
@@ -970,21 +919,6 @@ Rules:
                     except Exception as e:
                         pass
 
-                elif action == "cctv":
-                    res = self.tool_cctv_query(step["location"])
-                    count = res.get("count", 0)
-                    city = res.get("city", step["location"]).title()
-                    cams = res.get("cameras", [])
-                    sample_names = ", ".join([c["name"] for c in cams[:2]]) if cams else "None"
-                    obs["result"] = f"Isolated {count} active optical feeds in {city}. Primary vantage: {sample_names}."
-                    for cam in cams:
-                        self.task_manager.add_finding(task.task_id, TaskFinding(
-                            title=cam.get("name", "CCTV Camera"),
-                            url=cam.get("snapshotUrl") or f"/api/cctv/frame/{cam.get('id')}",
-                            snippet=f"Sensor {cam.get('id')} | Heading: {cam.get('headingDeg', 0)}° | Elevation: {cam.get('groundElevationM', 0)}m",
-                            source="cctv",
-                            extra=cam
-                        ))
 
                 elif action == "traffic":
                     res = self.tool_traffic_query(step["location"])

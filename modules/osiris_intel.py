@@ -4,7 +4,6 @@ OSIRIS Intelligence Platform Engine for J.A.R.V.I.S.
 Connects J.A.R.V.I.S. directly to the OSIRIS Global Intelligence Platform (https://osirisai.live).
 
 Capabilities:
-- 28,400+ Georeferenced CCTV Cameras (YouTube Live, HLS, MJPEG)
 - Real-Time Aviation: Commercial, Military Flights, Private Jets & GPS Jamming Sectors
 - 18,800+ Orbital Satellites with TLE Telemetry & Pass Predictions
 - Active Warzones, Frontline Geometry & Live Conflict Incident Reporting
@@ -34,7 +33,6 @@ DEFAULT_TTLS = {
     "flights": 15,
     "satellites": 30,
     "conflicts": 60,
-    "cctv": 600,         # 10 minutes (static 28k camera network)
     "directions": 300,
     "osint": 300,
     "maritime": 60,
@@ -227,163 +225,7 @@ class OsirisIntelClient:
         res = self._fetch_endpoint("/api/stats", ttl=DEFAULT_TTLS["stats"])
         if res and "stats" in res:
             return res["stats"]
-        return {"flights": 0, "sats": 0, "cctv": 0, "weather": 0, "nuclear": 0, "incidents": 0}
-
-    def get_cctv_cameras(
-        self,
-        city: Optional[str] = None,
-        country: Optional[str] = None,
-        lat: Optional[float] = None,
-        lon: Optional[float] = None,
-        radius_km: Optional[float] = None,
-        query: Optional[str] = None,
-        limit: int = 40,
-        bounds: Optional[Any] = None,
-        category: Optional[str] = None,
-        return_meta: bool = False,
-    ) -> Any:
-        """
-        Query OSIRIS worldwide CCTV registry (28,400+ cameras).
-        Supports:
-          - Bounding-box viewport filtering (min_lat, min_lon, max_lat, max_lon)
-          - Category / stream-type filtering (e.g., 'traffic', 'youtube', 'hls', 'highway')
-          - Geographic distance filtering (lat, lon, radius_km)
-          - Keyword / city / country filtering
-          - Display cap enforcement and explicit fallback metadata (return_meta=True)
-        """
-        parsed_bounds = parse_bounds(bounds)
-        res = self._fetch_endpoint("/api/cctv", ttl=DEFAULT_TTLS["cctv"])
-        if not res or "cameras" not in res:
-            # Check local contingency cameras from cctv_service if upstream failed
-            contingency_cams = []
-            try:
-                from modules.cctv_service import get_cctv_service
-                svc_sources = get_cctv_service().get_all_sources()
-                for c in svc_sources:
-                    c_lat = c.get("lat")
-                    c_lon = c.get("lon", c.get("lng"))
-                    if parsed_bounds and not is_point_in_bounds(c_lat, c_lon, parsed_bounds):
-                        continue
-                    contingency_cams.append({
-                        "id": c.get("id"),
-                        "name": c.get("name") or c.get("label", "CCTV Feed"),
-                        "city": c.get("city", ""),
-                        "country": c.get("country", ""),
-                        "lat": c_lat,
-                        "lng": c_lon,
-                        "stream_url": c.get("url") or c.get("videoUrl", ""),
-                        "stream_type": c.get("feedType", "video"),
-                        "source": c.get("provider", "Local Contingency"),
-                    })
-
-                # If bounding box had no matches, load top global/regional contingency cameras
-                if not contingency_cams and svc_sources:
-                    for c in svc_sources[:limit]:
-                        contingency_cams.append({
-                            "id": c.get("id"),
-                            "name": c.get("name") or c.get("label", "CCTV Feed"),
-                            "city": c.get("city", ""),
-                            "country": c.get("country", ""),
-                            "lat": c.get("lat"),
-                            "lng": c.get("lon", c.get("lng")),
-                            "stream_url": c.get("url") or c.get("videoUrl", ""),
-                            "stream_type": c.get("feedType", "video"),
-                            "source": c.get("provider", "Local Contingency"),
-                        })
-            except Exception:
-                pass
-
-            if return_meta:
-                return {
-                    "status": "upstream_error",
-                    "count": len(contingency_cams[:limit]),
-                    "total_in_bounds": len(contingency_cams),
-                    "capped": len(contingency_cams) > limit,
-                    "limit": limit,
-                    "cameras": contingency_cams[:limit],
-                    "debrief": "OSIRIS CCTV registry unavailable upstream; synchronized via local contingency optical nodes." if contingency_cams else "OSIRIS CCTV registry unavailable upstream; operating in autonomous standby.",
-                    "bounds": bounds,
-                }
-            return contingency_cams[:limit]
-
-        cameras: List[Dict[str, Any]] = res.get("cameras", [])
-        filtered = []
-
-        q_lower = (query or "").lower().strip()
-        city_lower = (city or "").lower().strip()
-        country_lower = (country or "").lower().strip()
-        cat_lower = (category or "").lower().strip()
-
-        for cam in cameras:
-            c_name = str(cam.get("name", "")).lower()
-            c_city = str(cam.get("city", "")).lower()
-            c_country = str(cam.get("country", "")).lower()
-            c_cat = str(cam.get("category", "")).lower()
-            c_source = str(cam.get("source", "")).lower()
-            c_type = str(cam.get("stream_type", "")).lower()
-            c_lat = cam.get("lat")
-            c_lng = cam.get("lng", cam.get("lon"))
-
-            # Bounding box filter
-            if parsed_bounds and not is_point_in_bounds(c_lat, c_lng, parsed_bounds):
-                continue
-
-            # Category / stream-type filter
-            if cat_lower and (cat_lower not in c_cat and cat_lower not in c_source and cat_lower not in c_type and cat_lower not in c_name):
-                continue
-
-            # City filter
-            if city_lower and city_lower not in c_city and city_lower not in c_name:
-                continue
-
-            # Country filter
-            if country_lower and country_lower not in c_country:
-                continue
-
-            # Keyword filter
-            if q_lower and (q_lower not in c_name and q_lower not in c_city and q_lower not in c_country):
-                continue
-
-            # Radial distance filter
-            if lat is not None and lon is not None and radius_km is not None and c_lat is not None and c_lng is not None:
-                dist = self.haversine_distance(lat, lon, c_lat, c_lng)
-                if dist > radius_km:
-                    continue
-                cam["distance_km"] = round(dist, 1)
-
-            filtered.append(cam)
-
-        # Sort by distance if coordinate biased
-        if lat is not None and lon is not None:
-            filtered.sort(key=lambda x: x.get("distance_km", 999999))
-
-        total_matched = len(filtered)
-        capped = total_matched > limit
-        sliced = filtered[:limit]
-
-        if return_meta:
-            if total_matched == 0:
-                status = "zero_results"
-                debrief = "Zero tactical CCTV feeds detected within current viewport coordinates."
-            elif capped:
-                status = "capped"
-                debrief = f"Displaying {len(sliced)} of {total_matched} optical feeds in sector (display cap enforced: {limit})."
-            else:
-                status = "ok"
-                debrief = f"Tactical optical surveillance active: {len(sliced)} cameras rendered in viewport."
-
-            return {
-                "status": status,
-                "count": len(sliced),
-                "total_in_bounds": total_matched,
-                "capped": capped,
-                "limit": limit,
-                "cameras": sliced,
-                "debrief": debrief,
-                "bounds": bounds,
-            }
-
-        return sliced
+        return {"flights": 0, "sats": 0, "weather": 0, "nuclear": 0, "incidents": 0}
 
     def get_flights(
         self,

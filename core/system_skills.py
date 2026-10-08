@@ -477,12 +477,6 @@ class SystemSkillEngine:
                         pass
                     return True, debrief_msg, False, "", payload
 
-                elif task.type == TaskType.BROWSER_SURF.value and task.data.get("cctv"):
-                    city = task.data.get("city", "")
-                    sal = self.memory.get_salutation()
-                    debrief_msg = f"Deploying God's Eye tactical surveillance feeds for {city.title() if city else 'active sector'}, {sal}."
-                    task_mgr.complete_task(task.task_id, summary="CCTV optical layers online")
-                    return True, debrief_msg, False, "", {"action_type": "CCTV", "city": city}
 
                 elif task.type == TaskType.SATELLITE_TRACK.value:
                     sat_query = task.data.get("query", "ISS")

@@ -54,11 +54,6 @@ def test_native_cesium_osiris_layer_and_hud_elements_present():
     assert "window.OsirisCesiumLayer" in html
     assert "initOsirisCesiumLayer" in html
 
-    # 2. LOD tiers implemented
-    assert "populateHighAltitudeClusters" in html
-    assert "OSIRIS_GLOBAL_CLUSTERS" in html
-    assert "fetchOsirisCctvViewport" in html
-    assert "renderCctvFrustum" in html
 
     # 3. HUD Debrief element and status surfacing
     assert 'id="osiris-telemetry-debrief"' in html
@@ -96,17 +91,6 @@ def test_phase3_bridge_methods_support_cesium_layer(mock_fetch):
     assert conf_res["status"] == "ok"
     assert conf_res["activeWarzones"] == 1
 
-    # Viewport CCTV stream with LOD display cap
-    mock_fetch.return_value = {
-        "total": 2,
-        "cameras": [
-            {"id": "c1", "name": "Cam 1", "lat": 37.7, "lng": -122.4, "category": "traffic"},
-            {"id": "c2", "name": "Cam 2", "lat": 37.8, "lng": -122.5, "category": "highway"},
-        ]
-    }
-    cctv_res = api.get_cctv_in_viewport(bounds={"south": 37.0, "west": -123.0, "north": 38.0, "east": -122.0}, limit=40)
-    assert cctv_res["status"] == "ok"
-    assert len(cctv_res["cameras"]) == 2
 
 
 def test_satellite_points_playwright_behavior_toggle():
@@ -197,7 +181,7 @@ def test_satellite_points_playwright_behavior_toggle():
 
 
 def test_no_double_slash_in_panel_or_hud_labels():
-    """Verify '//' has been removed from all panel, chamber, waypoint, and CCTV HUD labels."""
+    """Verify '//' has been removed from all panel, chamber, and waypoint HUD labels."""
     with open("frontend/app.html", "r", encoding="utf-8") as f:
         html = f.read()
 
@@ -209,24 +193,13 @@ def test_no_double_slash_in_panel_or_hud_labels():
     assert "TACTICAL PIN // ACQUIRED" not in html
     assert "TACTICAL PIN · ACQUIRED" in html
 
-    with open("frontend/desktop.py", "r", encoding="utf-8") as f:
-        py_code = f.read()
-    assert "● REC [LIVE OPTICAL FEED] //" not in py_code
-    assert "● REC [LIVE OPTICAL FEED] ·" in py_code
-    assert "● REC [LIVE OPTICAL]  //" not in py_code
-    assert "● REC [LIVE OPTICAL] ·" in py_code
-
-
 def test_outlines_disabled_on_terrain_entities():
-    """Verify outlines are disabled on terrain-clamped geometries (clusters, conflicts, CCTV plane) to prevent imagery draping and terrain outline console warnings."""
+    """Verify outlines are disabled on terrain-clamped geometries (conflicts) to prevent imagery draping and terrain outline console warnings."""
     with open("frontend/app.html", "r", encoding="utf-8") as f:
         html = f.read()
 
-    assert "populateHighAltitudeClusters" in html
-    # Frustum plane outline disabled
-    assert "cctv-${cam.id}-plane" in html
-    # Check that neither cluster nor conflict ellipses have outline: true
-    assert "outline: true" not in html[html.find("populateHighAltitudeClusters"):html.find("populateHighAltitudeClusters") + 1000]
+    assert "renderOsirisConflicts" in html
+    # Check that conflict ellipses do not have outline: true
     assert "outline: true" not in html[html.find("renderOsirisConflicts"):html.find("renderOsirisConflicts") + 1000]
 
 

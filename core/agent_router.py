@@ -392,8 +392,6 @@ class AgentRouter:
                 topic = ask_loc.get("topic", "telemetry")
                 if "traffic" in topic:
                     phrase = f"Which city or sector would you like live traffic telemetry for, {sal}?"
-                elif "optical" in topic or "cctv" in topic:
-                    phrase = f"Which city would you like optical surveillance feeds for, {sal}?"
                 else:
                     phrase = f"Which city or region would you like atmospheric telemetry for, {sal}?"
             return True, phrase, None, "clarification"
@@ -529,14 +527,6 @@ class AgentRouter:
             )
             return True, f"Querying live traffic telemetry and GIS nodes for {loc_clean.title()}, {sal}.", task, "traffic_intel"
 
-        elif action == "cctv":
-            city_clean = primary_step.get("location", "").strip()
-            task = self.task_manager.create_task(
-                type_=TaskType.BROWSER_SURF.value,
-                title=f"CCTV Surveillance: {city_clean.title()}",
-                data={"cctv": True, "city": city_clean.lower()}
-            )
-            return True, f"Connecting to live public CCTV surveillance feeds for {city_clean.title()}, {sal}.", task, "cctv_intel"
 
         elif action == "ground_intel":
             loc_clean = primary_step.get("location", "").strip() or "Coimbatore"

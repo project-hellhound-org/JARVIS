@@ -96,7 +96,7 @@ class ConversationContextManager:
 
         # 1.5 Check for geographic / spatial follow-up ("what is the traffic there", "weather there", "cameras there")
         has_spatial_ref = bool(re.search(r'\b(?:there|here|this area|this place|the area)\b', lower))
-        has_spatial_domain = any(w in lower for w in ["traffic", "weather", "cctv", "camera", "cameras", "radar", "flights"])
+        has_spatial_domain = any(w in lower for w in ["traffic", "weather", "radar", "flights"])
         effective_loc = active_location or (last_turn.entities.get("location") if last_turn else None)
 
         if has_spatial_ref and has_spatial_domain and effective_loc:
@@ -205,7 +205,7 @@ class ConversationContextManager:
             self._log_decision(clean, classification, intent, entities, resolved, latency, note="Direct navigation fast-path")
             return classification, intent, entities, resolved
 
-        is_map_context = any(w in lower for w in ["camera", "cctv", "map", "route", "corridor", "globe", "satellite", "flight", "traffic", "weather"])
+        is_map_context = any(w in lower for w in ["map", "route", "corridor", "globe", "satellite", "flight", "traffic", "weather"])
         inv_match = re.match(r'^(?:investigate|deep_scan|recon|scan|trace|lookup|pivot|stalk|dox)\s+(\S+)$', lower)
         if not is_map_context and inv_match and inv_match.group(1) not in ("me", "jarvis", "us", "again", "them"):
             target_extracted = inv_match.group(1).strip()

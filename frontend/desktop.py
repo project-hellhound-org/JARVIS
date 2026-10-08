@@ -1034,9 +1034,6 @@ class JarvisAPI:
             "boats": "vessels",
             "ais": "vessels",
             "maritime": "vessels",
-            "cameras": "cctv",
-            "camera": "cctv",
-            "traffic": "cctv",
             "iss": "space",
             "satellites": "space",
             "satellite": "space",
@@ -2247,64 +2244,6 @@ class JarvisAPI:
             logger.error(f"[desktop] get_ground_intel error: {e}")
             return {"location": location or "Unknown", "media_points": [], "total": 0, "error": str(e)}
 
-    def get_cctv_synthetic_bmp(self, camera_id: str, label: str = "OPTICAL CAM") -> bytes:
-        """Pure-Python standard-library 24-bit BMP generator requiring zero external dependencies."""
-        import struct
-        w, h = 640, 360
-        row_bytes = w * 3
-        padding = (4 - (row_bytes % 4)) % 4
-        image_size = (row_bytes + padding) * h
-        file_size = 54 + image_size
-        hdr = struct.pack('<2sIHHI', b'BM', file_size, 0, 0, 54)
-        dib = struct.pack('<IIIHHIIIIII', 40, w, h, 1, 24, 0, image_size, 2835, 2835, 0, 0)
-        # Tactical dark cyan-blue background (BGR: b=24, g=14, r=4)
-        bg_row = bytes([24, 14, 4] * w) + (b'\x00' * padding)
-        rows = [bg_row] * h
-        return hdr + dib + b''.join(rows)
-
-    def get_cctv_synthetic_svg(self, camera_id: str, label: str = "OPTICAL CAM") -> bytes:
-        """Fallback synthetic vector feed when optical canvas or JPEG pipeline is unavailable."""
-        now_str = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
-        svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
-          <defs>
-            <linearGradient id="cctv-bg" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#07121E" />
-              <stop offset="100%" stop-color="#020509" />
-            </linearGradient>
-          </defs>
-          <rect width="640" height="360" fill="url(#cctv-bg)" />
-          <g stroke="rgba(0,240,255,0.2)" stroke-width="1" fill="none">
-            <line x1="0" y1="180" x2="640" y2="180" />
-            <line x1="320" y1="0" x2="320" y2="360" />
-            <circle cx="320" cy="180" r="80" />
-            <circle cx="320" cy="180" r="140" stroke-dasharray="4 4" />
-          </g>
-          <rect x="0" y="0" width="640" height="28" fill="rgba(2,8,16,0.9)" />
-          <rect x="0" y="332" width="640" height="28" fill="rgba(2,8,16,0.9)" />
-          <text x="14" y="19" fill="#22C55E" font-family="monospace" font-size="11" font-weight="bold">● REC [LIVE OPTICAL FEED] · {label.upper()}</text>
-          <text x="440" y="19" fill="#FF9D2E" font-family="monospace" font-size="11">{now_str}</text>
-          <text x="14" y="351" fill="#00F0FF" font-family="monospace" font-size="10">STATUS: SENSOR ONLINE (OPTICAL STREAM)</text>
-          <text x="500" y="351" fill="#A1A1AA" font-family="monospace" font-size="10">ID: {camera_id}</text>
-        </svg>"""
-        return svg.strip().encode('utf-8')
-
-    def get_cctv_sources(self) -> list:
-        """Return global multi-region CCTV camera sources across India, UK, USA, Japan."""
-        try:
-            from modules.cctv_service import get_cctv_sources
-            return get_cctv_sources()
-        except Exception as e:
-            print(f"[desktop] Error retrieving CCTV sources: {e}")
-            return []
-
-    def get_cctv_frame(self, camera_id: str) -> tuple:
-        """Return authentic live snapshot and content-type for the requested camera."""
-        try:
-            from modules.cctv_service import fetch_cctv_frame
-            return fetch_cctv_frame(camera_id)
-        except Exception as e:
-            print(f"[desktop] Error fetching live CCTV frame: {e}")
-            return b"", "image/jpeg"
 
     # ── OSIRIS Global Intelligence Platform API Methods ─────────
 
@@ -2317,14 +2256,6 @@ class JarvisAPI:
             print(f"[desktop] OSIRIS stats notice: {e}")
             return {}
 
-    def get_osiris_cctv(self, query: str = "", city: str = "", lat: float = None, lon: float = None, radius_km: float = None, limit: int = 40, bounds: dict = None, category: str = "") -> list:
-        """Query 28,400+ cameras from OSIRIS global surveillance network."""
-        try:
-            from modules.osiris_intel import get_osiris_client
-            return get_osiris_client().get_cctv_cameras(query=query, city=city, lat=lat, lon=lon, radius_km=radius_km, limit=limit, bounds=bounds, category=category)
-        except Exception as e:
-            print(f"[desktop] OSIRIS CCTV notice: {e}")
-            return []
 
     def get_osiris_flights(self, military_only: bool = False, bounds: dict = None, category: str = "", limit: int = None) -> dict:
         """Query real-time ADS-B aircraft with military and GPS jamming separation."""
@@ -2395,25 +2326,6 @@ class JarvisAPI:
                 "bounds": bounds,
             }
 
-    def get_cctv_in_viewport(self, bounds: Optional[dict] = None, limit: int = 60, category: Optional[str] = None) -> dict:
-        """Native CesiumJS bridge: Query CCTV cameras within the active 3D camera viewport bounds.
-        Degrades gracefully with explicit UI states (ok, zero_results, capped, upstream_error).
-        """
-        try:
-            from modules.osiris_intel import get_osiris_client
-            return get_osiris_client().get_cctv_cameras(bounds=bounds, limit=limit, category=category, return_meta=True)
-        except Exception as e:
-            return {
-                "status": "error",
-                "error": str(e),
-                "count": 0,
-                "total_in_bounds": 0,
-                "capped": False,
-                "limit": limit,
-                "cameras": [],
-                "debrief": f"Viewport CCTV query error: {e}",
-                "bounds": bounds,
-            }
 
     def get_osiris_route(self, from_loc: str, to_loc: str, mode: str = "auto") -> dict:
         """Query Valhalla/OSRM turn-by-turn routing from OSIRIS."""
@@ -2447,78 +2359,6 @@ class JarvisAPI:
             print(f"[desktop] OSIRIS news notice: {e}")
             return []
 
-    def _get_legacy_synthetic_cctv_frame(self, camera_id: str) -> bytes:
-        """Legacy fallback synthetic frame."""
-        now = time.time()
-        cache = getattr(self, '_cctv_frame_cache', {})
-        last_t, last_bytes = cache.get(camera_id, (0.0, None))
-        if last_bytes and (now - last_t) < 4.0:
-            return last_bytes
-
-        cams = {
-            "cctv-kotagiri-johnstone": {"name": "KOTAGIRI JOHNSTONE CIRCLE", "lat": 11.4228, "lon": 76.8661, "alt": "1,830m MSL"},
-            "cctv-coonoor-sims": {"name": "COONOOR SIM'S PARK JUNCTION", "lat": 11.3530, "lon": 76.7959, "alt": "1,878m MSL"},
-            "cctv-ooty-charring": {"name": "OOTY CHARRING CROSS HUB", "lat": 11.4102, "lon": 76.6950, "alt": "2,272m MSL"},
-            "cctv-bengaluru-mg": {"name": "BENGALURU MG ROAD METRO CENTRAL", "lat": 12.9716, "lon": 77.5946, "alt": "946m MSL"},
-            "cctv-sf-market-5th": {"name": "SAN FRANCISCO MARKET & 5TH ST", "lat": 37.7833, "lon": -122.4080, "alt": "40m MSL"},
-            "cctv-nyc-times-sq": {"name": "NEW YORK TIMES SQUARE PLAZA", "lat": 40.7580, "lon": -73.9855, "alt": "36m MSL"},
-            "cctv-tokyo-shibuya": {"name": "TOKYO SHIBUYA CROSSING INTERSECTION", "lat": 35.6595, "lon": 139.7005, "alt": "48m MSL"},
-            "cctv-london-city": {"name": "LONDON CITY FINANCIAL CORE", "lat": 51.5155, "lon": -0.0922, "alt": "42m MSL"}
-        }
-        info = cams.get(camera_id, {"name": camera_id.replace('-', ' ').upper(), "lat": 11.42, "lon": 76.86, "alt": "SURV-1"})
-
-        try:
-            from PIL import Image, ImageDraw
-            import io, random
-            w, h = 640, 360
-            img = Image.new("RGB", (w, h), color=(8, 18, 28))
-            draw = ImageDraw.Draw(img)
-
-            # Draw tactical perspective horizon and street geometry
-            draw.rectangle([0, 0, w, h // 2], fill=(12, 24, 38))
-            draw.rectangle([0, h // 2, w, h], fill=(6, 12, 20))
-            vp_x, vp_y = w // 2, h // 2
-            for x_off in range(-280, 281, 70):
-                draw.line([(vp_x, vp_y), (int(vp_x + x_off * 2.2), h)], fill=(20, 50, 70), width=1)
-            for y_line in range(h // 2 + 20, h, 28):
-                draw.line([(0, y_line), (w, y_line)], fill=(16, 40, 60), width=1)
-
-            random.seed(int(now // 8) + hash(camera_id))
-            for b in range(6):
-                bx = 30 + b * 100
-                bw = random.randint(50, 90)
-                bh = random.randint(60, 150)
-                draw.rectangle([bx, vp_y - bh, bx + bw, vp_y], fill=(18, 36, 52), outline=(30, 70, 95))
-
-            # Night-vision phosphor scanlines
-            for y in range(0, h, 4):
-                draw.line([(0, y), (w, y)], fill=(0, 24, 32))
-
-            # Tactical crosshairs
-            draw.line([(vp_x - 30, vp_y), (vp_x + 30, vp_y)], fill=(0, 240, 255), width=1)
-            draw.line([(vp_x, vp_y - 30), (vp_x, vp_y + 30)], fill=(0, 240, 255), width=1)
-            draw.rectangle([vp_x - 45, vp_y - 45, vp_x + 45, vp_y + 45], outline=(0, 240, 255), width=1)
-
-            # Telemetry text overlays
-            time_str = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(now))
-            draw.rectangle([0, 0, w, 28], fill=(2, 8, 16))
-            draw.text((12, 6), f"● REC [LIVE OPTICAL] · {info['name']}", fill=(34, 197, 94))
-            draw.text((w - 230, 6), time_str, fill=(255, 157, 46))
-
-            draw.rectangle([0, h - 26, w, h], fill=(2, 8, 16))
-            draw.text((12, h - 20), f"POS: {info['lat']:.4f}°N, {info['lon']:.4f}°E  |  ELEV: {info['alt']}", fill=(0, 240, 255))
-            draw.text((w - 175, h - 20), "FPS: 30.0  |  OPTICAL HD", fill=(161, 161, 170))
-
-            buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=85)
-            frame_bytes = buf.getvalue()
-            if not hasattr(self, '_cctv_frame_cache'):
-                self._cctv_frame_cache = {}
-            self._cctv_frame_cache[camera_id] = (now, frame_bytes)
-            return frame_bytes
-        except Exception as e:
-            # Zero-dependency BMP fallback guarantee
-            return self.get_cctv_synthetic_bmp(camera_id, label=info.get("name", camera_id))
 
     def get_firms_hotspots(self) -> dict:
         """Fetch real-time NASA FIRMS thermal wildfire anomaly contacts."""
@@ -5127,30 +4967,6 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
             limit=limit
         ))
 
-    @app.route('/api/cctv/sources')
-    def _bottle_cctv_sources():
-        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        bottle.response.content_type = 'application/json'
-        bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-        sources = api.get_cctv_sources() if (api and hasattr(api, 'get_cctv_sources')) else []
-        return json.dumps({"sources": sources})
-
-    @app.route('/api/cctv/frame/<camera_id>')
-    def _bottle_cctv(camera_id):
-        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        res = api.get_cctv_frame(camera_id) if (api and hasattr(api, 'get_cctv_frame')) else None
-        if isinstance(res, tuple) and len(res) == 2:
-            frame, mime = res
-        else:
-            frame = res
-            mime = 'image/jpeg'
-        if not frame and api and hasattr(api, 'get_cctv_synthetic_bmp'):
-            frame = api.get_cctv_synthetic_bmp(camera_id)
-            mime = 'image/bmp'
-        bottle.response.content_type = mime or 'image/jpeg'
-        bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-        return [frame] if isinstance(frame, bytes) else (frame or b"")
-
     @app.route('/api/cyber-news', method=['GET', 'OPTIONS'])
     def _bottle_cyber_news():
         bottle.response.headers['Access-Control-Allow-Origin'] = '*'
@@ -5161,155 +4977,6 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
             return ""
         from modules.cyber_news_service import get_latest_cyber_news
         return json.dumps(get_latest_cyber_news())
-
-    @app.route('/api/cctv/health')
-    def _bottle_cctv_health():
-        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        bottle.response.content_type = 'application/json'
-        bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-        from modules.cctv_service import get_cctv_health_status
-        return json.dumps(get_cctv_health_status())
-
-    @app.route('/api/cctv/media/<camera_id>', method=['GET', 'DELETE', 'OPTIONS'])
-    def _bottle_cctv_media(camera_id):
-        import uuid
-        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, DELETE, OPTIONS'
-        bottle.response.headers['Access-Control-Allow-Headers'] = 'Range, Content-Type, Accept'
-        if bottle.request.method == 'OPTIONS':
-            return ""
-
-        from modules.cctv_service import get_cctv_sources, set_camera_health
-        from modules.cctv_security_proxy import (
-            get_hls_puller,
-            sanitize_cctv_range_header,
-            fetch_upstream_bytes,
-            SecurityError,
-            CCTV_MEDIA_MAX_BODY_BYTES
-        )
-
-        sources = get_cctv_sources()
-        cam = next((c for c in sources if c.get('id') == camera_id), None)
-        if not cam:
-            bottle.response.status = 404
-            return json.dumps({"error": f"Camera {camera_id} not found in catalog"})
-
-        feed_type = str(cam.get('feedType') or 'image').lower()
-        media_url = cam.get('videoUrl') or cam.get('url') or ''
-        # If media_url is a local relative route pointing to /api/cctv/media/..., resolve to original camera url
-        if media_url.startswith('/api/cctv/media/'):
-            media_url = cam.get('url') or ''
-        lease_id = bottle.request.query.get('lease') or 'legacy'
-
-        if bottle.request.method == 'DELETE':
-            if feed_type == 'hls':
-                get_hls_puller().release(camera_id, lease_id)
-            bottle.response.status = 204
-            return ""
-
-        # HLS stream handling
-        if feed_type == 'hls':
-            if not lease_id or lease_id == 'legacy':
-                lease_id = str(uuid.uuid4())
-
-            puller = get_hls_puller()
-            try:
-                entry = puller.ensure(camera_id, media_url, lease_id)
-                ready = puller.wait_ready(entry, timeout_sec=6.0)
-                if not ready:
-                    set_camera_health(camera_id, 'degraded', 'Live HLS stream initializing', source_kind='hls')
-                    bottle.response.status = 503
-                    bottle.response.content_type = 'application/json'
-                    return json.dumps({"error": "Live HLS stream initializing"})
-
-                playlist = puller.build_playlist(camera_id, lease_id)
-                if not playlist:
-                    set_camera_health(camera_id, 'degraded', 'No segments available', source_kind='hls')
-                    bottle.response.status = 503
-                    bottle.response.content_type = 'application/json'
-                    return json.dumps({"error": "No segments available"})
-
-                set_camera_health(camera_id, 'ok', 'Live HLS connected', source_kind='hls')
-                bottle.response.content_type = 'application/vnd.apple.mpegurl'
-                bottle.response.set_header('Cache-Control', 'no-store')
-                bottle.response.set_header('X-CCTV-Source', 'hls-pull')
-                bottle.response.set_header('X-CCTV-Session', entry['token'])
-                return playlist
-            except Exception as e:
-                set_camera_health(camera_id, 'degraded', str(e), source_kind='hls')
-                bottle.response.status = 503
-                bottle.response.content_type = 'application/json'
-                return json.dumps({"error": str(e)})
-
-        # Direct video (MP4 / WebM / MJPEG) handling with Range header support
-        if feed_type in ('mp4', 'webm', 'video', 'mjpeg', 'mjpg'):
-            client_range = bottle.request.headers.get('Range') or bottle.request.headers.get('range')
-            sanitized_range = sanitize_cctv_range_header(client_range)
-            req_headers = {}
-            if sanitized_range:
-                req_headers['Range'] = sanitized_range
-
-            try:
-                body, headers, status = fetch_upstream_bytes(
-                    media_url,
-                    max_bytes=CCTV_MEDIA_MAX_BODY_BYTES,
-                    headers=req_headers,
-                    timeout_sec=10.0
-                )
-                ct = headers.get('Content-Type') or headers.get('content-type') or ('video/mp4' if feed_type == 'mp4' else 'application/octet-stream')
-                cr = headers.get('Content-Range') or headers.get('content-range')
-                ar = headers.get('Accept-Ranges') or headers.get('accept-ranges') or 'bytes'
-                cl = str(len(body))
-
-                bottle.response.status = status
-                bottle.response.content_type = ct
-                bottle.response.set_header('Cache-Control', 'no-store')
-                bottle.response.set_header('Accept-Ranges', ar)
-                if cr:
-                    bottle.response.set_header('Content-Range', cr)
-                bottle.response.set_header('Content-Length', cl)
-                set_camera_health(camera_id, 'ok', 'Direct media stream connected', source_kind=feed_type)
-                return [body]
-            except SecurityError as se:
-                set_camera_health(camera_id, 'blocked', str(se), source_kind=feed_type)
-                bottle.response.status = 403
-                bottle.response.content_type = 'application/json'
-                return json.dumps({"error": str(se)})
-            except Exception as e:
-                set_camera_health(camera_id, 'degraded', str(e), source_kind=feed_type)
-                bottle.response.status = 502
-                bottle.response.content_type = 'application/json'
-                return json.dumps({"error": f"Upstream media error: {e}"})
-
-        bottle.response.status = 400
-        return json.dumps({"error": "Camera is a still image feed; use /api/cctv/frame/<camera_id>"})
-
-    @app.route('/api/cctv/media/<camera_id>/<seg_name>', method=['GET', 'OPTIONS'])
-    def _bottle_cctv_segment(camera_id, seg_name):
-        import re
-        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
-        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        if bottle.request.method == 'OPTIONS':
-            return ""
-
-        m = re.match(r"^seg_(\d+)\.ts$", seg_name)
-        if not m:
-            bottle.response.status = 404
-            return ""
-
-        seq = int(m.group(1))
-        session_token = bottle.request.query.get('session') or ''
-        lease_id = bottle.request.query.get('lease') or 'legacy'
-
-        from modules.cctv_security_proxy import get_hls_puller
-        body = get_hls_puller().get_segment(camera_id, session_token, seq, lease_id)
-        if not body:
-            bottle.response.status = 404
-            return ""
-
-        bottle.response.content_type = 'video/mp2t'
-        bottle.response.set_header('Cache-Control', 'no-store')
-        bottle.response.set_header('Content-Length', str(len(body)))
-        return [body]
 
     @app.route('/api/firms')
     def _bottle_firms():
@@ -5340,40 +5007,6 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
             return json.dumps(api.get_active_conflicts())
         from modules.osiris_intel import get_osiris_client
         return json.dumps(get_osiris_client().get_conflicts(return_meta=True))
-
-    @app.route('/api/cctv/viewport', method=['GET', 'POST', 'OPTIONS'])
-    def _bottle_cctv_viewport():
-        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
-        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        bottle.response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type'
-        if bottle.request.method == 'OPTIONS':
-            return ""
-        bottle.response.content_type = 'application/json'
-        bounds = None
-        limit = 60
-        category = None
-        if bottle.request.method == 'POST' and bottle.request.json:
-            bounds = bottle.request.json.get('bounds')
-            limit = int(bottle.request.json.get('limit', 60))
-            category = bottle.request.json.get('category')
-        else:
-            try:
-                limit = int(bottle.request.query.get('limit', 60))
-            except (ValueError, TypeError):
-                limit = 60
-            category = bottle.request.query.get('category')
-            south = bottle.request.query.get('south')
-            if south is not None:
-                bounds = {
-                    'south': float(south),
-                    'west': float(bottle.request.query.get('west', -180)),
-                    'north': float(bottle.request.query.get('north', 90)),
-                    'east': float(bottle.request.query.get('east', 180)),
-                }
-        if api and hasattr(api, 'get_cctv_in_viewport'):
-            return json.dumps(api.get_cctv_in_viewport(bounds=bounds, limit=limit, category=category))
-        from modules.osiris_intel import get_osiris_client
-        return json.dumps(get_osiris_client().get_cctv_cameras(bounds=bounds, limit=limit, category=category, return_meta=True))
 
     _OVERPASS_CACHE = {}
 
@@ -5571,7 +5204,7 @@ class JarvisDesktop:
             raise ImportError("pywebview is required to run JarvisDesktop. Install pywebview or run with CLI mode.")
 
         # Native 3D Earth Globe is integrated directly into the spatial WebGL canvas;
-        # Attach custom BottleServer to pywebview to reliably serve CCTV frames and ADS-B feeds (200 OK)
+        # Attach custom BottleServer to pywebview to reliably serve ADS-B feeds (200 OK)
         server_cls = None
         try:
             import bottle

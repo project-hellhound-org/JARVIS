@@ -204,10 +204,10 @@ def test_cloud_failure_fallback_graceful():
     mock_voice._ask_slm.return_value = {"text": "", "error": True}
     loop.voice = mock_voice
 
-    prompt = "Check cameras in Mumbai and see how traffic is flowing"
+    prompt = "Check traffic in Mumbai and see how it is flowing"
     steps = loop.analyze_goal(prompt)
 
-    # Fallback should kick in and decompose into nav, cctv, and traffic
+    # Fallback should kick in and decompose into nav and traffic
     assert len(steps) >= 2
     actions = [s["action"] for s in steps]
-    assert "cctv" in actions or "traffic" in actions
+    assert "traffic" in actions
