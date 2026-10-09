@@ -21482,8 +21482,8 @@ function initGlobeIntelligence(viewer) {
 
     // Procedural Satellite-Silhouette Sprite Atlas Generator (God's Eye Parity)
     // Dark metallic bus body, dual solar panel wings with photovoltaic cells,
-    // crisp 1px light edge for high-contrast visibility against pitch-black space,
-    // and a distinctive per-class core accent color.
+    // parabolic dish antenna & masts, crisp 1px metallic edge for high-contrast visibility against pitch-black space,
+    // and a distinctive per-class core accent beacon. ISS features custom multi-array station architecture.
     const _satelliteSpriteAtlas = {};
 
     function getSatelliteSpriteCanvas(classKey, accentHex, isLarge = false) {
@@ -21491,8 +21491,9 @@ function initGlobeIntelligence(viewer) {
       if (_satelliteSpriteAtlas[cacheKey]) return _satelliteSpriteAtlas[cacheKey];
 
       const cvs = document.createElement('canvas');
-      cvs.width = isLarge ? 36 : 28;
-      cvs.height = isLarge ? 20 : 16;
+      const isISS = (classKey === 'station_iss');
+      cvs.width = isISS ? 48 : (isLarge ? 36 : 28);
+      cvs.height = isISS ? 28 : (isLarge ? 22 : 16);
       const ctx = cvs.getContext('2d');
       const w = cvs.width;
       const h = cvs.height;
@@ -21501,93 +21502,292 @@ function initGlobeIntelligence(viewer) {
 
       ctx.clearRect(0, 0, w, h);
 
-      // Solar Panel Wings (Dual horizontal arrays)
-      const wingW = isLarge ? 11 : 8;
-      const wingH = isLarge ? 10 : 8;
-      const wingY = cy - wingH / 2;
-      const busW = isLarge ? 8 : 6;
-      const busH = isLarge ? 10 : 8;
-      const busX = cx - busW / 2;
-      const busY = cy - busH / 2;
-
-      // Connecting Trusses
-      ctx.strokeStyle = '#94A3B8';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(busX - 2, cy);
-      ctx.lineTo(busX, cy);
-      ctx.moveTo(busX + busW, cy);
-      ctx.lineTo(busX + busW + 2, cy);
-      ctx.stroke();
-
-      // Left and Right Solar Panel Arrays
-      const leftWingX = busX - 2 - wingW;
-      const rightWingX = busX + busW + 2;
-
-      [leftWingX, rightWingX].forEach(wx => {
-        // Photovoltaic cell gradient
-        const pGrad = ctx.createLinearGradient(wx, wingY, wx + wingW, wingY + wingH);
-        pGrad.addColorStop(0, '#0F3B5F');
-        pGrad.addColorStop(0.5, '#0284C7');
-        pGrad.addColorStop(1, '#0369A1');
-        ctx.fillStyle = pGrad;
-        ctx.fillRect(wx, wingY, wingW, wingH);
-
-        // Thin light edge (visible against black space)
-        ctx.strokeStyle = 'rgba(241, 245, 249, 0.9)';
-        ctx.lineWidth = 0.8;
-        ctx.strokeRect(wx + 0.4, wingY + 0.4, wingW - 0.8, wingH - 0.8);
-
-        // Photovoltaic grid divider lines
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
-        ctx.lineWidth = 0.6;
+      if (isISS) {
+        // =====================================================================
+        // International Space Station (ISS) Custom Multi-Module Architecture
+        // =====================================================================
+        // Main Integrated Truss Structure (Long central girder)
+        ctx.strokeStyle = '#94A3B8';
+        ctx.lineWidth = 1.8;
         ctx.beginPath();
-        // Horizontal cell line
-        ctx.moveTo(wx, cy);
-        ctx.lineTo(wx + wingW, cy);
-        // Vertical cell line
-        ctx.moveTo(wx + wingW / 2, wingY);
-        ctx.lineTo(wx + wingW / 2, wingY + wingH);
+        ctx.moveTo(4, cy);
+        ctx.lineTo(w - 4, cy);
         ctx.stroke();
-      });
 
-      // Central Satellite Bus Body (Dark metallic alloy)
-      const busGrad = ctx.createLinearGradient(busX, busY, busX + busW, busY + busH);
-      busGrad.addColorStop(0, '#1E293B');
-      busGrad.addColorStop(0.5, '#0F172A');
-      busGrad.addColorStop(1, '#020617');
-      ctx.fillStyle = busGrad;
-      ctx.fillRect(busX, busY, busW, busH);
+        // Truss metallic highlights
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(6, cy - 1);
+        ctx.lineTo(w - 6, cy - 1);
+        ctx.stroke();
 
-      // Crisp Light Edge around Bus (Crisp silver/white line against black space)
-      ctx.strokeStyle = '#F8FAFC';
-      ctx.lineWidth = 1.0;
-      ctx.strokeRect(busX + 0.5, busY + 0.5, busW - 1, busH - 1);
+        // 4 Dual Solar Array Wings (Port & Starboard Wings, 8 photovoltaic panels total)
+        const issWingW = 8;
+        const issWingH = 11;
+        const issXOffsets = [4, 13, w - 21, w - 12];
 
-      // High-Gain Antenna / Sensor Mast Nub (Top & Bottom)
-      ctx.strokeStyle = '#CBD5E1';
-      ctx.lineWidth = 1.0;
-      ctx.beginPath();
-      ctx.moveTo(cx, busY);
-      ctx.lineTo(cx, busY - 2.5);
-      ctx.stroke();
+        issXOffsets.forEach(wx => {
+          // Top Array
+          const topY = cy - 2 - issWingH;
+          const pGradTop = ctx.createLinearGradient(wx, topY, wx + issWingW, topY + issWingH);
+          pGradTop.addColorStop(0, '#0F3B5F');
+          pGradTop.addColorStop(0.5, '#0284C7');
+          pGradTop.addColorStop(1, '#0369A1');
+          ctx.fillStyle = pGradTop;
+          ctx.fillRect(wx, topY, issWingW, issWingH);
 
-      // Per-Class Color Accent Sensor Beacon / Core
-      ctx.fillStyle = accentHex || '#4FD8FF';
-      ctx.beginPath();
-      ctx.arc(cx, cy, isLarge ? 2.0 : 1.5, 0, Math.PI * 2);
-      ctx.fill();
+          // Top Array Silver Border
+          ctx.strokeStyle = 'rgba(248, 250, 252, 0.95)';
+          ctx.lineWidth = 0.8;
+          ctx.strokeRect(wx + 0.4, topY + 0.4, issWingW - 0.8, issWingH - 0.8);
 
-      // Accent halo / glow
-      ctx.strokeStyle = accentHex || '#4FD8FF';
-      ctx.lineWidth = 0.7;
-      ctx.beginPath();
-      ctx.arc(cx, cy, isLarge ? 3.0 : 2.4, 0, Math.PI * 2);
-      ctx.stroke();
+          // Grid line
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(wx + issWingW / 2, topY);
+          ctx.lineTo(wx + issWingW / 2, topY + issWingH);
+          ctx.moveTo(wx, topY + issWingH / 2);
+          ctx.lineTo(wx + issWingW, topY + issWingH / 2);
+          ctx.stroke();
+
+          // Bottom Array
+          const botY = cy + 2;
+          const pGradBot = ctx.createLinearGradient(wx, botY, wx + issWingW, botY + issWingH);
+          pGradBot.addColorStop(0, '#0369A1');
+          pGradBot.addColorStop(0.5, '#0284C7');
+          pGradBot.addColorStop(1, '#0F3B5F');
+          ctx.fillStyle = pGradBot;
+          ctx.fillRect(wx, botY, issWingW, issWingH);
+
+          // Bottom Array Silver Border
+          ctx.strokeStyle = 'rgba(248, 250, 252, 0.95)';
+          ctx.lineWidth = 0.8;
+          ctx.strokeRect(wx + 0.4, botY + 0.4, issWingW - 0.8, issWingH - 0.8);
+
+          // Grid line
+          ctx.beginPath();
+          ctx.moveTo(wx + issWingW / 2, botY);
+          ctx.lineTo(wx + issWingW / 2, botY + issWingH);
+          ctx.moveTo(wx, botY + issWingH / 2);
+          ctx.lineTo(wx + issWingW, botY + issWingH / 2);
+          ctx.stroke();
+        });
+
+        // Central Habitation & Laboratory Pressurized Modules (Zarya / Destiny / Unity)
+        const modW = 8;
+        const modH = 14;
+        const modX = cx - modW / 2;
+        const modY = cy - modH / 2;
+
+        const modGrad = ctx.createLinearGradient(modX, modY, modX + modW, modY + modH);
+        modGrad.addColorStop(0, '#334155');
+        modGrad.addColorStop(0.5, '#1E293B');
+        modGrad.addColorStop(1, '#0F172A');
+        ctx.fillStyle = modGrad;
+        ctx.fillRect(modX, modY, modW, modH);
+
+        // Module Silver Metallic Edge
+        ctx.strokeStyle = '#F8FAFC';
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(modX + 0.5, modY + 0.5, modW - 1, modH - 1);
+
+        // Radiator Heat Panels (perpendicular white thermal panels)
+        ctx.fillStyle = '#CBD5E1';
+        ctx.fillRect(cx - 5, cy - 1, 2, 2);
+        ctx.fillRect(cx + 3, cy - 1, 2, 2);
+
+        // Cupola / Earth-Facing Optical Core
+        ctx.fillStyle = accentHex || '#FFF6E5';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Golden Station Beacon
+        ctx.strokeStyle = '#FEF08A';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+        ctx.stroke();
+
+      } else {
+        // =====================================================================
+        // Standard Satellite Architecture (Body, Dual Solar Panels, Antenna)
+        // =====================================================================
+        const wingW = isLarge ? 11 : 8;
+        const wingH = isLarge ? 10 : 8;
+        const wingY = cy - wingH / 2;
+        const busW = isLarge ? 8 : 6;
+        const busH = isLarge ? 10 : 8;
+        const busX = cx - busW / 2;
+        const busY = cy - busH / 2;
+
+        // Connecting Structural Trusses
+        ctx.strokeStyle = '#94A3B8';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(busX - 2, cy);
+        ctx.lineTo(busX, cy);
+        ctx.moveTo(busX + busW, cy);
+        ctx.lineTo(busX + busW + 2, cy);
+        ctx.stroke();
+
+        // Left and Right Solar Panel Arrays
+        const leftWingX = busX - 2 - wingW;
+        const rightWingX = busX + busW + 2;
+
+        [leftWingX, rightWingX].forEach(wx => {
+          // Photovoltaic cell gradient
+          const pGrad = ctx.createLinearGradient(wx, wingY, wx + wingW, wingY + wingH);
+          pGrad.addColorStop(0, '#0F3B5F');
+          pGrad.addColorStop(0.5, '#0284C7');
+          pGrad.addColorStop(1, '#0369A1');
+          ctx.fillStyle = pGrad;
+          ctx.fillRect(wx, wingY, wingW, wingH);
+
+          // Crisp 1px Metallic Light Edge (High contrast against pitch black space)
+          ctx.strokeStyle = 'rgba(248, 250, 252, 0.95)';
+          ctx.lineWidth = 0.85;
+          ctx.strokeRect(wx + 0.4, wingY + 0.4, wingW - 0.8, wingH - 0.8);
+
+          // Photovoltaic grid division lines
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          // Horizontal cell line
+          ctx.moveTo(wx, cy);
+          ctx.lineTo(wx + wingW, cy);
+          // Vertical cell line
+          ctx.moveTo(wx + wingW / 2, wingY);
+          ctx.lineTo(wx + wingW / 2, wingY + wingH);
+          ctx.stroke();
+        });
+
+        // Central Satellite Bus Body (Dark metallic alloy)
+        const busGrad = ctx.createLinearGradient(busX, busY, busX + busW, busY + busH);
+        busGrad.addColorStop(0, '#1E293B');
+        busGrad.addColorStop(0.5, '#0F172A');
+        busGrad.addColorStop(1, '#020617');
+        ctx.fillStyle = busGrad;
+        ctx.fillRect(busX, busY, busW, busH);
+
+        // Crisp Metallic Edge around Bus (Crisp silver/white line against black space)
+        ctx.strokeStyle = '#F8FAFC';
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(busX + 0.5, busY + 0.5, busW - 1, busH - 1);
+
+        // Parabolic Dish Antenna / Sensor Mast Assembly
+        // 1. Antenna feed stalk
+        ctx.strokeStyle = '#CBD5E1';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(cx, busY);
+        ctx.lineTo(cx, busY - 3.5);
+        ctx.stroke();
+
+        // 2. Parabolic dish curve
+        ctx.strokeStyle = '#F1F5F9';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.arc(cx, busY - 2.5, 3.0, Math.PI * 1.15, Math.PI * 1.85);
+        ctx.stroke();
+
+        // 3. Directional feedhorn tip
+        ctx.fillStyle = '#E2E8F0';
+        ctx.beginPath();
+        ctx.arc(cx, busY - 3.8, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Per-Class Color Accent Sensor Beacon / Core
+        ctx.fillStyle = accentHex || '#4FD8FF';
+        ctx.beginPath();
+        ctx.arc(cx, cy, isLarge ? 2.0 : 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Accent halo / glow
+        ctx.strokeStyle = accentHex || '#4FD8FF';
+        ctx.lineWidth = 0.75;
+        ctx.beginPath();
+        ctx.arc(cx, cy, isLarge ? 3.2 : 2.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
 
       _satelliteSpriteAtlas[cacheKey] = cvs;
       return cvs;
     }
+
+    // Export procedural sprite atlas grid for testing, inspection, and verification
+    window.generateSatelliteAtlasGrid = function() {
+      const classes = [
+        { key: 'station_iss', accentHex: '#fff6e5', label: 'STATION · ISS', isLarge: true },
+        { key: 'station', accentHex: '#fff6e5', label: 'STATION · TIANGONG', isLarge: true },
+        { key: 'nav', accentHex: '#4fd8ff', label: 'NAV · GPS / GALILEO', isLarge: false },
+        { key: 'geo', accentHex: '#c89bff', label: 'GEO · WEATHER / SAT', isLarge: false },
+        { key: 'comms', accentHex: '#54697f', label: 'COMMS · STARLINK', isLarge: false },
+        { key: 'visual', accentHex: '#9fb3c4', label: 'VISUAL · RECON / HST', isLarge: false },
+        { key: 'default', accentHex: '#ff9d2e', label: 'ORBITAL · GENERAL', isLarge: false }
+      ];
+
+      const scale = 4; // 4x enlarged resolution
+      const cellW = 360;
+      const cellH = 150;
+      const cols = 2;
+      const rows = Math.ceil(classes.length / cols);
+
+      const gridCvs = document.createElement('canvas');
+      gridCvs.width = cellW * cols;
+      gridCvs.height = cellH * rows;
+      const gCtx = gridCvs.getContext('2d');
+
+      // Tactical space HUD background
+      gCtx.fillStyle = '#020617';
+      gCtx.fillRect(0, 0, gridCvs.width, gridCvs.height);
+
+      // Starfield / grid dots
+      gCtx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      for (let x = 10; x < gridCvs.width; x += 20) {
+        for (let y = 10; y < gridCvs.height; y += 20) {
+          gCtx.fillRect(x, y, 1, 1);
+        }
+      }
+
+      classes.forEach((c, idx) => {
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        const cellX = col * cellW;
+        const cellY = row * cellH;
+
+        // Card border
+        gCtx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+        gCtx.lineWidth = 1;
+        gCtx.strokeRect(cellX + 6, cellY + 6, cellW - 12, cellH - 12);
+
+        // Header label
+        gCtx.font = 'bold 11px "JetBrains Mono", monospace';
+        gCtx.fillStyle = c.accentHex;
+        gCtx.fillText(`[${c.label}]`, cellX + 16, cellY + 22);
+
+        // Draw sprite enlarged by 4x
+        const sprite = getSatelliteSpriteCanvas(c.key, c.accentHex, c.isLarge);
+        const drawW = sprite.width * scale;
+        const drawH = sprite.height * scale;
+        const spriteX = cellX + 16;
+        const spriteY = cellY + 28;
+
+        gCtx.imageSmoothingEnabled = false; // Preserve crisp pixel-art sharpness
+        gCtx.drawImage(sprite, spriteX, spriteY, drawW, drawH);
+
+        // Dimension badge
+        gCtx.font = '9px "JetBrains Mono", monospace';
+        gCtx.fillStyle = '#64748B';
+        gCtx.fillText(`${sprite.width}x${sprite.height}px (4x: ${drawW}x${drawH})`, cellX + 16 + drawW + 14, cellY + 54);
+        gCtx.fillStyle = '#94A3B8';
+        gCtx.fillText(`ACCENT: ${c.accentHex.toUpperCase()}`, cellX + 16 + drawW + 14, cellY + 68);
+      });
+
+      return gridCvs.toDataURL('image/png');
+    };
 
     function getSatelliteStyle(sat) {
       const name = (sat.name || '').toUpperCase();
