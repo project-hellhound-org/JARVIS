@@ -252,6 +252,20 @@ def extract_cmd_directive(text: str) -> tuple[Optional[str], str]:
         return cmd_to_run, cleaned_text
     return None, text
 
+_FISH_AUDIO_CACHE = {
+    "status": None,
+    "model": None,
+    "key": None,
+    "last_checked": 0.0,
+}
+_GLOBAL_JARVIS_VOICE = None
+
+def get_jarvis_voice() -> "JarvisVoice":
+    global _GLOBAL_JARVIS_VOICE
+    if _GLOBAL_JARVIS_VOICE is None:
+        _GLOBAL_JARVIS_VOICE = JarvisVoice()
+    return _GLOBAL_JARVIS_VOICE
+
 class JarvisVoice:
     @staticmethod
     def _clean_key(val: str) -> str | None:
@@ -306,25 +320,38 @@ class JarvisVoice:
         self.fish_audio_ws_url = "wss://api.fish.audio/v1/tts/live"
         self._fish_stream_client = None
 
-        # Preflight Fish Audio free model check
+        # Preflight Fish Audio free model check (cached with 10-minute TTL)
         if self.fish_audio_available:
-            try:
-                probe = httpx.post(
-                    "https://api.fish.audio/v1/tts",
-                    headers={"Authorization": f"Bearer {self.fish_audio_key}", "model": self.fish_audio_model},
-                    json={"text": "probe", "model": self.fish_audio_model, "reference_id": self.fish_audio_voice_id},
-                    timeout=3.5
-                )
-                if probe.status_code == 200:
-                    print(f"[jarvis_voice] Fish Audio free tier verified active ({self.fish_audio_model}).")
-                elif probe.status_code == 402 or "insufficient" in probe.text.lower():
-                    print(f"[jarvis_voice] Notice: Fish Audio credit depleted for {self.fish_audio_model}. Switching to British neural/system TTS.")
+            now = time.time()
+            if (
+                _FISH_AUDIO_CACHE["key"] == self.fish_audio_key
+                and _FISH_AUDIO_CACHE["model"] == self.fish_audio_model
+                and (now - _FISH_AUDIO_CACHE["last_checked"] < 600.0)
+                and _FISH_AUDIO_CACHE["status"] is not None
+            ):
+                self.fish_audio_available = _FISH_AUDIO_CACHE["status"]
+            else:
+                try:
+                    probe = httpx.post(
+                        "https://api.fish.audio/v1/tts",
+                        headers={"Authorization": f"Bearer {self.fish_audio_key}", "model": self.fish_audio_model},
+                        json={"text": "probe", "model": self.fish_audio_model, "reference_id": self.fish_audio_voice_id},
+                        timeout=3.5
+                    )
+                    if probe.status_code == 200:
+                        print(f"[jarvis_voice] Fish Audio free tier verified active ({self.fish_audio_model}).")
+                        _FISH_AUDIO_CACHE.update({"status": True, "model": self.fish_audio_model, "key": self.fish_audio_key, "last_checked": now})
+                    elif probe.status_code == 402 or "insufficient" in probe.text.lower():
+                        print(f"[jarvis_voice] Notice: Fish Audio credit depleted for {self.fish_audio_model}. Switching to British neural/system TTS.")
+                        self.fish_audio_available = False
+                        _FISH_AUDIO_CACHE.update({"status": False, "model": self.fish_audio_model, "key": self.fish_audio_key, "last_checked": now})
+                    elif probe.status_code in (401, 403):
+                        print(f"[jarvis_voice] Notice: Fish Audio authentication failed ({probe.status_code}). Switching to British neural/system TTS.")
+                        self.fish_audio_available = False
+                        _FISH_AUDIO_CACHE.update({"status": False, "model": self.fish_audio_model, "key": self.fish_audio_key, "last_checked": now})
+                except Exception:
+                    _FISH_AUDIO_CACHE.update({"status": False, "model": self.fish_audio_model, "key": self.fish_audio_key, "last_checked": now})
                     self.fish_audio_available = False
-                elif probe.status_code in (401, 403):
-                    print(f"[jarvis_voice] Notice: Fish Audio authentication failed ({probe.status_code}). Switching to British neural/system TTS.")
-                    self.fish_audio_available = False
-            except Exception:
-                pass
 
         # Local Zero-Shot Voice Clone
         from core.local_voice_clone import LocalVoiceClone

@@ -6099,6 +6099,11 @@ function updateStreamingChunk(chunkText, turnId) {
   if (!currentStreamingElem) return;
   if (typeof window.refreshThinkingWatchdog === 'function') window.refreshThinkingWatchdog();
   streamingBuffer += chunkText;
+  if (!window._firstTokenPainted && window._lastMsgSubmitTime) {
+    window._firstTokenPainted = true;
+    const elapsed = (performance.now() - window._lastMsgSubmitTime).toFixed(1);
+    console.log(`[TIMING] First token painted: +${elapsed}ms`);
+  }
   jarvisAudioEnergy = Math.min(255, jarvisAudioEnergy + 55 + Math.random() * 35);
   const display = cleanSpeakerPrefix(streamingBuffer);
   if (display && display.trim().length > 0) {
@@ -6175,6 +6180,11 @@ function finalizeStreamingAnswer(finalText, turnId) {
   }
   if (typeof window.scheduleHudDismiss === 'function') {
     window.scheduleHudDismiss(4000);
+  }
+  if (window._lastMsgSubmitTime) {
+    const elapsed = (performance.now() - window._lastMsgSubmitTime).toFixed(1);
+    console.log(`[TIMING] Message done: +${elapsed}ms`);
+    window._lastMsgSubmitTime = null;
   }
   scrollThreadToBottom();
 }
@@ -7222,6 +7232,11 @@ function handleSend() {
   if (!text && !state.pendingImagePath) return;
 
   const now = Date.now();
+  window._lastMsgSubmitEpoch = now;
+  window._lastMsgSubmitTime = performance.now();
+  window._firstTokenPainted = false;
+  console.log('[TIMING] UI submit: +0.0ms');
+
   if (text && text === lastSentText && (now - lastSendTime) < 600) {
     console.warn('[desktop] Fast duplicate input suppressed:', text);
     input.value = '';
@@ -7359,7 +7374,7 @@ function handleSend() {
 
     try {
       if (api() && api().process_input) {
-        api().process_input(text);
+        api().process_input(text, window._lastMsgSubmitEpoch);
       } else if (api() && api().smart_stalk) {
         api().smart_stalk(text);
       } else if (api() && api().ask) {

@@ -320,8 +320,8 @@ class JarvisCognitiveLoop:
         if self.voice and hasattr(self.voice, "_ask_cloud"):
             return self.voice._ask_cloud(prompt, system, max_tokens=max_tokens)
         try:
-            from narrative.jarvis_voice import JarvisVoice
-            voice = JarvisVoice()
+            from narrative.jarvis_voice import get_jarvis_voice
+            voice = get_jarvis_voice()
             if hasattr(voice, "_ask_cloud"):
                 return voice._ask_cloud(prompt, system, max_tokens=max_tokens)
         except Exception:
@@ -333,6 +333,101 @@ class JarvisCognitiveLoop:
             return self.voice._ask_slm(prompt, system, max_tokens=max_tokens, timeout=timeout)
         return {"text": "", "error": True}
 
+    @staticmethod
+    def is_conversational_query(text: str) -> bool:
+        """
+        Determines whether a user prompt is purely conversational / general chitchat / assistant-meta
+        and must NOT produce any tactical plan steps, navigation steps, or layer toggles.
+        """
+        t = (text or "").strip().lower()
+        if not t:
+            return True
+
+        # 1. Assistant-meta and self-referential questions are ALWAYS conversational
+        meta_patterns = [
+            r'\bwhat\s+(?:model|llm|engine|version|ai|architecture)\b',
+            r'\b(?:which\s+model|which\s+engine|which\s+llm)\b',
+            r'\b(?:how\s+do\s+you\s+work|who\s+made\s+you|who\s+built\s+you|who\s+created\s+you|who\s+are\s+you)\b',
+            r'\b(?:tell\s+me\s+about\s+yourself|about\s+yourself|about\s+you)\b',
+            r'\b(?:how\s+are\s+you|how\s+do\s+you\s+feel|how\'s\s+it\s+going)\b',
+            r'\b(?:are\s+you\s+(?:an?\s+)?(?:ai|llm|robot|bot|real|alive|conscious|online))\b',
+            r'\b(?:where\s+were\s+you\s+created|what\s+languages\s+can\s+you\s+speak)\b',
+        ]
+        if any(re.search(pat, t) for pat in meta_patterns):
+            if not re.search(r'\b(?:fly\s+to|go\s+to|take\s+me\s+to|navigate\s+to|jump\s+to|glide\s+to)\b', t):
+                return True
+
+        # Explicit search directives are always handled by search engine
+        if re.search(r'\b(?:google\s+search|search\s+google|search\s+the\s+web|web\s+search)\b', t):
+            return False
+
+        # 2. General knowledge / explanatory questions that should NOT trigger tools
+        if any(re.search(p, t) for p in [
+            r'\b(?:explain\s+how|explain\s+why|can\s+you\s+explain|tell\s+me\s+about\s+the\s+historic)\b',
+            r'\b(?:do\s+you\s+like|tell\s+me\s+a\s+joke)\b',
+            r'\b(?:why\s+is\s+traffic|why\s+are\s+roads)\b',
+            r'\b(?:weather\s+usually|weather\s+typically|climate\s+in|usually\s+like)\b',
+            r'\b(?:airspeed\s+velocity|capital\s+of)\b',
+            r'\b(?:help\s+me\s+debug|write\s+a\s+python)\b',
+            r'\bi\s+was\s+thinking\s+about\b',
+        ]):
+            return True
+
+        # 3. Explicit tactical commands & tool intents (NOT conversational)
+        # Navigation
+        if re.search(r'\b(?:fly\s+(?:me\s+)?to|go\s+to|take\s+(?:me|us)\s+to|navigate\s+to|jump\s+to|zoom\s+(?:(?:in|out)\s+)?to|look\s+at|glide\s+to|head\s+to)\b', t):
+            return False
+
+        # Live Weather / atmospheric telemetry
+        if re.search(r'\b(?:weather|forecast|rain|precipitation|temperature|atmospheric\s+conditions)\b', t):
+            return False
+
+        # Live Traffic telemetry
+        if re.search(r'\b(?:traffic|street\s+congestion|road\s+congestion|traffic\s+flow)\b', t):
+            return False
+
+        # Situational briefing intent
+        if any(kw in t for kw in ["good morning", "situational briefing", "morning protocol", "executive briefing", "status report", "how is the day looking", "how does the day look"]):
+            return False
+
+        # Memory recall / store intent
+        if any(kw in t for kw in ["do you remember", "what did we", "what did i", "recall our", "recall the", "what did we discuss", "did we discuss", "remind me what", "past discussion", "search memory", "recall memory"]):
+            return False
+
+        # Tactical layer commands
+        layer_verbs = r'\b(?:show|turn\s+on|enable|track|display|hide|turn\s+off|disable|open|toggle|check|scan|monitor|pull|get|assess)\b'
+        layer_nouns = r'\b(?:airspace|radar|flights?|aircraft|planes?|satellites?|iss|orbital|vessels?|maritime|ships?|boats?|naval|cctv|cameras?|perimeters?|defense\s+zone|warzone|conflicts?|ground\s+(?:intel|media|footage))\b'
+        if re.search(layer_verbs, t) and re.search(layer_nouns, t):
+            return False
+
+        # Explicit tool keywords
+        tool_keywords = [
+            "turn by turn", "driving directions", "drive from", "driving route",
+            "cyber recon", "whois", "shodan", "dns lookup", "cve scan",
+            "system diagnostic", "top process", "highest cpu", "highest memory", "kill process",
+            "git status", "git diff", "git branch", "scan email", "my meetings", "calendar",
+            "annotate", "defense zone", "no-fly zone", "no fly zone",
+            "world news", "latest news", "breaking news", "sigint broadcast",
+            "search the web", "google search", "web search"
+        ]
+        if any(tk in t for tk in tool_keywords):
+            return False
+
+        # 4. Pure chitchat greetings and closings
+        chitchat_patterns = [
+            r'^(?:hello|hi|hey|good\s+evening|good\s+afternoon|good\s+night)\b',
+            r'\b(?:thank\s+you|thanks|appreciate\s+it|you\'re\s+welcome)\b',
+            r'^(?:i\s+am\s+fine|i\'m\s+fine|fine|i\s+am\s+good|i\'m\s+good)\b'
+        ]
+        if any(re.search(pat, t) for pat in chitchat_patterns):
+            return True
+
+        # 5. General questions without tactical tool intent are conversational
+        if t.endswith('?') or re.match(r'^(?:what|how|who|why|where|when|which|is|are|can|could|would|will|do|does|did)\b', t):
+            return True
+
+        return False
+
     # ── 2. Intent & Plan Synthesis ────────────────────────────────────
 
     def analyze_goal(self, user_text: str, active_location: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -341,7 +436,7 @@ class JarvisCognitiveLoop:
         Falls back gracefully to heuristic parsing if cloud/SLM inference fails or times out.
         """
         text_strip = (user_text or "").strip()
-        if not text_strip:
+        if not text_strip or self.is_conversational_query(text_strip):
             return []
 
         sal = self.get_salutation()
@@ -506,6 +601,9 @@ Rules:
         """
         Deterministic heuristic fallback for goal decomposition when offline or during cloud timeouts.
         """
+        if self.is_conversational_query(user_text):
+            return []
+
         text_lower = user_text.lower().strip()
         sal = self.get_salutation()
 
@@ -554,31 +652,63 @@ Rules:
 
         plan_steps = []
 
-        loc_candidate = ""
+        EXCLUDED_LOCATIONS = {
+            "you", "me", "us", "them", "it", "him", "her", "model", "models",
+            "jarvis", "fine", "using", "we", "yourself", "myself", "this",
+            "that", "here", "there", "what", "how", "who", "when", "why",
+            "which", "where", "anything", "something", "nothing", "all",
+            "your", "help", "work", "code", "system", "file", "now", "today",
+            "tomorrow", "yesterday", "sure", "okay", "ok",
+            "december", "january", "february", "march", "april", "may",
+            "june", "july", "august", "september", "october", "november",
+            "cities", "city", "place", "places", "streets", "street"
+        }
 
-        # Explicit navigation directives: "navigate to Tokyo", "glide to Paris", "fly to London", "go to Sydney"
-        m_nav = re.search(r'\b(?:navigate\s+to|glide\s+to|fly\s+to|go\s+to|take\s+me\s+to|head\s+to|zoom\s+to|travel\s+to|inspect|visit)\s+([a-zA-Z0-9\s,\.\-]{2,45})', text_lower)
+        loc_candidate = ""
+        has_explicit_nav = False
+
+        # Explicit imperative navigation directives: "navigate to Tokyo", "glide to Paris", "fly to London", "go to Sydney", "jump to Cairo", "zoom to Berlin", "look at Nilgiris"
+        m_nav = re.search(r'\b(?:navigate\s+to|glide\s+to|fly\s+to|go\s+to|take\s+me\s+to|head\s+to|zoom\s+to|jump\s+to|look\s+at)\s+([a-zA-Z0-9\s,\.\-]{2,45})', text_lower)
         if m_nav:
             raw_loc = m_nav.group(1).strip()
             cleaned_loc = re.sub(r'\b(?:and|please|now|telemetry|globe|view|satellite|map|ground|media|photos?|videos?)\b.*$', '', raw_loc).strip()
-            loc_candidate = cleaned_loc.strip(' ,.?!')
+            cand = cleaned_loc.strip(' ,.?!')
+            if cand.lower() not in EXCLUDED_LOCATIONS and not any(w in cand.lower().split() for w in ("model", "models", "you", "yourself")):
+                loc_candidate = cand
+                has_explicit_nav = True
 
-        if not loc_candidate:
-            m_loc = re.search(r'\b(?:in|at|for|around|over|near|towards|to)\s+([a-zA-Z0-9\s,\.\-]{2,30})', text_lower)
-            if m_loc:
-                raw_loc = m_loc.group(1).strip()
-                cleaned_loc = re.sub(r'\b(?:and|check|see|show|find|tell|traffic|flights?|weather|how|what|lock|mark|pull|scan|annotate|designate|highlight)\b.*$', '', raw_loc).strip()
-                loc_candidate = cleaned_loc.strip(' ,.?!')
+        # Strict tactical layer action verbs check
+        LAYER_ACTION_VERBS = r'\b(?:show|turn\s+on|enable|track|display|hide|turn\s+off|disable|open|toggle|check|scan|monitor|pull|get|assess)\b'
+        has_layer_action = bool(re.search(LAYER_ACTION_VERBS, text_lower))
 
-        if not loc_candidate:
-            m_scan = re.search(r'\b(?:scan|check|monitor|track|search)\s+([a-zA-Z0-9\s,\.\-]{2,30}?)\s+(?:airspace|radar|weather|traffic|perimeter|zone)\b', text_lower)
-            if m_scan:
-                loc_candidate = m_scan.group(1).strip(' ,.?!')
+        has_traffic = any(re.search(rf'\b{w}\b', text_lower) for w in ["traffic", "congestion", "street congestion", "road", "roads", "flow", "jam", "commute", "highway"]) and "air traffic" not in text_lower
+        has_flight = (has_layer_action or any(w in text_lower for w in ["track", "flights in", "flights over", "flight radar", "airspace"])) and any(w in text_lower for w in ["flight", "flights", "aircraft", "plane", "planes", "radar", "airspace", "ads-b", "adsb", "chase", "air traffic"])
+        has_weather = any(w in text_lower for w in ["weather", "forecast", "rain", "temperature", "storm", "wind", "atmospheric", "pull the weather"])
+        has_satellites = (has_layer_action or any(w in text_lower for w in ["track", "orbit"])) and any(kw in text_lower for kw in [
+            "satellite", "satellites", "iss tracking", "track iss", "orbital tracking", "track satellite"
+        ])
+        has_ground_intel = (has_layer_action or any(kw in text_lower for kw in ["ground media", "ground footage", "ground intel", "photos of", "footage of", "videos in"])) and any(w in text_lower for w in [
+            "ground media", "ground footage", "open source media", "photos of", "videos in", "footage of",
+            "footage in", "clips in", "citizen report", "what's happening on the ground",
+            "whats happening on the ground", "ground evidence", "show videos", "show photos", "show footage",
+            "stuffs", "stuff", "show me some stuffs", "show me some stuff", "show me stuffs",
+            "show me footages", "show me clips", "show clips", "visual intelligence", "ground intel"
+        ]) and not any(w in text_lower for w in ["what model", "which model", "about yourself", "how do you work", "who made you"])
+        has_vessels = (has_layer_action or any(w in text_lower for w in ["track", "scan", "ships in", "vessels in"])) and any(w in text_lower for w in [
+            "vessel", "vessels", "ship", "ships", "maritime", "ais", "warship", "warships",
+            "carrier", "carriers", "naval", "tanker", "tankers", "cargo ship", "boat", "boats", "port traffic"
+        ])
 
-        if not loc_candidate:
-            m_air = re.search(r'\b([a-zA-Z]{3,20})\s+(?:airspace|weather|traffic|radar)\b', text_lower)
-            if m_air and m_air.group(1).lower() not in ('the', 'local', 'our', 'all', 'pull', 'scan', 'check'):
-                loc_candidate = m_air.group(1).strip()
+        tw_loc = ""
+        if has_traffic or has_weather or has_flight or has_vessels or has_satellites or has_ground_intel:
+            m_tw = re.search(r'\b(?:in|at|around|for|over|near)\s+([a-zA-Z0-9\s,\.\-]{2,30})', text_lower)
+            if m_tw:
+                raw_tw = m_tw.group(1).strip()
+                cleaned_tw = re.sub(r'\b(?:and|check|see|show|find|tell|traffic|flights?|weather|how|what|lock|mark|pull|scan|annotate|designate|highlight)\b.*$', '', raw_tw).strip(' ,.?!')
+                if cleaned_tw.lower() not in EXCLUDED_LOCATIONS and not any(w in cleaned_tw.lower().split() for w in ("model", "models", "you", "yourself")):
+                    tw_loc = cleaned_tw
+                    if not loc_candidate:
+                        loc_candidate = tw_loc
 
         # Check for exploratory or random place references
         if loc_candidate:
@@ -604,9 +734,6 @@ Rules:
         elif not loc_candidate and active_location and any(re.search(rf'\b{w}\b', text_lower) for w in ["there", "here", "this area", "this place"]):
             loc_candidate = active_location
 
-        has_traffic = any(re.search(rf'\b{w}\b', text_lower) for w in ["traffic", "congestion", "road", "roads", "flow", "jam", "commute", "highway"]) and "air traffic" not in text_lower
-        has_flight = any(w in text_lower for w in ["flight", "flights", "aircraft", "plane", "planes", "radar", "airspace", "ads-b", "adsb", "chase", "air traffic"])
-        has_weather = any(w in text_lower for w in ["weather", "forecast", "rain", "temperature", "storm", "wind", "pull the weather"])
         has_search = bool(re.search(r'\b(?:google\s+search|web\s+search|search\s+(?:the\s+web|google|online))\b', text_lower))
         has_briefing = any(w in text_lower for w in ["good morning", "briefing", "situational briefing", "status report", "morning protocol", "executive briefing", "how is the day looking", "how does the day look"]) and not any(w in text_lower for w in ["warzone", "conflict", "frontline", "cyber", "flight", "weather"])
         has_diag = any(w in text_lower for w in ["diagnostic", "system resource", "hardware stat", "cpu load", "thermals", "system status", "hardware status", "system telemetry", "resource monitor"])
@@ -625,9 +752,6 @@ Rules:
         has_news = any(kw in text_lower for kw in [
             "live news", "world news", "breaking news", "news broadcast", "sigint broadcast", "latest news"
         ])
-        has_satellites = any(kw in text_lower for kw in [
-            "satellite", "iss tracking", "track iss", "orbital tracking", "track satellite"
-        ])
         has_conflicts = any(kw in text_lower for kw in [
             "conflict zone", "warzone", "war zones", "active conflicts", "global conflicts"
         ])
@@ -637,19 +761,8 @@ Rules:
             "surveillance zone", "no-fly zone", "no fly zone", "security perimeter", "annotate sector",
             "mark a", "mark perimeter", "perimeter", "30km"
         ])
-        has_ground_intel = any(w in text_lower for w in [
-            "ground media", "ground footage", "open source media", "photos of", "videos in", "footage of",
-            "footage in", "clips in", "youtube", "citizen report", "what's happening on the ground",
-            "whats happening on the ground", "ground evidence", "show videos", "show photos", "show footage",
-            "stuffs", "stuff", "show me some stuffs", "show me some stuff", "show me stuffs",
-            "show me footages", "show me clips", "show clips", "visual intelligence", "ground intel"
-        ])
-        has_vessels = any(w in text_lower for w in [
-            "vessel", "vessels", "ship", "ships", "maritime", "ais", "warship", "warships",
-            "carrier", "carriers", "naval", "tanker", "tankers", "cargo ship", "boat", "boats", "port traffic"
-        ])
 
-        if loc_candidate:
+        if loc_candidate and (has_explicit_nav or tw_loc or has_annotate):
             plan_steps.append({
                 "action": "nav",
                 "location": loc_candidate,

@@ -152,6 +152,22 @@ class _StreamingPrefixFilter:
         self.cmd_in_double = False
         self.action_buffer = ""
         self.capturing_action = False
+        # Token batching buffer: flush every ~20-25 chars or ~40ms, or on newline/flush
+        self.emit_buffer = ""
+        self.last_flush_time = 0.0
+        self.batch_max_chars = 22
+        self.batch_max_interval = 0.040
+
+    def _emit_chunk(self, chunk: str, force: bool = False):
+        if chunk:
+            self.emit_buffer += chunk
+        now = time.time()
+        if force or len(self.emit_buffer) >= self.batch_max_chars or '\n' in self.emit_buffer or ((now - self.last_flush_time >= self.batch_max_interval) and self.emit_buffer):
+            if self.emit_buffer:
+                to_send = self.emit_buffer
+                self.emit_buffer = ""
+                self.last_flush_time = now
+                self.on_chunk(to_send)
 
     def push(self, chunk: str):
         if not chunk:
@@ -275,7 +291,7 @@ class _StreamingPrefixFilter:
                     self.capturing_action = True
                     self.action_buffer = '*'
                 else:
-                    self.on_chunk(ch)
+                    self._emit_chunk(ch)
             elif self.capturing_action:
                 self.action_buffer += ch
                 if ch == '*':
@@ -285,7 +301,7 @@ class _StreamingPrefixFilter:
                 elif len(self.action_buffer) > 100 or ch == '\n':
                     # Overflow: not a short stage direction
                     self.capturing_action = False
-                    self.on_chunk(self.action_buffer)
+                    self._emit_chunk(self.action_buffer, force=True)
                     self.action_buffer = ""
             elif self.capturing_cmd:
                 self.cmd_buffer += ch
@@ -297,7 +313,7 @@ class _StreamingPrefixFilter:
                         # Still just '[' plus optional spaces (e.g. '[ ', '[  ')
                         if len(self.cmd_buffer) > 10:
                             self.capturing_cmd = False
-                            self.on_chunk(self.cmd_buffer)
+                            self._emit_chunk(self.cmd_buffer, force=True)
                             self.cmd_buffer = ""
                         continue
 
@@ -313,32 +329,32 @@ class _StreamingPrefixFilter:
                             else:
                                 # Not in directive whitelist (e.g. [Sir's..., [Note:...) -> immediately emit!
                                 self.capturing_cmd = False
-                                self.on_chunk(self.cmd_buffer)
+                                self._emit_chunk(self.cmd_buffer, force=True)
                                 self.cmd_buffer = ""
                                 continue
                         else:
                             # Separator not reached yet. Check if kw is prefix of any valid directive
                             if not any(cand.startswith(kw) for cand in self.DIRECTIVE_PREFIXES):
                                 self.capturing_cmd = False
-                                self.on_chunk(self.cmd_buffer)
+                                self._emit_chunk(self.cmd_buffer, force=True)
                                 self.cmd_buffer = ""
                                 continue
                     elif ch == ']':
                         # Short brackets like `[]` or `[1]`
                         self.capturing_cmd = False
-                        self.on_chunk(self.cmd_buffer)
+                        self._emit_chunk(self.cmd_buffer, force=True)
                         self.cmd_buffer = ""
                         continue
                     else:
                         # Non-identifier char right after bracket (e.g. `['`, `[#`)
                         self.capturing_cmd = False
-                        self.on_chunk(self.cmd_buffer)
+                        self._emit_chunk(self.cmd_buffer, force=True)
                         self.cmd_buffer = ""
                         continue
 
                     if len(self.cmd_buffer) > 20:
                         self.capturing_cmd = False
-                        self.on_chunk(self.cmd_buffer)
+                        self._emit_chunk(self.cmd_buffer, force=True)
                         self.cmd_buffer = ""
                         continue
 
@@ -361,7 +377,7 @@ class _StreamingPrefixFilter:
                         self.capturing_cmd = False
                         self.cmd_in_single = False
                         self.cmd_in_double = False
-                        self.on_chunk(self.cmd_buffer)
+                        self._emit_chunk(self.cmd_buffer, force=True)
                         self.cmd_buffer = ""
                         continue
 
@@ -376,15 +392,17 @@ class _StreamingPrefixFilter:
             self.capturing_action = False
             # Drop trailing action tag if cut off mid-stream
             if not any(w in self.action_buffer.lower() for w in ["chuckle", "grin", "smirk", "laugh", "sigh", "knuckle", "lean", "crack"]):
-                self.on_chunk(self.action_buffer)
+                self._emit_chunk(self.action_buffer, force=True)
             self.action_buffer = ""
         if self.capturing_cmd and self.cmd_buffer:
             self.capturing_cmd = False
             if getattr(self, 'is_valid_directive', False):
                 self._dispatch_directive(self.cmd_buffer)
             else:
-                self.on_chunk(self.cmd_buffer)
+                self._emit_chunk(self.cmd_buffer, force=True)
             self.cmd_buffer = ""
+        # Flush any remaining batched tokens
+        self._emit_chunk("", force=True)
 
 # Comprehensive Prominent Indian Cities, Nilgiri Corridor & Global Hubs
 KNOWN_COORDS = {
@@ -762,8 +780,10 @@ class JarvisAPI:
         self._window = None
         self._window_mode = "hud" if (initial_mode or "").lower() in ("hud", "voiceos", "mini", "capsule", "pill") else "full"
         self._target: Target = None
-        self._memory = SessionMemory()
-        self._voice = JarvisVoice()
+        from narrative.jarvis_voice import get_jarvis_voice
+        self._voice = get_jarvis_voice()
+        from core.jarvis_reasoning_loop import JarvisCognitiveLoop
+        self._cognitive_loop = JarvisCognitiveLoop(voice_engine=self._voice)
         self._lessons_store = LessonsStore()
         self._orch = None
         self._stalk_loop = None
@@ -954,7 +974,14 @@ class JarvisAPI:
         except Exception as e:
             print(f"[desktop] SystemCommander debrief hook error: {e}")
 
-    def process_input(self, text: str):
+    def process_input(self, text: str, submit_time: Optional[float] = None):
+        if submit_time is not None:
+            t0 = (submit_time / 1000.0) if submit_time > 1e11 else submit_time
+        else:
+            t0 = time.time()
+        self._msg_t0 = t0
+        print(f"[TIMING] Backend received: +{(time.time() - t0)*1000.0:.1f}ms")
+
         norm = re.sub(r'[^\w\s]', '', text or '').strip().lower()
         now = time.time()
         last_text, last_time = getattr(self, '_last_input_seen', ('', 0.0))
@@ -980,7 +1007,7 @@ class JarvisAPI:
             except Exception:
                 pass
         self._memory.add("user", text)
-        threading.Thread(target=self._run_process_input, args=(text,), daemon=True).start()
+        threading.Thread(target=self._run_process_input, args=(text, t0), daemon=True).start()
 
     def _on_skill_progress(self, finfo):
         if isinstance(finfo, dict) and "file" in finfo:
@@ -1442,20 +1469,29 @@ class JarvisAPI:
 
     def _resolve_and_glide_location(self, text: str, glide_only: bool = False) -> bool:
         """Detect location queries and glide 3D camera to Earth globe with coordinates."""
-        pat = r'\b(?:take\s+(?:me|us)\s+to|bring\s+(?:me|us)\s+to|fly\s+(?:me\s+)?to|navigate\s+to|pan\s+to|head\s+to|look\s+at|show\s+me|view|locate|find|where\s+is|show|map\s+of|track\s+(?:traffic|flights?\s+in\s+)?|go\s+to|zoom\s+(?:(?:in|out)\s+)?to)\s+(?:the\s+(?:city|town|region|country|area|district|hills?)\s+of\s+)?([a-zA-Z0-9\s,\.\-]{2,45})\b'
+        # Strict imperative navigation verbs only: "fly to", "go to", "take me to", "navigate to", "jump to", "zoom to", "look at", "glide to", "head to"
+        pat = r'\b(?:fly\s+(?:me\s+)?to|go\s+to|take\s+(?:me|us)\s+to|navigate\s+to|jump\s+to|zoom\s+(?:(?:in|out)\s+)?to|look\s+at|glide\s+to|head\s+to)\s+(?:the\s+(?:city|town|region|country|area|district|hills?)\s+of\s+)?([a-zA-Z0-9\s,\.\-]{2,45})\b'
         m = re.search(pat, text, re.IGNORECASE)
 
         candidate = None
         if m:
             candidate = m.group(1).strip().lower()
         elif glide_only:
-            candidate = re.sub(r'^(?:go\s+to|fly\s+to|nav\s+to)\s+', '', text, flags=re.IGNORECASE).strip().lower()
+            candidate = re.sub(r'^(?:go\s+to|fly\s+to|nav\s+to|glide\s+to)\s+', '', text, flags=re.IGNORECASE).strip().lower()
 
         if not candidate:
             return False
 
         candidate = re.sub(r'\b(?:in\s+the\s+map|on\s+the\s+map|on\s+map|in\s+3d|now|please|thanks|sir)\b', '', candidate, flags=re.IGNORECASE).strip()
-        if candidate in ("your", "this", "that", "something", "anything", "nothing", "what", "how", "who", "when", "why", "help"):
+        EXCLUDED_WORDS = {
+            "you", "me", "us", "them", "it", "him", "her", "model", "models",
+            "jarvis", "fine", "using", "we", "yourself", "myself", "this",
+            "that", "here", "there", "what", "how", "who", "when", "why",
+            "which", "where", "anything", "something", "nothing", "all",
+            "your", "help", "work", "code", "system", "file", "now", "today",
+            "tomorrow", "yesterday", "sure", "okay", "ok"
+        }
+        if candidate in EXCLUDED_WORDS or any(w in candidate.split() for w in ("model", "models", "you", "yourself")):
             return False
 
         # God's Eye Full-Earth / Orbit View Directive
@@ -1561,7 +1597,9 @@ class JarvisAPI:
             return True
         return False
 
-    def _run_process_input(self, text: str):
+    def _run_process_input(self, text: str, t0: Optional[float] = None):
+        if t0 is None:
+            t0 = getattr(self, '_msg_t0', time.time())
         try:
             # Fast-path check: Window mode switching (Top-Center HUD notch vs God's Eye console)
             t_lower = (text or "").strip().lower()
@@ -1747,13 +1785,23 @@ class JarvisAPI:
                 if resolved_q and resolved_q != text:
                     eff_text = resolved_q
 
+            # Conversational Fast-Path Check: bypass heavy cognitive loop & intent LLM for chitchat/questions
+            from core.jarvis_reasoning_loop import JarvisCognitiveLoop
+            if JarvisCognitiveLoop.is_conversational_query(eff_text):
+                print(f"[TIMING] Intent classified: +{(time.time() - t0)*1000.0:.1f}ms (conversational bypass)")
+                self._run_ask(eff_text, t0=t0)
+                return
+
             # 3. Unified Goal-Driven Autonomous Reasoning Engine ("JARVIS-Level Thinking")
             try:
-                from core.jarvis_reasoning_loop import JarvisCognitiveLoop
-                cognitive = JarvisCognitiveLoop(voice_engine=self._voice)
+                cognitive = getattr(self, '_cognitive_loop', None)
+                if cognitive is None:
+                    cognitive = JarvisCognitiveLoop(voice_engine=self._voice)
+                    self._cognitive_loop = cognitive
                 active_loc = getattr(self, '_active_geo_label', None)
                 steps = cognitive.analyze_goal(eff_text, active_location=active_loc)
                 if steps:
+                    print(f"[TIMING] Intent classified: +{(time.time() - t0)*1000.0:.1f}ms (tactical cognitive plan: {len(steps)} steps)")
                     print(f"[desktop] Autonomous cognitive loop activated ({len(steps)} steps) for: '{eff_text}'")
                     def _live_speak(phrase: str):
                         self._emit("jarvis_stream_chunk", {"chunk": f"{phrase}\n"})
@@ -1792,6 +1840,7 @@ class JarvisAPI:
 
             # 4. Intent Classification (OSINT Investigation vs Conversation)
             intent = self._voice.classify_intent(eff_text, self._target)
+            print(f"[TIMING] Intent classified: +{(time.time() - t0)*1000.0:.1f}ms")
             print(f"[desktop] AI Intent decision: {intent}")
             if intent["type"] == "investigate" and intent.get("target"):
                 target_str = intent["target"]
@@ -1801,7 +1850,7 @@ class JarvisAPI:
                     brief = parse_brief_with_slm(eff_text)
                 self._run_stalk(target_str, brief)
             else:
-                self._run_ask(eff_text)
+                self._run_ask(eff_text, t0=t0)
         except Exception as e:
             print(f"[desktop] Error processing input: {e}")
             self._emit("error", {"message": f"System error: {str(e)}"})
@@ -2931,7 +2980,9 @@ class JarvisAPI:
         except Exception as e:
             print(f"[desktop] Sentence TTS streaming error: {e}")
 
-    def _run_ask(self, question: str):
+    def _run_ask(self, question: str, t0: Optional[float] = None):
+        if t0 is None:
+            t0 = getattr(self, '_msg_t0', time.time())
         # Every answer gets a monotonically increasing TTS turn ID. The browser
         # uses it to discard late PCM from an older answer after barge-in/new input.
         with self._tts_turn_lock:
@@ -3327,11 +3378,17 @@ class JarvisAPI:
             on_window=lambda w: self._execute_tactical_window(w),
         )
 
+        first_token_seen = False
         def on_token(chunk: str):
+            nonlocal first_token_seen
+            if not first_token_seen:
+                first_token_seen = True
+                print(f"[TIMING] First token: +{(time.time() - t0)*1000.0:.1f}ms")
             if is_turn_stale():
                 return
             prefix_filter.feed(chunk)
 
+        print(f"[TIMING] LLM request sent: +{(time.time() - t0)*1000.0:.1f}ms")
         result = None
         for attempt in (1, 2):
             try:
@@ -3503,6 +3560,7 @@ class JarvisAPI:
             "search_query": result.get("search_query", ""),
             "turn_id": tts_turn_id,
         })
+        print(f"[TIMING] Message done: +{(time.time() - t0)*1000.0:.1f}ms")
         if result.get("open_dialog"):
             self._emit("open_investigate_dialog", {})
         if result.get("show_panel"):
