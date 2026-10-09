@@ -695,7 +695,7 @@ class ImageGeolocator:
             "prompt": prompt,
             "images": [b64_jpeg],
             "stream": False,
-            "keep_alive": "1m"
+            "keep_alive": "2m"
         }
         try:
             with httpx.Client(timeout=timeout) as client:

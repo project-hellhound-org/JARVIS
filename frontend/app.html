@@ -17348,7 +17348,7 @@ function sfInit() {
   window.addEventListener('resize', sfOnResize);
 
   console.log('[Starfield] Initialized 3D Spatial Canvas: Rotating Galaxy & Hanging Earth Globe');
-  sfAnimate();
+  sfStart();
 }
 
 function sfOnResize() {
@@ -17358,9 +17358,65 @@ function sfOnResize() {
   sfRenderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+let sfAnimId = null;
+let sfRunning = false;
+
+function sfStart() {
+  if (sfRunning) return;
+  sfRunning = true;
+  if (typeof sfClock !== 'undefined' && sfClock) sfClock.getDelta();
+  sfAnimId = requestAnimationFrame(sfAnimate);
+}
+
+function sfStop() {
+  sfRunning = false;
+  if (sfAnimId) {
+    cancelAnimationFrame(sfAnimId);
+    sfAnimId = null;
+  }
+}
+
+// Global lifecycle governor: pause render loops when document is hidden
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    // 1. Pause Three.js starfield loop
+    if (typeof sfStop === 'function') sfStop();
+    // 2. Pause 3D Knowledge Graph
+    if (window.JarvisKnowledgeGraph && typeof window.JarvisKnowledgeGraph.pause === 'function') {
+      window.JarvisKnowledgeGraph.pause();
+    }
+    // 3. Pause Cesium render loop
+    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+      window.cesiumViewer.useDefaultRenderLoop = false;
+    }
+  } else {
+    // 1. Resume Three.js starfield loop
+    if (typeof sfStart === 'function') sfStart();
+    // 2. Resume 3D Knowledge Graph if active on Screen 2
+    if (window.JarvisKnowledgeGraph && typeof window.JarvisKnowledgeGraph.resume === 'function') {
+      const absRatio = Math.abs(typeof SpatialNav !== 'undefined' ? (SpatialNav.currentX / (SpatialNav.screenWidth || 1920)) : 0);
+      if (absRatio < 0.45) {
+        window.JarvisKnowledgeGraph.resume();
+      }
+    }
+    // 3. Resume Cesium render loop if in World Telemetry screen
+    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+      if (typeof SpatialNav !== 'undefined' && SpatialNav.currentX > 250) {
+        window.cesiumViewer.useDefaultRenderLoop = true;
+        window.cesiumViewer.scene.requestRender();
+      }
+    }
+  }
+});
+
 function sfAnimate() {
-  requestAnimationFrame(sfAnimate);
-  if (document.hidden) { sfClock.getDelta(); return; }
+  if (!sfRunning && !document.hidden) sfRunning = true;
+  if (document.hidden || !sfRunning) {
+    sfRunning = false;
+    sfAnimId = null;
+    return;
+  }
+  sfAnimId = requestAnimationFrame(sfAnimate);
 
   const delta = sfClock.getDelta();
   // Calm ambient celestial drift (~0.016 rad/s: ~8.75x slower than previous 0.14 rad/s)
@@ -17459,12 +17515,14 @@ function initCesiumGlobe() {
     const scene = cesiumViewer.scene;
     // Cesium RAM & Performance Governor (God's Eye demand rendering & memory capping)
     scene.requestRenderMode = true;
-    scene.maximumRenderTimeChange = Infinity;
-    cesiumViewer.resolutionScale = 1.0; // 1:1 hardware pixel ratio; eliminates 4x fill-rate bottleneck
+    scene.maximumRenderTimeChange = 1.0;
+    cesiumViewer.resolutionScale = Math.min(window.devicePixelRatio || 1.0, 1.25);
     scene.globe.maximumScreenSpaceError = 3.5; // Optimized tile geometry budget
-    scene.globe.tileCacheSize = 35; // Capped tile cache RAM hoarding
+    scene.globe.tileCacheSize = 50; // Capped tile cache RAM hoarding
     scene.highDynamicRange = false;
     if (scene.shadowMap) scene.shadowMap.enabled = false;
+    if (scene.fog) scene.fog.enabled = false;
+    if (scene.postProcessStages && scene.postProcessStages.fxaa) scene.postProcessStages.fxaa.enabled = false;
 
     scene.backgroundColor = Cesium.Color.TRANSPARENT;
     if (scene.skyBox) scene.skyBox.show = false;
@@ -22147,14 +22205,26 @@ function initGlobeIntelligence(viewer) {
           }
         });
 
-        // Prune stale contacts not seen for > 90 seconds
+        // Prune stale contacts not seen for > 60 seconds
         _aircraftFlightMap.forEach((val, key) => {
-          if (nowMs - val.lastSeen > 90000) {
+          if (nowMs - val.lastSeen > 60000) {
             _flightsDataSource.entities.remove(val.entity);
             if (val.dropLine) _flightsDataSource.entities.remove(val.dropLine);
             _aircraftFlightMap.delete(key);
           }
         });
+
+        // Cap retention to 100 max (prune oldest if excess)
+        if (_aircraftFlightMap.size > 100) {
+          const sortedEntries = Array.from(_aircraftFlightMap.entries())
+            .sort((a, b) => (a[1].lastSeen || 0) - (b[1].lastSeen || 0));
+          while (_aircraftFlightMap.size > 100 && sortedEntries.length > 0) {
+            const [oldestKey, oldestVal] = sortedEntries.shift();
+            _flightsDataSource.entities.remove(oldestVal.entity);
+            if (oldestVal.dropLine) _flightsDataSource.entities.remove(oldestVal.dropLine);
+            _aircraftFlightMap.delete(oldestKey);
+          }
+        }
 
         const countEl = document.getElementById('radar-contact-count');
         if (countEl) countEl.textContent = _aircraftFlightMap.size;

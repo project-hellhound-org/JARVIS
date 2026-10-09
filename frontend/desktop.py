@@ -4067,16 +4067,45 @@ class JarvisAPI:
 
         return {"success": False, "error": f"Failed starting microphone recording: {last_err[:150]}"}
 
+    def _schedule_whisper_idle_unload(self):
+        """Schedule automatic unloading of heavy Whisper weights from RAM after 60s of inactivity."""
+        self._last_whisper_access = time.time()
+        if getattr(self, '_whisper_unload_timer_started', False):
+            return
+        self._whisper_unload_timer_started = True
+
+        def _idle_worker():
+            while True:
+                time.sleep(15.0)
+                if time.time() - getattr(self, '_last_whisper_access', 0.0) >= 60.0:
+                    unloaded = False
+                    if hasattr(self, '_faster_whisper_model') and self._faster_whisper_model is not None:
+                        self._faster_whisper_model = None
+                        unloaded = True
+                    if hasattr(self, '_whisper_model') and self._whisper_model is not None:
+                        self._whisper_model = None
+                        unloaded = True
+                    if unloaded:
+                        import gc
+                        gc.collect()
+                        print("[desktop] Offline Whisper model unloaded from RAM after 60s idle.")
+                    self._whisper_unload_timer_started = False
+                    break
+
+        import threading
+        threading.Thread(target=_idle_worker, daemon=True).start()
+
     def _transcribe_audio_offline_whisper(self, wav_path: str) -> str:
-        """Offline Whisper speech transcription fallback (supports faster-whisper and whisper)."""
+        """Offline Whisper speech transcription fallback (supports faster-whisper and whisper). Lazy-loaded & auto-unloaded."""
         # 1. Try faster-whisper (CTranslate2, ultra-fast CPU/CUDA)
         try:
-            if not hasattr(self, '_faster_whisper_model'):
+            if not hasattr(self, '_faster_whisper_model') or self._faster_whisper_model is None:
                 from faster_whisper import WhisperModel
                 self._faster_whisper_model = WhisperModel("tiny.en", device="cpu", compute_type="int8")
             if getattr(self, '_faster_whisper_model', None):
                 segments, _ = self._faster_whisper_model.transcribe(wav_path, beam_size=1)
                 res = " ".join(s.text for s in segments).strip()
+                self._schedule_whisper_idle_unload()
                 if res:
                     print(f"[desktop] Transcribed via offline faster-whisper: '{res}'")
                     return res
@@ -4085,12 +4114,13 @@ class JarvisAPI:
 
         # 2. Try standard openai whisper
         try:
-            if not hasattr(self, '_whisper_model'):
+            if not hasattr(self, '_whisper_model') or self._whisper_model is None:
                 import whisper
                 self._whisper_model = whisper.load_model("tiny.en")
             if getattr(self, '_whisper_model', None):
                 res = self._whisper_model.transcribe(wav_path)
                 txt = (res.get("text") or "").strip()
+                self._schedule_whisper_idle_unload()
                 if txt:
                     print(f"[desktop] Transcribed via offline whisper: '{txt}'")
                     return txt

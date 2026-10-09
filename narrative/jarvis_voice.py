@@ -680,6 +680,7 @@ class JarvisVoice:
                 "system": system,
                 "prompt": prompt,
                 "stream": bool(on_token),
+                "keep_alive": "2m",
                 "options": {
                     "temperature": temperature,
                     "top_p": 0.9,
@@ -720,6 +721,7 @@ class JarvisVoice:
                         "system": system,
                         "prompt": prompt,
                         "stream": False,
+                        "keep_alive": "2m",
                         "options": {
                             "temperature": 0.80,
                             "top_p": 0.9,
