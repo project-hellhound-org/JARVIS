@@ -4541,6 +4541,10 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
           <span>🏙️ CITY-LEVEL CONTACTS</span>
           <div class="toggle-pill"></div>
         </div>
+        <div class="globe-layer-toggle" id="layer-toggle-demo-mode" onclick="window.toggleDemoMode()" style="border-top:1px solid rgba(255,255,255,0.08); margin-top:4px; padding-top:4px;" title="Toggle Simulation / Demo Mode for Offline Telemetry">
+          <span style="color:#F59E0B; font-weight:700;">🧪 DEMO MODE</span>
+          <div class="toggle-pill" id="demo-mode-pill"></div>
+        </div>
       </div>
       <div style="font-size:9px; color:#8A8D91; font-family:var(--mono); margin-top:8px; display:grid; grid-template-columns:repeat(5, 1fr); gap:4px;">
         <span>RADAR: <span id="radar-contact-count" style="color:#00F0FF;">0</span></span>
@@ -4657,20 +4661,38 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   </div> <!-- closes globe-hud-scroll-body -->
 
   <!-- Dedicated Non-Overlapping Bottom Bar Slot: NEVER covers Radio Scanner tuner -->
-  <div class="globe-hud-bottom-bar-slot" style="flex-shrink:0; padding:8px 10px; background:#0B0E14; border:1px solid rgba(255,157,46,0.3); border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.8); z-index:10;">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-      <button class="globe-hud-btn" style="background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.15); color:#E6E6E6;" onclick="toggleGlobeHudCollapsed()">
+  <div class="globe-hud-bottom-bar-slot" style="flex-shrink:0; padding:6px 6px; background:#0B0E14; border:1px solid rgba(255,157,46,0.3); border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.8); z-index:10; box-sizing:border-box; width:100%; max-width:100%; overflow:hidden;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:4px; width:100%; box-sizing:border-box;">
+      <button class="globe-hud-btn" style="flex:1 1 0; min-width:0; padding:4px 2px; font-size:8px; font-weight:700; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.15); color:#E6E6E6;" onclick="toggleGlobeHudCollapsed()" title="COLLAPSE">
         COLLAPSE ❯
       </button>
-      <button id="btn-reset-layout" class="globe-hud-btn" style="background:rgba(0,240,255,0.14); border-color:rgba(0,240,255,0.45); color:#00F0FF;" onclick="window.resetTacticalLayout()" title="Reset All Tactical Panels to Default Positions">
-        ⟲ RESET LAYOUT
+      <button id="btn-reset-layout" class="globe-hud-btn" style="flex:1 1 0; min-width:0; padding:4px 2px; font-size:8px; font-weight:700; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:rgba(0,240,255,0.14); border-color:rgba(0,240,255,0.45); color:#00F0FF;" onclick="window.resetTacticalLayout()" title="Reset All Tactical Panels to Default Positions">
+        ⟲ RESET
       </button>
-      <button class="globe-hud-btn" style="background:rgba(255,157,46,0.18); border-color:rgba(255,157,46,0.45); color:#FFB84D;" onclick="window.glideToSpatial(0)">
+      <button class="globe-hud-btn" style="flex:1.2 1 0; min-width:0; padding:4px 2px; font-size:8px; font-weight:700; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:rgba(255,157,46,0.18); border-color:rgba(255,157,46,0.45); color:#FFB84D;" onclick="window.glideToSpatial(0)" title="RETURN TO HUD">
         ◄ RETURN TO HUD
       </button>
     </div>
   </div>
   <div class="tactical-resize-handle" title="Resize OSINT Rail">◢</div>
+</div>
+
+<!-- Floating Geolocation OSINT Analysis Card -->
+<div id="geolocation-results-card" style="display:none; position:fixed; left:24px; top:120px; width:380px; max-width:calc(100vw - 32px); max-height:calc(100vh - 140px); background:#0B0E14; border:1px solid rgba(0,240,255,0.45); border-left:3px solid #00F0FF; border-radius:6px; box-shadow:0 8px 32px rgba(0,0,0,0.85); z-index:1350; flex-direction:column; overflow:hidden; font-family:var(--font); box-sizing:border-box;">
+  <div id="geolocation-results-drag-header" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:rgba(0,240,255,0.08); border-bottom:1px solid rgba(0,240,255,0.25); cursor:move; user-select:none;">
+    <div style="display:flex; align-items:center; gap:6px;">
+      <span style="font-size:11px; color:#8A8D91;" title="Drag anywhere">⠿</span>
+      <span style="color:#00F0FF; font-size:13px;">🌐</span>
+      <span style="font-size:11px; font-weight:700; color:#FFFFFF; letter-spacing:0.05em;">GEOLOCATION OSINT ANALYSIS</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <button onclick="window.resetTacticalLayout()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#8A8D91; font-size:8.5px; font-weight:700; padding:1px 5px; border-radius:3px; cursor:pointer;" title="Reset Panel Layout">⟲ RESET</button>
+      <button onclick="window.closeGeolocationCard()" style="background:transparent; border:none; color:#8A8D91; cursor:pointer; font-size:14px; padding:2px;">✕</button>
+    </div>
+  </div>
+  <div id="geolocation-results-body" style="padding:10px 12px; overflow-y:auto; max-height:calc(100vh - 200px); display:flex; flex-direction:column; gap:10px; font-size:11px; color:#D1D5DB; box-sizing:border-box;">
+  </div>
+  <div class="tactical-resize-handle" title="Resize Results Card">◢</div>
 </div>
 
 <!-- Floating Target Inspection Card for Flights, Cameras, Radio Pins -->
@@ -5168,11 +5190,31 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
       <!-- 6. VOICE / INPUT FOOTER REGION -->
       <footer id="jarvis-input-bar">
         <div id="hint">/skills &nbsp;/email &nbsp;/ip &nbsp;/github &nbsp;/wayback &nbsp;— or ask in plain language</div>
+
+        <!-- Image Staging Strip (Up to 4 images for Geolocation & Multimodal AI) -->
+        <div id="image-staging-bar" style="display:none; padding:6px 10px; background:rgba(15,23,42,0.95); border:1px solid rgba(0,240,255,0.3); border-radius:6px; margin-bottom:6px; gap:8px; align-items:center; flex-wrap:wrap; box-sizing:border-box;">
+          <div style="font-size:10px; color:#00F0FF; font-weight:700; font-family:var(--mono); display:flex; align-items:center; gap:4px;">
+            <span>📸 STAGED (<span id="staged-count">0</span>/4):</span>
+          </div>
+          <div id="staged-thumbnails-list" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;"></div>
+        </div>
+
+        <!-- Vision Mode Bar: Local Only Toggle & Cloud Data Notice -->
+        <div id="vision-mode-bar" style="display:none; padding:4px 8px; margin-bottom:6px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.08); border-radius:4px; font-size:10px; font-family:var(--mono); color:#8A8D91; align-items:center; justify-content:space-between; gap:8px; box-sizing:border-box;">
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#E6E6E6; user-select:none;">
+            <input type="checkbox" id="toggle-vision-local-only" style="accent-color:#00F0FF; cursor:pointer;" />
+            <span>Local only (Ollama)</span>
+          </label>
+          <div id="vision-mode-notice" style="color:#F59E0B; font-size:9.5px; text-align:right;">
+            Warning: Cloud analysis sends image data to external third-party model providers.
+          </div>
+        </div>
+
         <div id="composer">
-          <button id="attach-btn" title="Attach screenshot">
+          <button id="attach-btn" title="Attach image / screenshot (Up to 4)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
           </button>
-          <input type="file" id="file-input" accept="image/*" />
+          <input type="file" id="file-input" accept="image/*" multiple style="display:none;" />
           <div id="attachment-chip" style="display:none; align-items:center; gap:6px; background:var(--bg-2); border:1px solid var(--border-strong); padding:4px 8px; border-radius:4px; font-size:11px; color:var(--accent-text);">
             <span id="attachment-name"></span>
             <span id="remove-attachment" style="cursor:pointer; display:flex; align-items:center;">
@@ -7269,7 +7311,34 @@ function handleSend() {
     sal = 'Sir';
   }
 
-  if (state.pendingImagePath) {
+  if (_stagedGeolocationImages.length > 0) {
+    const imagesToSubmit = [..._stagedGeolocationImages];
+    _stagedGeolocationImages = [];
+    renderStagedThumbnails();
+
+    const toggle = document.getElementById('toggle-vision-local-only');
+    const localOnly = toggle && toggle.checked;
+    const userPrompt = text ? text : 'Where was this photograph taken? [OSINT Geolocation Analysis]';
+
+    let imgsHtml = '<div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">';
+    imagesToSubmit.forEach(img => {
+      imgsHtml += `<img src="${img.data_url}" style="width:64px; height:64px; object-fit:cover; border-radius:4px; border:1px solid rgba(0,240,255,0.4);" />`;
+    });
+    imgsHtml += '</div>';
+    addUserMessage(userPrompt + imgsHtml);
+
+    startStreamingAnswer();
+    const ticker = document.getElementById('voiceos-ticker');
+    if (ticker) ticker.textContent = `${sal}: Analyzing visual hallmarks & EXIF metadata...`;
+    const hudText = document.getElementById('hud-notch-text');
+    if (hudText) {
+      hudText.dataset.customText = '1';
+      hudText.textContent = `Analyzing ${imagesToSubmit.length} image(s)...`;
+    }
+
+    window.submitGeolocationAnalysis(imagesToSubmit, localOnly);
+    return;
+  } else if (state.pendingImagePath) {
     addUserMessage(text ? `[screenshot] ${text}` : '[screenshot]');
     startStreamingAnswer();
     if (api() && api().submit_image) api().submit_image(state.pendingImagePath, text);
@@ -7333,15 +7402,288 @@ $('#new-case-btn').addEventListener('click', () => {
 
 $('#cases-nav').addEventListener('click', () => { if (api() && api().list_cases) api().list_cases(); });
 
+
+// ── Geolocation Intake & Staging Pipeline (Part 2) ────────────────────────
+let _stagedGeolocationImages = []; // Up to 4 images
+
+function updateVisionModeNotice() {
+  const toggle = document.getElementById('toggle-vision-local-only');
+  const localOnly = toggle && toggle.checked;
+  const notice = document.getElementById('vision-mode-notice');
+  if (notice) {
+    if (localOnly) {
+      notice.textContent = 'Warning: Local analysis via Ollama is slower and requires substantial system RAM.';
+      notice.style.color = '#F59E0B';
+    } else {
+      notice.textContent = 'Warning: Cloud analysis sends image data to external third-party model providers.';
+      notice.style.color = '#38BDF8';
+    }
+  }
+}
+
+const toggleLocalOnlyEl = document.getElementById('toggle-vision-local-only');
+if (toggleLocalOnlyEl) {
+  toggleLocalOnlyEl.addEventListener('change', updateVisionModeNotice);
+}
+
+function renderStagedThumbnails() {
+  const bar = document.getElementById('image-staging-bar');
+  const list = document.getElementById('staged-thumbnails-list');
+  const countEl = document.getElementById('staged-count');
+  const modeBar = document.getElementById('vision-mode-bar');
+  if (!bar || !list) return;
+
+  if (_stagedGeolocationImages.length === 0) {
+    bar.style.display = 'none';
+    if (modeBar) modeBar.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  bar.style.display = 'flex';
+  if (modeBar) {
+    modeBar.style.display = 'flex';
+    updateVisionModeNotice();
+  }
+  if (countEl) countEl.textContent = _stagedGeolocationImages.length;
+  list.innerHTML = '';
+
+  _stagedGeolocationImages.forEach((item, idx) => {
+    const thumbBox = document.createElement('div');
+    thumbBox.style.cssText = 'position:relative; width:44px; height:44px; border-radius:4px; overflow:hidden; border:1px solid rgba(0,240,255,0.4); background:#020617; display:flex; align-items:center; justify-content:center;';
+    thumbBox.innerHTML = `
+      <img src="${item.data_url}" style="width:100%; height:100%; object-fit:cover;" title="${escapeHtml(item.filename)}" />
+      <button onclick="window.removeStagedImage(${idx})" style="position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:50%; background:rgba(0,0,0,0.85); color:#EF4444; border:none; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" title="Remove image">✕</button>
+    `;
+    list.appendChild(thumbBox);
+  });
+}
+
+window.removeStagedImage = function(index) {
+  _stagedGeolocationImages.splice(index, 1);
+  renderStagedThumbnails();
+};
+
+function stageImageFile(file) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return;
+  if (_stagedGeolocationImages.length >= 4) {
+    if (typeof showSubtitles === 'function') showSubtitles('Maximum 4 images can be staged for geolocation analysis.', 'INTEL LIMIT');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    _stagedGeolocationImages.push({
+      filename: file.name || `image_${Date.now()}.jpg`,
+      data_url: e.target.result,
+      size: file.size
+    });
+    renderStagedThumbnails();
+  };
+  reader.readAsDataURL(file);
+}
+
+// Drag & Drop intake on composer & chat
+['dragenter', 'dragover'].forEach(evt => {
+  document.addEventListener(evt, (e) => {
+    if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      const composer = document.getElementById('composer');
+      if (composer) composer.style.borderColor = '#00F0FF';
+    }
+  });
+});
+['dragleave', 'dragend'].forEach(evt => {
+  document.addEventListener(evt, (e) => {
+    const composer = document.getElementById('composer');
+    if (composer) composer.style.borderColor = '';
+  });
+});
+document.addEventListener('drop', (e) => {
+  const composer = document.getElementById('composer');
+  if (composer) composer.style.borderColor = '';
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type && f.type.startsWith('image/'));
+    if (files.length) {
+      e.preventDefault();
+      files.slice(0, 4 - _stagedGeolocationImages.length).forEach(stageImageFile);
+    }
+  }
+});
+
+// Paste (Ctrl+V) intake
+window.addEventListener('paste', (e) => {
+  if (e.clipboardData && e.clipboardData.items) {
+    const items = Array.from(e.clipboardData.items);
+    let found = false;
+    for (const item of items) {
+      if (item.type && item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile();
+        if (file) {
+          stageImageFile(file);
+          found = true;
+        }
+      }
+    }
+    if (found) {
+      e.preventDefault();
+    }
+  }
+});
+
+window.submitGeolocationAnalysis = async function(images, localOnly) {
+  try {
+    let result = null;
+    if (api() && api().upload_images_for_geolocation) {
+      result = await api().upload_images_for_geolocation(images, localOnly);
+    } else {
+      const resp = await fetch('/api/geolocate/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images: images, local_only: localOnly })
+      });
+      if (resp.ok) {
+        result = await resp.json();
+      }
+    }
+
+    if (!result || !result.analyses || !result.analyses.length) {
+      finalizeStreamingAnswer('Sir, visual geolocation pipeline was unable to process the image data.');
+      return;
+    }
+
+    window.renderGeolocationResults(result.analyses);
+  } catch (err) {
+    console.error('[Geolocation] Submission error:', err);
+    finalizeStreamingAnswer('Error executing geolocation analysis: ' + (err.message || 'Server error'));
+  }
+};
+
+window.renderGeolocationResults = function(analyses) {
+  let combinedCandidates = [];
+  let speechSummary = '';
+
+  analyses.forEach((analysis, aIdx) => {
+    let cardHtml = '<div style="margin-top:8px; border:1px solid rgba(0,240,255,0.3); border-radius:6px; padding:10px; background:#0B0E14; font-family:var(--font);">';
+    cardHtml += `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:8px;">
+      <span style="color:#00F0FF; font-weight:700; font-family:var(--mono); font-size:11px;">IMAGE ${aIdx + 1}: ${escapeHtml(analysis.filename || 'PHOTO')}</span>
+      <span style="font-size:9.5px; color:#8A8D91; font-family:var(--mono);">PROVIDER: <span style="color:#FFB84D;">${escapeHtml(analysis.provider_used || 'NONE')}</span></span>
+    </div>`;
+
+    // 1. EXIF GPS
+    if (analysis.exif && analysis.exif.has_gps && analysis.exif.gps) {
+      const g = analysis.exif.gps;
+      cardHtml += `<div style="background:rgba(16,185,129,0.12); border-left:3px solid #10B981; border-radius:4px; padding:8px 10px; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#34D399; font-weight:700; font-size:10px; font-family:var(--mono);">[FILE METADATA]: from file metadata (high confidence, but verify)</span>
+          <button onclick="window.flyToCandidate(${g.lat}, ${g.lon})" style="background:rgba(16,185,129,0.25); border:1px solid #10B981; color:#FFFFFF; font-size:9px; font-weight:700; padding:2px 8px; border-radius:3px; cursor:pointer;">✈ FLY</button>
+        </div>
+        <div style="font-family:var(--mono); font-size:10.5px; color:#FFFFFF; margin-top:4px;">COORDINATES: ${g.lat.toFixed(4)}°, ${g.lon.toFixed(4)}°</div>
+        <div style="font-size:9.5px; color:#9CA3AF; margin-top:2px;">CAMERA: ${escapeHtml(analysis.exif.camera_make || '')} ${escapeHtml(analysis.exif.camera_model || '')} • TIME: ${escapeHtml(analysis.exif.timestamp || 'N/A')}</div>
+      </div>`;
+    }
+
+    // 2. Warning if no vision model available
+    if (analysis.warning || !analysis.provider_used) {
+      cardHtml += `<div style="background:rgba(239,68,68,0.12); border-left:3px solid #EF4444; border-radius:4px; padding:8px 10px; color:#F87171; font-family:var(--mono); font-size:10.5px; margin-bottom:8px;">
+        ⚡ ${escapeHtml(analysis.warning || 'No vision model available - add a Gemini key or enable Ollama.')}
+      </div>`;
+    }
+
+    // 3. Ranked Candidates
+    if (analysis.candidates && analysis.candidates.length) {
+      combinedCandidates.push(...analysis.candidates);
+      cardHtml += '<div style="font-size:10px; color:#8A8D91; font-family:var(--mono); margin-bottom:4px; font-weight:700;">RANKED CANDIDATE HYPOTHESES:</div>';
+      analysis.candidates.forEach((c) => {
+        if (c.rank === 0) return; // EXIF already rendered above
+        const confPct = Math.round((c.confidence || 0.5) * 100);
+        cardHtml += `<div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:4px; padding:8px; margin-bottom:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="background:rgba(0,240,255,0.15); color:#00F0FF; font-family:var(--mono); font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px;">[UNVERIFIED HYPOTHESIS #${c.rank}]</span>
+              <span style="font-weight:700; color:#FFFFFF; font-size:11px;">${escapeHtml(c.place || '')} ${c.region ? ', ' + escapeHtml(c.region) : ''}, ${escapeHtml(c.country || '')}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-family:var(--mono); font-size:9.5px; color:#FFB84D; font-weight:700;">${confPct}% CONFIDENCE</span>
+              ${(c.latitude && c.longitude) ? `<button onclick="window.flyToCandidate(${c.latitude}, ${c.longitude})" style="background:rgba(0,240,255,0.18); border:1px solid #00F0FF; color:#00F0FF; font-size:9px; font-weight:700; padding:2px 8px; border-radius:3px; cursor:pointer;">✈ FLY</button>` : ''}
+            </div>
+          </div>
+          ${c.clues && c.clues.length ? `<div style="margin-top:6px; font-size:10px; color:#D1D5DB;"><span style="color:#8A8D91; font-weight:700;">SUPPORTING CLUES:</span> ${escapeHtml(c.clues.join(' • '))}</div>` : ''}
+          ${c.what_to_check_next && c.what_to_check_next.length ? `<div style="margin-top:4px; font-size:9.5px; color:#9CA3AF;"><span style="color:#FFB84D; font-weight:700;">WHAT TO CHECK NEXT:</span> ${escapeHtml(c.what_to_check_next.join(' • '))}</div>` : ''}
+        </div>`;
+      });
+    }
+
+    cardHtml += '</div>';
+    finalizeStreamingAnswer(cardHtml);
+
+    if (analysis.speech_summary && !speechSummary) {
+      speechSummary = analysis.speech_summary;
+    }
+  });
+
+  // Plot on Cesium Globe & fly
+  if (combinedCandidates.length) {
+    window.plotGeolocationCandidates(combinedCandidates);
+  }
+
+  // Populate & open floating #geolocation-results-card
+  const resCard = document.getElementById('geolocation-results-card');
+  const resBody = document.getElementById('geolocation-results-body');
+  if (resCard && resBody) {
+    let rBodyHtml = '';
+    analyses.forEach((analysis, idx) => {
+      rBodyHtml += `<div style="border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-weight:700; color:#00F0FF; font-family:var(--mono);">${escapeHtml(analysis.filename || 'PHOTO')}</span>
+          <span style="font-size:9px; color:#8A8D91;">PROVIDER: ${escapeHtml(analysis.provider_used || 'NONE')}</span>
+        </div>`;
+
+      if (analysis.warning) {
+        rBodyHtml += `<div style="color:#EF4444; font-family:var(--mono); font-size:10px; margin-bottom:6px;">⚡ ${escapeHtml(analysis.warning)}</div>`;
+      }
+
+      // Verification Helpers
+      rBodyHtml += `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;">
+        <button onclick="window.open('https://lens.google.com/upload', '_blank')" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#E6E6E6; font-size:8.5px; font-weight:700; padding:3px 6px; border-radius:3px; cursor:pointer;" title="Open Google Lens">🔍 GOOGLE LENS</button>
+        <button onclick="window.open('https://yandex.com/images/search?rpt=imageview', '_blank')" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#E6E6E6; font-size:8.5px; font-weight:700; padding:3px 6px; border-radius:3px; cursor:pointer;" title="Open Yandex Visual Search">🌐 YANDEX</button>
+        <button onclick="window.open('https://www.bing.com/visualsearch', '_blank')" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#E6E6E6; font-size:8.5px; font-weight:700; padding:3px 6px; border-radius:3px; cursor:pointer;" title="Open Bing Visual Search">🔎 BING</button>
+        <button onclick="window.open('https://tineye.com/search', '_blank')" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2); color:#E6E6E6; font-size:8.5px; font-weight:700; padding:3px 6px; border-radius:3px; cursor:pointer;" title="Open TinEye Reverse Search">👁 TINEYE</button>
+        <button onclick="window.copyImageToClipboard('${escapeHtml(analysis.image_path || '')}')" style="background:rgba(0,240,255,0.12); border:1px solid rgba(0,240,255,0.4); color:#00F0FF; font-size:8.5px; font-weight:700; padding:3px 6px; border-radius:3px; cursor:pointer;" title="Copy to clipboard via wl-copy/xclip">📋 COPY IMAGE</button>
+        <button onclick="window.openImageFolder('${escapeHtml(analysis.image_path || '')}')" style="background:rgba(255,157,46,0.12); border:1px solid rgba(255,157,46,0.4); color:#FFB84D; font-size:8.5px; font-weight:700; padding:3px 6px; border-radius:3px; cursor:pointer;" title="Open file in folder">📁 OPEN FOLDER</button>
+      </div>`;
+
+      // Nearby Wikimedia Photos
+      if (analysis.wikimedia_photos && analysis.wikimedia_photos.length) {
+        rBodyHtml += '<div style="font-size:9.5px; font-weight:700; color:#38BDF8; font-family:var(--mono); margin-bottom:4px;">NEARBY PHOTOS (WIKIMEDIA COMMONS):</div>';
+        rBodyHtml += '<div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:4px;">';
+        analysis.wikimedia_photos.forEach(p => {
+          rBodyHtml += `<a href="${p.url}" target="_blank" style="flex-shrink:0; width:70px; text-decoration:none;" title="${escapeHtml(p.title)}">
+            <img src="${p.thumb}" style="width:70px; height:50px; object-fit:cover; border-radius:3px; border:1px solid rgba(255,255,255,0.15);" />
+            <div style="font-size:8px; color:#8A8D91; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.title)}</div>
+          </a>`;
+        });
+        rBodyHtml += '</div>';
+      }
+
+      rBodyHtml += '</div>';
+    });
+    resBody.innerHTML = rBodyHtml;
+    resCard.style.display = 'flex';
+  }
+
+  if (speechSummary && typeof showSubtitles === 'function') {
+    showSubtitles(speechSummary, 'JARVIS INTEL');
+  }
+};
+
 $('#attach-btn').addEventListener('click', () => {
   if (api() && api().pick_image) { api().pick_image(); } else { $('#file-input').click(); }
 });
 $('#file-input').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => { if (api() && api().save_dropped_image) api().save_dropped_image(reader.result, file.name); };
-  reader.readAsDataURL(file);
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  files.slice(0, 4 - _stagedGeolocationImages.length).forEach(stageImageFile);
+  e.target.value = '';
 });
 $('#remove-attachment').addEventListener('click', clearAttachmentChip);
 
@@ -17622,7 +17964,38 @@ window.updateSectorWeather = async function(lat, lon, label) {
 };
 
 // Tactical Layer Toggles
-window.toggleTacticalLayer = function(layerName, forceState) {
+
+  // ── Global Demo Mode Controller (Part 3: No Fake Data on Screen) ──────
+  window._demoModeActive = false;
+  window.toggleDemoMode = function() {
+    window._demoModeActive = !window._demoModeActive;
+    const toggleEl = document.getElementById('layer-toggle-demo-mode');
+    if (toggleEl) toggleEl.classList.toggle('active', window._demoModeActive);
+
+    if (window._demoModeActive) {
+      if (typeof showSubtitles === 'function') showSubtitles('🧪 DEMO MODE ACTIVATED: Simulated telemetry layers enabled', 'DEMO MODE');
+      if (_tacticalLayers.traffic) window.generateTrafficCorridors();
+      if (_tacticalLayers.vessels) window.populateSimulatedVessels();
+      if (_tacticalLayers.flights) window.updateAirspaceContacts();
+      if (_tacticalLayers.space) window.updateISSPosition();
+    } else {
+      if (typeof showSubtitles === 'function') showSubtitles('LIVE MODE ENFORCED: Simulated contacts purged', 'LIVE TELEMETRY');
+      if (_trafficDataSource) {
+        _trafficDataSource.entities.removeAll();
+        _trafficVehicles.length = 0;
+        const banner = document.getElementById('traffic-sync-hud-banner');
+        if (banner) {
+          banner.style.borderLeftColor = '#EF4444';
+          banner.innerHTML = '<span style="font-weight:700;">[OFFLINE]:</span> Traffic sensors offline - no live data';
+        }
+      }
+      if (_tacticalLayers.vessels) window.fetchVesselsInArea();
+      if (_tacticalLayers.flights) window.updateAirspaceContacts();
+      if (_tacticalLayers.space) window.updateISSPosition();
+    }
+  };
+
+  window.toggleTacticalLayer = function(layerName, forceState) {
   if (typeof forceState === 'boolean') {
     if (_tacticalLayers[layerName] === forceState) return;
     _tacticalLayers[layerName] = forceState;
@@ -18007,6 +18380,11 @@ const TACTICAL_PANELS = {
     elementId: 'globe-radio-card',
     handleId: 'radio-drag-header',
     defaultStyles: { position: '', left: '', top: '', right: '', bottom: '', width: '', height: '', zIndex: '1350' }
+  },
+  geolocation: {
+    elementId: 'geolocation-results-card',
+    handleId: 'geolocation-results-drag-header',
+    defaultStyles: { left: '24px', top: '120px', right: '', bottom: '', width: '380px', height: '', zIndex: '1350' }
   }
 };
 
@@ -18032,15 +18410,41 @@ window.TacticalPanelManager = {
   },
 
   clampAll() {
+    const pad = 8;
     Object.values(TACTICAL_PANELS).forEach(cfg => {
       const el = document.getElementById(cfg.elementId);
-      if (!el || !el.style.left || !el.style.top) return;
-      const curLeft = parseInt(el.style.left, 10);
-      const curTop = parseInt(el.style.top, 10);
-      if (!isNaN(curLeft) && !isNaN(curTop)) {
-        const clamped = this.clamp(el, curLeft, curTop);
-        el.style.left = clamped.left + 'px';
-        el.style.top = clamped.top + 'px';
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const elW = rect.width || el.offsetWidth || 300;
+      const elH = rect.height || el.offsetHeight || 150;
+      const maxLeft = Math.max(pad, window.innerWidth - elW - pad);
+      const maxTop = Math.max(pad, window.innerHeight - elH - pad);
+
+      let curLeft = (el.style.left && el.style.left !== '') ? parseInt(el.style.left, 10) : rect.left;
+      let curTop = (el.style.top && el.style.top !== '') ? parseInt(el.style.top, 10) : rect.top;
+
+      let changed = false;
+      if (rect.right > window.innerWidth - pad || curLeft > maxLeft) {
+        curLeft = Math.min(curLeft, maxLeft);
+        changed = true;
+      }
+      if (rect.left < pad || curLeft < pad) {
+        curLeft = Math.max(curLeft, pad);
+        changed = true;
+      }
+      if (rect.bottom > window.innerHeight - pad || curTop > maxTop) {
+        curTop = Math.min(curTop, maxTop);
+        changed = true;
+      }
+      if (rect.top < pad || curTop < pad) {
+        curTop = Math.max(curTop, pad);
+        changed = true;
+      }
+      if (changed) {
+        el.style.left = Math.round(curLeft) + 'px';
+        el.style.top = Math.round(curTop) + 'px';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
       }
     });
   },
@@ -18674,86 +19078,58 @@ function initGlobeIntelligence(viewer) {
     return 'data:image/svg+xml;base64,' + btoa(svg);
   })();
 
-  MARITIME_VESSELS.forEach(v => {
-    const tacticalData = {
-      type: 'VESSEL',
-      id: v.id,
-      name: v.name,
-      vesselType: v.type,
-      lat: v.lat,
-      lon: v.lon,
-      speedKnots: v.speedKnots,
-      headingDeg: v.headingDeg,
-      mmsi: v.mmsi,
-      destination: v.destination
-    };
+  window.populateSimulatedVessels = function() {
+    if (!_vesselsDataSource) return;
+    _vesselsDataSource.entities.removeAll();
+    MARITIME_VESSELS.forEach(v => {
+      const tacticalData = {
+        type: 'VESSEL',
+        id: v.id,
+        name: `[SIMULATED] ${v.name}`,
+        vesselType: v.type,
+        lat: v.lat,
+        lon: v.lon,
+        speedKnots: v.speedKnots,
+        headingDeg: v.headingDeg,
+        mmsi: v.mmsi,
+        destination: v.destination,
+        simulated: true
+      };
 
-    const vesselEntity = _vesselsDataSource.entities.add({
-      position: Cesium.Cartesian3.fromDegrees(v.lon, v.lat, 10),
-      billboard: {
-        image: SHIP_ICON,
-        width: 24,
-        height: 24,
-        rotation: Cesium.Math.toRadians(360 - (v.headingDeg || 0)),
-        verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        disableDepthTestDistance: 5000,
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000)
-      },
-      label: {
-        text: `🚢 ${v.name} [${v.speedKnots} kts]`,
-        font: 'bold 10px JetBrains Mono, monospace',
-        fillColor: Cesium.Color.fromCssColorString('#38BDF8'),
-        outlineColor: Cesium.Color.BLACK,
-        outlineWidth: 3,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        pixelOffset: new Cesium.Cartesian2(0, -16),
-        disableDepthTestDistance: 5000,
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000)
-      },
-      _tacticalData: tacticalData
+      const vesselEntity = _vesselsDataSource.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(v.lon, v.lat, 10),
+        billboard: {
+          image: SHIP_ICON,
+          width: 24,
+          height: 24,
+          rotation: Cesium.Math.toRadians(360 - (v.headingDeg || 0)),
+          verticalOrigin: Cesium.VerticalOrigin.CENTER,
+          disableDepthTestDistance: 5000,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000)
+        },
+        label: {
+          text: `🚢 [SIMULATED] ${v.name} [${v.speedKnots} kts]`,
+          font: 'bold 10px JetBrains Mono, monospace',
+          fillColor: Cesium.Color.fromCssColorString('#38BDF8'),
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -16),
+          disableDepthTestDistance: 5000,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000)
+        },
+        _tacticalData: tacticalData
+      });
+      tacticalData._entity = vesselEntity;
     });
-    tacticalData._entity = vesselEntity;
+    const vesselCountEl = document.getElementById('vessel-contact-count');
+    if (vesselCountEl) vesselCountEl.textContent = MARITIME_VESSELS.length;
+  };
 
-    // Forward Course Vector (projected nautical vector ~1 hr ahead)
-    const headRadFwd = Cesium.Math.toRadians(v.headingDeg);
-    const fwdDistDeg = (v.speedKnots * 1852) / 111000;
-    const fwdLon = v.lon + Math.sin(headRadFwd) * fwdDistDeg;
-    const fwdLat = v.lat + Math.cos(headRadFwd) * fwdDistDeg;
-
-    _vesselsDataSource.entities.add({
-      polyline: {
-        positions: Cesium.Cartesian3.fromDegreesArrayHeights([
-          v.lon, v.lat, 10,
-          fwdLon, fwdLat, 10
-        ]),
-        width: 1.8,
-        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00F0FF').withAlpha(0.75))
-      },
-      _tacticalData: tacticalData
-    });
-
-    // Nautical Wake Vector Trail (behind ship)
-    const headRad = Cesium.Math.toRadians(v.headingDeg + 180);
-    const wakeLengthDeg = (v.speedKnots * 300) / 111000;
-    const wakeLon = v.lon + Math.sin(headRad) * wakeLengthDeg * 1.2;
-    const wakeLat = v.lat + Math.cos(headRad) * wakeLengthDeg;
-
-    _vesselsDataSource.entities.add({
-      polyline: {
-        positions: Cesium.Cartesian3.fromDegreesArrayHeights([
-          v.lon, v.lat, 10,
-          wakeLon, wakeLat, 5
-        ]),
-        width: 2,
-        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#0284C7').withAlpha(0.55))
-      },
-      _tacticalData: tacticalData
-    });
-  });
-
+  // Start with authentic empty state by default (No fake data on screen)
   const vesselCountEl = document.getElementById('vessel-contact-count');
-  if (vesselCountEl) vesselCountEl.textContent = MARITIME_VESSELS.length;
+  if (vesselCountEl) vesselCountEl.textContent = '0';
 
   // Area-Based Tactical Vessel Search & Provider Feed Query
   window.fetchVesselsInArea = async function(lat, lon, radiusKm = 300) {
@@ -18770,11 +19146,26 @@ function initGlobeIntelligence(viewer) {
         if (lat !== undefined && lon !== undefined) {
           url += `?lat=${lat}&lon=${lon}&radius_km=${radiusKm}`;
         }
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          vessels = data.vessels || [];
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            vessels = data.vessels || [];
+          }
+        } catch(e) {}
+      }
+      if (!vessels.length) {
+        if (window._demoModeActive) {
+          window.populateSimulatedVessels();
+        } else {
+          if (_vesselsDataSource) _vesselsDataSource.entities.removeAll();
+          const el = document.getElementById('vessel-contact-count');
+          if (el) el.textContent = '0';
+          if (typeof emitTacticalHudAlert === 'function') {
+            emitTacticalHudAlert('Maritime AIS telemetry offline - no live data', 'OFFLINE - no live data');
+          }
         }
+        return;
       }
       if (vessels.length && _vesselsDataSource) {
         _vesselsDataSource.entities.removeAll();
@@ -18895,6 +19286,135 @@ function initGlobeIntelligence(viewer) {
     </svg>`;
     return 'data:image/svg+xml;base64,' + btoa(svg);
   })();
+
+  
+  // ── Geolocation Cesium Marker & Confidence Rings (Part 2: Map System) ────
+  let _geolocationDataSource = null;
+
+  window.flyToCandidate = function(lat, lon) {
+    if (window.cesiumViewer && lat && lon) {
+      window.cesiumViewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(Number(lon), Number(lat), 12000),
+        duration: 2.2
+      });
+    }
+    if (typeof window.glideToSpatial === 'function') {
+      window.glideToSpatial(950);
+    }
+  };
+
+  window.closeGeolocationCard = function() {
+    const card = document.getElementById('geolocation-results-card');
+    if (card) card.style.display = 'none';
+  };
+
+  window.copyImageToClipboard = async function(imgPath) {
+    try {
+      if (api() && api().copy_image_to_clipboard) {
+        await api().copy_image_to_clipboard(imgPath);
+      } else {
+        await fetch('/api/geolocate/copy_clipboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_path: imgPath })
+        });
+      }
+      if (typeof showSubtitles === 'function') showSubtitles('Image copied to system clipboard via wl-copy/xclip', 'CLIPBOARD');
+    } catch(e) {
+      console.warn(e);
+    }
+  };
+
+  window.openImageFolder = async function(imgPath) {
+    try {
+      if (api() && api().open_image_folder) {
+        await api().open_image_folder(imgPath);
+      } else {
+        await fetch('/api/geolocate/open_folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_path: imgPath })
+        });
+      }
+      if (typeof showSubtitles === 'function') showSubtitles('Opened image folder in file manager', 'FILE SYSTEM');
+    } catch(e) {
+      console.warn(e);
+    }
+  };
+
+  window.plotGeolocationCandidates = function(candidates) {
+    if (!window.cesiumViewer || !candidates || !candidates.length) return;
+    if (!_geolocationDataSource) {
+      _geolocationDataSource = new Cesium.CustomDataSource('geolocation-layer');
+      window.cesiumViewer.dataSources.add(_geolocationDataSource);
+    }
+    _geolocationDataSource.entities.removeAll();
+
+    let topLat = null, topLon = null;
+
+    candidates.forEach((cand, idx) => {
+      if (!cand.latitude || !cand.longitude) return;
+      const lat = Number(cand.latitude);
+      const lon = Number(cand.longitude);
+      if (lat === 0.0 && lon === 0.0) return;
+
+      if (topLat === null) {
+        topLat = lat;
+        topLon = lon;
+      }
+
+      const isExif = cand.rank === 0 || (cand.hypothesis_status && cand.hypothesis_status.includes('file metadata'));
+      const colorHex = isExif ? '#10B981' : (idx === 0 ? '#00F0FF' : '#FF9D2E');
+      const badgeText = isExif ? 'EXIF METADATA' : `UNVERIFIED #${cand.rank || idx + 1}`;
+      const confVal = Math.max(0.05, Math.min(0.99, Number(cand.confidence) || 0.5));
+      // Confidence ring radius inversely proportional to confidence: tighter for high confidence, wider for low
+      const radiusM = Math.max(500, Math.round((1.0 - confVal) * 80000));
+
+      // Pin Point Marker
+      _geolocationDataSource.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(lon, lat, 25),
+        point: {
+          pixelSize: 12,
+          color: Cesium.Color.fromCssColorString(colorHex),
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+          disableDepthTestDistance: 50000
+        },
+        label: {
+          text: ` [${badgeText}]: ${cand.place || cand.country} (${Math.round(confVal * 100)}%) `,
+          font: 'bold 10px "JetBrains Mono", monospace',
+          fillColor: Cesium.Color.fromCssColorString(colorHex),
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -14),
+          disableDepthTestDistance: 50000
+        },
+        _tacticalData: {
+          type: 'GEOLOCATION_CANDIDATE',
+          candidate: cand
+        }
+      });
+
+      // Confidence Ring Ellipse
+      _geolocationDataSource.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(lon, lat, 5),
+        ellipse: {
+          semiMinorAxis: radiusM,
+          semiMajorAxis: radiusM,
+          material: Cesium.Color.fromCssColorString(colorHex).withAlpha(0.18),
+          outline: true,
+          outlineColor: Cesium.Color.fromCssColorString(colorHex).withAlpha(0.85),
+          outlineWidth: 2
+        }
+      });
+    });
+
+    if (topLat !== null && topLon !== null) {
+      window.flyToCandidate(topLat, topLon);
+    }
+  };
 
   window.renderGroundMediaPoints = function(points) {
     if (!_groundMediaDataSource || !points) return;
@@ -19598,7 +20118,7 @@ function initGlobeIntelligence(viewer) {
             distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 48000)
           },
           label: {
-            text: ` ${vehId} `,
+            text: ` [SIMULATED] ${vehId} `,
             font: 'bold 8.5px "JetBrains Mono", monospace',
             fillColor: Cesium.Color.fromCssColorString(colorHex),
             outlineColor: Cesium.Color.BLACK,
@@ -19616,7 +20136,8 @@ function initGlobeIntelligence(viewer) {
             type: 'VEHICLE',
             id: vehId,
             speedKmh,
-            status: isCongested ? 'CONGESTED / SLOWING' : 'FREE FLOW',
+            status: isCongested ? '[SIMULATED] CONGESTED' : '[SIMULATED] FLOW',
+            simulated: true,
             color: colorHex
           }
         });
@@ -19645,13 +20166,31 @@ function initGlobeIntelligence(viewer) {
       _trafficDataSource.show = enabled;
     }
     const banner = document.getElementById('traffic-sync-hud-banner');
-    if (banner) banner.style.display = enabled ? 'flex' : 'none';
-    if (enabled && (!_trafficVehicles.length || _trafficDataSource.entities.values.length === 0)) {
-      window.generateTrafficCorridors();
+    if (enabled) {
+      if (window._demoModeActive) {
+        window.generateTrafficCorridors();
+        if (banner) {
+          banner.style.display = 'flex';
+          banner.style.borderLeftColor = '#F59E0B';
+          banner.innerHTML = '<span style="font-weight:700;">[SIMULATED]:</span> Traffic corridors active in Demo mode';
+        }
+      } else {
+        if (_trafficDataSource) _trafficDataSource.entities.removeAll();
+        _trafficVehicles.length = 0;
+        if (banner) {
+          banner.style.display = 'flex';
+          banner.style.borderLeftColor = '#EF4444';
+          banner.innerHTML = '<span style="font-weight:700;">[OFFLINE]:</span> Traffic sensors offline - no live data (Enable Demo mode to simulate)';
+        }
+        const trafficCountEl = document.getElementById('traffic-contact-count');
+        if (trafficCountEl) trafficCountEl.textContent = '0';
+      }
+    } else {
+      if (banner) banner.style.display = 'none';
     }
   };
 
-  window.generateTrafficCorridors();
+  // Do not generate traffic corridors by default (Authentic live data only)
 
   // God's Eye Bottom Voice HUD Dock Controllers (Image 5 Parity)
   window.updateGodsEyeVoiceWidget = function(state, energy) {
@@ -20175,7 +20714,16 @@ function initGlobeIntelligence(viewer) {
 
       // Contingency seed data if offline (Comprehensive Global Multi-Domain Fleet)
       if (aircraftList.length === 0) {
-        aircraftList = [
+        if (!window._demoModeActive) {
+          if (_flightsDataSource) _flightsDataSource.entities.removeAll();
+          _aircraftFlightMap.clear();
+          const rCount = document.getElementById('radar-contact-count');
+          if (rCount) rCount.textContent = '0';
+          if (typeof emitTacticalHudAlert === 'function') {
+            emitTacticalHudAlert('Airspace radar telemetry offline - no live contacts', 'OFFLINE - no live data');
+          }
+        } else {
+          aircraftList = [
           // Tactical Military Green Fleet (Image & User Spec: Military = Green)
           { hex: 'ae01cd', flight: 'RCH842', r: '02-1102', t: 'C17', desc: 'BOEING C-17A GLOBEMASTER', lat: 13.25, lon: 77.40, alt_baro: 31000, gs: 440, track: 82, squawk: '1200', feed_category: 'mil', mil: 1 },
           { hex: 'ae125c', flight: 'IRON61', r: '62-3512', t: 'KC135', desc: 'KC-135 STRATOTANKER', lat: 11.95, lon: 76.50, alt_baro: 26000, gs: 410, track: 145, squawk: '3142', feed_category: 'mil', mil: 1 },
@@ -20202,7 +20750,8 @@ function initGlobeIntelligence(viewer) {
           // Commercial Airlines Sky Blue / Cyan Fleet
           { hex: '80041a', flight: 'AIC101', r: 'VT-EXG', t: 'B77W', desc: 'AIR INDIA BOEING 777-300ER', lat: 28.55, lon: 77.10, alt_baro: 36000, gs: 490, track: 280, squawk: '1410', feed_category: 'commercial' },
           { hex: 'a194bc', flight: 'UAL882', r: 'N27901', t: 'B789', desc: 'UNITED AIRLINES BOEING 787-9', lat: 37.61, lon: -122.37, alt_baro: 38000, gs: 505, track: 250, squawk: '4231', feed_category: 'commercial' }
-        ];
+        ].map(ac => ({ ...ac, simulated: true, flight: `[SIMULATED] ${ac.flight}` }));
+        }
       }
 
       if (_flightsDataSource && aircraftList.length > 0) {
@@ -20455,11 +21004,19 @@ function initGlobeIntelligence(viewer) {
         throw new Error('ISS API response not ok');
       }
     } catch (e) {
-      const fallback = computeISSPositionAnalytical(nowSec);
-      issLat = fallback.lat;
-      issLon = fallback.lon;
-      issAltKm = fallback.altitudeKm;
-      issVelKmh = fallback.velocityKmh;
+      if (window._demoModeActive) {
+        const fallback = computeISSPositionAnalytical(nowSec);
+        issLat = fallback.lat;
+        issLon = fallback.lon;
+        issAltKm = fallback.altitudeKm;
+        issVelKmh = fallback.velocityKmh;
+      } else {
+        if (_spaceDataSource) _spaceDataSource.entities.removeAll();
+        if (typeof emitTacticalHudAlert === 'function') {
+          emitTacticalHudAlert('Orbital ISS telemetry offline - no live data', 'OFFLINE - no live data');
+        }
+        return;
+      }
     }
 
     if (_spaceDataSource) {
@@ -20486,7 +21043,7 @@ function initGlobeIntelligence(viewer) {
           disableDepthTestDistance: 5000
         },
         label: {
-          text: `🛰 ISS (LEO ${Math.round(issAltKm)}km • ${issVelKmh} km/h)`,
+          text: `🛰 ${window._demoModeActive ? '[SIMULATED] ' : ''}ISS (LEO ${Math.round(issAltKm)}km • ${issVelKmh} km/h)`,
           font: 'bold 10px JetBrains Mono, monospace',
           fillColor: Cesium.Color.fromCssColorString('#38BDF8'),
           outlineColor: Cesium.Color.BLACK,
@@ -21443,9 +22000,9 @@ function initGlobeIntelligence(viewer) {
           banner.style.borderLeftColor = '#EF4444';
           banner.style.color = '#EF4444';
           banner.style.background = 'rgba(239,68,68,0.12)';
-          banner.innerHTML = `<span style="font-weight:700;">[OFFLINE CONTINGENCY]:</span> ${escapeHtml(effectiveDebrief || 'Upstream telemetry offline')}`;
+          banner.innerHTML = `<span style="font-weight:700;">[OFFLINE - NO LIVE DATA]:</span> ${escapeHtml(effectiveDebrief || 'Upstream telemetry offline')}`;
           if (badge) {
-            badge.textContent = '⚡ CONTINGENCY (OFFLINE)';
+            badge.textContent = '⚡ OFFLINE - NO LIVE DATA';
             badge.style.color = '#EF4444';
             badge.style.borderColor = 'rgba(239,68,68,0.5)';
             badge.style.background = 'rgba(239,68,68,0.2)';

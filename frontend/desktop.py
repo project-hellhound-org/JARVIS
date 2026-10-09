@@ -3669,6 +3669,70 @@ class JarvisAPI:
         except Exception as e:
             print(f"[desktop] save_dropped_image error: {e}")
 
+    def upload_images_for_geolocation(self, images_data: list, local_only: bool = False):
+        """
+        Intake up to 4 images for OSINT geolocation.
+        Saves originals to data/uploads/, runs EXIF pass & model analysis.
+        """
+        import base64
+        import time
+        from pathlib import Path
+        from modules.image_geolocator import ImageGeolocator, UPLOADS_DIR
+
+        UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+        results = []
+        geolocator = ImageGeolocator()
+
+        for idx, item in enumerate(images_data[:4]):
+            data_url = item.get("data_url", "")
+            orig_name = item.get("filename", f"upload_{int(time.time())}_{idx}.jpg")
+            safe_name = f"{int(time.time())}_{idx}_{Path(orig_name).name}"
+            dest_path = UPLOADS_DIR / safe_name
+
+            if "," in data_url:
+                data_url = data_url.split(",", 1)[1]
+            try:
+                raw_bytes = base64.b64decode(data_url)
+                dest_path.write_bytes(raw_bytes)
+                analysis = geolocator.analyze(str(dest_path), local_only=local_only)
+                results.append(analysis)
+            except Exception as ex:
+                results.append({"error": str(ex), "filename": orig_name})
+
+        # Emit to frontend listeners
+        self._emit("image_geolocation_results", {"analyses": results})
+
+        # Speak summary of primary candidate if speech available
+        if results and results[0].get("speech_summary"):
+            try:
+                self._speak_and_suppress_echo(results[0]["speech_summary"])
+            except Exception:
+                pass
+
+        return {"success": True, "analyses": results}
+
+    def geolocate_image(self, image_path: str, local_only: bool = False):
+        """Direct analysis on a single image path."""
+        from modules.image_geolocator import ImageGeolocator
+        geolocator = ImageGeolocator()
+        analysis = geolocator.analyze(image_path, local_only=local_only)
+        if analysis.get("speech_summary"):
+            try:
+                self._speak_and_suppress_echo(analysis["speech_summary"])
+            except Exception:
+                pass
+        return analysis
+
+    def copy_image_to_clipboard(self, image_path: str) -> bool:
+        """Copy image file to system clipboard using wl-copy or xclip."""
+        from modules.image_geolocator import ImageGeolocator
+        return ImageGeolocator().copy_image_to_clipboard(image_path)
+
+    def open_image_folder(self, image_path: str) -> bool:
+        """Open parent folder of image in file manager."""
+        from modules.image_geolocator import ImageGeolocator
+        return ImageGeolocator().open_image_folder(image_path)
+
     def submit_image(self, image_path: str, prompt: str):
         """Analyze an attached image with prompt via JarvisVoice multimodal AI."""
         print(f"\n[desktop] Submitting image prompt: {prompt} (image: {image_path})")
@@ -5077,6 +5141,76 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
                 continue
 
         return json.dumps(_generate_fallback_overpass_roads(query))
+
+    @app.route('/uploads/<filepath:path>')
+    def _bottle_uploads(filepath):
+        from modules.image_geolocator import UPLOADS_DIR
+        return bottle.static_file(filepath, root=str(UPLOADS_DIR))
+
+    @app.route('/api/geolocate/upload', method=['POST', 'OPTIONS'])
+    def _bottle_geolocate_upload():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        bottle.response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        bottle.response.content_type = 'application/json'
+
+        body = bottle.request.json or {}
+        images_data = body.get('images', [])
+        local_only = bool(body.get('local_only', False))
+
+        if api and hasattr(api, 'upload_images_for_geolocation'):
+            return json.dumps(api.upload_images_for_geolocation(images_data, local_only=local_only))
+
+        from modules.image_geolocator import ImageGeolocator, UPLOADS_DIR
+        import base64, time
+        from pathlib import Path
+        UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+        results = []
+        geolocator = ImageGeolocator()
+        for idx, item in enumerate(images_data[:4]):
+            data_url = item.get("data_url", "")
+            orig_name = item.get("filename", f"upload_{int(time.time())}_{idx}.jpg")
+            safe_name = f"{int(time.time())}_{idx}_{Path(orig_name).name}"
+            dest_path = UPLOADS_DIR / safe_name
+            if "," in data_url:
+                data_url = data_url.split(",", 1)[1]
+            try:
+                dest_path.write_bytes(base64.b64decode(data_url))
+                analysis = geolocator.analyze(str(dest_path), local_only=local_only)
+                results.append(analysis)
+            except Exception as ex:
+                results.append({"error": str(ex), "filename": orig_name})
+        return json.dumps({"success": True, "analyses": results})
+
+    @app.route('/api/geolocate/copy_clipboard', method=['POST', 'OPTIONS'])
+    def _bottle_copy_clipboard():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        bottle.response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        bottle.response.content_type = 'application/json'
+        body = bottle.request.json or {}
+        image_path = body.get('image_path', '')
+        from modules.image_geolocator import ImageGeolocator
+        ok = ImageGeolocator().copy_image_to_clipboard(image_path)
+        return json.dumps({"success": ok})
+
+    @app.route('/api/geolocate/open_folder', method=['POST', 'OPTIONS'])
+    def _bottle_open_folder():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        bottle.response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        bottle.response.content_type = 'application/json'
+        body = bottle.request.json or {}
+        image_path = body.get('image_path', '')
+        from modules.image_geolocator import ImageGeolocator
+        ok = ImageGeolocator().open_image_folder(image_path)
+        return json.dumps({"success": ok})
 
     @app.route('/')
     @app.route('/<file:path>')
