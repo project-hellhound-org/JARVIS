@@ -2244,7 +2244,7 @@ class JarvisAPI:
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    def get_ground_intel(self, location=None, lat=None, lon=None, radius_km=35.0, limit=20) -> dict:
+    def get_ground_intel(self, location=None, lat=None, lon=None, radius_km=35.0, limit=40) -> dict:
         """Fetch georeferenced open-source photos, videos, and YouTube clips for a city or coordinates."""
         try:
             from modules.ground_intel import get_ground_intel_client
@@ -2262,7 +2262,7 @@ class JarvisAPI:
                 lon=float(lon) if lon is not None else None,
                 radius_km=float(radius_km or 35.0),
                 location=loc_str,
-                limit=int(limit or 20)
+                limit=int(limit or 40)
             )
         except Exception as e:
             logger.error(f"[desktop] get_ground_intel error: {e}")
@@ -5049,14 +5049,14 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         lon = None
         radius_km = 35.0
         loc = bottle.request.query.get('location')
-        limit = 20
+        limit = 40
 
         if bottle.request.method == 'POST' and bottle.request.json:
             lat = bottle.request.json.get('lat')
             lon = bottle.request.json.get('lon')
             radius_km = float(bottle.request.json.get('radius_km', 35.0))
             loc = bottle.request.json.get('location', loc)
-            limit = int(bottle.request.json.get('limit', 20))
+            limit = int(bottle.request.json.get('limit', 40))
         else:
             try:
                 if bottle.request.query.get('lat') and bottle.request.query.get('lon'):
@@ -5066,9 +5066,9 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
             except (ValueError, TypeError):
                 pass
             try:
-                limit = int(bottle.request.query.get('limit', 20))
+                limit = int(bottle.request.query.get('limit', 40))
             except (ValueError, TypeError):
-                limit = 20
+                limit = 40
 
         return json.dumps(client.get_ground_media_in_area(
             lat=lat,

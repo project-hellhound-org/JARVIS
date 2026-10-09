@@ -4939,6 +4939,12 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
       <video id="ground-media-dock-video" autoplay muted loop playsinline controls style="width:100%; height:100%; object-fit:cover; display:none;"></video>
       <img id="ground-media-dock-img" src="" alt="Ground photograph" style="width:100%; height:100%; object-fit:cover; display:none;" />
       
+      <!-- Placeholder with "image unavailable" if image fails (onerror) -->
+      <div id="ground-media-dock-placeholder" style="display:none; position:absolute; inset:0; background:rgba(4,8,16,0.92); flex-direction:column; align-items:center; justify-content:center; padding:12px; text-align:center;">
+        <span style="font-size:22px; margin-bottom:4px;">🖼️</span>
+        <span style="font-size:10px; font-weight:700; color:#94A3B8; letter-spacing:1px;">IMAGE UNAVAILABLE</span>
+      </div>
+
       <!-- Fallback Error Overlay (if YouTube player fails) -->
       <div id="ground-media-dock-fallback" style="display:none; position:absolute; inset:0; background:rgba(4,8,16,0.92); flex-direction:column; align-items:center; justify-content:center; padding:12px; text-align:center;">
         <span style="font-size:18px; margin-bottom:4px;">📡</span>
@@ -4951,15 +4957,45 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
     </div>
 
     <div id="ground-media-dock-title" style="font-size:11.5px; font-weight:700; color:#FFFFFF; line-height:1.35; margin-bottom:4px;">Title</div>
-    <div id="ground-media-dock-desc" style="font-size:9px; color:#94A3B8; line-height:1.4; margin-bottom:6px;">Description</div>
-    <div style="display:flex; justify-content:space-between; font-size:8px; color:#64748B; border-top:1px solid rgba(255,255,255,0.06); padding-top:5px;">
-      <span id="ground-media-dock-coords">11.0183° N, 76.9644° E</span>
-      <span id="ground-media-dock-time">Recent Dispatch</span>
+    <div id="ground-media-dock-desc" style="font-size:9px; color:#94A3B8; line-height:1.4; margin-bottom:6px; max-height:60px; overflow-y:auto;"></div>
+
+    <!-- DETAILS SECTION -->
+    <div id="ground-media-dock-details" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:5px; padding:6px 8px; margin-bottom:8px; font-size:8.5px; line-height:1.4;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+        <span style="color:#64748B;">Date Taken:</span>
+        <span id="ground-media-dock-date-taken" style="color:#E2E8F0; font-weight:600;">—</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+        <span style="color:#64748B;">Uploaded:</span>
+        <span id="ground-media-dock-upload-date" style="color:#E2E8F0; font-weight:600;">—</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+        <span style="color:#64748B;">Author:</span>
+        <span id="ground-media-dock-author" style="color:#00F0FF; font-weight:600; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+        <span style="color:#64748B;">License:</span>
+        <span id="ground-media-dock-license" style="color:#A1A1AA; font-weight:600;">—</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+        <span style="color:#64748B;">Distance:</span>
+        <span id="ground-media-dock-distance" style="color:#E2E8F0; font-weight:600;">—</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:3px; border-top:1px solid rgba(255,255,255,0.05);">
+        <span id="ground-media-dock-coords" style="color:#38BDF8; font-weight:600;">—</span>
+        <button id="ground-media-dock-copy-coords-btn" onclick="window.copyGroundIntelCoords()" style="background:rgba(0,240,255,0.12); border:1px solid rgba(0,240,255,0.35); color:#00F0FF; font-family:var(--mono); font-size:7.5px; font-weight:700; padding:1px 5px; border-radius:3px; cursor:pointer;" title="Copy coordinates">📋 COPY</button>
+      </div>
+      <div id="ground-media-dock-categories-wrapper" style="margin-top:5px; display:none;">
+        <div style="color:#64748B; font-size:7.5px; margin-bottom:2px;">CATEGORIES:</div>
+        <div id="ground-media-dock-categories" style="display:flex; flex-wrap:wrap; gap:3px;"></div>
+      </div>
     </div>
-    <div id="ground-media-video-status" style="font-size:7.5px; color:#F59E0B; margin-top:5px; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">video search disabled: no API key</div>
-    <div style="display:flex; gap:6px; margin-top:8px;">
-      <button id="ground-media-dock-btn-focus" style="flex:1; background:rgba(0,240,255,0.14); border:1px solid #00F0FF; color:#00F0FF; font-family:var(--mono); font-size:9px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;" onclick="window.focusGroundMediaLocation()">🎯 FOCUS GROUND ZERO</button>
-      <a id="ground-media-dock-link" href="#" target="_blank" rel="noopener noreferrer" style="flex:1; text-align:center; text-decoration:none; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#E2E8F0; font-family:var(--mono); font-size:9px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;">🌐 OPEN SOURCE ↗</a>
+
+    <div id="ground-media-video-status" style="font-size:7.5px; color:#F59E0B; margin-top:2px; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">video search disabled: no API key</div>
+    <div style="display:flex; gap:6px;">
+      <button id="ground-media-dock-btn-focus" style="flex:1; background:rgba(0,240,255,0.14); border:1px solid #00F0FF; color:#00F0FF; font-family:var(--mono); font-size:8.5px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;" onclick="window.focusGroundMediaLocation()">🎯 FLY HERE</button>
+      <a id="ground-media-dock-page-link" href="#" target="_blank" rel="noopener noreferrer" style="flex:1; text-align:center; text-decoration:none; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#E2E8F0; font-family:var(--mono); font-size:8.5px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;">🌐 WIKIMEDIA ↗</a>
+      <a id="ground-media-dock-original-link" href="#" target="_blank" rel="noopener noreferrer" style="flex:1; text-align:center; text-decoration:none; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#E2E8F0; font-family:var(--mono); font-size:8.5px; font-weight:700; padding:5px 6px; border-radius:3px; cursor:pointer;">ORIGINAL ↗</a>
     </div>
     <div class="tactical-resize-handle" title="Resize Ground Media">◢</div>
   </div>
@@ -17832,6 +17868,18 @@ function initCesiumGlobe() {
       const picked = scene.pick(click.position);
       let tacticalData = null;
       if (Cesium.defined(picked)) {
+        if (Array.isArray(picked.id) && picked.id.length > 0) {
+          // Clustered pins clicked: calculate bounding sphere and smoothly expand cluster
+          const positions = picked.id.map(e => (e.position && e.position.getValue) ? e.position.getValue(viewer.clock.currentTime) : null).filter(Boolean);
+          if (positions.length > 0) {
+            const sphere = Cesium.BoundingSphere.fromPoints(positions);
+            viewer.camera.flyToBoundingSphere(sphere, {
+              duration: 1.2,
+              offset: new Cesium.HeadingPitchRange(viewer.camera.heading, viewer.camera.pitch, Math.max(sphere.radius * 2.2, 500))
+            });
+            return;
+          }
+        }
         if (picked.id && picked.id._tacticalData) {
           tacticalData = picked.id._tacticalData;
         } else if (picked.primitive && picked.primitive._tacticalData) {
@@ -20233,6 +20281,39 @@ function initGlobeIntelligence(viewer) {
   _groundMediaDataSource.show = _tacticalLayers.groundMedia;
   viewer.dataSources.add(_groundMediaDataSource);
 
+  // Requirement 5: Cluster pins when they overlap (show count badge; expand on click)
+  _groundMediaDataSource.clustering.enabled = true;
+  _groundMediaDataSource.clustering.pixelRange = 45;
+  _groundMediaDataSource.clustering.minimumClusterSize = 2;
+
+  const CLUSTER_PIN_SVG = (count) => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="18" fill="rgba(6, 20, 32, 0.95)" stroke="#00F0FF" stroke-width="2.2" />
+      <circle cx="20" cy="20" r="13" fill="rgba(0, 240, 255, 0.22)" stroke="#00F0FF" stroke-width="0.8" stroke-dasharray="2 2" />
+    </svg>`;
+    return 'data:image/svg+xml;base64,' + btoa(svg);
+  };
+
+  _groundMediaDataSource.clustering.clusterEvent.addEventListener((clusteredEntities, cluster) => {
+    cluster.label.show = true;
+    cluster.label.text = String(clusteredEntities.length);
+    cluster.label.font = 'bold 11px "JetBrains Mono", monospace';
+    cluster.label.fillColor = Cesium.Color.fromCssColorString('#00F0FF');
+    cluster.label.outlineColor = Cesium.Color.BLACK;
+    cluster.label.outlineWidth = 3;
+    cluster.label.style = Cesium.LabelStyle.FILL_AND_OUTLINE;
+    cluster.label.verticalOrigin = Cesium.VerticalOrigin.CENTER;
+    cluster.label.horizontalOrigin = Cesium.HorizontalOrigin.CENTER;
+    cluster.label.pixelOffset = new Cesium.Cartesian2(0, 0);
+
+    cluster.billboard.show = true;
+    cluster.billboard.id = cluster;
+    cluster.billboard.width = 36;
+    cluster.billboard.height = 36;
+    cluster.billboard.verticalOrigin = Cesium.VerticalOrigin.CENTER;
+    cluster.billboard.image = CLUSTER_PIN_SVG(clusteredEntities.length);
+  });
+
   const VIDEO_PIN_ICON = (() => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
       <defs>
@@ -20426,14 +20507,18 @@ function initGlobeIntelligence(viewer) {
 
   window.renderGroundMediaPoints = function(points) {
     if (!_groundMediaDataSource || !points) return;
-    window._activeGroundMediaPoints = Array.isArray(points) ? points : [];
+    const allPoints = Array.isArray(points) ? points : [];
+    // Requirement 5: Cap visible pins at 40 nearest
+    const sorted = [...allPoints].sort((a, b) => (Number(a.distance_km) || 0) - (Number(b.distance_km) || 0));
+    const capped = sorted.slice(0, 40);
+    window._activeGroundMediaPoints = capped;
     _tacticalLayers.groundMedia = true;
     _groundMediaDataSource.show = true;
     const toggleEl = document.getElementById('layer-toggle-groundMedia');
     if (toggleEl) toggleEl.classList.add('active');
     _groundMediaDataSource.entities.removeAll();
 
-    points.forEach(p => {
+    capped.forEach(p => {
       const isVideo = (p.media_type === 'youtube' || p.media_type === 'video');
       const isCityLevel = (p.badge === 'CITY-LEVEL' || p.precision === 'CITY-LEVEL');
       const tacticalData = {
@@ -20446,10 +20531,20 @@ function initGlobeIntelligence(viewer) {
         source_label: p.source_label,
         thumbnail_url: p.thumbnail_url,
         media_url: p.media_url,
+        full_res_url: p.full_res_url || p.media_url,
+        url: p.url,
         simulated: Boolean(p.simulated),
         badge: p.badge || (p.simulated ? 'SIMULATED' : (isCityLevel ? 'CITY-LEVEL' : 'UPLOADER GEOTAG')),
         precision: p.precision || (isCityLevel ? 'CITY-LEVEL' : 'PRECISE'),
         timestamp: p.timestamp,
+        upload_date: p.upload_date,
+        date_taken: p.date_taken,
+        year: p.year,
+        author: p.author || p.source,
+        license: p.license,
+        categories: p.categories || [],
+        distance_km: p.distance_km,
+        bearing: p.bearing,
         lat: p.lat,
         lon: p.lon,
         alt: p.alt || 60,
@@ -20521,7 +20616,40 @@ function initGlobeIntelligence(viewer) {
     });
 
     const countEl = document.getElementById('groundmedia-contact-count');
-    if (countEl) countEl.textContent = String(points.length);
+    if (countEl) countEl.textContent = String(capped.length);
+
+    // Update Ground Intel window list and badge
+    const badgeEl = document.getElementById('win-ground-intel-badge');
+    if (badgeEl) badgeEl.textContent = `${capped.length} PINS`;
+    const feedList = document.getElementById('win-ground-intel-feed-list');
+    if (feedList) {
+      if (capped.length === 0) {
+        feedList.innerHTML = '<div style="color:#64748B; text-align:center; padding:12px; font-size:9.5px;">No ground media pins in active sector. Orbiting globe camera or searching city acquires geotagged footage &amp; Wikimedia photography.</div>';
+      } else {
+        feedList.innerHTML = capped.map((p, idx) => {
+          const thumb = p.thumbnail_url || p.media_url || '';
+          const title = (p.title || 'Ground Contact').replace(/'/g, "\\'");
+          const dist = p.distance_km !== undefined ? `${p.distance_km} km` : '';
+          const bearing = p.bearing ? ` • ${p.bearing}` : '';
+          const year = p.year ? ` • ${p.year}` : '';
+          const author = p.author ? p.author : '';
+          return `
+            <div class="tactical-ground-feed-item" onclick="window.openGroundMediaCard(window._activeGroundMediaPoints[${idx}]); window.flyToGroundIntelPin(${p.lat}, ${p.lon});"
+                 style="display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:4px; padding:5px 7px; cursor:pointer; transition:background 0.15s ease;"
+                 onmouseover="this.style.background='rgba(0,240,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+              <div style="width:40px; height:30px; border-radius:3px; overflow:hidden; background:#02060D; flex-shrink:0; position:relative;">
+                <img src="${thumb}" alt="" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src=''; this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                <div style="display:none; width:100%; height:100%; background:#0f172a; align-items:center; justify-content:center; font-size:7px; color:#64748b;">N/A</div>
+              </div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-size:9.5px; font-weight:700; color:#E2E8F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.title || 'Ground Contact'}</div>
+                <div style="font-size:8px; color:#64748B;">${dist}${bearing}${year} <span style="color:#00F0FF;">${author}</span></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
 
     if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
       window.cesiumViewer.scene.requestRender();
@@ -20867,8 +20995,12 @@ function initGlobeIntelligence(viewer) {
     window._activeGroundMediaCoord = { lat: data.lat, lon: data.lon, alt: data.alt || 60, title: data.title };
     window._groundMediaMuted = true;
 
+    const isVideo = (data.media_type === 'youtube' || data.media_type === 'video' || data.type === 'video');
+
+    // Requirement 4: Hide the MUTED button unless the item is a video
     const muteBtn = document.getElementById('ground-media-dock-mute-btn');
     if (muteBtn) {
+      muteBtn.style.display = isVideo ? 'inline-block' : 'none';
       muteBtn.textContent = '🔇 MUTED';
       muteBtn.style.color = '#A1A1AA';
       muteBtn.style.borderColor = 'rgba(255,255,255,0.2)';
@@ -20880,23 +21012,75 @@ function initGlobeIntelligence(viewer) {
     const iframe = document.getElementById('ground-media-dock-iframe');
     const video = document.getElementById('ground-media-dock-video');
     const img = document.getElementById('ground-media-dock-img');
+    const imgPlaceholder = document.getElementById('ground-media-dock-placeholder');
     const fallback = document.getElementById('ground-media-dock-fallback');
     const fallbackBtn = document.getElementById('ground-media-dock-fallback-btn');
     const titleEl = document.getElementById('ground-media-dock-title');
     const descEl = document.getElementById('ground-media-dock-desc');
     const coordsEl = document.getElementById('ground-media-dock-coords');
     const timeEl = document.getElementById('ground-media-dock-time');
-    const linkEl = document.getElementById('ground-media-dock-link');
+    const dateTakenEl = document.getElementById('ground-media-dock-date-taken');
+    const uploadDateEl = document.getElementById('ground-media-dock-upload-date');
+    const authorEl = document.getElementById('ground-media-dock-author');
+    const licenseEl = document.getElementById('ground-media-dock-license');
+    const distEl = document.getElementById('ground-media-dock-distance');
+    const pageLinkEl = document.getElementById('ground-media-dock-page-link');
+    const origLinkEl = document.getElementById('ground-media-dock-original-link');
     const badgeEl = document.getElementById('ground-media-dock-badge');
 
     if (titleEl) titleEl.textContent = data.title || 'Ground Intel Contact';
-    if (descEl) descEl.textContent = data.description || data.subtitle || '';
-    const latDir = Number(data.lat) >= 0 ? 'N' : 'S';
-    const lonDir = Number(data.lon) >= 0 ? 'E' : 'W';
-    if (coordsEl) coordsEl.textContent = `${Math.abs(Number(data.lat)).toFixed(4)}° ${latDir}, ${Math.abs(Number(data.lon)).toFixed(4)}° ${lonDir}`;
+    if (descEl) {
+      descEl.textContent = data.description || '';
+      descEl.style.display = data.description ? 'block' : 'none';
+    }
+
+    const latNum = Number(data.lat);
+    const lonNum = Number(data.lon);
+    const latDir = latNum >= 0 ? 'N' : 'S';
+    const lonDir = lonNum >= 0 ? 'E' : 'W';
+    if (coordsEl) coordsEl.textContent = `${Math.abs(latNum).toFixed(4)}° ${latDir}, ${Math.abs(lonNum).toFixed(4)}° ${lonDir}`;
     if (timeEl) timeEl.textContent = data.published_time || data.timestamp || 'Open-Source Dispatch';
 
-    const isVideo = (data.media_type === 'youtube' || data.media_type === 'video' || data.type === 'video');
+    // Populate Details section
+    if (dateTakenEl) dateTakenEl.textContent = data.date_taken || (data.year ? String(data.year) : '—');
+    if (uploadDateEl) {
+      const upDate = data.upload_date || data.published_time || data.timestamp || '';
+      uploadDateEl.textContent = upDate ? upDate.slice(0, 10) : '—';
+    }
+    if (authorEl) authorEl.textContent = data.author || data.source || 'Wikimedia Contributor';
+    if (licenseEl) licenseEl.textContent = data.license || 'CC / Public Domain';
+
+    if (distEl) {
+      const distNum = (data.distance_km !== undefined) ? Number(data.distance_km).toFixed(1) : '0.0';
+      const bearingStr = data.bearing ? ` • ${data.bearing}` : '';
+      distEl.textContent = `${distNum} km${bearingStr}`;
+    }
+
+    // Categories as chips
+    const catsWrapper = document.getElementById('ground-media-dock-categories-wrapper');
+    const catsContainer = document.getElementById('ground-media-dock-categories');
+    if (catsContainer) {
+      catsContainer.innerHTML = '';
+      const cats = Array.isArray(data.categories) ? data.categories : [];
+      if (cats.length > 0) {
+        cats.forEach(c => {
+          const chip = document.createElement('span');
+          chip.style.cssText = 'font-size:7.5px; color:#94A3B8; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); padding:1px 4px; border-radius:3px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+          chip.textContent = c;
+          catsContainer.appendChild(chip);
+        });
+        if (catsWrapper) catsWrapper.style.display = 'block';
+      } else {
+        if (catsWrapper) catsWrapper.style.display = 'none';
+      }
+    }
+
+    // Action links
+    const filePage = data.url || '#';
+    const origUrl = data.full_res_url || data.media_url || data.url || '#';
+    if (pageLinkEl) pageLinkEl.href = filePage;
+    if (origLinkEl) origLinkEl.href = origUrl;
+
     if (platEl) platEl.textContent = (data.source_label || (isVideo ? 'YOUTUBE' : 'WIKIMEDIA')).toUpperCase();
     if (iconEl) iconEl.textContent = isVideo ? '📹' : '📷';
     if (badgeEl) {
@@ -20925,11 +21109,8 @@ function initGlobeIntelligence(viewer) {
       }
     }
 
-    const targetUrl = data.url || data.media_url || data.thumbnail_url || '#';
-    if (linkEl) linkEl.href = targetUrl;
-    if (fallbackBtn) fallbackBtn.href = targetUrl;
-
     if (fallback) fallback.style.display = 'none';
+    if (imgPlaceholder) imgPlaceholder.style.display = 'none';
 
     const isDirectVideo = data.media_url && (data.media_url.endsWith('.mp4') || data.media_url.endsWith('.webm') || data.media_url.endsWith('.m3u8'));
 
@@ -20972,6 +21153,10 @@ function initGlobeIntelligence(viewer) {
       if (video) { video.style.display = 'none'; video.pause(); video.src = ''; }
       if (img) {
         img.style.display = 'block';
+        img.onerror = function() {
+          img.style.display = 'none';
+          if (imgPlaceholder) imgPlaceholder.style.display = 'flex';
+        };
         img.src = data.thumbnail_url || data.media_url || '';
       }
     }
@@ -20982,6 +21167,33 @@ function initGlobeIntelligence(viewer) {
     if (window.JarvisSFX && window.JarvisSFX.targetLock) {
       window.JarvisSFX.targetLock();
     }
+  };
+
+  window.copyGroundIntelCoords = function() {
+    if (!window._activeGroundMediaCoord) return;
+    const { lat, lon } = window._activeGroundMediaCoord;
+    const latDir = Number(lat) >= 0 ? 'N' : 'S';
+    const lonDir = Number(lon) >= 0 ? 'E' : 'W';
+    const coordStr = `${Math.abs(Number(lat)).toFixed(6)}° ${latDir}, ${Math.abs(Number(lon)).toFixed(6)}° ${lonDir}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(coordStr).then(() => {
+        const btn = document.getElementById('ground-media-dock-copy-coords-btn');
+        if (btn) {
+          btn.textContent = '✓ COPIED';
+          setTimeout(() => { btn.textContent = '📋 COPY'; }, 1500);
+        }
+      }).catch(() => {});
+    }
+  };
+
+  window.flyToGroundIntelPin = function(lat, lon) {
+    if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return;
+    const cartesian = Cesium.Cartesian3.fromDegrees(Number(lon), Number(lat), 0);
+    const sphere = new Cesium.BoundingSphere(cartesian, 400);
+    window.cesiumViewer.camera.flyToBoundingSphere(sphere, {
+      duration: 1.5,
+      offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-35), 800)
+    });
   };
 
   window.closeGroundMediaCard = function() {

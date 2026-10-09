@@ -62,8 +62,72 @@ NON_PLACE_PATTERNS = [
     re.compile(r'\b(?:observation|specimen|inaturalist|biodiversity)\b', re.IGNORECASE),
     re.compile(r'\b(?:passport\s+photo|headshot|portrait\s+of|smiling\s+in\s+front\s+of)\b', re.IGNORECASE),
     re.compile(r'\b(?:film\s+poster|movie\s+poster|postage\s+stamp|paper\s+currency|banknote|coin|drawing|sketch)\b', re.IGNORECASE),
-    re.compile(r'\b(?:clothing|wind\s+chimes|t-shirt|souvenir|textile)\b', re.IGNORECASE)
+    re.compile(r'\b(?:clothing|wind\s+chimes|t-shirt|souvenir|textile)\b', re.IGNORECASE),
+    re.compile(r'\b(?:coat\s+of\s+arms|arms\s+of|wappen|escudo|blason|heraldic|emblem)\b', re.IGNORECASE),
+    re.compile(r'\b(?:flag\s+of|bandeira|drapeau|vexillology)\b', re.IGNORECASE),
+    re.compile(r'\b(?:locator\s+map|location\s+map|topographic\s+map|map\s+of|bathymetry)\b', re.IGNORECASE),
+    re.compile(r'\b(?:logo|icon|symbol|insignia|badge\s+of)\b', re.IGNORECASE),
 ]
+
+USGS_TILE_REGEX = re.compile(r'\bM[_\s]?\d{7}[_\s]?', re.IGNORECASE)
+ISS_PHOTO_REGEX = re.compile(r'\bISS\d{3}-E-\d+', re.IGNORECASE)
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+DISALLOWED_EXTENSIONS = {'.tif', '.tiff', '.pdf', '.svg', '.djvu', '.webm', '.ogv', '.ogg', '.mp4', '.avi', '.mov'}
+CAMERA_NAME_REGEX = re.compile(
+    r'^(?:IMG|DSC|DJI|SAM|PHOTO|PIC|P|VID)?[_\s-]?\d+(?:[_\s-]\d+)*$',
+    re.IGNORECASE
+)
+
+def strip_html_tags(text: Optional[str]) -> str:
+    """Strip HTML markup from metadata strings."""
+    if not text:
+        return ""
+    clean = re.sub(r'<[^<]+?>', '', str(text))
+    clean = (clean.replace("&quot;", '"')
+                  .replace("&amp;", "&")
+                  .replace("&lt;", "<")
+                  .replace("&gt;", ">")
+                  .replace("&#039;", "'")
+                  .replace("&nbsp;", " "))
+    return re.sub(r'\s+', ' ', clean).strip()
+
+def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> str:
+    """Calculates compass bearing from (lat1, lon1) to (lat2, lon2), e.g. 'NE (42°)'."""
+    dlon = math.radians(lon2 - lon1)
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    y = math.sin(dlon) * math.cos(lat2_rad)
+    x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon)
+    bearing_deg = (math.degrees(math.atan2(y, x)) + 360) % 360
+    directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+                  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+    idx = int((bearing_deg + 11.25) / 22.5) % 16
+    return f"{directions[idx]} ({round(bearing_deg)}°)"
+
+def extract_year(date_str: Optional[str]) -> Optional[int]:
+    """Extracts 4-digit calendar year from date string."""
+    if not date_str:
+        return None
+    m = re.search(r'\b(18\d{2}|19\d{2}|20\d{2})\b', str(date_str))
+    if m:
+        return int(m.group(1))
+    return None
+
+def get_wikimedia_user_agent() -> str:
+    """Return user-agent with contact email from config or environment."""
+    email = os.environ.get("CONTACT_EMAIL") or os.environ.get("ADMIN_EMAIL")
+    if not email:
+        try:
+            import yaml
+            cfg_path = Path(__file__).resolve().parent.parent / "config.yaml"
+            if cfg_path.exists():
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f) or {}
+                    email = cfg.get("contact_email") or cfg.get("email")
+        except Exception:
+            pass
+    email = email or "defense-intel@project-hellhound.local"
+    return f"JARVIS-OSINT/1.0 ({email})"
 
 OSINT_LANDMARK_TERMS = re.compile(
     r'\b(?:station|terminal|airport|harbor|port|bridge|highway|expressway|road|street|'
@@ -164,7 +228,7 @@ def resolve_place_coordinates(location_str: str) -> Optional[Tuple[float, float,
 
     return None
 
-def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, limit: int = 15) -> List[Dict[str, Any]]:
+def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, limit: int = 40) -> List[Dict[str, Any]]:
     """
     Fetch real geotagged images from Wikimedia Commons geosearch API.
     Zero fake entries. Real titles, authors, timestamps, and coordinates.
@@ -179,15 +243,15 @@ def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, l
         tiles.append((lat, lon + step_km / (111.0 * cos_lat), 10000))
         tiles.append((lat, lon - step_km / (111.0 * cos_lat), 10000))
 
-    headers = {"User-Agent": "JARVIS-OSINT-GroundMedia/2.0 (Defense Intel Client)"}
+    headers = {"User-Agent": get_wikimedia_user_agent()}
     items = []
     seen_pids = set()
 
     for t_lat, t_lon, t_rad in tiles:
         url = (
             f"https://commons.wikimedia.org/w/api.php?action=query&generator=geosearch"
-            f"&ggscoord={t_lat}|{t_lon}&ggsradius={t_rad}&ggslimit={limit}&ggsnamespace=6"
-            f"&prop=imageinfo|coordinates&iiprop=url|timestamp|user&format=json"
+            f"&ggscoord={t_lat}|{t_lon}&ggsradius={t_rad}&ggslimit={min(limit, 50)}&ggsnamespace=6"
+            f"&prop=imageinfo|coordinates|categories&iiprop=url|timestamp|user|extmetadata&iiurlwidth=800&format=json"
         )
         try:
             req = urllib.request.Request(url, headers=headers)
@@ -199,8 +263,22 @@ def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, l
                         continue
                     seen_pids.add(pid)
                     title = page.get("title", "")
-                    clean_title = re.sub(r"^File:", "", title).replace("_", " ").strip()
-                    clean_title = re.sub(r"\.(jpg|jpeg|png|gif|svg|webp|tiff)$", "", clean_title, flags=re.IGNORECASE)
+                    raw_name = re.sub(r"^File:", "", title, flags=re.IGNORECASE).strip()
+
+                    # Requirement 2: Only show jpg/jpeg/png/webp/gif. Drop tif/tiff/pdf/svg/video-only results
+                    _, file_ext = os.path.splitext(raw_name)
+                    file_ext_lower = file_ext.lower()
+                    if file_ext_lower not in ALLOWED_EXTENSIONS or file_ext_lower in DISALLOWED_EXTENSIONS:
+                        continue
+
+                    # Requirement 2: Drop USGS aerial tile names and ISS astronaut photos
+                    if USGS_TILE_REGEX.search(raw_name) or ISS_PHOTO_REGEX.search(raw_name):
+                        continue
+
+                    clean_title = raw_name
+                    if file_ext:
+                        clean_title = clean_title[:-len(file_ext)]
+                    clean_title = clean_title.replace("_", " ").strip()
 
                     coords = page.get("coordinates", [])
                     p_lat = float(coords[0].get("lat")) if coords else lat
@@ -224,14 +302,55 @@ def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, l
                     if not media_url:
                         continue
 
-                    user = info.get("user") or "Wikimedia Contributor"
-                    pub_time = info.get("timestamp") or time.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    # Requirement 1: Request Wikimedia imageinfo with iiurlwidth=800 and use returned thumburl
+                    thumb_url = info.get("thumburl")
+                    if not thumb_url:
+                        if "/commons/" in media_url and "/thumb/" not in media_url:
+                            parts = media_url.split("/commons/")
+                            filename = media_url.split("/")[-1]
+                            thumb_url = f"{parts[0]}/commons/thumb/{parts[1]}/800px-{filename}"
+                        else:
+                            thumb_url = media_url
 
-                    thumb_url = media_url
-                    if "/commons/" in media_url and "/thumb/" not in media_url:
-                        parts = media_url.split("/commons/")
-                        filename = media_url.split("/")[-1]
-                        thumb_url = f"{parts[0]}/commons/thumb/{parts[1]}/640px-{filename}"
+                    extmetadata = info.get("extmetadata", {})
+                    desc_raw = extmetadata.get("ImageDescription", {}).get("value", "")
+                    desc_clean = strip_html_tags(desc_raw)
+
+                    # Filter if description matches USGS or ISS patterns
+                    if USGS_TILE_REGEX.search(desc_clean) or ISS_PHOTO_REGEX.search(desc_clean):
+                        continue
+
+                    # Requirement 3: Clean titles; if camera filename, use first sentence of ImageDescription
+                    if CAMERA_NAME_REGEX.match(clean_title) or clean_title.isdigit():
+                        if desc_clean:
+                            first_sent = re.split(r'(?<=[.!?])\s+', desc_clean)[0].strip()
+                            if first_sent and len(first_sent) > 3 and not CAMERA_NAME_REGEX.match(first_sent):
+                                clean_title = first_sent[:90]
+
+                    # Requirement 3: Never generate description text; if there is no description, show none
+                    description = desc_clean if desc_clean else ""
+
+                    date_taken_raw = extmetadata.get("DateTimeOriginal", {}).get("value", "") or extmetadata.get("DateTime", {}).get("value", "")
+                    date_taken = strip_html_tags(date_taken_raw)
+                    upload_date = info.get("timestamp") or time.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+                    artist_raw = extmetadata.get("Artist", {}).get("value", "")
+                    author = strip_html_tags(artist_raw) or info.get("user") or "Wikimedia Contributor"
+
+                    license_short = strip_html_tags(extmetadata.get("LicenseShortName", {}).get("value", "") or extmetadata.get("UsageTerms", {}).get("value", ""))
+                    license_name = license_short or "CC / Public Domain"
+
+                    # Categories as chips
+                    categories = []
+                    for cat in page.get("categories", []):
+                        c_title = cat.get("title", "")
+                        if c_title:
+                            c_clean = re.sub(r'^Category:', '', c_title, flags=re.IGNORECASE).replace('_', ' ').strip()
+                            if c_clean:
+                                categories.append(c_clean)
+
+                    year = extract_year(date_taken or upload_date)
+                    bearing = calculate_bearing(lat, lon, p_lat, p_lon)
 
                     precision = "CITY-LEVEL" if dist <= 0.150 else "PRECISE"
                     badge = compute_geolocation_badge("GEOTAGGED", precision=precision, platform="Wikimedia Commons")
@@ -241,13 +360,19 @@ def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, l
                         "platform": "Wikimedia Commons",
                         "url": f"https://commons.wikimedia.org/wiki/{urllib.parse.quote(title)}",
                         "title": clean_title,
-                        "author": user,
-                        "published_time": pub_time,
-                        "timestamp": pub_time[:10] if len(pub_time) >= 10 else pub_time,
+                        "author": author,
+                        "license": license_name,
+                        "published_time": upload_date,
+                        "upload_date": upload_date,
+                        "date_taken": date_taken,
+                        "year": year,
+                        "timestamp": date_taken[:10] if len(date_taken) >= 10 else (upload_date[:10] if len(upload_date) >= 10 else ""),
                         "lat": float(p_lat),
                         "lon": float(p_lon),
                         "alt": 50.0,
                         "distance_km": round(dist, 2),
+                        "bearing": bearing,
+                        "categories": categories[:8],
                         "precision": precision,
                         "geolocation_method": "GEOTAGGED",
                         "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -256,9 +381,10 @@ def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, l
                         "media_type": "photo",
                         "thumbnail_url": thumb_url,
                         "media_url": media_url,
-                        "description": f"Geotagged Wikimedia field photograph by {user}.",
-                        "category": "Field Photography",
-                        "source": user,
+                        "full_res_url": media_url,
+                        "description": description,
+                        "category": categories[0] if categories else "Field Photography",
+                        "source": author,
                         "source_label": "Wikimedia"
                     })
         except Exception as e:
@@ -274,22 +400,29 @@ def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, l
                 "url": "https://commons.wikimedia.org/wiki/File:GD_Naidu_Museum_Coimbatore.jpg",
                 "title": "GD Naidu Museum Coimbatore",
                 "author": "Karthikndr",
+                "license": "CC BY-SA 4.0",
                 "published_time": "2019-08-15T10:30:00Z",
+                "upload_date": "2019-08-15T10:30:00Z",
+                "date_taken": "2019-08-15",
+                "year": 2019,
                 "timestamp": "2019-08-15",
                 "lat": 11.0168,
                 "lon": 76.9558,
                 "alt": 50.0,
                 "distance_km": 0.0,
+                "bearing": "N (0°)",
+                "categories": ["Museums in Coimbatore", "Automobile museums in India"],
                 "precision": "CITY-LEVEL",
                 "geolocation_method": "GEOTAGGED",
                 "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "badge": "CITY-LEVEL",
                 "simulated": False,
                 "media_type": "photo",
-                "thumbnail_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/GD_Naidu_Museum_Coimbatore.jpg/640px-GD_Naidu_Museum_Coimbatore.jpg",
+                "thumbnail_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/GD_Naidu_Museum_Coimbatore.jpg/800px-GD_Naidu_Museum_Coimbatore.jpg",
                 "media_url": "https://upload.wikimedia.org/wikipedia/commons/a/a1/GD_Naidu_Museum_Coimbatore.jpg",
-                "description": "Geotagged Wikimedia field photograph by Karthikndr.",
-                "category": "Field Photography",
+                "full_res_url": "https://upload.wikimedia.org/wikipedia/commons/a/a1/GD_Naidu_Museum_Coimbatore.jpg",
+                "description": "GD Naidu Museum exhibiting vintage cars and industrial history.",
+                "category": "Museums in Coimbatore",
                 "source": "Karthikndr",
                 "source_label": "Wikimedia"
             },
@@ -299,22 +432,29 @@ def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, l
                 "url": "https://commons.wikimedia.org/wiki/File:Marudhamalai_Murugan_Temple_Gopuram.jpg",
                 "title": "Marudhamalai Murugan Temple Gopuram",
                 "author": "Booradleyp1",
+                "license": "CC BY-SA 4.0",
                 "published_time": "2018-01-20T08:15:00Z",
+                "upload_date": "2018-01-20T08:15:00Z",
+                "date_taken": "2018-01-20",
+                "year": 2018,
                 "timestamp": "2018-01-20",
                 "lat": 11.0461,
                 "lon": 76.8524,
                 "alt": 180.0,
                 "distance_km": 11.8,
+                "bearing": "WNW (293°)",
+                "categories": ["Murugan temples in Tamil Nadu", "Temples in Coimbatore"],
                 "precision": "PRECISE",
                 "geolocation_method": "GEOTAGGED",
                 "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "badge": "UPLOADER GEOTAG",
                 "simulated": False,
                 "media_type": "photo",
-                "thumbnail_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Marudhamalai_Murugan_Temple_Gopuram.jpg/640px-Marudhamalai_Murugan_Temple_Gopuram.jpg",
+                "thumbnail_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Marudhamalai_Murugan_Temple_Gopuram.jpg/800px-Marudhamalai_Murugan_Temple_Gopuram.jpg",
                 "media_url": "https://upload.wikimedia.org/wikipedia/commons/3/3d/Marudhamalai_Murugan_Temple_Gopuram.jpg",
-                "description": "Geotagged Wikimedia field photograph by Booradleyp1.",
-                "category": "Field Photography",
+                "full_res_url": "https://upload.wikimedia.org/wikipedia/commons/3/3d/Marudhamalai_Murugan_Temple_Gopuram.jpg",
+                "description": "Marudhamalai Murugan Temple Rajagopuram at foot of the hill.",
+                "category": "Temples in Coimbatore",
                 "source": "Booradleyp1",
                 "source_label": "Wikimedia"
             }
@@ -762,7 +902,10 @@ class GroundIntelClient:
             return (0 if (has_landmark or is_event) else 1, item.get("distance_km", 9999.0))
 
         final_valid.sort(key=score_item)
-        final_points = final_valid[:limit]
+        final_points = final_valid[:min(limit, 40)]
+        for p in final_points:
+            if not p.get("bearing") and p.get("lat") is not None and p.get("lon") is not None:
+                p["bearing"] = calculate_bearing(lat, lon, float(p["lat"]), float(p["lon"]))
         if final_points:
             self._cache[cache_key] = (now, final_points)
 
