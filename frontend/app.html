@@ -606,6 +606,194 @@
     max-width: 480px; pointer-events: auto;
   }
 
+  /* ==========================================================================
+     PART 3: TACTICAL WINDOWS (Independent Floating Panels System)
+     ========================================================================== */
+  .tactical-window-panel {
+    position: fixed;
+    background: rgba(11, 14, 20, 0.95);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(0, 240, 255, 0.28);
+    border-top: 2px solid #00F0FF;
+    border-radius: 6px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 260px;
+    min-height: 140px;
+    z-index: 1200;
+    color: #E6E6E6;
+    font-family: var(--mono);
+    box-sizing: border-box;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .tactical-window-panel.active-window {
+    border-color: rgba(0, 240, 255, 0.7);
+    border-top-color: #00F0FF;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.95), 0 0 18px rgba(0, 240, 255, 0.25);
+  }
+  .tactical-win-header {
+    height: 32px;
+    min-height: 32px;
+    background: rgba(0, 240, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    cursor: move;
+    user-select: none;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .tactical-win-title-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tactical-win-drag-dots {
+    color: #8A8D91;
+    font-size: 12px;
+    cursor: move;
+  }
+  .tactical-win-icon {
+    font-size: 13px;
+    color: #00F0FF;
+  }
+  .tactical-win-title {
+    color: #FFFFFF;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+  }
+  .tactical-win-badge {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #00F0FF;
+    background: rgba(0, 240, 255, 0.15);
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .tactical-win-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .tactical-win-btn {
+    background: #0B0C0E;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #8A8D91;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    line-height: 1;
+  }
+  .tactical-win-btn:hover {
+    background: #141820;
+    color: #00F0FF;
+    border-color: rgba(0, 240, 255, 0.45);
+  }
+  .tactical-win-btn.close:hover {
+    background: #EF4444;
+    color: #FFFFFF;
+    border-color: #EF4444;
+  }
+  .tactical-win-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px;
+    font-size: calc(11px * var(--win-scale, 1));
+    line-height: 1.4;
+    box-sizing: border-box;
+  }
+  .win-led-indicator {
+    font-size: 8.5px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #8A8D91;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  .win-led-indicator.on {
+    background: rgba(0, 240, 255, 0.2);
+    color: #00F0FF;
+    border-color: #00F0FF;
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+  }
+
+  /* 8-Direction Resize Handles */
+  .win-resize-handle {
+    position: absolute;
+    pointer-events: auto;
+    z-index: 20;
+  }
+  .win-resize-t { top: 0; left: 8px; right: 8px; height: 6px; cursor: n-resize; }
+  .win-resize-b { bottom: 0; left: 8px; right: 8px; height: 6px; cursor: s-resize; }
+  .win-resize-l { top: 8px; bottom: 8px; left: 0; width: 6px; cursor: w-resize; }
+  .win-resize-r { top: 8px; bottom: 8px; right: 0; width: 6px; cursor: e-resize; }
+  .win-resize-tl { top: 0; left: 0; width: 12px; height: 12px; cursor: nw-resize; }
+  .win-resize-tr { top: 0; right: 0; width: 12px; height: 12px; cursor: ne-resize; }
+  .win-resize-bl { bottom: 0; left: 0; width: 12px; height: 12px; cursor: sw-resize; }
+  .win-resize-br { bottom: 0; right: 0; width: 14px; height: 14px; cursor: se-resize; }
+  .win-resize-br::after {
+    content: '◢';
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    font-size: 8.5px;
+    color: rgba(0, 240, 255, 0.45);
+  }
+
+  /* Minimized Floating Dock Bar */
+  #tactical-minimized-dock {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    max-width: 80vw;
+    z-index: 2200;
+    pointer-events: auto;
+  }
+  .tactical-min-chip {
+    background: #0B0E14;
+    border: 1px solid rgba(0, 240, 255, 0.45);
+    border-left: 3px solid #00F0FF;
+    color: #00F0FF;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.85);
+    transition: all 0.18s ease;
+    user-select: none;
+  }
+  .tactical-min-chip:hover {
+    background: rgba(0, 240, 255, 0.15);
+    color: #FFFFFF;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+    transform: translateY(-2px);
+  }
+
   /* Voice / Input Footer Region (Bottom Center of Workspace) */
   #jarvis-input-bar {
     position: absolute;
@@ -4779,6 +4967,324 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
 
 
 
+<!-- ==========================================================================
+     PART 3: INDEPENDENT TACTICAL FLOATING WINDOWS CONTAINER
+     ========================================================================== -->
+<div id="tactical-windows-container">
+
+  <!-- 1. AIRSPACE RADAR WINDOW -->
+  <div class="tactical-window-panel" id="tactical-win-airspace" data-panel="airspace">
+    <div class="win-resize-handle win-resize-t" data-dir="t"></div>
+    <div class="win-resize-handle win-resize-r" data-dir="r"></div>
+    <div class="win-resize-handle win-resize-b" data-dir="b"></div>
+    <div class="win-resize-handle win-resize-l" data-dir="l"></div>
+    <div class="win-resize-handle win-resize-tl" data-dir="tl"></div>
+    <div class="win-resize-handle win-resize-tr" data-dir="tr"></div>
+    <div class="win-resize-handle win-resize-bl" data-dir="bl"></div>
+    <div class="win-resize-handle win-resize-br" data-dir="br"></div>
+
+    <div class="tactical-win-header">
+      <div class="tactical-win-title-group">
+        <span class="tactical-win-drag-dots" title="Drag to reposition">⠿</span>
+        <span class="tactical-win-icon">✈</span>
+        <span class="tactical-win-title">AIRSPACE RADAR (ADS-B)</span>
+        <span class="tactical-win-badge" id="win-airspace-badge">0 CONTACTS</span>
+      </div>
+      <div class="tactical-win-controls">
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('airspace', -0.1)" title="Scale text smaller (A-)">A-</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('airspace', 0.1)" title="Scale text larger (A+)">A+</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.minimizeWindow('airspace')" title="Minimize (_)">_</button>
+        <button class="tactical-win-btn close" onclick="window.TacticalWindowManager.closeWindow('airspace')" title="Close (X)">✕</button>
+      </div>
+    </div>
+    <div class="tactical-win-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <button class="globe-hud-btn" id="win-btn-toggle-flights" onclick="window.toggleTacticalLayer('flights')" style="flex:1; margin-right:6px; font-weight:700;">
+          ✈ TOGGLE ADS-B FEED
+        </button>
+        <span class="win-led-indicator" id="win-status-flights">STANDBY</span>
+      </div>
+      <div style="font-size:9px; color:#8A8D91; margin-bottom:4px; font-weight:700;">CATEGORY FILTERS</div>
+      <div id="win-flight-category-filters" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;">
+        <button class="flight-cat-btn active" onclick="window.setFlightCategoryFilter('all')">ALL</button>
+        <button class="flight-cat-btn" onclick="window.setFlightCategoryFilter('mil')">🟢 MIL</button>
+        <button class="flight-cat-btn" onclick="window.setFlightCategoryFilter('pia')">🟤 PIA</button>
+        <button class="flight-cat-btn" onclick="window.setFlightCategoryFilter('ladd')">🟠 LADD</button>
+        <button class="flight-cat-btn" onclick="window.setFlightCategoryFilter('emergency')">🔴 7700</button>
+        <button class="flight-cat-btn" onclick="window.setFlightCategoryFilter('commercial')">🔵 AIR</button>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:9.5px; color:#8A8D91; margin-bottom:6px;">
+        <span>ACTIVE TRANSPONDERS: <span id="radar-contact-count-win" style="color:#00F0FF; font-weight:700;">0</span></span>
+        <button onclick="window.glideToTelemetryTarget && window.glideToTelemetryTarget()" style="background:none; border:none; color:#38BDF8; font-size:9px; cursor:pointer; text-decoration:underline;">TRACK TOP</button>
+      </div>
+      <div id="win-airspace-list" style="max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; font-size:9px;">
+        <div style="color:#64748B; text-align:center; padding:10px;">Awaiting ADS-B airspace telemetry packets...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. MARITIME VESSELS WINDOW -->
+  <div class="tactical-window-panel" id="tactical-win-maritime" data-panel="maritime">
+    <div class="win-resize-handle win-resize-t" data-dir="t"></div>
+    <div class="win-resize-handle win-resize-r" data-dir="r"></div>
+    <div class="win-resize-handle win-resize-b" data-dir="b"></div>
+    <div class="win-resize-handle win-resize-l" data-dir="l"></div>
+    <div class="win-resize-handle win-resize-tl" data-dir="tl"></div>
+    <div class="win-resize-handle win-resize-tr" data-dir="tr"></div>
+    <div class="win-resize-handle win-resize-bl" data-dir="bl"></div>
+    <div class="win-resize-handle win-resize-br" data-dir="br"></div>
+
+    <div class="tactical-win-header">
+      <div class="tactical-win-title-group">
+        <span class="tactical-win-drag-dots" title="Drag to reposition">⠿</span>
+        <span class="tactical-win-icon">🚢</span>
+        <span class="tactical-win-title">MARITIME VESSELS (AIS)</span>
+        <span class="tactical-win-badge" id="win-maritime-badge">0 VESSELS</span>
+      </div>
+      <div class="tactical-win-controls">
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('maritime', -0.1)" title="Scale text smaller (A-)">A-</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('maritime', 0.1)" title="Scale text larger (A+)">A+</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.minimizeWindow('maritime')" title="Minimize (_)">_</button>
+        <button class="tactical-win-btn close" onclick="window.TacticalWindowManager.closeWindow('maritime')" title="Close (X)">✕</button>
+      </div>
+    </div>
+    <div class="tactical-win-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <button class="globe-hud-btn" id="win-btn-toggle-vessels" onclick="window.toggleTacticalLayer('vessels')" style="flex:1; margin-right:6px; font-weight:700;">
+          🚢 TOGGLE AIS MARITIME FEED
+        </button>
+        <span class="win-led-indicator" id="win-status-vessels">STANDBY</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:9.5px; color:#8A8D91; margin-bottom:6px;">
+        <span>SURFACE TARGETS: <span id="vessel-contact-count-win" style="color:#38BDF8; font-weight:700;">0</span></span>
+        <span style="font-size:8.5px; color:#64748B;">STREAM: LIVE AIS</span>
+      </div>
+      <div id="win-maritime-list" style="max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; font-size:9px;">
+        <div style="color:#64748B; text-align:center; padding:10px;">Scanning global shipping corridors & naval transponders...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. ORBITAL SATELLITES WINDOW -->
+  <div class="tactical-window-panel" id="tactical-win-satellites" data-panel="satellites">
+    <div class="win-resize-handle win-resize-t" data-dir="t"></div>
+    <div class="win-resize-handle win-resize-r" data-dir="r"></div>
+    <div class="win-resize-handle win-resize-b" data-dir="b"></div>
+    <div class="win-resize-handle win-resize-l" data-dir="l"></div>
+    <div class="win-resize-handle win-resize-tl" data-dir="tl"></div>
+    <div class="win-resize-handle win-resize-tr" data-dir="tr"></div>
+    <div class="win-resize-handle win-resize-bl" data-dir="bl"></div>
+    <div class="win-resize-handle win-resize-br" data-dir="br"></div>
+
+    <div class="tactical-win-header">
+      <div class="tactical-win-title-group">
+        <span class="tactical-win-drag-dots" title="Drag to reposition">⠿</span>
+        <span class="tactical-win-icon">🛰️</span>
+        <span class="tactical-win-title">ORBITAL SATELLITES (ISS)</span>
+        <span class="tactical-win-badge" id="win-satellites-badge">KEPLER</span>
+      </div>
+      <div class="tactical-win-controls">
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('satellites', -0.1)" title="Scale text smaller (A-)">A-</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('satellites', 0.1)" title="Scale text larger (A+)">A+</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.minimizeWindow('satellites')" title="Minimize (_)">_</button>
+        <button class="tactical-win-btn close" onclick="window.TacticalWindowManager.closeWindow('satellites')" title="Close (X)">✕</button>
+      </div>
+    </div>
+    <div class="tactical-win-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <button class="globe-hud-btn" id="win-btn-toggle-space" onclick="window.toggleTacticalLayer('space')" style="flex:1; margin-right:6px; font-weight:700;">
+          🛰️ TOGGLE SATELLITE & ISS TRACKING
+        </button>
+        <span class="win-led-indicator" id="win-status-space">STANDBY</span>
+      </div>
+      <div style="background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.25); border-radius:4px; padding:6px; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span style="font-size:9px; font-weight:700; color:#00F0FF;">ORBITAL PASS PREDICTOR</span>
+          <button class="globe-hud-btn" onclick="window.predictSatellitePassOverView && window.predictSatellitePassOverView()" style="font-size:8px; padding:2px 5px;">PREDICT PASS</button>
+        </div>
+        <div style="font-size:8.5px; color:#A1A1AA; line-height:1.3;" id="win-sat-pass-debrief">
+          Target locked on active planetary horizon. Orbit ground track projected.
+        </div>
+      </div>
+      <div id="win-satellite-list" style="max-height:120px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; font-size:9px;">
+        <div style="display:flex; justify-content:space-between; color:#E6E6E6; background:rgba(255,255,255,0.04); padding:4px 6px; border-radius:3px;">
+          <span style="font-weight:700; color:#00F0FF;">ISS (ZARYA)</span>
+          <span style="color:#A1A1AA;">NORAD 25544 • 420 km ALT</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; color:#E6E6E6; background:rgba(255,255,255,0.04); padding:4px 6px; border-radius:3px;">
+          <span style="font-weight:700; color:#38BDF8;">TIANGONG</span>
+          <span style="color:#A1A1AA;">NORAD 48274 • 390 km ALT</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; color:#E6E6E6; background:rgba(255,255,255,0.04); padding:4px 6px; border-radius:3px;">
+          <span style="font-weight:700; color:#A78BFA;">HUBBLE HST</span>
+          <span style="color:#A1A1AA;">NORAD 20580 • 535 km ALT</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. GROUND INTEL (OSINT) WINDOW -->
+  <div class="tactical-window-panel" id="tactical-win-ground-intel" data-panel="ground_intel">
+    <div class="win-resize-handle win-resize-t" data-dir="t"></div>
+    <div class="win-resize-handle win-resize-r" data-dir="r"></div>
+    <div class="win-resize-handle win-resize-b" data-dir="b"></div>
+    <div class="win-resize-handle win-resize-l" data-dir="l"></div>
+    <div class="win-resize-handle win-resize-tl" data-dir="tl"></div>
+    <div class="win-resize-handle win-resize-tr" data-dir="tr"></div>
+    <div class="win-resize-handle win-resize-bl" data-dir="bl"></div>
+    <div class="win-resize-handle win-resize-br" data-dir="br"></div>
+
+    <div class="tactical-win-header">
+      <div class="tactical-win-title-group">
+        <span class="tactical-win-drag-dots" title="Drag to reposition">⠿</span>
+        <span class="tactical-win-icon">📍</span>
+        <span class="tactical-win-title">GROUND INTEL (OSINT)</span>
+        <span class="tactical-win-badge" id="win-ground-intel-badge">0 PINS</span>
+      </div>
+      <div class="tactical-win-controls">
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('ground_intel', -0.1)" title="Scale text smaller (A-)">A-</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('ground_intel', 0.1)" title="Scale text larger (A+)">A+</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.minimizeWindow('ground_intel')" title="Minimize (_)">_</button>
+        <button class="tactical-win-btn close" onclick="window.TacticalWindowManager.closeWindow('ground_intel')" title="Close (X)">✕</button>
+      </div>
+    </div>
+    <div class="tactical-win-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <button class="globe-hud-btn" id="win-btn-toggle-groundMedia" onclick="window.toggleTacticalLayer('groundMedia')" style="flex:1; margin-right:6px; font-weight:700;">
+          📍 TOGGLE GROUND MEDIA
+        </button>
+        <span class="win-led-indicator" id="win-status-groundMedia">STANDBY</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:9px; color:#8A8D91;">MEDIA STREAM:</span>
+        <button class="globe-hud-btn" onclick="window.toggleCityLevelIntel && window.toggleCityLevelIntel()" style="font-size:8px; padding:2px 6px;">
+          🏙️ CITY-LEVEL CONTACTS
+        </button>
+      </div>
+      <div id="win-ground-intel-feed-list" style="display:flex; flex-direction:column; gap:6px; max-height:240px; overflow-y:auto;">
+        <div style="color:#64748B; text-align:center; padding:12px; font-size:9.5px;">
+          No ground media pins in active sector. Orbiting globe camera or searching city acquires geotagged footage & Wikimedia photography.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. SECTOR WEATHER INTEL WINDOW -->
+  <div class="tactical-window-panel" id="tactical-win-weather" data-panel="weather">
+    <div class="win-resize-handle win-resize-t" data-dir="t"></div>
+    <div class="win-resize-handle win-resize-r" data-dir="r"></div>
+    <div class="win-resize-handle win-resize-b" data-dir="b"></div>
+    <div class="win-resize-handle win-resize-l" data-dir="l"></div>
+    <div class="win-resize-handle win-resize-tl" data-dir="tl"></div>
+    <div class="win-resize-handle win-resize-tr" data-dir="tr"></div>
+    <div class="win-resize-handle win-resize-bl" data-dir="bl"></div>
+    <div class="win-resize-handle win-resize-br" data-dir="br"></div>
+
+    <div class="tactical-win-header">
+      <div class="tactical-win-title-group">
+        <span class="tactical-win-drag-dots" title="Drag to reposition">⠿</span>
+        <span class="tactical-win-icon">🌦️</span>
+        <span class="tactical-win-title">SECTOR WEATHER INTEL</span>
+        <span class="tactical-win-badge" id="win-weather-badge">LIVE</span>
+      </div>
+      <div class="tactical-win-controls">
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('weather', -0.1)" title="Scale text smaller (A-)">A-</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('weather', 0.1)" title="Scale text larger (A+)">A+</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.minimizeWindow('weather')" title="Minimize (_)">_</button>
+        <button class="tactical-win-btn close" onclick="window.TacticalWindowManager.closeWindow('weather')" title="Close (X)">✕</button>
+      </div>
+    </div>
+    <div class="tactical-win-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span id="win-weather-location" style="font-size:10px; font-weight:700; color:#38BDF8;">KOTAGIRI, TAMIL NADU</span>
+        <span id="win-weather-condition" style="font-size:9px; color:#FBBF24;">ATMOSPHERIC READINGS</span>
+      </div>
+      <div class="globe-weather-grid" style="margin-bottom:8px;">
+        <div class="globe-weather-stat">
+          <span class="stat-label">TEMP</span>
+          <span class="stat-val" id="win-weather-val-temp">—°C</span>
+        </div>
+        <div class="globe-weather-stat">
+          <span class="stat-label">FEELS LIKE</span>
+          <span class="stat-val" id="win-weather-val-feels">—°C</span>
+        </div>
+        <div class="globe-weather-stat">
+          <span class="stat-label">HUMIDITY</span>
+          <span class="stat-val" id="win-weather-val-humidity">—%</span>
+        </div>
+        <div class="globe-weather-stat">
+          <span class="stat-label">WIND</span>
+          <span class="stat-val" id="win-weather-val-wind">— km/h</span>
+        </div>
+        <div class="globe-weather-stat">
+          <span class="stat-label">PRESSURE</span>
+          <span class="stat-val" id="win-weather-val-pressure">— hPa</span>
+        </div>
+        <div class="globe-weather-stat">
+          <span class="stat-label">PRECIP</span>
+          <span class="stat-val" id="win-weather-val-precip">— mm</span>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.08);">
+        <button class="globe-hud-btn" id="win-btn-toggle-weather-radar" onclick="window.toggleTacticalLayer('weather')" style="flex:1; margin-right:6px; font-weight:700;">
+          🌧️ RAINVIEWER RADAR LAYER
+        </button>
+        <span class="win-led-indicator" id="win-status-weather">STANDBY</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. SYSTEM & TELEMETRY LOGS WINDOW -->
+  <div class="tactical-window-panel" id="tactical-win-system-logs" data-panel="system_logs">
+    <div class="win-resize-handle win-resize-t" data-dir="t"></div>
+    <div class="win-resize-handle win-resize-r" data-dir="r"></div>
+    <div class="win-resize-handle win-resize-b" data-dir="b"></div>
+    <div class="win-resize-handle win-resize-l" data-dir="l"></div>
+    <div class="win-resize-handle win-resize-tl" data-dir="tl"></div>
+    <div class="win-resize-handle win-resize-tr" data-dir="tr"></div>
+    <div class="win-resize-handle win-resize-bl" data-dir="bl"></div>
+    <div class="win-resize-handle win-resize-br" data-dir="br"></div>
+
+    <div class="tactical-win-header">
+      <div class="tactical-win-title-group">
+        <span class="tactical-win-drag-dots" title="Drag to reposition">⠿</span>
+        <span class="tactical-win-icon">⚡</span>
+        <span class="tactical-win-title">SYSTEM & TELEMETRY LOGS</span>
+        <span class="tactical-win-badge" id="win-system-logs-badge">60 FPS</span>
+      </div>
+      <div class="tactical-win-controls">
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('system_logs', -0.1)" title="Scale text smaller (A-)">A-</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.scaleWindow('system_logs', 0.1)" title="Scale text larger (A+)">A+</button>
+        <button class="tactical-win-btn" onclick="window.TacticalWindowManager.minimizeWindow('system_logs')" title="Minimize (_)">_</button>
+        <button class="tactical-win-btn close" onclick="window.TacticalWindowManager.closeWindow('system_logs')" title="Close (X)">✕</button>
+      </div>
+    </div>
+    <div class="tactical-win-body">
+      <div style="font-size:9px; color:#8A8D91; margin-bottom:4px; font-weight:700;">PLANETARY 3D ENGINE</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
+        <button class="globe-style-btn active" id="win-engine-cesium" onclick="window.setGlobeEngine('cesium')" style="padding:4px; font-size:9px; font-weight:700;">🌐 CESIUM 3D</button>
+        <button class="globe-style-btn" id="win-engine-osiris" onclick="window.setGlobeEngine('osiris')" style="padding:4px; font-size:9px; font-weight:700; color:#00F0FF; border-color:rgba(0,240,255,0.4);">⚡ OSIRIS (60 FPS)</button>
+      </div>
+      <div style="font-size:9px; color:#8A8D91; margin-bottom:4px; font-weight:700;">EARTH COLOR CODING</div>
+      <div class="globe-style-grid" style="margin-bottom:8px;">
+        <button class="globe-style-btn active" onclick="window.setEarthVisualStyle('satellite')">🛰 SATELLITE</button>
+        <button class="globe-style-btn" onclick="window.setEarthVisualStyle('flir')">🟢 FLIR / NVG</button>
+        <button class="globe-style-btn" onclick="window.setEarthVisualStyle('cyber')">🌐 CYBER HUD</button>
+        <button class="globe-style-btn" onclick="window.setEarthVisualStyle('terminator')">☀️ DAY / NIGHT</button>
+      </div>
+      <div style="font-size:9px; color:#8A8D91; margin-bottom:4px; font-weight:700;">TACTICAL TELEMETRY LOGS</div>
+      <div id="win-system-telemetry-logs" style="max-height:100px; overflow-y:auto; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.08); border-radius:4px; padding:6px; font-size:8.5px; line-height:1.35; color:#38BDF8;">
+        <div>[SYS] Tactical multi-window subsystem online.</div>
+        <div>[SYS] Planetary coordinate system synchronized.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PART 3: MINIMIZED FLOATING DOCK BAR -->
+<div id="tactical-minimized-dock" class="tactical-minimized-dock"></div>
+
 <!-- Real God's Eye Top Traffic Sync Banner (Image 3 Parity) -->
 <div id="traffic-sync-hud-banner" style="position:fixed; top:68px; left:50%; transform:translateX(-50%); display:none; flex-direction:column; align-items:center; gap:2px; z-index:9990; pointer-events:none; font-family:var(--mono); user-select:none;">
   <div style="background:rgba(4,12,24,0.92); border:1px solid rgba(0,240,255,0.5); border-radius:4px; padding:3px 14px; font-size:9.5px; font-weight:800; color:#00F0FF; letter-spacing:1.5px; box-shadow:0 0 14px rgba(0,240,255,0.25);">
@@ -5135,6 +5641,27 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         </svg>
         EXPORT REPORT
       </button>
+      <!-- 🗔 PANELS DOCK MENU (PART 3) -->
+      <div class="top-bar-panels-dropdown-wrapper" style="position:relative;">
+        <button id="topbar-panels-btn" class="hud-color-btn" onclick="window.TacticalWindowManager.togglePanelsMenu()" title="Tactical OSINT Floating Windows" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:6px; font-family:'Inter', sans-serif; font-size:11px; font-weight:700; border:1px solid rgba(0,240,255,0.4); background:rgba(0,240,255,0.1); color:#00F0FF; cursor:pointer;">
+          <span style="font-size:12px;">🗔</span> <span>PANELS</span> <span id="topbar-panels-caret" style="font-size:8px;">▾</span>
+        </button>
+        <div id="topbar-panels-menu" style="display:none; position:absolute; top:calc(100% + 6px); right:0; width:230px; background:#0B0E14; border:1px solid rgba(0,240,255,0.4); border-radius:6px; box-shadow:0 12px 40px rgba(0,0,0,0.95); z-index:99999; padding:8px; font-family:var(--mono); font-size:11px;">
+          <div style="font-size:9.5px; color:#8A8D91; font-weight:700; letter-spacing:1px; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.08);">
+            TACTICAL FLOATING WINDOWS
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px;" id="topbar-panels-list">
+          </div>
+          <div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; gap:4px;">
+            <button onclick="window.TacticalWindowManager.openAllPanels()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#E6E6E6; font-size:9.5px; font-weight:700; padding:4px 8px; border-radius:3px; cursor:pointer; text-align:left;">
+              SHOW ALL WINDOWS
+            </button>
+            <button onclick="window.TacticalWindowManager.resetLayout()" style="background:rgba(0,240,255,0.14); border:1px solid rgba(0,240,255,0.45); color:#00F0FF; font-size:9.5px; font-weight:700; padding:4px 8px; border-radius:3px; cursor:pointer; text-align:left;">
+              ⟲ RESET LAYOUT GRID
+            </button>
+          </div>
+        </div>
+      </div>
       <button id="corner-settings-btn" class="corner-gear-btn" onclick="window.openSettingsOverlay()" title="Settings & Free API Keys" aria-label="Settings">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"></circle>
@@ -18715,6 +19242,9 @@ window.TacticalPanelManager = {
 
 window.resetTacticalLayout = function() {
   window.TacticalPanelManager.resetLayout();
+  if (window.TacticalWindowManager) {
+    window.TacticalWindowManager.resetLayout();
+  }
 };
 
 function makeDraggable(element, handle) {
@@ -18731,7 +19261,461 @@ if (document.readyState === 'loading') {
 
 window.addEventListener('resize', () => {
   window.TacticalPanelManager.clampAll();
+  if (window.TacticalWindowManager) {
+    window.TacticalWindowManager.clampAll();
+  }
 });
+
+// ============================================================================
+// PART 3: TACTICAL WINDOW MANAGER (Independent Floating Panels System)
+// ============================================================================
+const TACTICAL_WINDOWS_STORAGE_KEY = 'jarvis_tactical_windows_v2';
+let _tacticalWinTopZ = 1300;
+
+const TACTICAL_WINDOWS_CONFIG = {
+  airspace: {
+    id: 'tactical-win-airspace',
+    title: 'AIRSPACE RADAR (ADS-B)',
+    icon: '✈',
+    defaultPos: () => ({ left: Math.max(10, window.innerWidth - 380), top: 54, width: 360, height: 350 })
+  },
+  maritime: {
+    id: 'tactical-win-maritime',
+    title: 'MARITIME VESSELS (AIS)',
+    icon: '🚢',
+    defaultPos: () => ({ left: Math.max(10, window.innerWidth - 380), top: 418, width: 360, height: 300 })
+  },
+  satellites: {
+    id: 'tactical-win-satellites',
+    title: 'ORBITAL SATELLITES (ISS)',
+    icon: '🛰️',
+    defaultPos: () => ({ left: 370, top: 54, width: 350, height: 280 })
+  },
+  ground_intel: {
+    id: 'tactical-win-ground-intel',
+    title: 'GROUND INTEL (OSINT)',
+    icon: '📍',
+    defaultPos: () => ({ left: Math.max(10, window.innerWidth - 750), top: 54, width: 350, height: 380 })
+  },
+  weather: {
+    id: 'tactical-win-weather',
+    title: 'SECTOR WEATHER INTEL',
+    icon: '🌦️',
+    defaultPos: () => ({ left: 20, top: 54, width: 330, height: 280 })
+  },
+  system_logs: {
+    id: 'tactical-win-system-logs',
+    title: 'SYSTEM & TELEMETRY LOGS',
+    icon: '⚡',
+    defaultPos: () => ({ left: 20, top: 348, width: 330, height: 340 })
+  }
+};
+
+window.TacticalWindowManager = {
+  _states: {},
+  _scales: {},
+
+  init() {
+    this.setupInteractions();
+    this.loadState();
+    this.renderTopbarMenu();
+    this.renderMinimizedDock();
+  },
+
+  clamp(el) {
+    if (!el) return;
+    const pad = 8;
+    const w = el.offsetWidth || 300;
+    const h = el.offsetHeight || 150;
+    const maxLeft = Math.max(pad, window.innerWidth - w - pad);
+    const maxTop = Math.max(pad, window.innerHeight - h - pad);
+    let curLeft = parseInt(el.style.left, 10);
+    let curTop = parseInt(el.style.top, 10);
+    if (isNaN(curLeft)) curLeft = pad;
+    if (isNaN(curTop)) curTop = pad;
+    el.style.left = Math.max(pad, Math.min(curLeft, maxLeft)) + 'px';
+    el.style.top = Math.max(pad, Math.min(curTop, maxTop)) + 'px';
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+  },
+
+  clampAll() {
+    Object.keys(TACTICAL_WINDOWS_CONFIG).forEach(key => {
+      const el = document.getElementById(TACTICAL_WINDOWS_CONFIG[key].id);
+      if (el && el.style.display !== 'none') {
+        this.clamp(el);
+      }
+    });
+  },
+
+  bringToFront(panelKey) {
+    const cfg = TACTICAL_WINDOWS_CONFIG[panelKey];
+    if (!cfg) return;
+    const el = document.getElementById(cfg.id);
+    if (!el) return;
+    _tacticalWinTopZ = Math.max(_tacticalWinTopZ + 1, 1301);
+    if (_tacticalWinTopZ > 1900) _tacticalWinTopZ = 1301;
+    el.style.zIndex = _tacticalWinTopZ;
+
+    document.querySelectorAll('.tactical-window-panel').forEach(p => p.classList.remove('active-window'));
+    el.classList.add('active-window');
+  },
+
+  scaleWindow(panelKey, delta) {
+    let scale = this._scales[panelKey] || 1.0;
+    scale = Math.round((scale + delta) * 10) / 10;
+    scale = Math.max(0.70, Math.min(1.50, scale));
+    this._scales[panelKey] = scale;
+
+    const cfg = TACTICAL_WINDOWS_CONFIG[panelKey];
+    if (cfg) {
+      const el = document.getElementById(cfg.id);
+      if (el) {
+        el.style.setProperty('--win-scale', scale.toFixed(2));
+        el.style.fontSize = Math.round(11 * scale) + 'px';
+      }
+    }
+    this.saveState();
+  },
+
+  minimizeWindow(panelKey) {
+    if (!this._states[panelKey]) this._states[panelKey] = {};
+    this._states[panelKey].minimized = true;
+
+    const cfg = TACTICAL_WINDOWS_CONFIG[panelKey];
+    if (cfg) {
+      const el = document.getElementById(cfg.id);
+      if (el) el.style.display = 'none';
+    }
+    this.renderMinimizedDock();
+    this.renderTopbarMenu();
+    this.saveState();
+  },
+
+  restoreWindow(panelKey) {
+    if (!this._states[panelKey]) this._states[panelKey] = {};
+    this._states[panelKey].minimized = false;
+    this._states[panelKey].open = true;
+
+    const cfg = TACTICAL_WINDOWS_CONFIG[panelKey];
+    if (cfg) {
+      const el = document.getElementById(cfg.id);
+      if (el) {
+        el.style.display = 'flex';
+        this.clamp(el);
+        this.bringToFront(panelKey);
+      }
+    }
+    this.renderMinimizedDock();
+    this.renderTopbarMenu();
+    this.saveState();
+  },
+
+  closeWindow(panelKey) {
+    if (!this._states[panelKey]) this._states[panelKey] = {};
+    this._states[panelKey].open = false;
+    this._states[panelKey].minimized = false;
+
+    const cfg = TACTICAL_WINDOWS_CONFIG[panelKey];
+    if (cfg) {
+      const el = document.getElementById(cfg.id);
+      if (el) el.style.display = 'none';
+    }
+    this.renderMinimizedDock();
+    this.renderTopbarMenu();
+    this.saveState();
+  },
+
+  openWindow(panelKey) {
+    this.restoreWindow(panelKey);
+  },
+
+  toggleWindow(panelKey) {
+    const st = this._states[panelKey];
+    if (st && st.open && !st.minimized) {
+      this.closeWindow(panelKey);
+    } else {
+      this.openWindow(panelKey);
+    }
+  },
+
+  openAllPanels() {
+    Object.keys(TACTICAL_WINDOWS_CONFIG).forEach(key => this.openWindow(key));
+  },
+
+  resetLayout() {
+    try {
+      localStorage.removeItem(TACTICAL_WINDOWS_STORAGE_KEY);
+    } catch (_) {}
+
+    Object.keys(TACTICAL_WINDOWS_CONFIG).forEach(key => {
+      const cfg = TACTICAL_WINDOWS_CONFIG[key];
+      const el = document.getElementById(cfg.id);
+      if (!el) return;
+      const pos = cfg.defaultPos();
+      el.style.left = pos.left + 'px';
+      el.style.top = pos.top + 'px';
+      el.style.width = pos.width + 'px';
+      el.style.height = pos.height + 'px';
+      el.style.right = 'auto';
+      el.style.bottom = 'auto';
+      el.style.display = 'flex';
+      el.style.setProperty('--win-scale', '1.0');
+      el.style.fontSize = '11px';
+
+      this._scales[key] = 1.0;
+      this._states[key] = {
+        left: pos.left,
+        top: pos.top,
+        width: pos.width,
+        height: pos.height,
+        scale: 1.0,
+        open: true,
+        minimized: false
+      };
+      this.clamp(el);
+    });
+
+    this.renderMinimizedDock();
+    this.renderTopbarMenu();
+    this.saveState();
+  },
+
+  togglePanelsMenu() {
+    const menu = document.getElementById('topbar-panels-menu');
+    if (!menu) return;
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  },
+
+  renderTopbarMenu() {
+    const list = document.getElementById('topbar-panels-list');
+    if (!list) return;
+    list.innerHTML = '';
+    Object.keys(TACTICAL_WINDOWS_CONFIG).forEach(key => {
+      const cfg = TACTICAL_WINDOWS_CONFIG[key];
+      const st = this._states[key] || { open: true, minimized: false };
+      const isOpen = st.open && !st.minimized;
+
+      const item = document.createElement('div');
+      item.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:4px 6px; border-radius:4px; cursor:pointer; background:rgba(255,255,255,0.03);';
+      item.onclick = (e) => {
+        e.stopPropagation();
+        this.toggleWindow(key);
+      };
+      item.innerHTML = `
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span>${cfg.icon}</span>
+          <span style="color:#FFFFFF; font-weight:600; font-size:10px;">${cfg.title.split(' ')[0]}</span>
+        </div>
+        <span style="font-size:9px; font-weight:700; color:${isOpen ? '#00F0FF' : '#6B7280'};">${isOpen ? '● ON' : '○ OFF'}</span>
+      `;
+      list.appendChild(item);
+    });
+  },
+
+  renderMinimizedDock() {
+    const dock = document.getElementById('tactical-minimized-dock');
+    if (!dock) return;
+    dock.innerHTML = '';
+    Object.keys(TACTICAL_WINDOWS_CONFIG).forEach(key => {
+      const st = this._states[key];
+      if (st && st.minimized) {
+        const cfg = TACTICAL_WINDOWS_CONFIG[key];
+        const chip = document.createElement('div');
+        chip.className = 'tactical-min-chip';
+        chip.title = `Click to restore ${cfg.title}`;
+        chip.innerHTML = `${cfg.icon} ${cfg.title.split(' ')[0]} <span style="font-size:8px;">▲</span>`;
+        chip.onclick = () => this.restoreWindow(key);
+        dock.appendChild(chip);
+      }
+    });
+  },
+
+  saveState() {
+    try {
+      const data = {};
+      Object.keys(TACTICAL_WINDOWS_CONFIG).forEach(key => {
+        const cfg = TACTICAL_WINDOWS_CONFIG[key];
+        const el = document.getElementById(cfg.id);
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        data[key] = {
+          left: parseInt(el.style.left, 10) || Math.round(rect.left),
+          top: parseInt(el.style.top, 10) || Math.round(rect.top),
+          width: parseInt(el.style.width, 10) || Math.round(rect.width),
+          height: parseInt(el.style.height, 10) || Math.round(rect.height),
+          scale: this._scales[key] || 1.0,
+          open: this._states[key]?.open !== false,
+          minimized: !!this._states[key]?.minimized,
+          zIndex: parseInt(el.style.zIndex, 10) || 1200
+        };
+      });
+      localStorage.setItem(TACTICAL_WINDOWS_STORAGE_KEY, JSON.stringify(data));
+    } catch (_) {}
+  },
+
+  loadState() {
+    let saved = null;
+    try {
+      const raw = localStorage.getItem(TACTICAL_WINDOWS_STORAGE_KEY);
+      if (raw) saved = JSON.parse(raw);
+    } catch (_) {}
+
+    Object.keys(TACTICAL_WINDOWS_CONFIG).forEach(key => {
+      const cfg = TACTICAL_WINDOWS_CONFIG[key];
+      const el = document.getElementById(cfg.id);
+      if (!el) return;
+      const s = saved && saved[key] ? saved[key] : null;
+      const def = cfg.defaultPos();
+
+      const left = s && typeof s.left === 'number' ? s.left : def.left;
+      const top = s && typeof s.top === 'number' ? s.top : def.top;
+      const width = s && typeof s.width === 'number' ? s.width : def.width;
+      const height = s && typeof s.height === 'number' ? s.height : def.height;
+      const scale = s && typeof s.scale === 'number' ? Math.max(0.70, Math.min(1.50, s.scale)) : 1.0;
+      const open = s ? s.open !== false : true;
+      const minimized = s ? !!s.minimized : false;
+
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
+      el.style.width = width + 'px';
+      el.style.height = height + 'px';
+      el.style.setProperty('--win-scale', scale.toFixed(2));
+      el.style.fontSize = Math.round(11 * scale) + 'px';
+      el.style.display = (!open || minimized) ? 'none' : 'flex';
+
+      this._scales[key] = scale;
+      this._states[key] = { left, top, width, height, scale, open, minimized };
+      this.clamp(el);
+    });
+  },
+
+  setupInteractions() {
+    Object.keys(TACTICAL_WINDOWS_CONFIG).forEach(key => {
+      const cfg = TACTICAL_WINDOWS_CONFIG[key];
+      const el = document.getElementById(cfg.id);
+      if (!el) return;
+
+      // Click anywhere to bring to front
+      el.addEventListener('pointerdown', () => this.bringToFront(key), { passive: true });
+
+      // Drag header
+      const header = el.querySelector('.tactical-win-header');
+      if (header) {
+        let isDragging = false;
+        let startX = 0, startY = 0;
+        let startLeft = 0, startTop = 0;
+
+        header.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0) return;
+          if (e.target.closest('button, input, select, a')) return;
+          isDragging = true;
+          this.bringToFront(key);
+          startX = e.clientX;
+          startY = e.clientY;
+          const rect = el.getBoundingClientRect();
+          startLeft = rect.left;
+          startTop = rect.top;
+          try { header.setPointerCapture(e.pointerId); } catch (_) {}
+          e.preventDefault();
+        });
+
+        header.addEventListener('pointermove', (e) => {
+          if (!isDragging) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          el.style.left = Math.round(startLeft + dx) + 'px';
+          el.style.top = Math.round(startTop + dy) + 'px';
+          this.clamp(el);
+        });
+
+        const endDrag = (e) => {
+          if (!isDragging) return;
+          isDragging = false;
+          try { header.releasePointerCapture(e.pointerId); } catch (_) {}
+          this.saveState();
+        };
+        header.addEventListener('pointerup', endDrag);
+        header.addEventListener('pointercancel', endDrag);
+      }
+
+      // 8-Direction Resizing
+      el.querySelectorAll('.win-resize-handle').forEach(handle => {
+        let isResizing = false;
+        let startX = 0, startY = 0;
+        let startRect = null;
+        const dir = handle.dataset.dir;
+
+        handle.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0) return;
+          isResizing = true;
+          this.bringToFront(key);
+          startX = e.clientX;
+          startY = e.clientY;
+          startRect = el.getBoundingClientRect();
+          try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+          e.preventDefault();
+          e.stopPropagation();
+        });
+
+        handle.addEventListener('pointermove', (e) => {
+          if (!isResizing || !startRect) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          const minW = 260, minH = 140;
+
+          if (dir.includes('r')) {
+            const maxW = window.innerWidth - startRect.left - 8;
+            el.style.width = Math.round(Math.max(minW, Math.min(startRect.width + dx, maxW))) + 'px';
+          }
+          if (dir.includes('b')) {
+            const maxH = window.innerHeight - startRect.top - 8;
+            el.style.height = Math.round(Math.max(minH, Math.min(startRect.height + dy, maxH))) + 'px';
+          }
+          if (dir.includes('l')) {
+            const candW = startRect.width - dx;
+            if (candW >= minW && startRect.left + dx >= 8) {
+              el.style.width = Math.round(candW) + 'px';
+              el.style.left = Math.round(startRect.left + dx) + 'px';
+            }
+          }
+          if (dir.includes('t')) {
+            const candH = startRect.height - dy;
+            if (candH >= minH && startRect.top + dy >= 8) {
+              el.style.height = Math.round(candH) + 'px';
+              el.style.top = Math.round(startRect.top + dy) + 'px';
+            }
+          }
+        });
+
+        const endResize = (e) => {
+          if (!isResizing) return;
+          isResizing = false;
+          try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+          this.saveState();
+        };
+        handle.addEventListener('pointerup', endResize);
+        handle.addEventListener('pointercancel', endResize);
+      });
+    });
+
+    // Close panels menu when clicking outside
+    document.addEventListener('pointerdown', (e) => {
+      const menu = document.getElementById('topbar-panels-menu');
+      const btn = document.getElementById('topbar-panels-btn');
+      if (menu && menu.style.display !== 'none' && !menu.contains(e.target) && !btn.contains(e.target)) {
+        menu.style.display = 'none';
+      }
+    });
+  }
+};
+
+// Auto-initialize TacticalWindowManager on DOM ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => window.TacticalWindowManager.init());
+} else {
+  window.TacticalWindowManager.init();
+}
 
 
 
