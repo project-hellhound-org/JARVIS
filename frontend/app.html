@@ -3768,7 +3768,7 @@ body.chat-panel-collapsed #gods-eye-bottom-dock {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 12px 6px 12px;
+  padding: 6px 12px;
   background: rgba(4, 10, 18, 0.75);
   border: 1px solid rgba(0, 240, 255, 0.25);
   border-bottom: 1px solid rgba(0, 240, 255, 0.15);
@@ -3778,6 +3778,11 @@ body.chat-panel-collapsed #gods-eye-bottom-dock {
   font-family: var(--mono);
   user-select: none;
   pointer-events: auto !important;
+  cursor: pointer;
+}
+body.chat-panel-collapsed .chat-panel-header {
+  border-radius: 8px;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.25);
 }
 .chat-panel-header-title {
   display: flex;
@@ -3807,6 +3812,12 @@ body.chat-panel-collapsed #gods-eye-bottom-dock {
   justify-content: center;
   transition: all 0.15s ease;
   pointer-events: auto !important;
+}
+.chat-panel-collapse-btn svg {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+body.chat-panel-collapsed .chat-panel-collapse-btn svg {
+  transform: rotate(180deg) !important;
 }
 .chat-panel-collapse-btn:hover {
   background: rgba(0, 240, 255, 0.15);
@@ -5122,7 +5133,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         
         <!-- CHAT CONVERSATION CONTAINER CARD -->
         <div id="jarvis-chat-container">
-          <div id="chat-panel-header" class="chat-panel-header">
+          <div id="chat-panel-header" class="chat-panel-header" onclick="window.toggleChatPanel()">
             <div class="chat-panel-header-title">
               <span class="chat-panel-pulse"></span>
               <span>INTELLIGENCE FEED</span>
@@ -7752,7 +7763,7 @@ const JarvisKnowledgeGraph = {
         .nodeColor(node => (CATEGORY_PALETTE[node.type] && CATEGORY_PALETTE[node.type].color) || '#FFA726')
         .nodeVal(node => node.type === 'CLUSTER' ? 14 : (node.id === 'core:jarvis' ? 24 : (node.val || 7)))
         .nodeRelSize(3.2)
-        .linkOpacity(0.24)
+        .linkOpacity(link => (link.__opacity !== undefined ? link.__opacity : 0.24))
         .linkWidth(link => {
           const s = typeof link.source === 'object' ? link.source.id : link.source;
           const t = typeof link.target === 'object' ? link.target.id : link.target;
@@ -7784,7 +7795,7 @@ const JarvisKnowledgeGraph = {
           return (Math.abs(hash) % 4 === 0) ? 1 : 0;
         })
         .linkDirectionalParticleSpeed(link => {
-          if (link.__pulseActive) return 0.04;
+          if (link.__pulseActive) return 0.014;
           const s = typeof link.source === 'object' ? link.source.id : link.source;
           const t = typeof link.target === 'object' ? link.target.id : link.target;
           return (s === 'core:jarvis' || t === 'core:jarvis') ? 0.008 : 0.005;
@@ -7825,6 +7836,40 @@ const JarvisKnowledgeGraph = {
       }
       this.graph.d3Force('center', null);
 
+      // 3D Parallax Starfield (True volumetric depth within Knowledge Graph scene)
+      const scene = this.graph.scene();
+      if (scene && typeof THREE !== 'undefined') {
+        const makeStarField = (count, rMin, rSpan, color, size, opacity) => {
+          const positions = new Float32Array(count * 3);
+          for (let i = 0; i < count; i++) {
+            const r = rMin + Math.random() * rSpan;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(Math.random() * 2 - 1); // uniform on a sphere, no pole clumping
+            positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+            positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+            positions[i * 3 + 2] = r * Math.cos(phi);
+          }
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+          const mat = new THREE.PointsMaterial({
+            color,
+            size,
+            transparent: true,
+            opacity,
+            sizeAttenuation: true, // THIS makes stars shrink/grow with zoom
+            fog: false
+          });
+          return new THREE.Points(geo, mat);
+        };
+
+        const farStars = makeStarField(3200, 900, 1400, 0xffffff, 1.3, 0.75); // far layer: many tiny white stars
+        const nearStars = makeStarField(650, 700, 1600, 0x9fc8ff, 2.6, 0.55); // near layer: fewer, bigger, blue-tinted
+        scene.add(farStars);
+        scene.add(nearStars);
+        this.starFieldFar = farStars;
+        this.starFieldNear = nearStars;
+      }
+
       const controls = this.graph.controls();
       if (controls) {
         controls.enableZoom = true;
@@ -7860,7 +7905,6 @@ const JarvisKnowledgeGraph = {
       }
 
       // Volumetric 3D Starfield directly in Knowledge Graph Scene
-      const scene = this.graph.scene();
       if (scene && typeof THREE !== 'undefined') {
         scene.background = new THREE.Color(0x000005);
         const starTex = makeStarSpriteTex();
@@ -7984,7 +8028,10 @@ const JarvisKnowledgeGraph = {
         });
       }
       if (gData && gData.links) {
-        gData.links.forEach(l => { l.__pulseActive = false; });
+        gData.links.forEach(l => {
+          l.__pulseActive = false;
+          l.__opacity = 0.36;
+        });
       }
     }
     if (this._fullData && this.graph) {
@@ -8075,6 +8122,7 @@ const JarvisKnowledgeGraph = {
       if (camera) {
         camera.aspect = w / h;
         camera.near = 0.5;
+        camera.far = 6000;
         camera.updateProjectionMatrix();
       }
 
@@ -9076,17 +9124,29 @@ const JarvisKnowledgeGraph = {
       });
     }
 
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (pulseLink) {
         pulseLink.__pulseActive = true;
+        // Progressive link alpha ramp (from faint skeleton 0.05 to lit link 0.38)
+        const linkStart = pulseLink.__opacity !== undefined ? pulseLink.__opacity : 0.05;
+        const linkEnd = 0.38;
+        const linkDur = 750;
+        const linkT0 = performance.now();
+        const stepLinkAlpha = (now) => {
+          const lp = Math.min(1.0, (now - linkT0) / linkDur);
+          pulseLink.__opacity = linkStart + (linkEnd - linkStart) * (lp * (2 - lp));
+          if (lp < 1.0) requestAnimationFrame(stepLinkAlpha);
+        };
+        requestAnimationFrame(stepLinkAlpha);
+
         if (this.graph && typeof this.graph.linkDirectionalParticles === 'function') {
           this.graph.linkDirectionalParticles(this.graph.linkDirectionalParticles());
         }
       }
 
-      // Energy propagation arrival: link pulse travels across link to the node
-      const arrivalDelay = pulseLink ? 450 : 50;
-      setTimeout(() => {
+      // Visible pulse speed: link pulse travels across link (~750ms transit)
+      const arrivalDelay = pulseLink ? 750 : 60;
+      const arrivalTimer = setTimeout(() => {
         if (pulseLink) {
           setTimeout(() => {
             pulseLink.__pulseActive = false;
@@ -9097,31 +9157,36 @@ const JarvisKnowledgeGraph = {
         }
 
         const mat = targetNode.__material;
-        if (!mat || !mat.uniforms || !mat.uniforms.uEnergy) {
-          targetNode.__energy = 1.0;
-          return;
-        }
-
-        const startVal = mat.uniforms.uEnergy.value;
+        const startVal = (mat && mat.uniforms && mat.uniforms.uEnergy) ? mat.uniforms.uEnergy.value : (targetNode.__energy !== undefined ? targetNode.__energy : 0.15);
         const endVal = 1.0;
-        const duration = 650;
+        const duration = 1150; // Visible ease-in-out glow ramp (900-1400ms range)
         const startTime = performance.now();
+
+        const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
         function stepEnergy(now) {
           const elapsed = now - startTime;
           const progress = Math.min(1.0, elapsed / duration);
-          const ease = 1 - Math.pow(1 - progress, 3); // Ease-out cubic
-          mat.uniforms.uEnergy.value = startVal + (endVal - startVal) * ease;
+          const ease = easeInOutCubic(progress);
+          const currentEnergy = startVal + (endVal - startVal) * ease;
+          targetNode.__energy = currentEnergy;
+          if (mat && mat.uniforms && mat.uniforms.uEnergy) {
+            mat.uniforms.uEnergy.value = currentEnergy;
+          }
           if (progress < 1.0) {
             requestAnimationFrame(stepEnergy);
           } else {
-            mat.uniforms.uEnergy.value = 1.0;
             targetNode.__energy = 1.0;
+            if (mat && mat.uniforms && mat.uniforms.uEnergy) {
+              mat.uniforms.uEnergy.value = 1.0;
+            }
           }
         }
         requestAnimationFrame(stepEnergy);
       }, arrivalDelay);
+      this._assemblyTimers.push(arrivalTimer);
     }, delay);
+    this._assemblyTimers.push(timer);
   },
 
   setData(data) {
@@ -9255,79 +9320,56 @@ const JarvisKnowledgeGraph = {
       node.__homeZ = node.z;
     }
 
+    // Set initial link opacities to faint skeleton lines (0.05)
+    allLinks.forEach(l => {
+      if (l.__opacity === undefined) l.__opacity = 0.05;
+    });
+
     const fullData = { nodes: nodes, links: allLinks };
     this._fullData = fullData;
 
     this.graphGroup = null;
     this.ambientLight = null;
 
-    // Helper to extract links where both endpoints are in the given node ID set
-    const filterLinks = (activeIds) => {
-      return allLinks.filter(l => {
-        const s = typeof l.source === 'object' ? l.source.id : l.source;
-        const t = typeof l.target === 'object' ? l.target.id : l.target;
-        return activeIds.has(s) && activeIds.has(t);
-      });
-    };
-
-    // Staged batch classification
-    const stage0Nodes = nodes.filter(n => n.id === 'core:jarvis');
-    if (stage0Nodes.length === 0 && nodes.length > 0) stage0Nodes.push(nodes[0]);
-
-    const stage1Nodes = nodes.filter(n => n.type === 'MEMORY_RULE' || n.type === 'CLUSTER');
-    const stage2Nodes = nodes.filter(n => n.type === 'MEMORY_SKILL' || n.type === 'OSINT_TARGET');
-    const stage3Nodes = nodes.filter(n => n.type === 'LESSON' || n.type === 'MEMORY_FACT' || n.type === 'SESSION_TOPIC' || n.type === 'OBSIDIAN_NOTE');
-    const stage4Nodes = nodes.filter(n => !stage0Nodes.includes(n) && !stage1Nodes.includes(n) && !stage2Nodes.includes(n) && !stage3Nodes.includes(n));
-
-    const stages = [
-      { delay: 0,    getNodes: () => [...stage0Nodes], newlyAdded: stage0Nodes, name: 'Core Matrix' },
-      { delay: 250,  getNodes: () => [...stage0Nodes, ...stage1Nodes], newlyAdded: stage1Nodes, name: 'Directives & Clusters' },
-      { delay: 800,  getNodes: () => [...stage0Nodes, ...stage1Nodes, ...stage2Nodes], newlyAdded: stage2Nodes, name: 'Skills & Targets' },
-      { delay: 1450, getNodes: () => [...stage0Nodes, ...stage1Nodes, ...stage2Nodes, ...stage3Nodes], newlyAdded: stage3Nodes, name: 'Insights & Facts' },
-      { delay: 2100, getNodes: () => [...nodes], newlyAdded: stage4Nodes, name: 'Outer Constellation' },
-      { delay: 2800, getNodes: () => [...nodes], newlyAdded: [], name: 'Settled Network' }
-    ];
+    // Immediately present the entire dim skeleton structure without batch popping
+    this.graph.graphData({
+      nodes: nodes,
+      links: allLinks
+    });
 
     const nodeCountEl = document.getElementById('galaxy-node-count');
     const linkCountEl = document.getElementById('galaxy-link-count');
+    if (nodeCountEl) nodeCountEl.textContent = nodes.length;
+    if (linkCountEl) linkCountEl.textContent = allLinks.length;
 
-    // Immediately reveal container with Stage 0
+    // Immediately reveal container with dim skeleton
     if (this.container) {
       this.container.classList.add('ready');
     }
 
-    this._assemblyTimers = stages.map((st, idx) => {
-      return setTimeout(() => {
-        const curNodes = st.getNodes();
-        const activeIds = new Set(curNodes.map(n => n.id));
-        const curLinks = idx === 5 ? allLinks : filterLinks(activeIds);
+    // Continuous Bottom-Up Wavefront sweeping upward along the sphere's Y axis
+    const nonCoreNodes = nodes.filter(n => n.id !== 'core:jarvis');
+    const minY = Math.min(...nonCoreNodes.map(n => n.y !== undefined ? n.y : 0));
+    const maxY = Math.max(...nonCoreNodes.map(n => n.y !== undefined ? n.y : 0));
+    const spanY = (maxY - minY) || 1;
 
-        this.graph.graphData({
-          nodes: curNodes,
-          links: curLinks
-        });
-
-        if (nodeCountEl) nodeCountEl.textContent = curNodes.length;
-        if (linkCountEl) linkCountEl.textContent = curLinks.length;
-
-        // Light propagation: trigger pulses along incoming links for newly introduced nodes
-        if (st.newlyAdded && st.newlyAdded.length > 0) {
-          st.newlyAdded.forEach((node, nIdx) => {
-            if (node.id === 'core:jarvis') return;
-            this.energizeNodeWithPulse(node, 'core:jarvis', nIdx * 15);
-          });
-        }
-
-        console.log(`[KnowledgeGraph] Assembly Stage ${idx} (${st.name}): ${curNodes.length} nodes, ${curLinks.length} links`);
-
-        if (idx === stages.length - 1) {
-          this._fullData = null;
-          this._assemblyTimers = [];
-          this._hasBootAssembled = true;
-          this.updateHubLabels();
-        }
-      }, st.delay);
+    // Stagger each node individually:
+    nonCoreNodes.forEach((node, idx) => {
+      const ny = node.y !== undefined ? node.y : 0;
+      const normY = Math.max(0, Math.min(1, (ny - minY) / spanY)); // 0.0 (bottom) to 1.0 (top)
+      const jitter = ((Math.abs(Math.sin((node.x || idx) * 12.9898 + (node.z || idx) * 78.233)) * 140) | 0);
+      const delay = 350 + Math.round(normY * 3300) + jitter;
+      this.energizeNodeWithPulse(node, 'core:jarvis', delay);
     });
+
+    const completionTimer = setTimeout(() => {
+      this._fullData = null;
+      this._assemblyTimers = [];
+      this._hasBootAssembled = true;
+      this.updateHubLabels();
+      console.log('[KnowledgeGraph] Bottom-up skeleton wavefront propagation complete.');
+    }, 5800);
+    this._assemblyTimers.push(completionTimer);
   },
 
   updateHubLabels() {
@@ -14717,15 +14759,25 @@ const SpatialNav = {
   isPointerDown: false,
 
   onPointerDown(e) {
-    if (e.target.closest('#jarvis-knowledge-graph-container, #jarvis-3d-kg-mount, .knowledge-graph-container, canvas')) {
-      return;
-    }
-    if (e.target.closest('input, textarea, button, a, select, option, #jarvis-chat-container, #jarvis-main-workspace, #thread, .msg, .msg-answer, .msg-user, .msg-actions, .action-copy-btn, #thinking-indicator, #composer, #jarvis-input-bar, #chat-panel-header, .chat-panel-collapse-btn, #workspace-content-grid, .findings-summary-card, #jarvis-hud-notch-wrapper, #jarvis-hud-notch, .chat-panel-pulse, #chat-expand-launcher, .jarvis-task-surface, .overlay, .overlay-panel, #sidebar, .spatial-dock-item, #spatial-dock, .globe-hud-btn, .nav-btn, .top-bar-menu-btn, #spatial-globe-hud, .globe-layer-toggle, .radio-tuner-box, #globe-inspect-card, #globe-hud-launcher, #jarvis-top-bar, .spatial-edge-strip, .cr-finding-card, .cr-action-btn, .cr-mini-btn, .cr-feed-scroll')) {
+    if (e.button !== undefined && e.button !== 0) return;
+
+    // Check if pointerdown occurred within thin outer edge strips (outer ~48px left or right)
+    const winW = window.innerWidth || document.documentElement.clientWidth || 1920;
+    const isEdgeZone = (e.clientX <= 48 || e.clientX >= (winW - 48));
+    const isEdgePill = Boolean(e.target.closest && e.target.closest('.spatial-edge-strip'));
+    const isEdgeStrip = isEdgeZone || isEdgePill;
+
+    // Screen-switching mouse drag belongs ONLY to thin edge strips.
+    // Drags on KG canvas, Cesium globe, Cold Room graph/panels, chat panel, composer, or HUD belong to those elements.
+    if (!isEdgeStrip || (e.target.closest && e.target.closest('input, textarea, select, option, .globe-hud-btn, .top-bar-menu-btn, .cr-action-btn'))) {
+      this.isPointerDown = false;
+      this.isDragging = false;
       return;
     }
 
+    // Ownership decided strictly at pointerdown and retained for the entire drag
     this.isPointerDown = true;
-    this.isDragging = false;
+    this.isDragging = true;
     this.dragStartX = e.clientX;
     this.dragStartY = e.clientY;
     this.dragStartSpatialX = this.targetX;
@@ -14735,32 +14787,9 @@ const SpatialNav = {
   },
 
   onPointerMove(e) {
-    if (!this.isPointerDown) return;
+    if (!this.isPointerDown || !this.isDragging) return;
 
     const dx = e.clientX - this.dragStartX;
-    const dy = e.clientY - this.dragStartY;
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-
-    if (!this.isDragging) {
-      // Disambiguate screen glide from 3D sphere rotation:
-      // Engage SpatialNav only if horizontal movement is dominant (dx >= 12px and dx > 1.4 * dy)
-      if (absDx >= 12 && absDx > 1.4 * absDy) {
-        this.isDragging = true;
-        // Temporarily disable OrbitControls so screen dragging doesn't spin the 3D sphere simultaneously
-        if (window.JarvisKnowledgeGraph && window.JarvisKnowledgeGraph.graph) {
-          const controls = window.JarvisKnowledgeGraph.graph.controls();
-          if (controls) {
-            controls.enabled = false;
-            controls.enableRotate = false;
-          }
-        }
-      } else {
-        // Vertical or circular drag: let underlying 3D controls (OrbitControls / Cesium) handle it
-        return;
-      }
-    }
-
     const now = performance.now();
     const dt = Math.max(1, now - this.lastPointerTime);
     this.pointerVelocity = (e.clientX - this.lastPointerX) / dt;

@@ -83,7 +83,10 @@ api_keys*
 
 # Backup files & temporary local data
 *.zip
-data/
+data/*
+!data/skill_templates/
+data/skill_templates/*
+!data/skill_templates/wake_word_sensitivity.yaml
 scratch/
 
 # Memory store data (not source code)

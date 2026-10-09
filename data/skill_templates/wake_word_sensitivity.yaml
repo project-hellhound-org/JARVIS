@@ -1,0 +1,9 @@
+wake_word: "Jarvis"
+sensitivity_threshold: 0.45
+mumble_tolerance: "high"
+phonetic_aliases:
+  - "jarvis"
+  - "hey jarvis"
+  - "yo jarvis"
+  - "ok jarvis"
+
