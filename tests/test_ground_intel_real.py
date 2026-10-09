@@ -42,11 +42,11 @@ def test_authentic_item_schema_and_badge_contract():
         "title": "Historical Tower in Test City",
         "author": "FieldPhotographer",
         "published_time": "2021-04-10T12:00:00Z",
-        "lat": 35.6762,
-        "lon": 139.6503,
+        "lat": 35.6850,
+        "lon": 139.6600,
         "geolocation_method": "GEOTAGGED",
         "fetched_at": "2026-10-08T07:00:00Z",
-        "badge": "VERIFIED GEOLOCATION",
+        "badge": "UPLOADER GEOTAG",
         "simulated": False,
         "media_type": "photo",
         "media_url": "https://upload.wikimedia.org/wikipedia/commons/test.jpg",
@@ -66,7 +66,7 @@ def test_authentic_item_schema_and_badge_contract():
         item = res["points"][0]
         assert item["id"] == "wiki-123456"
         assert item["geolocation_method"] == "GEOTAGGED"
-        assert item["badge"] == "VERIFIED GEOLOCATION"
+        assert item["badge"] == "UPLOADER GEOTAG"
         assert item["simulated"] is False
         assert "lat" in item and "lon" in item
         assert "url" in item and item["url"].startswith("https://")
@@ -86,7 +86,7 @@ def test_badge_never_verified_for_non_geotagged():
         "lon": 2.3522,
         "geolocation_method": "PLACE-MATCHED",
         "fetched_at": "2026-10-08T07:00:00Z",
-        "badge": "PLACE-MATCHED",
+        "badge": "PLACE-MATCH",
         "simulated": False,
         "media_type": "event",
         "media_url": "https://www.gdacs.org/icon.png",
@@ -101,13 +101,13 @@ def test_badge_never_verified_for_non_geotagged():
         assert res["status"] == "ok"
         assert len(res["points"]) == 1
         assert res["points"][0]["badge"] != "VERIFIED GEOLOCATION"
-        assert res["points"][0]["badge"] == "PLACE-MATCHED"
+        assert res["points"][0]["badge"] == "PLACE-MATCH"
 
 def test_badge_recomputation_from_geolocation_method_when_wrong_badge_passed():
     """
     Asserts that passing items carrying a WRONG badge has the output badge strictly
     recomputed in code from geolocation_method.
-    GEOTAGGED -> 'VERIFIED GEOLOCATION'. Everything else -> never verified.
+    GEOTAGGED -> 'UPLOADER GEOTAG' (or 'CITY-LEVEL'). Everything else -> never verified.
     """
     client = GroundIntelClient()
     wrong_item_1 = {
@@ -125,10 +125,10 @@ def test_badge_recomputation_from_geolocation_method_when_wrong_badge_passed():
         "id": "wrong-2",
         "platform": "TestGeo",
         "title": "Item with geotagged coords but wrong unverified badge",
-        "lat": 11.0168,
-        "lon": 76.9558,
+        "lat": 11.0500,
+        "lon": 76.9900,
         "geolocation_method": "GEOTAGGED",
-        "badge": "UNVERIFIED RANDOM BADGE",  # WRONG badge: GEOTAGGED must be recomputed to VERIFIED GEOLOCATION
+        "badge": "UNVERIFIED RANDOM BADGE",  # WRONG badge: GEOTAGGED must be recomputed to UPLOADER GEOTAG
         "media_url": "https://example.com/2.jpg",
         "thumbnail_url": "https://example.com/2_t.jpg",
     }
@@ -144,8 +144,8 @@ def test_badge_recomputation_from_geolocation_method_when_wrong_badge_passed():
 
         # p1 had wrong badge "VERIFIED GEOLOCATION" but geolocation_method="PLACE-MATCHED"
         assert p1["badge"] != "VERIFIED GEOLOCATION"
-        assert p1["badge"] == "PLACE-MATCHED"
+        assert p1["badge"] == "PLACE-MATCH"
 
         # p2 had wrong badge "UNVERIFIED RANDOM BADGE" but geolocation_method="GEOTAGGED"
-        assert p2["badge"] == "VERIFIED GEOLOCATION"
+        assert p2["badge"] == "UPLOADER GEOTAG"
 

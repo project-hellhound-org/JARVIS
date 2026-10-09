@@ -32,7 +32,7 @@ class TestGodsEyeRound2(unittest.TestCase):
             self.assertIn("badge", item)
             self.assertFalse(item.get("simulated", False))
             if item["geolocation_method"] == "GEOTAGGED":
-                self.assertEqual(item["badge"], "VERIFIED GEOLOCATION")
+                self.assertIn(item["badge"], ("UPLOADER GEOTAG", "CITY-LEVEL"))
 
     def test_app_html_osint_radio_and_cyber_news(self):
         html = Path("frontend/app.html").read_text(encoding="utf-8")

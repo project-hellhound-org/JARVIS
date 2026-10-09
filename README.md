@@ -152,6 +152,7 @@ All keys are **optional**. J.A.R.V.I.S. functions completely offline and keyless
 | **NVIDIA NIM** | `nvidia_api_key` | **Frontier 550B MoE reasoning** (`nvidia/nemotron-3-ultra-550b-a55b`). | [build.nvidia.com](https://build.nvidia.com) |
 | **Google Gemini** | `gemini_api_key` | Multimodal vision analysis and deep entity correlation. | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | **Fish Audio** | `fish_audio_api_key` | Ultra-realistic British tactical voice synthesis (`05b36da8574341d0803391491850db20`). | [fish.audio/app/developers](https://fish.audio/app/developers) |
+| **YouTube Data API** | `YOUTUBE_API_KEY` | **Geotagged field video intelligence & OSINT dispatches** within scan radius. | [console.cloud.google.com](https://console.cloud.google.com) |
 
 ### 🔑 Step-by-Step Guide to Acquiring Free API Keys
 
@@ -202,6 +203,14 @@ Operator keys can be configured instantly in the GUI via the **Settings Panel** 
   1. Visit [fish.audio](https://fish.audio) and register an account.
   2. Go to the Developer Dashboard at [fish.audio/app/developers](https://fish.audio/app/developers).
   3. Generate an API Key and paste it into **Fish Audio API Key** in Settings.
+
+#### 7. YouTube Data API v3 Key (`YOUTUBE_API_KEY`)
+* **What it unlocks:** Real-time geolocated video discovery and verified video embed playback in God's Eye ground intel dock.
+* **Steps to obtain (100% Free):**
+  1. Open [Google Cloud Console](https://console.cloud.google.com/) and create a project.
+  2. Navigate to **APIs & Services > Library**, search for **YouTube Data API v3**, and click **Enable**.
+  3. Go to **Credentials**, click **Create Credentials > API Key**, and copy the generated key.
+  4. Export `YOUTUBE_API_KEY=<your-key>` in `.env` or system environment.
 
 > [!TIP]
 > ### 🔒 Dynamic Hot-Apply & Auto-Syncing

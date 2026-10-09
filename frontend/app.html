@@ -4526,6 +4526,10 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
           <span>📍 GROUND MEDIA (OSINT)</span>
           <div class="toggle-pill"></div>
         </div>
+        <div class="globe-layer-toggle" id="btn-toggle-city-level" onclick="window.toggleCityLevelIntel()">
+          <span>🏙️ CITY-LEVEL CONTACTS</span>
+          <div class="toggle-pill"></div>
+        </div>
       </div>
       <div style="font-size:9px; color:#8A8D91; font-family:var(--mono); margin-top:8px; display:grid; grid-template-columns:repeat(5, 1fr); gap:4px;">
         <span>RADAR: <span id="radar-contact-count" style="color:#00F0FF;">0</span></span>
@@ -18874,6 +18878,7 @@ function initGlobeIntelligence(viewer) {
 
     points.forEach(p => {
       const isVideo = (p.media_type === 'youtube' || p.media_type === 'video');
+      const isCityLevel = (p.badge === 'CITY-LEVEL' || p.precision === 'CITY-LEVEL');
       const tacticalData = {
         type: 'GROUND_MEDIA',
         id: p.id,
@@ -18885,7 +18890,8 @@ function initGlobeIntelligence(viewer) {
         thumbnail_url: p.thumbnail_url,
         media_url: p.media_url,
         simulated: Boolean(p.simulated),
-        badge: p.badge || (p.simulated ? 'SIMULATED' : 'WIKIMEDIA'),
+        badge: p.badge || (p.simulated ? 'SIMULATED' : (isCityLevel ? 'CITY-LEVEL' : 'UPLOADER GEOTAG')),
+        precision: p.precision || (isCityLevel ? 'CITY-LEVEL' : 'PRECISE'),
         timestamp: p.timestamp,
         lat: p.lat,
         lon: p.lon,
@@ -18893,6 +18899,33 @@ function initGlobeIntelligence(viewer) {
         description: p.description,
         attribution: p.attribution
       };
+
+      if (isCityLevel) {
+        // Render CITY-LEVEL items as Cesium rings (not pins), hide by default
+        _groundMediaDataSource.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0),
+          ellipse: {
+            semiMajorAxis: 2000.0,
+            semiMinorAxis: 2000.0,
+            material: Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.12),
+            outline: true,
+            outlineColor: Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.7),
+            outlineWidth: 2.0,
+            height: 0,
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 1500000)
+          },
+          point: {
+            pixelSize: 6.0,
+            color: Cesium.Color.fromCssColorString('#38BDF8'),
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 1.5,
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 500000)
+          },
+          show: Boolean(window._showCityLevelIntel),
+          _tacticalData: tacticalData
+        });
+        return;
+      }
 
       // 3D Billboard Pin: crisp 38px badge with smooth distance scaling
       _groundMediaDataSource.entities.add({
@@ -18903,7 +18936,6 @@ function initGlobeIntelligence(viewer) {
           height: 38,
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
           disableDepthTestDistance: 5000,
-          // Clear tactical badge at ground level (<50km), scales down smoothly to micro-dot at orbital altitude
           scaleByDistance: new Cesium.NearFarScalar(500, 1.15, 4000000, 0.20),
           distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 8000000)
         },
@@ -18926,6 +18958,7 @@ function initGlobeIntelligence(viewer) {
           disableDepthTestDistance: 50000,
           distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 150000)
         },
+        show: true,
         _tacticalData: tacticalData
       });
     });
@@ -18933,6 +18966,32 @@ function initGlobeIntelligence(viewer) {
     const countEl = document.getElementById('groundmedia-contact-count');
     if (countEl) countEl.textContent = String(points.length);
 
+    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+      window.cesiumViewer.scene.requestRender();
+    }
+  };
+
+  window._showCityLevelIntel = false;
+  window.toggleCityLevelIntel = function() {
+    window._showCityLevelIntel = !window._showCityLevelIntel;
+    const btn = document.getElementById('btn-toggle-city-level');
+    if (btn) {
+      if (window._showCityLevelIntel) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    }
+    if (_groundMediaDataSource) {
+      _groundMediaDataSource.entities.values.forEach(ent => {
+        if (ent._tacticalData && (ent._tacticalData.badge === 'CITY-LEVEL' || ent._tacticalData.precision === 'CITY-LEVEL')) {
+          ent.show = window._showCityLevelIntel;
+        }
+      });
+    }
+    if (window.updateAutoFloatingGroundMediaCards) {
+      window.updateAutoFloatingGroundMediaCards();
+    }
     if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
       window.cesiumViewer.scene.requestRender();
     }
@@ -19127,7 +19186,14 @@ function initGlobeIntelligence(viewer) {
     const camLon = Cesium.Math.toDegrees(camPos.longitude);
 
     // Compute surface distances to active points and select nearest up to 6
-    const pointsWithDist = window._activeGroundMediaPoints.map(p => {
+    const activePoints = window._activeGroundMediaPoints.filter(p => {
+      if (p.badge === 'CITY-LEVEL' || p.precision === 'CITY-LEVEL') {
+        return Boolean(window._showCityLevelIntel);
+      }
+      return true;
+    });
+
+    const pointsWithDist = activePoints.map(p => {
       const dLat = (p.lat - camLat) * 111.0;
       const dLon = (p.lon - camLon) * 111.0 * Math.cos(camLat * Math.PI / 180.0);
       const dist = Math.sqrt(dLat * dLat + dLon * dLon);
@@ -19187,9 +19253,23 @@ function initGlobeIntelligence(viewer) {
       placedBoxes.push(currentBox);
 
       const isSim = Boolean(p.simulated);
-      const badgeText = p.badge || (p.geolocation_method === 'GEOTAGGED' ? 'VERIFIED GEOLOCATION' : (p.source_label || 'OSINT'));
-      const badgeColor = (p.badge === 'VERIFIED GEOLOCATION' || p.geolocation_method === 'GEOTAGGED') ? '#10B981' : '#00F0FF';
-      const badgeBg = (p.badge === 'VERIFIED GEOLOCATION' || p.geolocation_method === 'GEOTAGGED') ? 'rgba(16,185,129,0.2)' : 'rgba(0,240,255,0.2)';
+      const badgeText = p.badge || (p.geolocation_method === 'GEOTAGGED' ? 'UPLOADER GEOTAG' : (p.source_label || 'OSINT'));
+      let badgeColor = '#00F0FF';
+      let badgeBg = 'rgba(0,240,255,0.2)';
+      if (badgeText === 'UPLOADER GEOTAG') {
+        badgeColor = '#10B981';
+        badgeBg = 'rgba(16,185,129,0.2)';
+      } else if (badgeText === 'CITY-LEVEL') {
+        badgeColor = '#38BDF8';
+        badgeBg = 'rgba(56,189,248,0.2)';
+      } else if (badgeText === 'EVENT FEED') {
+        badgeColor = '#F59E0B';
+        badgeBg = 'rgba(245,158,11,0.2)';
+      } else if (badgeText === 'PLACE-MATCH') {
+        badgeColor = '#A855F7';
+        badgeBg = 'rgba(168,85,247,0.2)';
+      }
+
       const thumb = p.thumbnail_url || p.thumbnail || p.media_url || 'https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=320&q=80';
       const safeTitle = (p.title || 'Ground Contact').replace(/\[SIMULATED\]\s*/i, '').slice(0, 24);
       const timeStr = p.timestamp || p.published_time || p.captured_at || 'Recent';
@@ -19263,13 +19343,25 @@ function initGlobeIntelligence(viewer) {
     if (platEl) platEl.textContent = (data.source_label || (isVideo ? 'YOUTUBE' : 'WIKIMEDIA')).toUpperCase();
     if (iconEl) iconEl.textContent = isVideo ? '📹' : '📷';
     if (badgeEl) {
-      if (data.badge === 'VERIFIED GEOLOCATION' || data.geolocation_method === 'GEOTAGGED') {
-        badgeEl.textContent = 'VERIFIED GEOLOCATION';
+      const bText = data.badge || (data.geolocation_method === 'GEOTAGGED' ? 'UPLOADER GEOTAG' : (data.source_label || 'OSINT'));
+      badgeEl.textContent = bText;
+      if (bText === 'UPLOADER GEOTAG') {
         badgeEl.style.color = '#10B981';
         badgeEl.style.borderColor = 'rgba(16,185,129,0.5)';
         badgeEl.style.background = 'rgba(16,185,129,0.18)';
+      } else if (bText === 'CITY-LEVEL') {
+        badgeEl.style.color = '#38BDF8';
+        badgeEl.style.borderColor = 'rgba(56,189,248,0.5)';
+        badgeEl.style.background = 'rgba(56,189,248,0.18)';
+      } else if (bText === 'EVENT FEED') {
+        badgeEl.style.color = '#F59E0B';
+        badgeEl.style.borderColor = 'rgba(245,158,11,0.5)';
+        badgeEl.style.background = 'rgba(245,158,11,0.18)';
+      } else if (bText === 'PLACE-MATCH') {
+        badgeEl.style.color = '#A855F7';
+        badgeEl.style.borderColor = 'rgba(168,85,247,0.5)';
+        badgeEl.style.background = 'rgba(168,85,247,0.18)';
       } else {
-        badgeEl.textContent = data.badge || data.geolocation_method || 'OSINT GEOLOCATION';
         badgeEl.style.color = '#00F0FF';
         badgeEl.style.borderColor = 'rgba(0,240,255,0.4)';
         badgeEl.style.background = 'rgba(0,0,0,0.85)';
