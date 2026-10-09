@@ -4103,8 +4103,20 @@ class JarvisAPI:
                 from faster_whisper import WhisperModel
                 self._faster_whisper_model = WhisperModel("tiny.en", device="cpu", compute_type="int8")
             if getattr(self, '_faster_whisper_model', None):
-                segments, _ = self._faster_whisper_model.transcribe(wav_path, beam_size=1)
-                res = " ".join(s.text for s in segments).strip()
+                segments, _ = self._faster_whisper_model.transcribe(
+                    wav_path,
+                    beam_size=1,
+                    vad_filter=True,
+                    no_speech_threshold=0.6
+                )
+                valid_segments = []
+                for s in segments:
+                    if getattr(s, 'no_speech_prob', 0.0) > 0.6:
+                        continue
+                    if getattr(s, 'avg_logprob', 0.0) < -1.5:
+                        continue
+                    valid_segments.append(s.text)
+                res = " ".join(valid_segments).strip()
                 self._schedule_whisper_idle_unload()
                 if res:
                     print(f"[desktop] Transcribed via offline faster-whisper: '{res}'")
@@ -4118,7 +4130,7 @@ class JarvisAPI:
                 import whisper
                 self._whisper_model = whisper.load_model("tiny.en")
             if getattr(self, '_whisper_model', None):
-                res = self._whisper_model.transcribe(wav_path)
+                res = self._whisper_model.transcribe(wav_path, no_speech_threshold=0.6, logprob_threshold=-1.5)
                 txt = (res.get("text") or "").strip()
                 self._schedule_whisper_idle_unload()
                 if txt:
@@ -4141,7 +4153,8 @@ class JarvisAPI:
                 with open(wav_path, "rb") as f:
                     wav_bytes = f.read()
                 boundary = "----WebKitFormBoundary" + hex(int(time.time() * 1000))[2:]
-                bias_prompt = "J.A.R.V.I.S., Sir, tactical intelligence, system diagnostics, Kotagiri, Nilgiris, Coonoor, Ooty, Chepauk Stadium, Coimbatore, Chennai, Bengaluru, Delhi, Mumbai, Hyderabad, Kolkata, radar, telemetry, screen analysis."
+                # Clean prompt without wake word priming to avoid hallucinating wake word on silence
+                bias_prompt = "Tactical intelligence, system diagnostics, Kotagiri, Nilgiris, Coonoor, Ooty, Chepauk Stadium, Coimbatore, Chennai, Bengaluru, Delhi, Mumbai, Hyderabad, Kolkata, radar, telemetry, screen analysis."
                 body = (
                     f"--{boundary}\r\n"
                     f'Content-Disposition: form-data; name="file"; filename="audio.wav"\r\n'
@@ -4220,11 +4233,9 @@ class JarvisAPI:
 
         stripped = text.strip()
 
-        # 1. Silence hallucinations filter (Whisper regurgitating prompt or subtitle artifacts on ambient noise)
+        # 1. Silence hallucinations filter (Whisper subtitle artifacts on ambient noise)
         hallucination_patterns = [
             r'^(?:thank\s+you\.?|thanks\s+for\s+watching\.?|subtitles\s+by.*|you)$',
-            r'^(?:(?:hey\s+)?j\.?a\.?r\.?v\.?i\.?s\.?[,\s]*)+$',
-            r'^(?:j\.?a\.?r\.?v\.?i\.?s\.?[,\s\.-]*t-?r\.?v\.?i\.?s\.?[,\s\.-]*)+$',
             r'^(?:tactical\s+intelligence[,\s]*)+$',
         ]
         for pat in hallucination_patterns:
@@ -4850,7 +4861,7 @@ class JarvisAPI:
                 if is_wake:
                     # Clean out the wake phrase cleanly, regardless of whether transcribed as "Jarvis", "J.A.R.V.I.S.", "Hey Jarvis", etc.
                     clean = re.sub(re.escape(matched_phrase), '', text, flags=re.IGNORECASE)
-                    clean = re.sub(r'\b(?:hey\s+|hi\s+|yo\s+|ok\s+|okay\s+|alright\s+)?j\.?a\.?r\.?v\.?i\.?s\.?\b', '', clean, flags=re.IGNORECASE)
+                    clean = re.sub(r'\b(?:hey\s+|hi\s+|yo\s+|ok\s+|okay\s+|alright\s+)?(?:j\.?a\.?r\.?v\.?i\.?s\.?|j\.?a\.?r\.?c\.?|jarvik|jarbis)\b', '', clean, flags=re.IGNORECASE)
                     clean = re.sub(r'^[,\s:.-]+|[,\s:.-]+$', '', clean).strip()
                     clean_words = re.sub(r'[^\w\s]', '', clean).strip().split()
                     has_command = len(clean_words) > 0

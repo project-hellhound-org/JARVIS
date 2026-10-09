@@ -81,13 +81,13 @@ def _patch_openwakeword_providers():
         pass
 
 
-def _levenshtein_ratio(s1: str, s2: str) -> float:
-    """Compute string similarity ratio (0.0 to 1.0) using Levenshtein distance in pure Python (0ms overhead)."""
+def _levenshtein_distance(s1: str, s2: str) -> int:
+    """Compute Levenshtein edit distance between s1 and s2 in pure Python (0ms overhead)."""
     if s1 == s2:
-        return 1.0
+        return 0
     len1, len2 = len(s1), len(s2)
     if len1 == 0 or len2 == 0:
-        return 0.0
+        return max(len1, len2)
     dp = [[0] * (len2 + 1) for _ in range(len1 + 1)]
     for i in range(len1 + 1):
         dp[i][0] = i
@@ -98,9 +98,20 @@ def _levenshtein_ratio(s1: str, s2: str) -> float:
         for j in range(1, len2 + 1):
             cost = 0 if c1 == s2[j - 1] else 1
             dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
-    dist = dp[len1][len2]
+    return dp[len1][len2]
+
+
+def _levenshtein_ratio(s1: str, s2: str) -> float:
+    """Compute string similarity ratio (0.0 to 1.0) using Levenshtein distance in pure Python (0ms overhead)."""
+    if s1 == s2:
+        return 1.0
+    len1, len2 = len(s1), len(s2)
+    if len1 == 0 or len2 == 0:
+        return 0.0
+    dist = _levenshtein_distance(s1, s2)
     max_len = max(len1, len2)
     return 1.0 - (dist / max_len)
+
 
 
 def _phonetic_code(word: str) -> str:
@@ -353,18 +364,23 @@ class WakeWordEngine:
     def check_stt_text_for_wake_or_aliases(self, text: str) -> tuple[bool, str]:
         """
         Check incoming raw STT transcription against registered JARVIS wake phrases.
-        Uses 100% on-device exact prefix, phonetic Soundex, and Levenshtein fuzzy matching.
+        Uses 100% on-device exact prefix, phonetic Soundex, and Levenshtein fuzzy matching
+        for wake word variants (J.A.R.C., Jarvik, Jarvis, Jarbis) using normalized edit distance
+        (threshold <= 2 edits or >= 0.75 similarity).
         Returns (matched: bool, phrase: str)
         """
         if not text:
             return False, ""
         clean = text.strip().lower()
-        clean_no_punct = re.sub(r'[^\w\s]', '', clean)
+        # Normalize spelled-out or dotted acronyms (e.g. "j.a.r.c.", "j. a. r. c.", "j a r c" -> "jarc"; "j.a.r.v.i.s." -> "jarvis")
+        clean_norm = re.sub(r'\bj\s*\.?\s*a\s*\.?\s*r\s*\.?\s*c\.?\b', 'jarc', clean, flags=re.IGNORECASE)
+        clean_norm = re.sub(r'\bj\s*\.?\s*a\s*\.?\s*r\s*\.?\s*v\s*\.?\s*i\s*\.?\s*s\.?\b', 'jarvis', clean_norm, flags=re.IGNORECASE)
+        clean_no_punct = re.sub(r'[^\w\s]', '', clean_norm)
         words = clean_no_punct.split()
         if not words:
             return False, ""
 
-        # 1. Exact or prefix match against registered wake phrases
+        # 1. Exact or prefix match against registered wake phrases (longest first)
         for phrase in self.wake_phrases:
             phrase_clean = re.sub(r'[^\w\s]', '', phrase).lower()
             if clean_no_punct.startswith(phrase_clean):
@@ -374,7 +390,7 @@ class WakeWordEngine:
                 if phrase_clean in leading_text:
                     return True, phrase.title()
 
-        # 2. Local Phonetic & Levenshtein Fuzzy Matcher (0ms, 100% on-device, zero network)
+        # 2. Local Phonetic & Multi-word phrase fuzzy matcher against registered wake_phrases
         for phrase in self.wake_phrases:
             target_words = re.sub(r'[^\w\s]', '', phrase).lower().split()
             if not target_words:
@@ -394,6 +410,43 @@ class WakeWordEngine:
                     cand_word = words[0]
                     if _phonetic_code(cand_word) == _phonetic_code("jarvis") and ratio >= 0.65:
                         return True, phrase.title()
+
+        # 3. Fuzzy matching for wake word variants (J.A.R.C., Jarvik, Jarvis, Jarbis)
+        # Using normalized edit distance (threshold <= 2 edits or >= 0.75 similarity)
+        VARIANTS = ("jarvis", "jarc", "jarvik", "jarbis")
+
+        def _is_wake_variant(w: str) -> bool:
+            if not w:
+                return False
+            for v in VARIANTS:
+                dist = _levenshtein_distance(w, v)
+                ratio = 1.0 - (dist / max(len(w), len(v)))
+                if (dist <= 2 or ratio >= 0.75) and (w.startswith(('j', 'g', 'y')) or ratio >= 0.85) and len(w) >= 3:
+                    if len(w) == 3 and dist > 1:
+                        continue
+                    return True
+            return False
+
+        # Check with conversational prefixes
+        prefixes = [
+            ("wake up", 2, "Wake Up Jarvis"),
+            ("alright", 1, "Alright Jarvis"),
+            ("hey", 1, "Hey Jarvis"),
+            ("hi", 1, "Hi Jarvis"),
+            ("yo", 1, "Yo Jarvis"),
+            ("ok", 1, "OK Jarvis"),
+            ("okay", 1, "OK Jarvis"),
+            ("hello", 1, "Hello Jarvis"),
+        ]
+        for pfx, pfx_len, pfx_label in prefixes:
+            pfx_words = pfx.split()
+            if len(words) > pfx_len and words[:pfx_len] == pfx_words:
+                if _is_wake_variant(words[pfx_len]):
+                    return True, pfx_label
+
+        # Check single-word variant at beginning of utterance
+        if _is_wake_variant(words[0]):
+            return True, "Jarvis"
 
         return False, ""
 
