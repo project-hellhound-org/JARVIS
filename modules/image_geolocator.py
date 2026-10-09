@@ -58,6 +58,79 @@ MODEL_CACHE_FILE = PROJECT_ROOT / "data" / "vision_model_cache.json"
 NOMINATIM_USER_AGENT = "JARVIS-OSINT-Geolocator/2.0 (contact: project-hellhound)"
 TINY_PNG_B64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB limit
+ALLOWED_IMAGE_FORMATS = ("JPEG", "PNG", "WEBP")
+
+
+def validate_safe_image_path(image_path: str) -> Optional[Path]:
+    """
+    Validates that image_path:
+    1. Is a non-empty string.
+    2. Does not contain null bytes.
+    3. Resolves strictly inside UPLOADS_DIR.
+    4. Is not a symlink (neither the target nor within its resolved path).
+    5. Exists and is a regular file.
+    Returns resolved Path if safe and valid, else None.
+    """
+    if not image_path or not isinstance(image_path, str):
+        return None
+    if "\0" in image_path:
+        return None
+    try:
+        p = Path(image_path)
+        if p.is_symlink():
+            return None
+        uploads_resolved = UPLOADS_DIR.resolve()
+        if not p.is_absolute():
+            resolved = (UPLOADS_DIR / p).resolve()
+        else:
+            resolved = p.resolve()
+        if not resolved.is_relative_to(uploads_resolved):
+            return None
+        if resolved.is_symlink():
+            return None
+        if not resolved.exists() or not resolved.is_file():
+            return None
+        return resolved
+    except Exception:
+        return None
+
+
+def save_uploaded_image(raw_bytes: bytes, orig_filename: str = "") -> Tuple[Optional[Path], Optional[str]]:
+    """
+    Validates and securely saves an uploaded image:
+    - Enforces <= 10MB limit.
+    - Uses Pillow to verify format in ("JPEG", "PNG", "WEBP").
+    - Generates a random UUID filename.
+    Returns (saved_path, error_message).
+    """
+    if len(raw_bytes) > MAX_IMAGE_SIZE_BYTES:
+        return None, f"Image exceeds 10MB limit ({len(raw_bytes)} bytes)"
+    if len(raw_bytes) == 0:
+        return None, "Empty image data"
+
+    try:
+        stream = io.BytesIO(raw_bytes)
+        with Image.open(stream) as img:
+            fmt = (img.format or "").upper()
+            if fmt not in ALLOWED_IMAGE_FORMATS:
+                return None, f"Unsupported image format: {fmt or 'unknown'}. Only JPEG, PNG, and WEBP supported."
+            img.verify()
+    except Exception as e:
+        return None, f"Corrupted or invalid image: {e}"
+
+    import uuid
+    ext_map = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}
+    ext = ext_map.get(fmt, "jpg")
+    safe_name = f"{uuid.uuid4().hex}.{ext}"
+    dest_path = UPLOADS_DIR / safe_name
+    try:
+        dest_path.write_bytes(raw_bytes)
+        return dest_path, None
+    except Exception as e:
+        return None, f"Failed to save image: {e}"
+
+
 
 def _parse_dms(dms_values, ref: str) -> Optional[float]:
     """Convert degrees, minutes, seconds tuple or rationals to decimal degrees."""
@@ -890,25 +963,30 @@ class ImageGeolocator:
         }
 
     def copy_image_to_clipboard(self, image_path: str) -> bool:
-        p = Path(image_path)
-        if not p.exists():
+        safe_p = validate_safe_image_path(image_path)
+        if not safe_p:
             return False
         if shutil.which("wl-copy"):
             try:
-                subprocess.run(["wl-copy", "-t", "image/png"], input=p.read_bytes(), check=True, timeout=2)
+                subprocess.run(["wl-copy", "-t", "image/png"], input=safe_p.read_bytes(), check=True, timeout=2)
                 return True
             except Exception:
                 pass
         if shutil.which("xclip"):
             try:
-                subprocess.run(["xclip", "-selection", "clipboard", "-target", "image/png", "-i", str(p)], check=True, timeout=2)
+                subprocess.run(["xclip", "-selection", "clipboard", "-target", "image/png", "-i", str(safe_p)], check=True, timeout=2)
                 return True
             except Exception:
                 pass
         return False
 
     def open_image_folder(self, image_path: str) -> bool:
-        folder = Path(image_path).parent
+        safe_p = validate_safe_image_path(image_path)
+        if not safe_p:
+            return False
+        folder = safe_p.parent
+        if folder != UPLOADS_DIR.resolve():
+            return False
         if shutil.which("xdg-open"):
             try:
                 subprocess.Popen(["xdg-open", str(folder)])

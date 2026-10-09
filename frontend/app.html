@@ -19135,13 +19135,17 @@ function initGlobeIntelligence(viewer) {
   window.fetchVesselsInArea = async function(lat, lon, radiusKm = 300) {
     try {
       let vessels = [];
+      let aisKeyMissing = false;
       if (window.pywebview && window.pywebview.api && window.pywebview.api.get_vessels) {
         try {
-          const res = await window.pywebview.api.get_vessels(lat, lon, radiusKm);
-          if (res && res.vessels) vessels = res.vessels;
+          const res = await window.pywebview.api.get_vessels(null, lat, lon, radiusKm);
+          if (res) {
+            if (res.key_configured === false || res.message === 'AIS key not configured') aisKeyMissing = true;
+            if (res.vessels) vessels = res.vessels;
+          }
         } catch (e) {}
       }
-      if (!vessels.length) {
+      if (!vessels.length && !aisKeyMissing) {
         let url = '/api/vessels';
         if (lat !== undefined && lon !== undefined) {
           url += `?lat=${lat}&lon=${lon}&radius_km=${radiusKm}`;
@@ -19150,6 +19154,7 @@ function initGlobeIntelligence(viewer) {
           const res = await fetch(url);
           if (res.ok) {
             const data = await res.json();
+            if (data.key_configured === false || data.message === 'AIS key not configured') aisKeyMissing = true;
             vessels = data.vessels || [];
           }
         } catch(e) {}
@@ -19162,7 +19167,11 @@ function initGlobeIntelligence(viewer) {
           const el = document.getElementById('vessel-contact-count');
           if (el) el.textContent = '0';
           if (typeof emitTacticalHudAlert === 'function') {
-            emitTacticalHudAlert('Maritime AIS telemetry offline - no live data', 'OFFLINE - no live data');
+            if (aisKeyMissing) {
+              emitTacticalHudAlert('AIS key not configured (Set AISSTREAM_API_KEY in .env)', 'AIS KEY NOT CONFIGURED');
+            } else {
+              emitTacticalHudAlert('Maritime AIS telemetry offline - no live data', 'OFFLINE - no live data');
+            }
           }
         }
         return;
@@ -20949,6 +20958,7 @@ function initGlobeIntelligence(viewer) {
   }
 
   window._fetchLiveFlights = fetchLiveFlights;
+  window.updateAirspaceContacts = fetchLiveFlights;
   fetchLiveFlights();
   setInterval(fetchLiveFlights, FLIGHT_POLL_INTERVAL_MS);
 
@@ -21089,6 +21099,7 @@ function initGlobeIntelligence(viewer) {
   }
 
   window._updateISSPosition = updateISSPosition;
+  window.updateISSPosition = updateISSPosition;
   updateISSPosition();
   setInterval(updateISSPosition, 5000);
 
@@ -22002,7 +22013,7 @@ function initGlobeIntelligence(viewer) {
           banner.style.background = 'rgba(239,68,68,0.12)';
           banner.innerHTML = `<span style="font-weight:700;">[OFFLINE - NO LIVE DATA]:</span> ${escapeHtml(effectiveDebrief || 'Upstream telemetry offline')}`;
           if (badge) {
-            badge.textContent = '⚡ OFFLINE - NO LIVE DATA';
+            badge.textContent = '⚡ CONTINGENCY (OFFLINE)';
             badge.style.color = '#EF4444';
             badge.style.borderColor = 'rgba(239,68,68,0.5)';
             badge.style.background = 'rgba(239,68,68,0.2)';

@@ -3672,12 +3672,22 @@ class JarvisAPI:
     def upload_images_for_geolocation(self, images_data: list, local_only: bool = False):
         """
         Intake up to 4 images for OSINT geolocation.
-        Saves originals to data/uploads/, runs EXIF pass & model analysis.
+        Saves originals to data/uploads/ with UUID filenames, runs EXIF pass & model analysis.
+        Strictly enforces <= 4 images, <= 10MB per image, and verified image formats (JPEG, PNG, WEBP).
         """
         import base64
-        import time
-        from pathlib import Path
-        from modules.image_geolocator import ImageGeolocator, UPLOADS_DIR
+        from modules.image_geolocator import (
+            ImageGeolocator,
+            UPLOADS_DIR,
+            save_uploaded_image,
+            MAX_IMAGE_SIZE_BYTES,
+        )
+
+        if not isinstance(images_data, list):
+            return {"success": False, "error": "Invalid payload format; list expected", "analyses": []}
+
+        if len(images_data) > 4:
+            return {"success": False, "error": "Maximum 4 images allowed per upload request", "analyses": []}
 
         UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
         results = []
@@ -3685,15 +3695,22 @@ class JarvisAPI:
 
         for idx, item in enumerate(images_data[:4]):
             data_url = item.get("data_url", "")
-            orig_name = item.get("filename", f"upload_{int(time.time())}_{idx}.jpg")
-            safe_name = f"{int(time.time())}_{idx}_{Path(orig_name).name}"
-            dest_path = UPLOADS_DIR / safe_name
+            orig_name = item.get("filename", f"upload_{idx}.jpg")
 
             if "," in data_url:
                 data_url = data_url.split(",", 1)[1]
             try:
                 raw_bytes = base64.b64decode(data_url)
-                dest_path.write_bytes(raw_bytes)
+            except Exception as ex:
+                results.append({"error": f"Invalid base64 encoding: {ex}", "filename": orig_name})
+                continue
+
+            dest_path, err = save_uploaded_image(raw_bytes, orig_name)
+            if err or not dest_path:
+                results.append({"error": err or "Failed to process image", "filename": orig_name})
+                continue
+
+            try:
                 analysis = geolocator.analyze(str(dest_path), local_only=local_only)
                 results.append(analysis)
             except Exception as ex:
@@ -5144,8 +5161,11 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
 
     @app.route('/uploads/<filepath:path>')
     def _bottle_uploads(filepath):
-        from modules.image_geolocator import UPLOADS_DIR
-        return bottle.static_file(filepath, root=str(UPLOADS_DIR))
+        from modules.image_geolocator import UPLOADS_DIR, validate_safe_image_path
+        safe_path = validate_safe_image_path(str(UPLOADS_DIR / filepath))
+        if not safe_path:
+            return bottle.HTTPResponse("Forbidden", status=403)
+        return bottle.static_file(safe_path.name, root=str(UPLOADS_DIR))
 
     @app.route('/api/geolocate/upload', method=['POST', 'OPTIONS'])
     def _bottle_geolocate_upload():
@@ -5160,24 +5180,40 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         images_data = body.get('images', [])
         local_only = bool(body.get('local_only', False))
 
-        if api and hasattr(api, 'upload_images_for_geolocation'):
-            return json.dumps(api.upload_images_for_geolocation(images_data, local_only=local_only))
+        if not isinstance(images_data, list):
+            bottle.response.status = 400
+            return json.dumps({"success": False, "error": "Invalid format: 'images' must be a list"})
 
-        from modules.image_geolocator import ImageGeolocator, UPLOADS_DIR
-        import base64, time
-        from pathlib import Path
+        if len(images_data) > 4:
+            bottle.response.status = 400
+            return json.dumps({"success": False, "error": "Maximum 4 images allowed per request"})
+
+        if api and hasattr(api, 'upload_images_for_geolocation'):
+            res = api.upload_images_for_geolocation(images_data, local_only=local_only)
+            if not res.get("success", False) and "error" in res:
+                bottle.response.status = 400
+            return json.dumps(res)
+
+        from modules.image_geolocator import ImageGeolocator, UPLOADS_DIR, save_uploaded_image
+        import base64
         UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
         results = []
         geolocator = ImageGeolocator()
         for idx, item in enumerate(images_data[:4]):
             data_url = item.get("data_url", "")
-            orig_name = item.get("filename", f"upload_{int(time.time())}_{idx}.jpg")
-            safe_name = f"{int(time.time())}_{idx}_{Path(orig_name).name}"
-            dest_path = UPLOADS_DIR / safe_name
+            orig_name = item.get("filename", f"upload_{idx}.jpg")
             if "," in data_url:
                 data_url = data_url.split(",", 1)[1]
             try:
-                dest_path.write_bytes(base64.b64decode(data_url))
+                raw_bytes = base64.b64decode(data_url)
+            except Exception as ex:
+                results.append({"error": f"Invalid base64 encoding: {ex}", "filename": orig_name})
+                continue
+            dest_path, err = save_uploaded_image(raw_bytes, orig_name)
+            if err or not dest_path:
+                results.append({"error": err or "Failed to process image", "filename": orig_name})
+                continue
+            try:
                 analysis = geolocator.analyze(str(dest_path), local_only=local_only)
                 results.append(analysis)
             except Exception as ex:
@@ -5194,7 +5230,10 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         bottle.response.content_type = 'application/json'
         body = bottle.request.json or {}
         image_path = body.get('image_path', '')
-        from modules.image_geolocator import ImageGeolocator
+        from modules.image_geolocator import ImageGeolocator, validate_safe_image_path
+        if not validate_safe_image_path(image_path):
+            bottle.response.status = 400
+            return json.dumps({"success": False, "error": "Invalid or unauthorized image path"})
         ok = ImageGeolocator().copy_image_to_clipboard(image_path)
         return json.dumps({"success": ok})
 
@@ -5208,7 +5247,10 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         bottle.response.content_type = 'application/json'
         body = bottle.request.json or {}
         image_path = body.get('image_path', '')
-        from modules.image_geolocator import ImageGeolocator
+        from modules.image_geolocator import ImageGeolocator, validate_safe_image_path
+        if not validate_safe_image_path(image_path):
+            bottle.response.status = 400
+            return json.dumps({"success": False, "error": "Invalid or unauthorized image path"})
         ok = ImageGeolocator().open_image_folder(image_path)
         return json.dumps({"success": ok})
 

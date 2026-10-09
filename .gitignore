@@ -76,6 +76,7 @@ config.yaml
 # API Keys — never commit these
 .env
 .env.*
+!.env.example
 *.env
 config.yaml
 *_secret*
@@ -95,8 +96,6 @@ memory/*.json
 
 # Internal development & testing
 .pytest_cache/
-tests/
-test/
 scripts/
 
 node_modules/

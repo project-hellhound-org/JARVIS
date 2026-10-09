@@ -190,12 +190,14 @@ Operator keys can be configured instantly in the GUI via the **Settings Panel** 
   3. Click **Get API Key** and generate your key (`nvapi-...`). NVIDIA provides generous free tier credits.
   4. Paste into **NVIDIA NIM API Key** in Settings.
 
-#### 5. Google Gemini API Key (`gemini_api_key`)
-* **What it unlocks:** Multimodal image/screenshot analysis and deep entity correlation.
-* **Steps to obtain (100% Free):**
+#### 5. Google Gemini API Key (`GEMINI_API_KEY` / `gemini_api_key`)
+* **What it unlocks:** Multimodal image geolocation OSINT analysis, visual feature extraction, and high-speed chat reasoning via Google's Gemini models.
+* **Steps to obtain (100% Free Tier):**
   1. Head to Google AI Studio at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-  2. Click **Create API Key** and select a Google Cloud project.
-  3. Copy your key (`AIza...`) and paste into **Gemini API Key** in Settings.
+  2. Click **Create API Key** and select (or create) a Google Cloud project.
+  3. Copy your newly generated API key (`AIzaSy...`).
+  4. Paste into the **Gemini API Key** field in the J.A.R.V.I.S. Settings panel (`⚙`), or export in your `.env` file as `GEMINI_API_KEY=AIzaSy...`.
+  5. The image geolocation engine will automatically discover and use Gemini vision models for image analysis.
 
 #### 6. Fish Audio API Key (`fish_audio_api_key`)
 * **What it unlocks:** High-fidelity cloud voice synthesis with J.A.R.V.I.S. voice signature (`05b36da8574341d0803391491850db20`).
@@ -204,7 +206,14 @@ Operator keys can be configured instantly in the GUI via the **Settings Panel** 
   2. Go to the Developer Dashboard at [fish.audio/app/developers](https://fish.audio/app/developers).
   3. Generate an API Key and paste it into **Fish Audio API Key** in Settings.
 
-#### 7. YouTube Data API v3 Key (`YOUTUBE_API_KEY`)
+#### 7. AISStream Maritime API Key (`AISSTREAM_API_KEY`)
+* **What it unlocks:** Real-time global commercial vessel tracking, MMSI telemetry, and maritime boundary alerts via raw AIS data.
+* **Steps to obtain (100% Free):**
+  1. Register for an API key at [aisstream.io](https://aisstream.io).
+  2. Add `AISSTREAM_API_KEY=your_key_here` to `.env` or system environment.
+  3. Maritime radar displays live vessel positions worldwide. If omitted, the UI indicates "AIS key not configured".
+
+#### 8. YouTube Data API v3 Key (`YOUTUBE_API_KEY`)
 * **What it unlocks:** Real-time geolocated video discovery and verified video embed playback in God's Eye ground intel dock.
 * **Steps to obtain (100% Free):**
   1. Open [Google Cloud Console](https://console.cloud.google.com/) and create a project.
