@@ -228,11 +228,12 @@ def resolve_place_coordinates(location_str: str) -> Optional[Tuple[float, float,
 
     return None
 
-def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, limit: int = 40) -> List[Dict[str, Any]]:
+def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, limit: int = 40) -> tuple[List[Dict[str, Any]], str]:
     """
     Fetch real geotagged images from Wikimedia Commons geosearch API.
     Zero fake entries. Real titles, authors, timestamps, and coordinates.
     Tiles larger search areas since Wikimedia geosearch caps at 10 km.
+    Returns (items, status) where status is 'OK' or 'OFFLINE'.
     """
     tiles = [(lat, lon, 10000 if radius_km > 10.0 else int(radius_km * 1000))]
     if radius_km > 10.0:
@@ -246,6 +247,7 @@ def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, l
     headers = {"User-Agent": get_wikimedia_user_agent()}
     items = []
     seen_pids = set()
+    failed_tiles = 0
 
     for t_lat, t_lon, t_rad in tiles:
         url = (
@@ -388,80 +390,14 @@ def fetch_wikimedia_geosearch(lat: float, lon: float, radius_km: float = 25.0, l
                         "source_label": "Wikimedia"
                     })
         except Exception as e:
+            failed_tiles += 1
             logger.debug(f"[GroundIntel] Wikimedia geosearch tile notice: {e}")
         time.sleep(0.15)
 
-    if not items and round(lat, 2) == 11.02 and round(lon, 2) == 76.96:
-        # Verified authentic Wikimedia photographs snapshot for offline execution
-        seed = [
-            {
-                "id": "wiki-11016801",
-                "platform": "Wikimedia Commons",
-                "url": "https://commons.wikimedia.org/wiki/File:GD_Naidu_Museum_Coimbatore.jpg",
-                "title": "GD Naidu Museum Coimbatore",
-                "author": "Karthikndr",
-                "license": "CC BY-SA 4.0",
-                "published_time": "2019-08-15T10:30:00Z",
-                "upload_date": "2019-08-15T10:30:00Z",
-                "date_taken": "2019-08-15",
-                "year": 2019,
-                "timestamp": "2019-08-15",
-                "lat": 11.0168,
-                "lon": 76.9558,
-                "alt": 50.0,
-                "distance_km": 0.0,
-                "bearing": "N (0°)",
-                "categories": ["Museums in Coimbatore", "Automobile museums in India"],
-                "precision": "CITY-LEVEL",
-                "geolocation_method": "GEOTAGGED",
-                "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "badge": "CITY-LEVEL",
-                "simulated": False,
-                "media_type": "photo",
-                "thumbnail_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/GD_Naidu_Museum_Coimbatore.jpg/800px-GD_Naidu_Museum_Coimbatore.jpg",
-                "media_url": "https://upload.wikimedia.org/wikipedia/commons/a/a1/GD_Naidu_Museum_Coimbatore.jpg",
-                "full_res_url": "https://upload.wikimedia.org/wikipedia/commons/a/a1/GD_Naidu_Museum_Coimbatore.jpg",
-                "description": "GD Naidu Museum exhibiting vintage cars and industrial history.",
-                "category": "Museums in Coimbatore",
-                "source": "Karthikndr",
-                "source_label": "Wikimedia"
-            },
-            {
-                "id": "wiki-11016802",
-                "platform": "Wikimedia Commons",
-                "url": "https://commons.wikimedia.org/wiki/File:Marudhamalai_Murugan_Temple_Gopuram.jpg",
-                "title": "Marudhamalai Murugan Temple Gopuram",
-                "author": "Booradleyp1",
-                "license": "CC BY-SA 4.0",
-                "published_time": "2018-01-20T08:15:00Z",
-                "upload_date": "2018-01-20T08:15:00Z",
-                "date_taken": "2018-01-20",
-                "year": 2018,
-                "timestamp": "2018-01-20",
-                "lat": 11.0461,
-                "lon": 76.8524,
-                "alt": 180.0,
-                "distance_km": 11.8,
-                "bearing": "WNW (293°)",
-                "categories": ["Murugan temples in Tamil Nadu", "Temples in Coimbatore"],
-                "precision": "PRECISE",
-                "geolocation_method": "GEOTAGGED",
-                "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "badge": "UPLOADER GEOTAG",
-                "simulated": False,
-                "media_type": "photo",
-                "thumbnail_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Marudhamalai_Murugan_Temple_Gopuram.jpg/800px-Marudhamalai_Murugan_Temple_Gopuram.jpg",
-                "media_url": "https://upload.wikimedia.org/wikipedia/commons/3/3d/Marudhamalai_Murugan_Temple_Gopuram.jpg",
-                "full_res_url": "https://upload.wikimedia.org/wikipedia/commons/3/3d/Marudhamalai_Murugan_Temple_Gopuram.jpg",
-                "description": "Marudhamalai Murugan Temple Rajagopuram at foot of the hill.",
-                "category": "Temples in Coimbatore",
-                "source": "Booradleyp1",
-                "source_label": "Wikimedia"
-            }
-        ]
-        return [p for p in seed if haversine_distance(lat, lon, p["lat"], p["lon"]) <= radius_km]
+    if not items and failed_tiles > 0:
+        return [], "OFFLINE"
 
-    return items
+    return items, "OK"
 
 def fetch_usgs_earthquakes(lat: float, lon: float, radius_km: float = 300.0, limit: int = 4) -> List[Dict[str, Any]]:
     """
@@ -825,7 +761,11 @@ class GroundIntelClient:
         if cache_key in self._cache:
             ts, cached_points = self._cache[cache_key]
             if now - ts < CACHE_TTL and cached_points:
+                mins_ago = max(1, int((now - ts) / 60))
+                cache_label = f"cached {mins_ago} min ago" if (now - ts) >= 60 else "cached just now"
                 max_cached_dist = max([p.get("distance_km", 0.0) for p in cached_points[:limit]], default=0.0)
+                for p in cached_points[:limit]:
+                    p["cache_label"] = cache_label
                 return {
                     "location": loc_label,
                     "center": {"lat": lat, "lon": lon},
@@ -835,7 +775,8 @@ class GroundIntelClient:
                     "points": cached_points[:limit],
                     "total": len(cached_points[:limit]),
                     "total_points": len(cached_points[:limit]),
-                    "source": "cache",
+                    "source": cache_label,
+                    "cache_age_label": cache_label,
                     "status": "ok" if cached_points else "empty",
                     "message": "" if cached_points else f"No geotagged intel found within {int(radius_km)} km",
                     "sources_queried": ["Wikimedia Commons", "USGS", "NASA EONET", "GDACS"]
@@ -845,7 +786,11 @@ class GroundIntelClient:
         sources_queried = ["Wikimedia Commons", "USGS", "NASA EONET", "GDACS"]
 
         # 1. Live Wikimedia Commons geosearch
-        wiki_items = fetch_wikimedia_geosearch(lat, lon, radius_km=radius_km, limit=limit)
+        wiki_res = fetch_wikimedia_geosearch(lat, lon, radius_km=radius_km, limit=limit)
+        if isinstance(wiki_res, tuple):
+            wiki_items, wiki_status = wiki_res
+        else:
+            wiki_items, wiki_status = wiki_res, "OK"
         media_points.extend(wiki_items)
 
         # 2. Live USGS Earthquakes (strictly radius_km)
@@ -909,8 +854,13 @@ class GroundIntelClient:
         if final_points:
             self._cache[cache_key] = (now, final_points)
 
-        status = "ok" if final_points else "empty"
-        msg = "" if final_points else f"No geotagged intel found within {int(radius_km)} km"
+        if wiki_status == "OFFLINE" and not final_points:
+            status = "OFFLINE"
+            msg = "OFFLINE - no live data"
+        else:
+            status = "ok" if final_points else "empty"
+            msg = "" if final_points else f"No geotagged intel found within {int(radius_km)} km"
+
         has_youtube_key = bool(os.environ.get("YOUTUBE_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
         video_search_status = "active" if has_youtube_key else "video search disabled: no API key"
         max_dist = max([p.get("distance_km", 0.0) for p in final_points], default=0.0)

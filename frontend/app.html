@@ -20678,11 +20678,23 @@ function initGlobeIntelligence(viewer) {
 
     // Update Ground Intel window list and badge
     const badgeEl = document.getElementById('win-ground-intel-badge');
-    if (badgeEl) badgeEl.textContent = `${capped.length} PINS`;
+    if (badgeEl) {
+      if (window._groundIntelStatus === 'OFFLINE') {
+        badgeEl.textContent = 'OFFLINE';
+        badgeEl.style.color = '#ef4444';
+      } else {
+        badgeEl.textContent = `${capped.length} PINS`;
+        badgeEl.style.color = '';
+      }
+    }
     const feedList = document.getElementById('win-ground-intel-feed-list');
     if (feedList) {
       if (capped.length === 0) {
-        feedList.innerHTML = '<div style="color:#64748B; text-align:center; padding:12px; font-size:9.5px;">No ground media pins in active sector. Orbiting globe camera or searching city acquires geotagged footage &amp; Wikimedia photography.</div>';
+        if (window._groundIntelStatus === 'OFFLINE') {
+          feedList.innerHTML = '<div style="color:#ef4444; text-align:center; padding:16px; font-size:11px; font-weight:700; letter-spacing:1px;">OFFLINE - no live data</div>';
+        } else {
+          feedList.innerHTML = '<div style="color:#64748B; text-align:center; padding:12px; font-size:9.5px;">No ground media pins in active sector. Orbiting globe camera or searching city acquires geotagged footage &amp; Wikimedia photography.</div>';
+        }
       } else {
         feedList.innerHTML = capped.map((p, idx) => {
           const thumb = p.thumbnail_url || p.media_url || '';
@@ -20691,6 +20703,7 @@ function initGlobeIntelligence(viewer) {
           const bearing = p.bearing ? ` • ${p.bearing}` : '';
           const year = p.year ? ` • ${p.year}` : '';
           const author = p.author ? p.author : '';
+          const cacheTag = p.cache_label ? ` • <span style="color:#F59E0B;">${p.cache_label}</span>` : '';
           return `
             <div class="tactical-ground-feed-item" onclick="window.openGroundMediaCard(window._activeGroundMediaPoints[${idx}]); window.flyToGroundIntelPin(${p.lat}, ${p.lon});"
                  style="display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:4px; padding:5px 7px; cursor:pointer; transition:background 0.15s ease;"
@@ -20701,7 +20714,7 @@ function initGlobeIntelligence(viewer) {
               </div>
               <div style="flex:1; min-width:0;">
                 <div style="font-size:9.5px; font-weight:700; color:#E2E8F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.title || 'Ground Contact'}</div>
-                <div style="font-size:8px; color:#64748B;">${dist}${bearing}${year} <span style="color:#00F0FF;">${author}</span></div>
+                <div style="font-size:8px; color:#64748B;">${dist}${bearing}${year}${cacheTag} <span style="color:#00F0FF;">${author}</span></div>
               </div>
             </div>
           `;
@@ -20772,8 +20785,9 @@ function initGlobeIntelligence(viewer) {
           data = await res.json();
         }
       }
-      if (data && (data.points || data.media_points)) {
-        const points = data.points || data.media_points;
+      if (data) {
+        window._groundIntelStatus = data.status || 'ok';
+        const points = data.points || data.media_points || [];
         _tacticalLayers.groundMedia = true;
         if (_groundMediaDataSource) _groundMediaDataSource.show = true;
         const toggleEl = document.getElementById('layer-toggle-groundMedia');
@@ -20793,9 +20807,14 @@ function initGlobeIntelligence(viewer) {
           }
         }
         return { points, total_points: data.total_points || data.total || points.length };
+      } else {
+        window._groundIntelStatus = 'OFFLINE';
+        window.renderGroundMediaPoints([]);
       }
     } catch (err) {
       console.error('[GroundIntel] Error loading ground media:', err);
+      window._groundIntelStatus = 'OFFLINE';
+      window.renderGroundMediaPoints([]);
     }
     return null;
   };
@@ -21143,10 +21162,14 @@ function initGlobeIntelligence(viewer) {
     if (iconEl) iconEl.textContent = isVideo ? '📹' : '📷';
     if (badgeEl) {
       const bText = data.badge || (data.geolocation_method === 'GEOTAGGED' ? 'UPLOADER GEOTAG' : (data.source_label || 'OSINT'));
-      badgeEl.textContent = bText;
-      if (bText === 'UPLOADER GEOTAG') {
+      if (data.simulated || bText === 'SIMULATED') {
+        badgeEl.textContent = 'SIMULATED';
+        badgeEl.style.color = '#F43F5E';
+        badgeEl.style.borderColor = 'rgba(244,63,94,0.5)';
+        badgeEl.style.background = 'rgba(244,63,94,0.18)';
+      } else if (bText === 'UPLOADER GEOTAG') {
         badgeEl.style.color = '#10B981';
-        badgeEl.style.borderColor = 'rgba(16,185,129,0.5)';
+        badgeEl.style.borderColor = 'rgba(168,85,129,0.5)';
         badgeEl.style.background = 'rgba(16,185,129,0.18)';
       } else if (bText === 'CITY-LEVEL') {
         badgeEl.style.color = '#38BDF8';

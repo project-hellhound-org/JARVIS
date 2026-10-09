@@ -2132,7 +2132,7 @@ class JarvisAPI:
             print(f"[desktop] Knowledge graph fetch error: {e}")
             return {"nodes": [], "links": [], "total_raw_nodes": 0, "display_nodes": 0, "error": str(e)}
 
-    def get_adsb_flights(self, feed: str = "mil") -> dict:
+    def get_adsb_flights(self, feed: str = "mil", demo_mode: bool = False) -> dict:
         """Fetch real-time ADS-B flight radar contacts via Python backend to eliminate browser CORS blocks.
         Supports:
           - 'mil': Military registered aircraft (/v2/mil)
@@ -2196,7 +2196,9 @@ class JarvisAPI:
                 unique_ac.append(ac)
             return {"ac": unique_ac}
 
-        # Offline contingency fixtures per feed type
+        # Offline contingency fixtures per feed type (only allowed in demo mode)
+        if not demo_mode:
+            return {"ac": [], "status": "OFFLINE", "message": "OFFLINE - no live data"}
         try:
             from modules.flight_intel import (
                 OFFLINE_ALL_FIXTURES,
@@ -2205,19 +2207,23 @@ class JarvisAPI:
                 OFFLINE_LADD_FIXTURES,
                 OFFLINE_EMERGENCY_FIXTURES,
             )
+            raw = []
             if feed_type == "all":
-                return {"ac": OFFLINE_ALL_FIXTURES}
-            if feed_type == "pia":
-                return {"ac": OFFLINE_PIA_FIXTURES}
-            if feed_type == "ladd":
-                return {"ac": OFFLINE_LADD_FIXTURES}
-            if feed_type in ("emergency", "7700", "sqk"):
-                return {"ac": OFFLINE_EMERGENCY_FIXTURES}
-            return {"ac": OFFLINE_MIL_FIXTURES}
+                raw = OFFLINE_ALL_FIXTURES
+            elif feed_type == "pia":
+                raw = OFFLINE_PIA_FIXTURES
+            elif feed_type == "ladd":
+                raw = OFFLINE_LADD_FIXTURES
+            elif feed_type in ("emergency", "7700", "sqk"):
+                raw = OFFLINE_EMERGENCY_FIXTURES
+            else:
+                raw = OFFLINE_MIL_FIXTURES
+            simulated_ac = [dict(ac, simulated=True, badge="SIMULATED", flight=f"[SIMULATED] {ac.get('flight', '')}") for ac in raw]
+            return {"ac": simulated_ac, "status": "SIMULATED"}
         except Exception:
-            return {"ac": []}
+            return {"ac": [], "status": "OFFLINE", "message": "OFFLINE - no live data"}
 
-    def get_vessels(self, bounds=None, lat=None, lon=None, radius_km=None, type=None, limit=60) -> dict:
+    def get_vessels(self, bounds=None, lat=None, lon=None, radius_km=None, type=None, limit=60, demo_mode=False) -> dict:
         """Fetch AIS maritime vessels filtered by camera viewport or coordinates."""
         try:
             from modules.maritime_intel import get_maritime_client
@@ -2228,7 +2234,8 @@ class JarvisAPI:
                 radius_km=float(radius_km) if radius_km is not None else None,
                 bounds=bounds,
                 vessel_type=type,
-                limit=int(limit or 60)
+                limit=int(limit or 60),
+                demo_mode=bool(demo_mode)
             )
         except Exception as e:
             logger.error(f"[desktop] get_vessels error: {e}")
@@ -4954,8 +4961,12 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
     @app.route('/api/adsb/<feed>')
     def _bottle_adsb(feed="mil"):
         bottle.response.content_type = 'application/json'
+        demo_req = bottle.request.query.get("demo", "false").lower() in ("true", "1")
         if api and hasattr(api, 'get_adsb_flights'):
-            return json.dumps(api.get_adsb_flights(feed))
+            try:
+                return json.dumps(api.get_adsb_flights(feed, demo_mode=demo_req))
+            except TypeError:
+                return json.dumps(api.get_adsb_flights(feed))
         return json.dumps({"flights": []})
 
     @app.route('/api/military')
@@ -4964,9 +4975,12 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         bottle.response.headers['X-Feed-Source'] = 'ADSB.lol Military'
         bottle.response.headers['X-Feed-Cache'] = 'LIVE'
         bottle.response.content_type = 'application/json'
+        demo_req = bottle.request.query.get("demo", "false").lower() in ("true", "1")
         if api and hasattr(api, 'get_adsb_flights'):
-            return json.dumps(api.get_adsb_flights('mil'))
-        from modules.flight_intel import ADSB_MIL_URL
+            try:
+                return json.dumps(api.get_adsb_flights('mil', demo_mode=demo_req))
+            except TypeError:
+                return json.dumps(api.get_adsb_flights('mil'))
         return json.dumps({"ac": []})
 
     @app.route('/api/flights')
@@ -4976,8 +4990,12 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         bottle.response.headers['X-Feed-Cache'] = 'LIVE'
         bottle.response.content_type = 'application/json'
         feed = bottle.request.query.get('feed', 'all')
+        demo_req = bottle.request.query.get("demo", "false").lower() in ("true", "1")
         if api and hasattr(api, 'get_adsb_flights'):
-            return json.dumps(api.get_adsb_flights(feed))
+            try:
+                return json.dumps(api.get_adsb_flights(feed, demo_mode=demo_req))
+            except TypeError:
+                return json.dumps(api.get_adsb_flights(feed))
         return json.dumps({"ac": []})
 
     @app.route('/api/flights/enrichment')
@@ -5064,13 +5082,15 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
                 return json.dumps({"vessels": [match], "total": 1, "source": "tactical_ais_fleet"})
             return json.dumps({"vessels": [], "total": 0, "source": "tactical_ais_fleet"})
 
+        demo_req = bottle.request.query.get("demo", "false").lower() in ("true", "1")
         return json.dumps(client.get_vessels_in_area(
             lat=lat,
             lon=lon,
             radius_km=radius_km,
             bounds=bounds,
             vessel_type=vtype,
-            limit=limit
+            limit=limit,
+            demo_mode=demo_req
         ))
 
     @app.route('/api/ground-intel', method=['GET', 'POST', 'OPTIONS'])
@@ -5256,7 +5276,13 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
             except Exception:
                 continue
 
-        return json.dumps(_generate_fallback_overpass_roads(query))
+        demo_req = bottle.request.query.get("demo", "false").lower() in ("true", "1")
+        if demo_req:
+            roads = _generate_fallback_overpass_roads(query)
+            for el in roads.get("elements", []):
+                el["simulated"] = True
+            return json.dumps(roads)
+        return json.dumps({"elements": [], "status": "OFFLINE", "message": "OFFLINE - no live data"})
 
     @app.route('/uploads/<filepath:path>')
     def _bottle_uploads(filepath):

@@ -145,7 +145,8 @@ def test_wikimedia_geosearch_query_parameters_and_metadata_parsing():
     mock_resp.__enter__.return_value = mock_resp
 
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
-        items = fetch_wikimedia_geosearch(11.0168, 76.9558, radius_km=10.0, limit=20)
+        items, status = fetch_wikimedia_geosearch(11.0168, 76.9558, radius_km=10.0, limit=20)
+        assert status == "OK"
 
         # Check requested URL has iiurlwidth=800 and extmetadata
         call_args = mock_urlopen.call_args_list[0]
@@ -218,14 +219,6 @@ def test_ground_intel_client_caps_at_40_items():
 
 def test_offline_fallback_seed_structure():
     with patch("urllib.request.urlopen", side_effect=Exception("No internet")):
-        items = fetch_wikimedia_geosearch(11.02, 76.96, radius_km=25.0)
-        assert len(items) >= 2
-        for item in items:
-            assert item["thumbnail_url"].endswith(".jpg")
-            assert "800px" in item["thumbnail_url"]
-            assert "license" in item
-            assert "year" in item
-            assert "bearing" in item
-            assert "categories" in item
-            assert "full_res_url" in item
-            assert "Geotagged Wikimedia field photograph" not in item["description"]
+        items, status = fetch_wikimedia_geosearch(11.02, 76.96, radius_km=25.0)
+        assert items == []
+        assert status == "OFFLINE"

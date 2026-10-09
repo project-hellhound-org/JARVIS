@@ -249,6 +249,10 @@ OFFLINE_ALL_FIXTURES = (
     OFFLINE_COMMERCIAL_FIXTURES
 )
 
+for _f in OFFLINE_ALL_FIXTURES:
+    _f['simulated'] = True
+    _f['badge'] = 'SIMULATED'
+
 
 # -------------------------------------------------------------------------
 # God's Eye Flight Route Plausibility & Geometry (Bilawal Sidhu / routePlausible.js)

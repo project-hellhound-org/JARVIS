@@ -371,6 +371,9 @@ class OsirisIntelClient:
                 {"name": "STARLINK-3102", "lat": -38.5, "lng": 142.1, "alt": 550, "mission": "Starlink Broadband Constellation", "category": "starlink", "noradId": "49002", "source": "Contingency Ephemeris"},
                 {"name": "ONEWEB-0128", "lat": 72.0, "lng": 18.5, "alt": 1200, "mission": "OneWeb Broadband LEO Shell", "category": "starlink", "noradId": "45250", "source": "Contingency Ephemeris"},
             ]
+            for s in contingency_sats:
+                s["simulated"] = True
+                s["badge"] = "SIMULATED"
             if return_meta:
                 return {
                     "status": "upstream_error",
@@ -508,6 +511,9 @@ class OsirisIntelClient:
                     "status": "active",
                 },
             ]
+            for z in contingency_zones:
+                z["simulated"] = True
+                z["badge"] = "SIMULATED"
             if parsed_bounds:
                 contingency_zones = [z for z in contingency_zones if is_point_in_bounds(z.get("lat"), z.get("lng", z.get("lon")), parsed_bounds)]
 

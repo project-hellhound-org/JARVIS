@@ -475,9 +475,14 @@ class MaritimeIntelClient:
                             continue
                         v_copy = dict(v)
                         v_copy["distance_km"] = round(dist, 1)
+                        v_copy["simulated"] = True
+                        v_copy["badge"] = "SIMULATED"
                         results.append(v_copy)
                         continue
-                    results.append(dict(v))
+                    v_copy = dict(v)
+                    v_copy["simulated"] = True
+                    v_copy["badge"] = "SIMULATED"
+                    results.append(v_copy)
                 if lat is not None and lon is not None:
                     results.sort(key=lambda x: x.get("distance_km", 0))
                 final_vessels = results[:limit]

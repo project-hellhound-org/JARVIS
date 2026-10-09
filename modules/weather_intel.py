@@ -45,7 +45,9 @@ OFFLINE_WEATHER_FIXTURE = {
     'pressure_hpa': 1014.2,
     'condition': 'Partly cloudy',
     'precipitation_mm': 0.0,
-    'source': 'offline_contingency'
+    'source': 'offline_contingency',
+    'simulated': True,
+    'badge': 'SIMULATED'
 }
 
 class WeatherIntelEngine:

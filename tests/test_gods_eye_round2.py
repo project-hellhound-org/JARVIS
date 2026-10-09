@@ -20,6 +20,10 @@ class TestGodsEyeRound2(unittest.TestCase):
         client = get_ground_intel_client()
         intel = client.get_ground_media_in_area(11.0168, 76.9558, location="Coimbatore")
         points = intel.get("media_points", [])
+        if intel.get("status") == "OFFLINE":
+            self.assertEqual(len(points), 0)
+            self.assertEqual(intel.get("message"), "OFFLINE - no live data")
+            return
         self.assertGreaterEqual(len(points), 1)
         for item in points:
             self.assertIn("platform", item)
