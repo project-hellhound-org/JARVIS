@@ -9,13 +9,18 @@ PROJECT_ROOT = Path(__file__).parent.resolve()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Support cached pywebview and proxy_tools if not installed system-wide
-_uv_archive = Path("/home/joe/.cache/uv/archive-v0")
-for _p in [_uv_archive / "TyKv85HLRS2les6f", _uv_archive / "7B4rDB-6S8_-lJPf"]:
-    if _p.exists() and str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
+from core.config import bootstrap_environment
 
-# If running inside a virtual environment that lacks GTK or Qt bindings, switch to system python3
+# Bootstrap configuration, environment variables, fontconfig, and audio flags
+bootstrap_environment()
+
+# Handle diagnostic doctor command early without launching GUI or interactive CLI
+if any(arg in sys.argv[1:] for arg in ("doctor", "--doctor")):
+    from core.doctor import run_doctor
+    run_doctor()
+    sys.exit(0)
+
+# Check for GUI backend bindings (GTK / Qt)
 def _needs_gui_fallback():
     try:
         import gi
@@ -29,23 +34,14 @@ def _needs_gui_fallback():
         pass
     return True
 
-if _needs_gui_fallback() and os.path.exists("/usr/bin/python3") and "JARVIS_SYS_EXEC" not in os.environ:
-    os.environ["JARVIS_SYS_EXEC"] = "1"
-    os.execv("/usr/bin/python3", ["/usr/bin/python3"] + sys.argv)
-
-# Prevent Fontconfig error: Cannot load default config file: No such file: (null)
-if "FONTCONFIG_PATH" not in os.environ:
-    os.environ["FONTCONFIG_PATH"] = "/etc/fonts"
-if "FONTCONFIG_FILE" not in os.environ and os.path.exists("/etc/fonts/fonts.conf"):
-    os.environ["FONTCONFIG_FILE"] = "/etc/fonts/fonts.conf"
-
-# Unrestrict audio autoplay in QtWebEngine so neural voice responses play without requiring a user click
-current_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
-required_flags = "--autoplay-policy=no-user-gesture-required --no-sandbox"
-for f in required_flags.split():
-    if f not in current_flags:
-        current_flags = f"{current_flags} {f}".strip()
-os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = current_flags
+if _needs_gui_fallback():
+    if sys.prefix != sys.base_prefix:
+        print("[jarvis] Note: Missing GUI backend bindings (PyGObject / python3-gi or PyQt5) in virtual environment.")
+        print("      To enable desktop GUI, install: pip install PyGObject  (or: pip install PyQt5)")
+        print("      Continuing in current environment...\n")
+    elif os.path.exists("/usr/bin/python3") and sys.executable != "/usr/bin/python3" and "JARVIS_SYS_EXEC" not in os.environ:
+        os.environ["JARVIS_SYS_EXEC"] = "1"
+        os.execv("/usr/bin/python3", ["/usr/bin/python3"] + sys.argv)
 
 # Now safe to import everything else
 def boot_checks():
@@ -91,7 +87,8 @@ def launch_desktop(mode: str = "full"):
         from frontend.desktop import JarvisDesktop
         JarvisDesktop().launch(mode=mode)
     except ImportError as e:
-        print(f"[jarvis] Desktop unavailable: {e}")
+        print(f"[jarvis] Desktop GUI unavailable: {e}")
+        print("      To enable the GUI interface, install: pip install pywebview proxy_tools")
         print("      Falling back to CLI...\n")
         launch_cli()
     except Exception as e:
@@ -102,6 +99,11 @@ def launch_desktop(mode: str = "full"):
 
 def main():
     args = sys.argv[1:]
+    if any(arg in args for arg in ("doctor", "--doctor")):
+        from core.doctor import run_doctor
+        run_doctor()
+        return
+
     boot_checks()
 
     if "--hud" in args or "--mini" in args or "--pill" in args or "--voiceos" in args:

@@ -1,0 +1,3 @@
+# Optional wake-word engine and audio capture dependencies
+openwakeword  # Local neural wake-word detection for "Hey Jarvis"
+pyaudio       # Hardware microphone audio streaming

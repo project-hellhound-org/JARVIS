@@ -7,16 +7,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 
-# Support cached pywebview and proxy_tools if not installed system-wide
-_uv_archive = Path("/home/joe/.cache/uv/archive-v0")
-for _p in [_uv_archive / "TyKv85HLRS2les6f", _uv_archive / "7B4rDB-6S8_-lJPf"]:
-    if _p.exists() and str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
-
 try:
     import webview
-except ImportError:
+except ImportError as _webview_err:
     webview = None
+    _webview_import_error = str(_webview_err)
+else:
+    _webview_import_error = ""
 import asyncio
 import threading
 import queue
@@ -30,13 +27,7 @@ import mimetypes
 mimetypes.add_type('model/gltf-binary', '.glb')
 mimetypes.add_type('model/gltf+json', '.gltf')
 
-# Unrestrict audio autoplay in QtWebEngine so neural voice responses play without requiring a user click
-current_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
-required_flags = "--autoplay-policy=no-user-gesture-required --no-sandbox"
-for f in required_flags.split():
-    if f not in current_flags:
-        current_flags = f"{current_flags} {f}".strip()
-os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = current_flags
+
 
 import base64
 import hashlib
@@ -75,47 +66,8 @@ from memory.lessons_store import LessonsStore
 ROOT = Path(__file__).parent
 HTML_PATH = ROOT / "app.html"
 
-def _bootstrap_environment():
-    """Load config.yaml and root .env into os.environ at startup."""
-    root_dir = Path(__file__).parent.parent
-    root_env = root_dir / ".env"
-    if root_env.exists():
-        try:
-            for line in root_env.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, _, v = line.partition("=")
-                    k, v = k.strip(), v.strip()
-                    if k and v and k not in os.environ:
-                        os.environ[k] = v
-        except Exception:
-            pass
-
-    if CONFIG_PATH.exists():
-        try:
-            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                cfg = yaml.safe_load(f) or {}
-            key_map = {
-                "cesium_ion_token": "CESIUM_ION_TOKEN",
-                "nasa_firms_key": ["NASA_FIRMS_MAP_KEY", "FIRMS_MAP_KEY"],
-                "groq_api_key": "GROQ_API_KEY",
-                "gemini_api_key": "GEMINI_API_KEY",
-                "nvidia_api_key": "NVIDIA_API_KEY",
-                "nvidia_model": "NVIDIA_MODEL",
-                "fish_audio_api_key": "FISH_AUDIO_API_KEY",
-            }
-            for yaml_key, env_keys in key_map.items():
-                val = cfg.get(yaml_key)
-                if val and isinstance(val, str) and not (val.startswith("YOUR_") or val.endswith("_HERE")):
-                    if isinstance(env_keys, list):
-                        for ek in env_keys:
-                            os.environ[ek] = val.strip()
-                    else:
-                        os.environ[env_keys] = val.strip()
-        except Exception as e:
-            print(f"[desktop] Note: error bootstrapping env from config.yaml: {e}")
-
-_bootstrap_environment()
+from core.config import bootstrap_environment
+bootstrap_environment()
 
 import atexit
 import signal
@@ -5150,6 +5102,31 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         from modules.cyber_news_service import get_latest_cyber_news
         return json.dumps(get_latest_cyber_news())
 
+    @app.route('/api/radio/stations', method=['GET', 'OPTIONS'])
+    def _bottle_radio_stations():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        bottle.response.content_type = 'application/json'
+        bottle.response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        from modules.osint_radio import OsintRadioService
+        svc = OsintRadioService()
+        cat = bottle.request.query.get('category')
+        country = bottle.request.query.get('country')
+        return json.dumps(svc.get_stations(category=cat, country=country))
+
+    @app.route('/api/radio/categories', method=['GET', 'OPTIONS'])
+    def _bottle_radio_categories():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        bottle.response.content_type = 'application/json'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        from modules.osint_radio import OsintRadioService
+        svc = OsintRadioService()
+        return json.dumps(svc.get_categories())
+
     @app.route('/api/firms')
     def _bottle_firms():
         bottle.response.content_type = 'application/json'
@@ -5406,6 +5383,13 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
 
 class JarvisDesktop:
     def launch(self, mode: str = "full"):
+        if webview is None:
+            err = f" ({_webview_import_error})" if _webview_import_error else ""
+            raise ImportError(
+                f"pywebview and proxy_tools are required to run the desktop GUI{err}. "
+                "Install them with: pip install pywebview proxy_tools"
+            )
+
         import shutil
 
         # Copy icons and artwork assets to frontend execution directory

@@ -4,9 +4,50 @@ sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 
 import asyncio
+import logging
 import httpx
 import re
+from datetime import datetime, timezone
 from core.target_model import Entity, Target
+import core.config
+
+logger = logging.getLogger(__name__)
+
+
+def _get_github_headers(extra: dict = None) -> dict:
+    headers = {"User-Agent": "JARVIS-OSINT"}
+    token = core.config.get_config("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    if extra:
+        headers.update(extra)
+    return headers
+
+
+def _handle_github_rate_limit(r: httpx.Response, target: Target) -> bool:
+    if r.status_code in (403, 429):
+        reset_ts = r.headers.get("X-RateLimit-Reset")
+        remaining = r.headers.get("X-RateLimit-Remaining")
+        if reset_ts:
+            try:
+                reset_time = datetime.fromtimestamp(int(reset_ts), tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+                note = f"GitHub rate limited until {reset_time}"
+            except Exception:
+                note = f"GitHub rate limited until {reset_ts}"
+        else:
+            note = f"GitHub rate limited (HTTP {r.status_code})"
+
+        if note not in target.notes:
+            target.notes.append(note)
+            target.log("github_rate_limited", {
+                "status": r.status_code,
+                "remaining": remaining,
+                "reset": reset_ts,
+                "note": note,
+            })
+        logger.warning(f"[github_recon] {note}")
+        return True
+    return False
 
 def _check_identity_in_fragment(query: str, fragment: str) -> bool:
     if not fragment:
@@ -329,9 +370,11 @@ async def _get_user_profile(target, username, on_find, original_query=""):
     try:
         async with httpx.AsyncClient(
             timeout=10,
-            headers={"User-Agent": "JARVIS-OSINT"}
+            headers=_get_github_headers()
         ) as client:
             r = await client.get(f"https://api.github.com/users/{username}")
+            if _handle_github_rate_limit(r, target):
+                return False
             if r.status_code == 200:
                 data = r.json()
                 profile_url = f"https://github.com/{username}"
@@ -410,8 +453,8 @@ async def _get_user_profile(target, username, on_find, original_query=""):
                 return True
             elif r.status_code == 404:
                 return 404
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[github_recon] Error fetching profile for {username}: {e}")
     return False
 
 
@@ -426,14 +469,15 @@ async def _search_commits(target, query, on_find, original_query=""):
     try:
         async with httpx.AsyncClient(
             timeout=10,
-            headers={
-                "User-Agent": "JARVIS-OSINT",
+            headers=_get_github_headers({
                 "Accept": "application/vnd.github.cloak-preview, application/vnd.github.v3.text-match+json"
-            }
+            })
         ) as client:
             r = await client.get(
                 f"https://api.github.com/search/commits?q={query}&per_page=5"
             )
+            if _handle_github_rate_limit(r, target):
+                return False
             if r.status_code == 200:
                 items = r.json().get("items", [])
                 if items:
@@ -545,8 +589,8 @@ async def _search_commits(target, query, on_find, original_query=""):
                             entity = await verify_hit(entity, case_slug=target.case_slug)
                         if target.add_entity(entity) and on_find:
                             await on_find(entity)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[github_recon] Error searching commits for {query}: {e}")
     return found_any
 
 
@@ -561,14 +605,15 @@ async def _search_code(target, query, on_find, original_query=""):
     try:
         async with httpx.AsyncClient(
             timeout=10,
-            headers={
-                "User-Agent": "JARVIS-OSINT",
+            headers=_get_github_headers({
                 "Accept": "application/vnd.github.v3.text-match+json"
-            }
+            })
         ) as client:
             r = await client.get(
                 f"https://api.github.com/search/code?q={query}&per_page=3"
             )
+            if _handle_github_rate_limit(r, target):
+                return False
             if r.status_code == 200:
                 items = r.json().get("items", [])
                 if items:
@@ -681,8 +726,8 @@ async def _search_code(target, query, on_find, original_query=""):
                             entity = await verify_hit(entity, case_slug=target.case_slug)
                         if target.add_entity(entity) and on_find:
                             await on_find(entity)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[github_recon] Error searching code for {query}: {e}")
     return found_any
 
 
@@ -708,7 +753,7 @@ async def _parse_profile_readme(target, username, on_find, original_query=""):
     try:
         async with httpx.AsyncClient(
             timeout=10,
-            headers={"User-Agent": "JARVIS-OSINT"}
+            headers=_get_github_headers()
         ) as client:
             r = await client.get(url_main)
             if r.status_code != 200:
@@ -783,7 +828,7 @@ async def _parse_profile_readme(target, username, on_find, original_query=""):
                     if target.add_entity(entity) and on_find:
                         await on_find(entity)
                 return True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[github_recon] Error parsing README for {username}: {e}")
     return False
 

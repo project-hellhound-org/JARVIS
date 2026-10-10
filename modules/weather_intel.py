@@ -1,10 +1,14 @@
 # modules/weather_intel.py
 import json
+import logging
+import os
 import re
 import time
 import urllib.request
 import urllib.parse
 from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 WMO_WEATHER_CODES = {
     0: 'Clear sky',
@@ -74,7 +78,7 @@ class WeatherIntelEngine:
         try:
             import yaml
             if os.path.exists('config.yaml'):
-                with open('config.yaml', 'r') as f:
+                with open('config.yaml', 'r', encoding='utf-8') as f:
                     cfg = yaml.safe_load(f) or {}
                     hs = cfg.get('home_sector')
                     if isinstance(hs, dict) and 'lat' in hs and 'lon' in hs:
@@ -86,8 +90,8 @@ class WeatherIntelEngine:
                         }
                         self._local_sector_cache = res
                         return res
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"[weather_intel] Failed to load home_sector from config: {e}")
 
         # 2. Fast IP Geolocation Probe (1.8s timeout)
         try:

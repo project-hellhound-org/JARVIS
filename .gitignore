@@ -25,6 +25,7 @@ jarvis-env/
 cases/
 /*.txt
 !requirements.txt
+!requirements-optional.txt
 
 # Memory store — local embeddings, not for version control
 memory/chroma_db/
@@ -88,6 +89,8 @@ data/*
 !data/skill_templates/
 data/skill_templates/*
 !data/skill_templates/wake_word_sensitivity.yaml
+!data/stations.json
+!data/airlines.dat
 scratch/
 
 # Memory store data (not source code)

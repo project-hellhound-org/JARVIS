@@ -4777,20 +4777,28 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         <div class="radio-tag-bar">
           <button class="radio-disable-btn" id="radio-disable-btn" onclick="window.stopRadioAudio()">DISABLE</button>
           <select class="radio-tag-select" id="radio-category-select" onchange="window.filterRadioByCategory(this.value)">
-            <option value="atc">● ATC / Flight Comms (2)</option>
-            <option value="scanner">● Police / Fire Scanners (2)</option>
-            <option value="marine">● Marine VHF Radio (2)</option>
-            <option value="news">● News / Intel Radio (2)</option>
+            <option value="atc">● Flight Comms / ATC & Aviation</option>
+            <option value="scanner">● Police / Fire / EMS Scanners</option>
+            <option value="marine">● Marine / Coast Guard VHF</option>
+            <option value="weather">● Weather & Emergency (NOAA)</option>
+            <option value="news">● News & World Service</option>
             <option value="cyber">● Cyber News Intel Feed (RSS)</option>
+          </select>
+          <select class="radio-tag-select" id="radio-country-select" onchange="window.filterRadioByCountry(this.value)" style="margin-left:4px; max-width:65px;">
+            <option value="ALL">ALL</option>
           </select>
         </div>
 
         <!-- Station Info Card -->
         <div class="radio-station-card" id="radio-station-card-box">
-          <div class="radio-station-title" id="radio-now-title">NASA Mission Control & Space Comms</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="radio-station-title" id="radio-now-title">NASA Mission Control & Space Comms</div>
+            <span id="radio-now-country" style="font-size:8px; font-weight:700; color:#38BDF8; background:rgba(56,189,248,0.15); padding:1px 4px; border-radius:2px; margin-left:4px;">US</span>
+          </div>
           <div class="radio-station-telemetry" id="radio-now-telemetry">Houston/KSC • US / MP3 • 128 kbps</div>
           <div class="radio-station-tags" id="radio-now-tags">TAGS • spaceflight • air-to-ground • mission control • nasa</div>
-          <div class="radio-station-terms" id="radio-now-terms" style="font-size:8px; color:#64748B; margin-top:4px; line-height:1.25; border-top:1px solid rgba(255,255,255,0.05); padding-top:3px;">TERMS • SomaFM: Listener-supported non-commercial internet radio; authentic NASA spaceflight air-to-ground audio.</div>
+          <div class="radio-station-source" id="radio-now-source" style="font-size:8px; color:#94A3B8; margin-top:3px;">SOURCE • <a id="radio-now-source-link" href="https://somafm.com/missioncontrol/" target="_blank" style="color:#38BDF8; text-decoration:none;">SomaFM</a></div>
+          <div class="radio-station-terms" id="radio-now-terms" style="font-size:8px; color:#64748B; margin-top:3px; line-height:1.25; border-top:1px solid rgba(255,255,255,0.05); padding-top:3px;">TERMS • SomaFM: Listener-supported non-commercial internet radio; authentic NASA spaceflight air-to-ground audio.</div>
         </div>
 
         <!-- Cyber News Panel (Shown when cyber category is selected) -->
@@ -17965,6 +17973,11 @@ function initCesiumGlobe() {
           if (tacticalData.type === 'SATELLITE' && typeof window.setFocusedSatelliteTrack === 'function') {
             window.setFocusedSatelliteTrack(tacticalData);
           }
+          if (tacticalData.type === 'RADIO') {
+            if (typeof window.tuneRadioStation === 'function') {
+              window.tuneRadioStation(tacticalData.id, true);
+            }
+          }
         }
       } else {
         // Clicking on empty terrain/sky auto-dismisses active ground media card and focused satellite track
@@ -18304,6 +18317,9 @@ const RADIO_STATIONS = {
     tags: 'spaceflight • air-to-ground • mission control • nasa',
     lat: 29.5593,
     lon: -95.0900,
+    country: 'US',
+    source: 'SomaFM',
+    sourceUrl: 'https://somafm.com/missioncontrol/',
     streamUrl: 'https://ice2.somafm.com/missioncontrol-128-mp3',
     terms: 'SomaFM: Listener-supported non-commercial internet radio; authentic NASA spaceflight air-to-ground audio.'
   },
@@ -18317,6 +18333,9 @@ const RADIO_STATIONS = {
     tags: 'tactical comms • cyber ops • defcon net • radio',
     lat: 36.1699,
     lon: -115.1398,
+    country: 'US',
+    source: 'SomaFM / DEF CON',
+    sourceUrl: 'https://somafm.com/defcon/',
     streamUrl: 'https://ice2.somafm.com/defcon-128-mp3',
     terms: 'SomaFM / DEF CON: Non-commercial public audio relay for DEF CON net operations.'
   },
@@ -18330,6 +18349,9 @@ const RADIO_STATIONS = {
     tags: 'public safety • emergency dispatch • police 10-33 • fire',
     lat: 37.7749,
     lon: -122.4194,
+    country: 'US',
+    source: 'SomaFM SF 10-33',
+    sourceUrl: 'https://somafm.com/sf1033/',
     streamUrl: 'https://ice2.somafm.com/sf1033-128-mp3',
     terms: 'SomaFM SF 10-33: Public safety radio stream capturing authentic police dispatch audio.'
   },
@@ -18343,6 +18365,9 @@ const RADIO_STATIONS = {
     tags: 'public safety • multi-agency scanner • dispatch',
     lat: 37.7833,
     lon: -122.4167,
+    country: 'US',
+    source: 'SomaFM Scanner',
+    sourceUrl: 'https://somafm.com/scanner/',
     streamUrl: 'https://ice6.somafm.com/scanner-128-mp3',
     terms: 'SomaFM Scanner: Authentic SF public safety scanner relay with ambient audio.'
   },
@@ -18356,6 +18381,9 @@ const RADIO_STATIONS = {
     tags: 'marine weather • coastal navigation • puget sound • noaa',
     lat: 47.6062,
     lon: -122.3321,
+    country: 'US',
+    source: 'NOAA / NWS',
+    sourceUrl: 'https://www.weather.gov/nwr/',
     streamUrl: 'https://wxradio.bobc.io/stream/WWG24',
     terms: 'NOAA / NWS: Public domain federal maritime weather and coastal alerts.'
   },
@@ -18369,8 +18397,43 @@ const RADIO_STATIONS = {
     tags: 'marine coastal • weather • offshore forecast • pacific',
     lat: 36.6002,
     lon: -121.8947,
+    country: 'US',
+    source: 'NOAA / NWS',
+    sourceUrl: 'https://www.weather.gov/nwr/',
     streamUrl: 'https://wxradio.org/CA-MontereyMarine-WWF64',
     terms: 'NOAA / NWS: Public domain federal maritime navigation and weather broadcast.'
+  },
+  noaa_chicago_weather: {
+    id: 'noaa_chicago_weather',
+    category: 'weather',
+    channel: 12,
+    name: 'NOAA All-Hazards Radio KWO39 Chicago',
+    freq: '162.550 MHz VHF',
+    genre: 'Chicago • US / MP3 • 32 kbps',
+    tags: 'weather • all-hazards • severe storm • noaa',
+    lat: 41.8781,
+    lon: -87.6298,
+    country: 'US',
+    source: 'NOAA / NWS',
+    sourceUrl: 'https://www.weather.gov/lot/nwr',
+    streamUrl: 'https://wxradio.bobc.io/stream/KWO39',
+    terms: 'NOAA / NWS: Public domain emergency and all-hazards continuous weather broadcast.'
+  },
+  noaa_newyork_weather: {
+    id: 'noaa_newyork_weather',
+    category: 'weather',
+    channel: 16,
+    name: 'NOAA All-Hazards Radio KWO35 New York City',
+    freq: '162.550 MHz VHF',
+    genre: 'New York • US / MP3 • 32 kbps',
+    tags: 'weather • all-hazards • coastal storm • noaa',
+    lat: 40.7128,
+    lon: -74.0060,
+    country: 'US',
+    source: 'NOAA / NWS',
+    sourceUrl: 'https://www.weather.gov/okx/nwr',
+    streamUrl: 'https://wxradio.bobc.io/stream/KWO35',
+    terms: 'NOAA / NWS: Public domain continuous weather broadcast for metropolitan NY.'
   },
   bbc_world_service: {
     id: 'bbc_world_service',
@@ -18382,6 +18445,9 @@ const RADIO_STATIONS = {
     tags: 'international news • geopolitical intel • world service',
     lat: 51.5186,
     lon: -0.1438,
+    country: 'GB',
+    source: 'BBC World Service',
+    sourceUrl: 'https://www.bbc.co.uk/worldserviceradio',
     streamUrl: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
     terms: 'BBC: Free live internet radio stream for personal listening under BBC online terms.'
   },
@@ -18395,6 +18461,9 @@ const RADIO_STATIONS = {
     tags: 'european news • current affairs • deutschlandfunk',
     lat: 50.9375,
     lon: 6.9603,
+    country: 'DE',
+    source: 'Deutschlandradio',
+    sourceUrl: 'https://www.deutschlandfunk.de/',
     streamUrl: 'https://st01.sslstream.dlf.de/dlf/01/128/mp3/stream.mp3',
     terms: 'Deutschlandradio: Public service broadcasting, open online livestream.'
   }
@@ -19939,17 +20008,24 @@ window.tuneRadioStation = function(stationId, autoPlay = true) {
   }
 
   const titleEl = document.getElementById('radio-now-title');
+  const countryEl = document.getElementById('radio-now-country');
   const telemEl = document.getElementById('radio-now-telemetry');
   const tagsEl = document.getElementById('radio-now-tags');
   const termsEl = document.getElementById('radio-now-terms');
+  const sourceLink = document.getElementById('radio-now-source-link');
   const bandEl = document.getElementById('radio-band-label');
   const chanEl = document.getElementById('radio-channel-num');
   const stNameEl = document.getElementById('radio-dial-st-name');
   const needleEl = document.getElementById('radio-dial-needle');
 
   if (titleEl) titleEl.textContent = station.name;
+  if (countryEl) countryEl.textContent = station.country || 'US';
   if (telemEl) telemEl.textContent = station.genre || `${station.freq} • 32 kbps`;
   if (tagsEl) tagsEl.textContent = `TAGS • ${station.tags || 'tactical • osint • scanner'}`;
+  if (sourceLink) {
+    sourceLink.textContent = station.source || 'Stream Provider';
+    sourceLink.href = station.sourceUrl || '#';
+  }
   if (termsEl) termsEl.textContent = `TERMS • ${station.terms || 'Non-commercial public broadcast stream.'}`;
   if (stNameEl) stNameEl.textContent = station.name.slice(0, 26) + '...';
 
@@ -19957,6 +20033,7 @@ window.tuneRadioStation = function(stationId, autoPlay = true) {
     atc: 'AVIATION / AIR TRAFFIC BAND',
     scanner: 'FIRST RESPONDER / POLICE BAND',
     marine: 'MARITIME / COASTAL VHF BAND',
+    weather: 'WEATHER & EMERGENCY ALERT BAND (NOAA)',
     news: 'GLOBAL NEWS / INTEL BROADCAST',
     cyber: 'CYBER INTELLIGENCE FEED'
   };
@@ -20021,9 +20098,53 @@ window.filterRadioByCategory = function(category) {
     return;
   }
 
-  const matches = Object.values(RADIO_STATIONS).filter(s => s.category === category);
+  let matches = Object.values(RADIO_STATIONS).filter(s => s.category === category);
+  const cSel = document.getElementById('radio-country-select');
+  if (cSel && cSel.value && cSel.value !== 'ALL') {
+    const cMatches = matches.filter(s => (s.country || '').toUpperCase() === cSel.value.toUpperCase());
+    if (cMatches.length > 0) matches = cMatches;
+  }
   if (matches.length > 0) {
     window.tuneRadioStation(matches[0].id, true);
+  }
+};
+
+window.filterRadioByCountry = function(country) {
+  let matches = Object.values(RADIO_STATIONS);
+  if (_currentRadioCategory && _currentRadioCategory !== 'cyber') {
+    matches = matches.filter(s => s.category === _currentRadioCategory);
+  }
+  if (country && country !== 'ALL') {
+    matches = matches.filter(s => (s.country || '').toUpperCase() === country.toUpperCase());
+  }
+  if (matches.length > 0) {
+    window.tuneRadioStation(matches[0].id, true);
+  }
+};
+
+window.loadRadioStationsFromAPI = async function() {
+  try {
+    const res = await fetch('/api/radio/stations');
+    if (res.ok) {
+      const stationsList = await res.json();
+      if (Array.isArray(stationsList) && stationsList.length > 0) {
+        stationsList.forEach(st => {
+          RADIO_STATIONS[st.id] = st;
+        });
+        const cSel = document.getElementById('radio-country-select');
+        if (cSel) {
+          const currentVal = cSel.value || 'ALL';
+          const countries = Array.from(new Set(Object.values(RADIO_STATIONS).map(s => s.country).filter(Boolean))).sort();
+          cSel.innerHTML = '<option value="ALL">ALL</option>' + countries.map(c => `<option value="${c}">${c}</option>`).join('');
+          cSel.value = currentVal;
+        }
+        if (typeof window.refreshRadioGlobePins === 'function') {
+          window.refreshRadioGlobePins();
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[Radio] Could not fetch /api/radio/stations:', e?.message || e);
   }
 };
 
@@ -21334,40 +21455,50 @@ function initGlobeIntelligence(viewer) {
   _radioDataSource.show = _tacticalLayers.radio;
   viewer.dataSources.add(_radioDataSource);
 
-  Object.values(RADIO_STATIONS).forEach(st => {
-    _radioDataSource.entities.add({
-      position: Cesium.Cartesian3.fromDegrees(st.lon, st.lat, 500),
-      point: {
-        pixelSize: 12,
-        color: Cesium.Color.fromCssColorString('#FF9D2E'),
-        outlineColor: Cesium.Color.fromCssColorString('#FFFFFF'),
-        outlineWidth: 2.5,
-        disableDepthTestDistance: 5000
-      },
-      label: {
-        text: `📻 ${st.name} [${st.freq}]`,
-        font: 'bold 10.5px JetBrains Mono, monospace',
-        fillColor: Cesium.Color.fromCssColorString('#FFB84D'),
-        outlineColor: Cesium.Color.BLACK,
-        outlineWidth: 3,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        pixelOffset: new Cesium.Cartesian2(0, -14),
-        disableDepthTestDistance: 5000,
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000)
-      },
-      _tacticalData: {
-        type: 'RADIO',
-        id: st.id,
-        name: st.name,
-        freq: st.freq,
-        genre: st.genre,
-        lat: st.lat,
-        lon: st.lon,
-        streamUrl: st.streamUrl
+  window.refreshRadioGlobePins = function() {
+    if (!_radioDataSource) return;
+    _radioDataSource.entities.removeAll();
+    Object.values(RADIO_STATIONS).forEach(st => {
+      if (st.lat != null && st.lon != null) {
+        _radioDataSource.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(st.lon, st.lat, 500),
+          point: {
+            pixelSize: 12,
+            color: Cesium.Color.fromCssColorString('#FF9D2E'),
+            outlineColor: Cesium.Color.fromCssColorString('#FFFFFF'),
+            outlineWidth: 2.5,
+            disableDepthTestDistance: 5000
+          },
+          label: {
+            text: `📻 ${st.name} [${st.freq || ''}]`,
+            font: 'bold 10.5px JetBrains Mono, monospace',
+            fillColor: Cesium.Color.fromCssColorString('#FFB84D'),
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 3,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset: new Cesium.Cartesian2(0, -14),
+            disableDepthTestDistance: 5000,
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000)
+          },
+          _tacticalData: {
+            type: 'RADIO',
+            id: st.id,
+            name: st.name,
+            freq: st.freq,
+            genre: st.genre,
+            lat: st.lat,
+            lon: st.lon,
+            streamUrl: st.streamUrl
+          }
+        });
       }
     });
-  });
+  };
+  window.refreshRadioGlobePins();
+  if (typeof window.loadRadioStationsFromAPI === 'function') {
+    window.loadRadioStationsFromAPI();
+  }
 
   // =========================================================================
   // 3b. GOD'S EYE REAL-TIME STREET TRAFFIC FLOW & MOVING VEHICLE DOTS (Image 3 Parity)

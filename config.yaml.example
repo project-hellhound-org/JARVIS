@@ -5,46 +5,49 @@
 model: qwen2.5:3b-instruct-q4_0
 ollama_url: http://localhost:11434
 
-# ── NVIDIA NIM (recommended — fast, free credits) ──────────────
-# Get your free key at: https://build.nvidia.com
-# Supports fast 11B–70B models at zero cost with generous free tier.
-# Then set it as an environment variable (recommended):
-#   export NVIDIA_API_KEY="nvapi-your_key_here"
-#   echo 'export NVIDIA_API_KEY="nvapi-your_key_here"' >> ~/.bashrc
-#
-# Or paste it here (less secure — make sure config.yaml is gitignored):
+# ── Multimodal Vision & LLM Providers ──────────────────────────
+# Optional: NVIDIA NIM API key for fast Nemotron & vision models (free credits at https://build.nvidia.com)
 nvidia_api_key: YOUR_NVIDIA_API_KEY_HERE
 nvidia_model: nvidia/nemotron-3-ultra-550b-a55b
-# ── Gemini API (free tier, fast) ───────────────────────────────
-# Get your free key at: https://aistudio.google.com/apikey
-# Then set it as an environment variable (recommended):
-#   export GEMINI_API_KEY="your_key_here"
-#   echo 'export GEMINI_API_KEY="your_key_here"' >> ~/.bashrc
-#
-# Or paste it here (less secure — make sure config.yaml is gitignored):
+
+# Optional: Google AI Studio Gemini API key for multimodal reasoning (free tier at https://aistudio.google.com/apikey)
 gemini_api_key: YOUR_GEMINI_API_KEY_HERE
 
-# ── Groq LPU Inference (ultra-low latency, free tier) ───────────
-# Get your free key at: https://console.groq.com/keys
-# Delivers sub-100ms LLaMA 3.3 70B & Whisper audio transcription.
-#   export GROQ_API_KEY="gsk_your_key_here"
+# Optional: Groq Cloud API key for ultra-fast LLaMA inference and Whisper STT (free tier at https://console.groq.com/keys)
 groq_api_key: YOUR_GROQ_API_KEY_HERE
 groq_model: openai/gpt-oss-120b
 
-# ── God's Eye Geointel & Satellites (Optional Enhancements) ────
-# Cesium Ion Access Token: https://ion.cesium.com/tokens
-# Unlocks 3D Cesium World Terrain, photorealistic tiles & 3D OSM Buildings.
+# ── God's Eye Geointel & Satellites ─────────────────────────────
+# Optional: Cesium Ion token for 3D globe terrain and photorealistic photogrammetry (free tier at https://ion.cesium.com/tokens)
 cesium_ion_token: YOUR_CESIUM_ION_TOKEN_HERE
 
-# NASA FIRMS MAP_KEY: https://firms.modaps.eosdis.nasa.gov/api/map_key/
-# Unlocks live satellite active wildfire & thermal anomaly sensors (VIIRS / MODIS).
+# Optional: NASA FIRMS map key for thermal anomalies and satellite fire detection (free key at https://firms.modaps.eosdis.nasa.gov/api/map_key/)
 nasa_firms_key: YOUR_NASA_FIRMS_MAP_KEY_HERE
 
-# ── Fish Audio Voice Synthesis ──────────────────────────────────
-# Get your key at: https://fish.audio/app/developers
+# ── OSINT & Open Data Feeds ────────────────────────────────────
+# Optional: AISStream WebSocket key for live global maritime vessel tracking (free at https://aisstream.io)
+aisstream_api_key: YOUR_AISSTREAM_API_KEY_HERE
+
+# Optional: YouTube Data API v3 key for geotagged field video reconnaissance (free tier at https://console.cloud.google.com)
+youtube_api_key: YOUR_YOUTUBE_API_KEY_HERE
+
+# Optional: GitHub personal access token for higher OSINT repository search rate limits (free at https://github.com/settings/tokens)
+github_token: YOUR_GITHUB_TOKEN_HERE
+
+# ── Voice Synthesis ───────────────────────────────────────────
+# Optional: Fish Audio API key for low-latency neural TTS streaming (free tier at https://fish.audio/app/developers)
 fish_audio_api_key: YOUR_FISH_AUDIO_API_KEY_HERE
 fish_audio_model: s2.1-pro-free
+
+# Optional: Fish Audio custom voice model ID (browse free community voices at https://fish.audio/discovery)
 fish_audio_voice_id: 05b36da8574341d0803391491850db20
+
+# ── Smart Home Integration ─────────────────────────────────────
+# Optional: Home Assistant base URL for local smart home control (free open-source at https://www.home-assistant.io)
+hass_url: YOUR_HASS_URL_HERE
+
+# Optional: Home Assistant Long-Lived Access Token (free in your Home Assistant user profile page)
+hass_token: YOUR_HASS_TOKEN_HERE
 
 assets_dir: assets
 cases_dir: cases

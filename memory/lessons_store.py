@@ -5,8 +5,12 @@ Uses ChromaDB + sentence-transformers for semantic search when available,
 falls back to a simple JSON file store otherwise.
 """
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
+_chroma_init_warning_logged = False
 
 LESSONS_DIR = Path(__file__).parent.parent / "cases" / ".lessons"
 
@@ -30,23 +34,22 @@ class LessonsStore:
 
     # ── ChromaDB bootstrap ────────────────────────────────────
     def _init_chroma(self):
+        global _chroma_init_warning_logged
         try:
             import chromadb
-            from chromadb.config import Settings
 
-            client = chromadb.Client(Settings(
-                chroma_db_impl="duckdb+parquet",
-                persist_directory=str(LESSONS_DIR / "chroma"),
-                anonymized_telemetry=False,
-            ))
+            client = chromadb.PersistentClient(path=str(LESSONS_DIR / "chroma"))
             self._collection = client.get_or_create_collection(
                 name="lessons",
                 metadata={"hnsw:space": "cosine"},
             )
             self._chroma = client
             self._available = True
-        except Exception:
+        except Exception as e:
             # ChromaDB or sentence-transformers not installed — use JSON fallback
+            if not _chroma_init_warning_logged:
+                logger.warning(f"[lessons_store] ChromaDB initialization failed ({e}), falling back to JSON store.")
+                _chroma_init_warning_logged = True
             self._available = False
 
     # ── JSON fallback I/O ─────────────────────────────────────
