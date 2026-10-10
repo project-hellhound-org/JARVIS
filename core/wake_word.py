@@ -24,6 +24,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 from contextlib import contextmanager
 
+_wake_word_notice_logged = False
+
 @contextmanager
 def no_c_stderr():
     """Suppress C-level stderr output (e.g. libjack / libasound error spam)."""
@@ -277,6 +279,7 @@ class WakeWordEngine:
             if custom_jarvis_path.exists():
                 target_model = str(custom_jarvis_path)
 
+        missing_optional = False
         try:
             import openwakeword
             from openwakeword.model import Model
@@ -297,6 +300,9 @@ class WakeWordEngine:
                 print("[wake_word] Native openWakeWord engine active for JARVIS.")
             else:
                 self._model = None
+        except (ImportError, ModuleNotFoundError):
+            missing_optional = True
+            self._model = None
         except Exception as e:
             print(f"[wake_word] Notice: openWakeWord model init: {e}. Active via Web Speech STT.")
             self._model = None
@@ -321,14 +327,24 @@ class WakeWordEngine:
             else:
                 print("[wake_word] No audio input hardware found. Delegating wake word to Web Speech API.")
                 self.fallback_to_web_speech = True
+        except (ImportError, ModuleNotFoundError):
+            missing_optional = True
+            self.fallback_to_web_speech = True
         except Exception as e:
             print(f"[wake_word] Audio hardware init notice: {e}. Falling back to Web Speech API.")
             self.fallback_to_web_speech = True
 
+        if missing_optional:
+            global _wake_word_notice_logged
+            if not _wake_word_notice_logged:
+                print("[wake_word] Wake word disabled: install requirements-optional.txt to enable")
+                _wake_word_notice_logged = True
+
     def start(self):
         """Start background microphone listening thread if hardware is present."""
         if not self.hardware_mic_available or not self._model:
-            print("[wake_word] Engine running in browser Web Speech API fallback mode for JARVIS.")
+            if not _wake_word_notice_logged:
+                print("[wake_word] Engine running in browser Web Speech API fallback mode for JARVIS.")
             return
 
         self.running = True
@@ -364,9 +380,11 @@ class WakeWordEngine:
     def check_stt_text_for_wake_or_aliases(self, text: str) -> tuple[bool, str]:
         """
         Check incoming raw STT transcription against registered JARVIS wake phrases.
-        Uses 100% on-device exact prefix, phonetic Soundex, and Levenshtein fuzzy matching
-        for wake word variants (J.A.R.C., Jarvik, Jarvis, Jarbis) using normalized edit distance
-        (threshold <= 2 edits or >= 0.75 similarity).
+        Strict matcher (Part 3):
+        - Accept explicit list of spellings: jarvis, j.a.r.v.i.s, jarc, j.a.r.c, jarvik, jarbis, jervis, javis
+        - Plus edit distance 1 ONLY for words of 5+ letters
+        - Reject common words and names: jar, jars, gary, jared, jarrod, jarrett, yard, yarn, garvis, car, park, part...
+        - Wake word counts only at the start of an utterance or right after hey/ok/yo/wake up (or alright/hi/hello).
         Returns (matched: bool, phrase: str)
         """
         if not text:
@@ -380,72 +398,65 @@ class WakeWordEngine:
         if not words:
             return False, ""
 
-        # 1. Exact or prefix match against registered wake phrases (longest first)
-        for phrase in self.wake_phrases:
-            phrase_clean = re.sub(r'[^\w\s]', '', phrase).lower()
-            if clean_no_punct.startswith(phrase_clean):
-                return True, phrase.title()
-            if phrase_clean in clean_no_punct:
-                leading_text = " ".join(words[:4])
-                if phrase_clean in leading_text:
-                    return True, phrase.title()
+        EXPLICIT_WAKE_SPELLINGS = {
+            "jarvis", "jarc", "jarvik", "jarbis", "jervis", "javis",
+            "jarvis", "jarc"
+        }
+        EDIT_DISTANCE_BASE_WORDS = {
+            "jarvis", "jarvik", "jarbis", "jervis", "javis"
+        }
+        REJECTED_WORDS = {
+            "jar", "jars", "gary", "jared", "jarrod", "jarrett", "yard", "yarn", "garvis",
+            "car", "cars", "park", "parks", "part", "parts", "dark", "dart", "darts",
+            "card", "cards", "hard", "hart", "bar", "bars", "tar", "tars", "far", "farm",
+            "farms", "mar", "mars", "star", "stars", "war", "wars", "par", "jarred",
+            "jordan", "jason", "jacob", "james", "jerry", "larry", "barry", "harry",
+            "garret", "garrett"
+        }
 
-        # 2. Local Phonetic & Multi-word phrase fuzzy matcher against registered wake_phrases
-        for phrase in self.wake_phrases:
-            target_words = re.sub(r'[^\w\s]', '', phrase).lower().split()
-            if not target_words:
-                continue
-            n_target = len(target_words)
-            if len(words) >= n_target:
-                candidate_slice = " ".join(words[:n_target])
-                target_phrase = " ".join(target_words)
-
-                # Levenshtein similarity ratio
-                ratio = _levenshtein_ratio(candidate_slice, target_phrase)
-                if ratio >= 0.82:
-                    return True, phrase.title()
-
-                # Phonetic check for "Jarvis" variations
-                if n_target == 1 and target_words[0] == "jarvis":
-                    cand_word = words[0]
-                    if _phonetic_code(cand_word) == _phonetic_code("jarvis") and ratio >= 0.65:
-                        return True, phrase.title()
-
-        # 3. Fuzzy matching for wake word variants (J.A.R.C., Jarvik, Jarvis, Jarbis)
-        # Using normalized edit distance (threshold <= 2 edits or >= 0.75 similarity)
-        VARIANTS = ("jarvis", "jarc", "jarvik", "jarbis")
-
-        def _is_wake_variant(w: str) -> bool:
+        def _is_wake_word(w: str) -> bool:
             if not w:
                 return False
-            for v in VARIANTS:
-                dist = _levenshtein_distance(w, v)
-                ratio = 1.0 - (dist / max(len(w), len(v)))
-                if (dist <= 2 or ratio >= 0.75) and (w.startswith(('j', 'g', 'y')) or ratio >= 0.85) and len(w) >= 3:
-                    if len(w) == 3 and dist > 1:
-                        continue
-                    return True
+            w_lower = w.lower().strip()
+            if w_lower in REJECTED_WORDS:
+                return False
+            if w_lower in EXPLICIT_WAKE_SPELLINGS:
+                return True
+            # Edit distance 1 ONLY for words with 5+ letters
+            if len(w_lower) >= 5:
+                for base in EDIT_DISTANCE_BASE_WORDS:
+                    if _levenshtein_distance(w_lower, base) <= 1:
+                        return True
             return False
 
-        # Check with conversational prefixes
+        # Wake word counts only at utterance start or right after hey/ok/yo/wake up (or alright/hi/hello)
         prefixes = [
-            ("wake up", 2, "Wake Up Jarvis"),
-            ("alright", 1, "Alright Jarvis"),
-            ("hey", 1, "Hey Jarvis"),
-            ("hi", 1, "Hi Jarvis"),
-            ("yo", 1, "Yo Jarvis"),
-            ("ok", 1, "OK Jarvis"),
-            ("okay", 1, "OK Jarvis"),
-            ("hello", 1, "Hello Jarvis"),
+            (["hey", "wake", "up"], "Wake Up Jarvis"),
+            (["wake", "up"], "Wake Up Jarvis"),
+            (["hey"], "Hey Jarvis"),
+            (["ok"], "OK Jarvis"),
+            (["okay"], "OK Jarvis"),
+            (["yo"], "Yo Jarvis"),
+            (["alright"], "Alright Jarvis"),
+            (["hi"], "Hi Jarvis"),
+            (["hello"], "Hello Jarvis"),
         ]
-        for pfx, pfx_len, pfx_label in prefixes:
-            pfx_words = pfx.split()
-            if len(words) > pfx_len and words[:pfx_len] == pfx_words:
-                if _is_wake_variant(words[pfx_len]):
+
+        # 1. Check prefixed positions
+        for pfx_tokens, pfx_label in prefixes:
+            n_pfx = len(pfx_tokens)
+            if len(words) > n_pfx and words[:n_pfx] == pfx_tokens:
+                cand = words[n_pfx]
+                if _is_wake_word(cand):
                     return True, pfx_label
 
-        # Check single-word variant at beginning of utterance
-        if _is_wake_variant(words[0]):
+        # 2. Check utterance start
+        if words and _is_wake_word(words[0]):
+            # Check multi-word phrase match in wake_phrases
+            for phrase in self.wake_phrases:
+                phrase_clean = re.sub(r'[^\w\s]', '', phrase).lower()
+                if clean_no_punct.startswith(phrase_clean):
+                    return True, phrase.title()
             return True, "Jarvis"
 
         return False, ""

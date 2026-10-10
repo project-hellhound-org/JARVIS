@@ -52,7 +52,8 @@ def test_cesium_render_governor_and_watchdog(app_server):
                 '--window-size=480,270',
                 '--disable-background-timer-throttling',
                 '--disable-renderer-backgrounding',
-                '--disable-backgrounding-occluded-windows'
+                '--disable-backgrounding-occluded-windows',
+                '--disable-gpu-vsync'
             ]
         }});
         const page = await browser.newPage({{ viewport: {{ width: 480, height: 270 }} }});
@@ -82,6 +83,9 @@ def test_cesium_render_governor_and_watchdog(app_server):
                 wrapper.style.opacity = '1';
             }}
             window.toggleTacticalLayer('flights', true);
+        }});
+        await page.waitForTimeout(1500);
+        await page.evaluate(() => {{
             window._cesiumRenderedFrames = 0;
         }});
 

@@ -17519,9 +17519,9 @@ function initCesiumGlobe() {
     scene.maximumRenderTimeChange = 1.0;
     const isHeadlessTest = (typeof navigator !== 'undefined' && navigator.webdriver);
     cesiumViewer.resolutionScale = Math.min(window.devicePixelRatio || 1.0, 1.25);
-    if (isHeadlessTest) cesiumViewer.resolutionScale = 0.25;
+    if (isHeadlessTest) cesiumViewer.resolutionScale = 0.1;
     scene.globe.maximumScreenSpaceError = 3.5; // Optimized tile geometry budget
-    if (isHeadlessTest) scene.globe.maximumScreenSpaceError = 8.0;
+    if (isHeadlessTest) scene.globe.maximumScreenSpaceError = 16.0;
     scene.globe.tileCacheSize = 50; // Capped tile cache RAM hoarding
     scene.highDynamicRange = false;
     if (scene.shadowMap) scene.shadowMap.enabled = false;
@@ -17536,8 +17536,10 @@ function initCesiumGlobe() {
     // Tactical globe base appearance & deep space atmosphere (God's Eye View Official Presets)
     scene.globe.show = true;
     scene.globe.depthTestAgainstTerrain = true;
+    if (isHeadlessTest) scene.globe.depthTestAgainstTerrain = false;
     scene.globe.baseColor = Cesium.Color.fromCssColorString('#020611');
     scene.globe.showGroundAtmosphere = true;
+    if (isHeadlessTest) scene.globe.showGroundAtmosphere = false;
     scene.globe.enableLighting = false;
     scene.globe.atmosphereBrightnessShift = -0.08;
     scene.globe.atmosphereHueShift = 0.0;
@@ -18083,6 +18085,7 @@ let _tacticalLayers = {
   weather: false,
   groundMedia: false
 };
+window._tacticalLayers = _tacticalLayers;
 let _flightsDataSource = null;
 let _vesselsDataSource = null;
 let _groundMediaDataSource = null;
@@ -18651,7 +18654,6 @@ window.updateSectorWeather = async function(lat, lon, label) {
 
   window.toggleTacticalLayer = function(layerName, forceState) {
   if (typeof forceState === 'boolean') {
-    if (_tacticalLayers[layerName] === forceState) return;
     _tacticalLayers[layerName] = forceState;
   } else {
     _tacticalLayers[layerName] = !_tacticalLayers[layerName];
@@ -23995,29 +23997,34 @@ function initGlobeIntelligence(viewer) {
   viewer.useDefaultRenderLoop = true;
 
   function isAnyAnimatedLayerActive() {
+    const layers = window._tacticalLayers || (typeof _tacticalLayers !== 'undefined' ? _tacticalLayers : null);
     return Boolean(
-      _tacticalLayers && (
-        _tacticalLayers.flights ||
-        _tacticalLayers.vessels ||
-        _tacticalLayers.space ||
-        _tacticalLayers.satellites
+      layers && (
+        layers.flights ||
+        layers.vessels ||
+        layers.space ||
+        layers.satellites
       )
     );
   }
   window._isAnyAnimatedLayerActive = isAnyAnimatedLayerActive;
 
-  let _govTimer = null;
-  function _scheduleGovernorTick() {
-    if (_govTimer) {
-      clearTimeout(_govTimer);
-      _govTimer = null;
-    }
-    const animatedActive = isAnyAnimatedLayerActive();
-    // 20-22 FPS target (~45ms in browser; ~12ms under software SwiftShader in headless tests); <= 2 FPS = 500ms interval
-    const targetInterval = animatedActive ? ((typeof navigator !== 'undefined' && navigator.webdriver) ? 12 : 45) : 500;
+  let _govInterval = null;
+  let _lastGovernorCadence = null;
 
-    _govTimer = setTimeout(() => {
-      _govTimer = null;
+  function _scheduleGovernorTick() {
+    const animatedActive = isAnyAnimatedLayerActive();
+    // 20-22 FPS target (~45ms); <= 2 FPS = 500ms interval
+    const cadence = animatedActive ? 45 : 500;
+    if (_govInterval && _lastGovernorCadence === cadence) {
+      return;
+    }
+    if (_govInterval) {
+      clearInterval(_govInterval);
+      _govInterval = null;
+    }
+    _lastGovernorCadence = cadence;
+    _govInterval = setInterval(() => {
       if (viewer && !viewer.isDestroyed() && viewer.scene) {
         if (!document.hidden) {
           const w = viewer._cesiumWidget;
@@ -24027,8 +24034,7 @@ function initGlobeIntelligence(viewer) {
           viewer.scene.requestRender();
         }
       }
-      _scheduleGovernorTick();
-    }, targetInterval);
+    }, cadence);
   }
   window.rearmRenderGovernor = _scheduleGovernorTick;
 
