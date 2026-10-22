@@ -560,40 +560,16 @@ class SystemSkillEngine:
                 elif task.type in (TaskType.OSINT_INVESTIGATE.value, TaskType.INVESTIGATION.value):
                     target_str = task.data.get("target", "target")
                     sal = self.memory.get_salutation()
-                    task_mgr.update_progress(task.task_id, 20, f"Initializing OSINT investigation on {target_str}...")
-
-                    import asyncio
-                    from core.orchestrator import Orchestrator, format_investigation_summary
-                    orch = Orchestrator()
-                    try:
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            import concurrent.futures
-                            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                                target_obj = pool.submit(lambda: asyncio.run(orch.investigate(target_str))).result()
-                        else:
-                            target_obj = loop.run_until_complete(orch.investigate(target_str))
-                    except RuntimeError:
-                        target_obj = asyncio.run(orch.investigate(target_str))
-
-                    debrief_msg = format_investigation_summary(target_obj)
+                    from core.investigation_gate import request_investigation
+                    gate_res = request_investigation(target_str, source="skill", via="system_skills")
+                    debrief_msg = f"Investigation directive for '{target_str}' routed to central gate, {sal}."
                     task_mgr.complete_task(task.task_id, summary=debrief_msg)
-
-                    for ent in getattr(target_obj, "entities", []):
-                        task_mgr.add_finding(task.task_id, TaskFinding(
-                            title=f"{ent.platform or ent.entity_type}: {ent.value}",
-                            url=ent.metadata.get("url", ""),
-                            snippet=f"Confidence: {ent.confidence:.2f} | Status: {ent.metadata.get('verified')}",
-                            source="osint_swarm",
-                            extra=ent.metadata
-                        ))
-
                     payload = {
                         "action_type": "OSINT_INVESTIGATE",
                         "target": target_str,
                         "summary": debrief_msg,
-                        "report_path": getattr(target_obj, "report_path", None),
-                        "data": target_obj.to_dict() if hasattr(target_obj, "to_dict") else {}
+                        "gate_result": gate_res,
+                        "handled": True,
                     }
                     return True, debrief_msg, False, "", payload
 

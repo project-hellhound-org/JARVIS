@@ -1,9 +1,329 @@
 import re
+import json
 import shutil
+from pathlib import Path
 from typing import Tuple, Dict, Any, Optional
 from core.task import Task, TaskType, TaskFinding
 from core.task_manager import get_task_manager, TaskManager
 from core.event_bus import get_event_bus, EventBus
+
+# ---------------------------------------------------------------------------
+# Leading address, wake-word, and filler word definitions for normalization
+# ---------------------------------------------------------------------------
+LEADING_MULTI_WORD_FILLERS = [
+    "okay so",
+    "by the way",
+    "and then",
+    "i want you to",
+    "i need you to",
+    "go ahead and",
+    "can you please",
+    "could you please",
+    "would you please",
+    "can you",
+    "could you",
+    "would you",
+    "wake up jarvis",
+    "wake up",
+    "alright jarvis",
+    "alright",
+    "hey jarvis",
+    "ok jarvis",
+    "okay jarvis",
+    "yo jarvis",
+]
+
+LEADING_SINGLE_WORD_FILLERS = [
+    # Expanded discourse markers & conversational fillers:
+    "actually", "well", "now", "just", "also", "and", "but", "so", "then",
+    "right", "listen", "look", "alright", "anyway", "oh",
+    # User-specified words:
+    "buddy", "hey", "hi", "hello", "ok", "okay", "yo", "please",
+    "sir", "mate", "man", "dude", "um", "uh",
+    # Fuzzy wake-word spellings:
+    "jarvis", "jarc", "jarvik", "jarbis", "jervis", "javis",
+]
+
+ACRONYM_WAKE_REGEX = re.compile(
+    r'^(?:j\s*\.?\s*a\s*\.?\s*r\s*\.?\s*v\s*\.?\s*i\s*\.?\s*s\.?|j\s*\.?\s*a\s*\.?\s*r\s*\.?\s*c\.?)\b',
+    re.IGNORECASE
+)
+
+# Documented constant list of investigation verbs and phrases
+INVESTIGATION_PHRASES = [
+    "investigation into",
+    "investigation of",
+    "investigation on",
+    "investigation",
+    "look into",
+    "dig into",
+    "run osint on",
+    "osint on",
+    "recon",
+    "stalk",
+    "trace",
+    "find profiles for",
+    "find profiles of",
+    "find profile for",
+    "find profile of",
+    "find accounts for",
+    "find accounts of",
+    "find account for",
+    "find account of",
+    "find out who",
+    "who is",
+    "check if",
+    "search for the username",
+    "search for the user",
+    "search for the account",
+    "search for the profile",
+    "search for username",
+    "search for user",
+    "search for account",
+    "search for profile",
+    "search username",
+    "search user",
+    "search account",
+    "search profile",
+    "deep_scan",
+    "dox",
+    "investigate",
+]
+
+CONVERSATIONAL_INVESTIGATION_PATTERNS = [
+    # E.g. "do you think the police will investigate", "should I investigate", "I don't want to investigate"
+    re.compile(r'\b(?:do\s+you\s+think|should\s+(?:i|we|anyone|the\s+police)|(?:i|we)\s+don\'?t\s+want\s+to|why\s+(?:would|did|should)\s+(?:anyone|they|you|we|the\s+police)|will\s+(?:they|the\s+police|anyone)|did\s+(?:they|the\s+police)|is\s+it\s+(?:legal|safe|possible|worth\s+it)\s+to|how\s+do\s+(?:people|they|police))\b.*\b(?:investigate|investigation|recon|stalk|trace)\b', re.IGNORECASE),
+    re.compile(r'\b(?:what\s+do\s+you\s+think\s+about|tell\s+me\s+about\s+the\s+concept\s+of|how\s+does\s+an?)\b.*\b(?:investigate|investigation)\b', re.IGNORECASE),
+    re.compile(r'\b(?:what\s+is\s+an?\s+investigation|definition\s+of\s+investigation)\b', re.IGNORECASE),
+]
+
+EXCLUSION_PATTERNS = [
+    # Plain search engine queries
+    re.compile(r'^(?:search\s+google(?:\s+for)?|google\s+search(?:\s+for)?|search\s+the\s+web(?:\s+for)?|web\s+search(?:\s+for)?)\b', re.IGNORECASE),
+    # Weather queries
+    re.compile(r'\b(?:weather|temperature|forecast|rain|radar)\b', re.IGNORECASE),
+    # News queries
+    re.compile(r'^(?:latest\s+news|world\s+news|breaking\s+news|show\s+news|news\s+briefing)\b', re.IGNORECASE),
+    # General opinion / discussion queries without target
+    re.compile(r'^(?:what\s+do\s+you\s+think\s+about|how\s+do\s+you\s+feel\s+about|tell\s+me\s+about)\b', re.IGNORECASE),
+    # Technical Osiris / Cyber recon commands
+    re.compile(r'\bcyber\s+recon\b', re.IGNORECASE),
+]
+
+
+def normalize_sentence(text: str) -> str:
+    """
+    Repeatedly strips leading address, wake-word, and filler words/phrases until
+    nothing more is removed. Preserves original casing/formatting of the remaining sentence.
+    """
+    if not text:
+        return ""
+    cur = text.strip()
+    while True:
+        prev = cur
+        # Strip leading punctuation/whitespace
+        cur = re.sub(r'^[,\s:;.-]+', '', cur)
+        if not cur:
+            break
+
+        # Check acronym wake words
+        m_acr = ACRONYM_WAKE_REGEX.match(cur)
+        if m_acr:
+            cur = cur[m_acr.end():].strip()
+            continue
+
+        # Check multi-word filler phrases
+        cur_lower = cur.lower()
+        matched_multi = False
+        for phrase in LEADING_MULTI_WORD_FILLERS:
+            if cur_lower.startswith(phrase):
+                rest = cur[len(phrase):]
+                if not rest or rest[0] in " \t\n\r,.:;!?-":
+                    cur = rest.strip()
+                    matched_multi = True
+                    break
+        if matched_multi:
+            continue
+
+        # Check single-word filler words
+        matched_single = False
+        cur_lower = cur.lower()
+        for word in LEADING_SINGLE_WORD_FILLERS:
+            if cur_lower.startswith(word):
+                rest = cur[len(word):]
+                if not rest or rest[0] in " \t\n\r,.:;!?-":
+                    # Do not strip 'look' if it forms the action verbs 'look into', 'look up', or 'look at'
+                    if word == "look" and (rest.strip().lower().startswith("into") or rest.strip().lower().startswith("up") or rest.strip().lower().startswith("at")):
+                        continue
+                    cur = rest.strip()
+                    matched_single = True
+                    break
+        if matched_single:
+            continue
+
+        if cur == prev:
+            break
+
+    return re.sub(r'^[,\s:;.-]+', '', cur).strip()
+
+
+def _clean_target_str(raw: str) -> str:
+    """Strips quotes, trailing punctuation, descriptors, determiners, and filters out generic filler targets."""
+    if not raw:
+        return ""
+    cleaned = raw.strip().strip("'\"<>:;,.?!()[]{}").strip()
+
+    descriptor_pattern = re.compile(
+        r'^(?:'
+        r'(?:the\s+user\s+called|someone\s+called|a\s+person\s+named|this\s+guy\s+named)\s+|'
+        r'(?:this|that|the|a|an|my|his|her|their)\s+(?:user(?:name)?|account|handle|profile|person|target|guy)\s+(?:called|named)\s+|'
+        r'(?:user(?:name)?|account|handle|profile|person|target|guy)\s+(?:called|named)\s+|'
+        r'(?:this|that|the|a|an|my|his|her|their)\s+(?:user(?:name)?|account|handle|profile|person|target|guy)\s+|'
+        r'(?:this|that|the|a|an|my|his|her|their)\s+|'
+        r'(?:user(?:name)?|account|handle|profile|person|target|guy)\s+'
+        r')',
+        flags=re.IGNORECASE
+    )
+    while True:
+        prev = cleaned
+        cleaned = descriptor_pattern.sub('', cleaned).strip()
+        cleaned = cleaned.strip("'\"<>:;,.?!()[]{}").strip()
+        if cleaned == prev:
+            break
+
+    cleaned = re.sub(r'\s+(?:is\s+online|online|is)$', '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = cleaned.strip("'\"<>:;,.?!()[]{}").strip()
+
+    generic = {
+        "someone", "something", "target", "person", "anyone", "user",
+        "the user", "the target", "the person", "him", "her", "them",
+        "me", "you", "us", "this", "that"
+    }
+    if cleaned.lower() in generic:
+        return ""
+    return cleaned
+
+
+def extract_investigation_intent(cleaned_text: str, raw_text: str = "") -> Optional[Dict[str, Any]]:
+    """
+    Scans cleaned_text for an investigation request using INVESTIGATION_PHRASES,
+    handling negative conversational uses, exclusions, mid-sentence occurrences,
+    and multi-word targets.
+    """
+    if not cleaned_text:
+        return None
+
+    # 1. Negative conversational uses
+    for pat in CONVERSATIONAL_INVESTIGATION_PATTERNS:
+        if pat.search(cleaned_text):
+            return None
+
+    # 2. General exclusions
+    for pat in EXCLUSION_PATTERNS:
+        if pat.search(cleaned_text):
+            return None
+
+    lower = cleaned_text.lower().strip()
+
+    # 3. Special construct A: "(who is|look up) <target> online"
+    m_who = re.search(r'\b(?:who\s+is|look\s+up)\s+(.+?)\s+online(?:\s*[\?!.]*)?$', lower)
+    if m_who:
+        target = m_who.group(1).strip()
+        raw_start = cleaned_text.lower().find(target)
+        raw_target = cleaned_text[raw_start:raw_start + len(target)] if raw_start != -1 else target
+        return {
+            "target": _clean_target_str(raw_target),
+            "is_explicit": False,
+            "matched_phrase": "who is X online",
+        }
+
+    # 4. Special construct B: "check if <target> exists (online)?"
+    m_exists = re.search(r'\bcheck\s+(?:if\s+)?(.+?)\s+exists(?:\s+online)?(?:\s*[\?!.]*)?$', lower)
+    if m_exists:
+        target = m_exists.group(1).strip()
+        raw_start = cleaned_text.lower().find(target)
+        raw_target = cleaned_text[raw_start:raw_start + len(target)] if raw_start != -1 else target
+        return {
+            "target": _clean_target_str(raw_target),
+            "is_explicit": False,
+            "matched_phrase": "check if X exists",
+        }
+
+    # 5. Special construct C: "has <target> been (breached|pwned|leaked)" and email breach
+    m_breach = re.search(r'\b(?:has\s+)?(.+?)\s+been\s+(?:breached|pwned|leaked)(?:\s*[\?!.]*)?$', lower)
+    m_breach_colon = re.search(r'\b(?:has\s+(?:this\s+)?email\s+been\s+(?:breached|pwned|leaked)\s*[:\-]?\s*)(.+?)(?:\s*[\?!.]*)?$', lower)
+    m_em_breach = re.search(r'\b(?:email\s+breach(?:\s+check)?|check\s+email\s+breach)\s+(.+?)(?:\s*[\?!.]*)?$', lower)
+
+    for m_cand, phrase_label in ((m_breach_colon, "has email been breached"), (m_breach, "has email been breached"), (m_em_breach, "email breach")):
+        if m_cand:
+            target = m_cand.group(1).strip()
+            raw_start = cleaned_text.lower().find(target)
+            raw_target = cleaned_text[raw_start:raw_start + len(target)] if raw_start != -1 else target
+            return {
+                "target": _clean_target_str(raw_target),
+                "is_explicit": False,
+                "matched_phrase": phrase_label,
+            }
+
+    # 6. Standalone / Empty investigation phrasing
+    m_ambig = re.match(
+        r'^(?:(?:start\s+(?:an?\s+)?(?:investigation|recon))|(?:investigate|recon|stalk|trace)(?:\s+(?:someone|something|target|person|anyone))?)$',
+        lower
+    )
+    if m_ambig:
+        return {
+            "target": "",
+            "is_explicit": False,
+            "matched_phrase": m_ambig.group(0),
+        }
+
+    # 7. Match any phrase from INVESTIGATION_PHRASES anywhere in the sentence
+    is_natural_request = False
+    if raw_text:
+        raw_lower = raw_text.lower()
+        if any(p in raw_lower for p in [
+            "can you", "could you", "would you", "i want you to", "i need you to",
+            "please", "look into", "dig into", "find out who", "who is", "check if",
+            "search for", "find accounts"
+        ]):
+            is_natural_request = True
+
+    sorted_phrases = sorted(INVESTIGATION_PHRASES, key=lambda p: len(p), reverse=True)
+    for phrase in sorted_phrases:
+        pattern = r'\b' + re.escape(phrase) + r'\b'
+        match = re.search(pattern, lower)
+        if match:
+            end_idx = match.end()
+            raw_target = cleaned_text[end_idx:].strip()
+            is_explicit = (not is_natural_request) and (match.start() == 0 and phrase in ("investigate", "stalk", "recon", "deep_scan", "dox", "run osint on"))
+            clean_tgt = _clean_target_str(raw_target)
+            return {
+                "target": clean_tgt,
+                "is_explicit": is_explicit and bool(clean_tgt),
+                "matched_phrase": phrase,
+            }
+
+    return None
+
+
+def log_intent_decision(cleaned_text: str, matched_rule: str, outcome: str) -> None:
+    """
+    Appends a single JSON line to data/intent_decisions.log containing ONLY
+    the three allowed fields: cleaned_text, matched_rule, outcome.
+    """
+    try:
+        log_path = Path(__file__).resolve().parent.parent / "data" / "intent_decisions.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "cleaned_text": str(cleaned_text),
+            "matched_rule": str(matched_rule),
+            "outcome": str(outcome)
+        }
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+    except Exception:
+        pass
+
 
 class AgentRouter:
     def __init__(self):
@@ -17,20 +337,21 @@ class AgentRouter:
         except Exception:
             return "Sir"
 
-    def is_fast_path(self, text: str) -> bool:
+    def is_fast_path(self, text: str, source: str = "typed") -> bool:
         """Determines if the directive is a deterministic zero-LLM fast path."""
-        handled, _, _, _ = self.route_fast_path(text)
+        handled, _, _, _ = self.route_fast_path(text, source=source)
         return handled
 
-    def route_fast_path(self, text: str) -> Tuple[bool, str, Optional[Task], str]:
+    def route_fast_path(self, text: str, source: str = "typed") -> Tuple[bool, str, Optional[Task], str]:
         """
         Executes deterministic zero-LLM fast paths with <1ms latency.
         Includes system controls, volume, media, app launching, mute, terminal, task surface,
         salutation, creator provenance, area annotation, vision, timers, and rule storage.
         """
         text_strip = (text or "").strip()
-        text_lower = text_strip.lower()
-        if not text_lower:
+        cleaned_text = normalize_sentence(text_strip)
+        text_lower = cleaned_text.lower() if cleaned_text else text_strip.lower()
+        if not text_strip:
             return False, "", None, ""
 
         sal = self.get_salutation()
@@ -153,49 +474,55 @@ class AgentRouter:
             return True, "No active search results to select from.", None, "followup_select"
 
         # ── 2.5 OSINT Investigation Fast-Path ─────────────
-        # Ambiguous investigation without target asks for clarification
-        m_ambig = re.search(r'^(?:(?:hey\s+)?jarvis,?\s*)?(?:start\s+(?:an?\s+)?(?:investigation|recon)|investigate(?:\s+(?:someone|something|target|person))?|recon(?:\s+(?:someone|something|target|person))?|stalk\s+(?:someone|target))$', text_lower)
-        if m_ambig:
-            return True, f"Which target username, email, domain, or IP shall we investigate, {sal}?", None, "clarification"
+        inv_intent = extract_investigation_intent(cleaned_text, raw_text=text_strip)
+        if inv_intent is not None:
+            target_cand = inv_intent["target"]
+            is_explicit = inv_intent["is_explicit"]
+            matched_phrase = inv_intent["matched_phrase"]
 
-        # Fast-path pattern extractors
-        target_cand = None
-        # Explicit commands: investigate, stalk, recon, deep_scan, dox <target>
-        m_inv = re.search(r'^(?:(?:hey\s+)?jarvis,?\s*)?(?:investigate|stalk|deep_scan|recon|dox)\s+([^\s\?]+)', text_lower)
-        # "find (accounts|profiles) (for|of) <x>"
-        m_find = re.search(r'^(?:(?:hey\s+)?jarvis,?\s*)?(?:find|get|list|show)\s+(?:accounts|profiles)\s+(?:for|of)\s+(?:username\s+|user\s+|target\s+)?(.+?)(?:\s*\?)?$', text_lower)
-        # "search (for)? username <x>"
-        m_uname = re.search(r'^(?:(?:hey\s+)?jarvis,?\s*)?search\s+(?:for\s+)?username\s+(.+?)(?:\s*\?)?$', text_lower)
-        # "check (if)? <x> exists (online)?"
-        m_exists = re.search(r'^(?:(?:hey\s+)?jarvis,?\s*)?check\s+(?:if\s+)?(.+?)\s+exists(?:\s+online)?(?:\s*\?)?$', text_lower)
-        # "(who is|look up) <x> online"
-        m_who = re.search(r'^(?:(?:hey\s+)?jarvis,?\s*)?(?:who\s+is|look\s+up)\s+(.+?)\s+online(?:\s*\?)?$', text_lower)
-        # "has <email> been (breached|pwned|leaked)"
-        m_breach = re.search(r'^(?:(?:hey\s+)?jarvis,?\s*)?(?:has\s+)?(.+?)\s+been\s+(?:breached|pwned|leaked)(?:\s*\?)?$', text_lower)
-        m_breach_colon = re.search(r'^(?:(?:hey\s+)?jarvis,?\s*)?(?:has\s+(?:this\s+)?email\s+been\s+(?:breached|pwned|leaked)\s*[:\-]?\s*)(.+?)(?:\s*\?)?$', text_lower)
-        # "email breach <email>"
-        m_em_breach = re.search(r'^(?:(?:hey\s+)?jarvis,?\s*)?(?:email\s+breach(?:\s+check)?|check\s+email\s+breach)\s+(.+?)(?:\s*\?)?$', text_lower)
+            target_sanitized = target_cand
+            target_type = "username"
 
-        for m in (m_inv, m_find, m_uname, m_exists, m_who, m_breach, m_breach_colon, m_em_breach):
-            if m:
-                target_cand = m.group(1).strip().strip("'\"<>:;,?")
-                break
-
-        if target_cand and target_cand.lower() not in ("jarvis", "me", "you", "us", "him", "her", "them", "someone", "something"):
             from core.input_parser import parse, is_classifiable_target
-            if not is_classifiable_target(target_cand):
-                clarification_msg = f"Which target username, email, domain, or IP shall we investigate, {sal}?"
-                return True, clarification_msg, None, "clarification"
+            from core.config import get_config
+            always_confirm = bool(get_config("ALWAYS_CONFIRM_INVESTIGATIONS", False))
 
-            parsed = parse(target_cand)
-            target_sanitized = parsed.value
-            is_explicit = bool(m == m_inv)
+            if source != "voice":
+                # Typed commands require a classifiable target
+                if not target_cand or not is_classifiable_target(target_cand):
+                    clarification_msg = f"Which target username, email, domain, or IP shall we investigate, {sal}?"
+                    log_intent_decision(cleaned_text, f"investigation:{matched_phrase}", "clarification")
+                    return True, clarification_msg, None, "clarification"
+
+            if target_cand and is_classifiable_target(target_cand):
+                parsed = parse(target_cand)
+                if parsed.target_type in ("username", "name"):
+                    target_sanitized = target_cand
+                else:
+                    target_sanitized = parsed.value
+                target_type = parsed.target_type
+
+            should_open_brief = (source == "voice") or (not is_explicit) or always_confirm or (not target_sanitized)
+            outcome = "brief_modal" if should_open_brief else "immediate_run"
+
+            rule_name = f"investigation:{matched_phrase}"
+            log_intent_decision(cleaned_text, rule_name, outcome)
+
             task = self.task_manager.create_task(
                 type_=TaskType.OSINT_INVESTIGATE.value,
-                title=f"OSINT: {target_sanitized}",
-                data={"target": target_sanitized, "target_type": parsed.target_type, "query": text_strip, "is_explicit": is_explicit}
+                title=f"OSINT: {target_sanitized or 'Brief'}",
+                data={
+                    "target": target_sanitized,
+                    "target_type": target_type,
+                    "query": text_strip,
+                    "cleaned_query": cleaned_text,
+                    "is_explicit": is_explicit,
+                    "should_open_brief": should_open_brief,
+                    "outcome": outcome,
+                }
             )
-            return True, f"Initiating OSINT reconnaissance on {target_sanitized}, {sal}.", task, "osint_investigate"
+            ack = f"Initiating OSINT reconnaissance on {target_sanitized}, {sal}." if target_sanitized else f"Opening investigation brief, {sal}."
+            return True, ack, task, "osint_investigate"
 
         # ── 3. Autonomous Terminal / System Commands ──────
         cmd_candidate = None
@@ -215,7 +542,7 @@ class AgentRouter:
             cmd_candidate = m_backtick.group(1).strip()
         elif m_cmd_explicit:
             cmd_candidate = m_cmd_explicit.group(1).strip().strip('`')
-        elif m_tool and not any(kw in text_lower for kw in ["search", "youtube", "investigate", "target"]):
+        elif m_tool and not any(kw in text_lower for kw in ["search", "youtube", "investigate", "target", "profile", "account"]):
             tool_name = m_tool.group(1).strip().lower()
             rest = m_tool.group(2).strip()
             cmd_candidate = f"{tool_name} {rest}".strip()
@@ -428,6 +755,7 @@ class AgentRouter:
 
         sal = self.get_salutation()
         text_strip = (text or "").strip()
+        cleaned_text = normalize_sentence(text_strip)
 
         # Check for ask_location clarification first
         ask_loc = next((s for s in steps if s.get("action") == "ask_location"), None)
@@ -461,6 +789,7 @@ class AgentRouter:
                 title=f"Google Search: {q}",
                 data={"query": q}
             )
+            log_intent_decision(cleaned_text or text_strip, "google_search", "google_search")
             return True, f"Searching Google for '{q}'.", task, "google_search"
 
         elif action == "diagnostics":

@@ -380,6 +380,7 @@ J.A.R.V.I.S. is built for **authorized penetration testing, bug bounty programs,
 ## License
 
 This project is licensed under the [GNU General Public License v3 (GPLv3)](LICENSE).
+For third-party components, licenses, and attributions, see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ---
 

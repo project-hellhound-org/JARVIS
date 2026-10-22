@@ -750,6 +750,13 @@ class KnowledgeGraphAdapter:
                 "particles": 2,
             })
 
+        if len(preserved_nodes) + len(cluster_nodes) > max_nodes:
+            excess = (len(preserved_nodes) + len(cluster_nodes)) - max_nodes
+            if excess < len(preserved_nodes):
+                preserved_nodes = preserved_nodes[:-excess]
+            else:
+                preserved_nodes = preserved_nodes[:1]
+
         final_nodes = preserved_nodes + cluster_nodes
         valid_ids = {n["id"] for n in final_nodes}
 

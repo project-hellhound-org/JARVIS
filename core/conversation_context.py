@@ -176,6 +176,9 @@ class ConversationContextManager:
                 except Exception:
                     pass
 
+            if any(w in lower for w in ["investigate", "stalk", "recon", "trace", "run osint", "look into", "dig into"]):
+                intent = "investigate"
+
             platform_match = re.search(r'\b(twitter|x|github|linkedin|instagram|facebook|tiktok|reddit|email|domain|whois|dns)\b', lower)
             if platform_match:
                 entities["platform"] = platform_match.group(1)

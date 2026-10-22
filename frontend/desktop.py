@@ -489,11 +489,30 @@ class _StreamingPrefixFilter:
                 else:
                     self._emit_chunk(ch)
             elif self.capturing_action:
+                if self.action_buffer == '*':
+                    if ch == '*':
+                        # Markdown bold '**'
+                        self.capturing_action = False
+                        self.action_buffer = ""
+                        self._emit_chunk('**')
+                        continue
+                    elif ch in (' ', '\t', '\n'):
+                        # Markdown bullet '* ' or trailing asterisk before newline
+                        self.capturing_action = False
+                        self.action_buffer = ""
+                        self._emit_chunk('*' + ch)
+                        continue
                 self.action_buffer += ch
                 if ch == '*':
                     self.capturing_action = False
-                    # Action *...* (*grins*, *cracks knuckles*, etc.) is discarded completely!
-                    self.action_buffer = ""
+                    inner = self.action_buffer.strip('*').strip().lower()
+                    if any(w in inner for w in ("chuckle", "grin", "smirk", "laugh", "sigh", "knuckle", "lean", "crack", "wink", "shrug", "nod", "cough", "whisper", "pause")):
+                        # Action *...* (*grins*, *cracks knuckles*, etc.) is discarded completely!
+                        self.action_buffer = ""
+                    else:
+                        # Markdown emphasis (*word*) preserved
+                        self._emit_chunk(self.action_buffer, force=True)
+                        self.action_buffer = ""
                 elif len(self.action_buffer) > 100 or ch == '\n':
                     # Overflow: not a short stage direction
                     self.capturing_action = False
@@ -993,6 +1012,7 @@ class JarvisAPI:
         self._tts_playback_until = 0.0
         self._tts_turn_lock = threading.Lock()
         self._speak_lock = threading.Lock()
+        self._emit_lock = threading.Lock()
         self._tts_turn_id = 0
         self._turn_playback_events = {}
         self._turn_events_lock = threading.Lock()
@@ -1157,13 +1177,13 @@ class JarvisAPI:
         self._emit("jarvis_vad_speech_end", {})
 
     def _get_orchestrator(self):
-        if self._orch is None:
+        if getattr(self, "_orch", None) is None:
             from core.orchestrator import Orchestrator
             self._orch = Orchestrator(
-                on_status=self._on_status,
-                on_find=self._on_find,
-                on_done=lambda t: self._on_done(t, aborted=False),
-                lessons_store=self._lessons_store,
+                on_status=getattr(self, "_on_status", None),
+                on_find=getattr(self, "_on_find", None),
+                on_done=lambda t: getattr(self, "_on_done", lambda *a, **k: None)(t, aborted=False),
+                lessons_store=getattr(self, "_lessons_store", None),
             )
         return self._orch
 
@@ -1179,6 +1199,13 @@ class JarvisAPI:
             get_system_commander().set_debrief_callback(self._on_command_debrief)
         except Exception as e:
             print(f"[desktop] SystemCommander debrief hook error: {e}")
+        try:
+            from core.investigation_gate import register_handler
+            register_handler(self.request_investigation)
+            global _active_api_instance
+            _active_api_instance = self
+        except Exception as e:
+            print(f"[desktop] Notice registering investigation gate: {e}")
 
     def process_input(self, text: str, submit_time: Optional[float] = None, source: str = "typed"):
         if submit_time is not None:
@@ -1873,10 +1900,14 @@ class JarvisAPI:
                     )
                     self._run_ask(sat_prompt)
                     return
-            # Fast-path check: OSINT investigation fast-paths and ambiguous clarification
+            # Fast-path check: OSINT investigation directives routed through central gate
+            gate_res = self.request_investigation(text, source=source, via="fast_path")
+            if gate_res.get("handled"):
+                return
+
             from core.agent_router import AgentRouter
             router = AgentRouter()
-            is_fp, fp_ack, fp_task, fp_cat = router.route_fast_path(text)
+            is_fp, fp_ack, fp_task, fp_cat = router.route_fast_path(text, source=source)
             if is_fp:
                 if fp_cat == "clarification":
                     self._emit("jarvis_stream_chunk", {"chunk": fp_ack})
@@ -1884,35 +1915,11 @@ class JarvisAPI:
                     self._speak_and_suppress_echo(fp_ack)
                     self._start_follow_up_window()
                     return
-                elif fp_cat == "osint_investigate" and fp_task:
-                    target_str = fp_task.data.get("target")
-                    target_type = fp_task.data.get("target_type", "username")
-                    is_explicit = fp_task.data.get("is_explicit", False)
-
-                    from core.config import get_config
-                    always_confirm = bool(get_config("ALWAYS_CONFIRM_INVESTIGATIONS", False))
-
-                    should_open_brief = (source == "voice") or (not is_explicit) or always_confirm
-                    if should_open_brief:
-                        print(f"[desktop] Opening investigation brief modal for target '{target_str}' (source={source}, explicit={is_explicit}, always_confirm={always_confirm})")
-                        session_res = self.create_staging_session()
-                        session_id = session_res.get("session_id", "")
-                        self._emit("open_investigation_brief", {
-                            "target": target_str,
-                            "target_type": target_type,
-                            "transcript": text if source == "voice" else "",
-                            "source": source,
-                            "session_id": session_id,
-                        })
+                elif fp_cat == "osint_investigate":
+                    # Safety fallback via central gate
+                    gate_res2 = self.request_investigation(text, source=source, via="fast_path")
+                    if gate_res2.get("handled"):
                         return
-
-                    self._emit("scan_status", {
-                        "message": f"Autonomous OSINT reconnaissance initiated — Target: {target_str}",
-                        "target": target_str,
-                        "is_investigation": True
-                    })
-                    self._run_stalk(target_str, None, task_id=fp_task.task_id)
-                    return
 
             # 1. Zero-LLM Fast-Path check: system agency controls, volume, media, app launching, mute, terminal, task surface, rules, salutation
             if hasattr(self._voice, 'skills') and self._voice.skills:
@@ -1941,6 +1948,10 @@ class JarvisAPI:
                             self._emit("jarvis_answer", {"text": msg, "mode": "advisor"})
                             self._speak_and_suppress_echo(msg)
                             self._start_follow_up_window()
+                            return
+
+                        # OSINT investigation handled via gate
+                        if payload.get("action_type") == "OSINT_INVESTIGATE":
                             return
 
                         # Custom Rule & Phrase Memory Storage or Direct router responses
@@ -2004,27 +2015,9 @@ class JarvisAPI:
                 # Investigation intent detected from natural language, clarification, or follow-up
                 if intent_name == "investigate" and entities.get("target"):
                     target_str = entities["target"]
-                    from core.config import get_config
-                    always_confirm = bool(get_config("ALWAYS_CONFIRM_INVESTIGATIONS", False))
-                    should_open_brief = (source == "voice") or (cls_type != "explicit_command") or always_confirm
-                    if should_open_brief:
-                        session_res = self.create_staging_session()
-                        session_id = session_res.get("session_id", "")
-                        self._emit("open_investigation_brief", {
-                            "target": target_str,
-                            "target_type": "username",
-                            "transcript": text if source == "voice" else "",
-                            "source": source,
-                            "session_id": session_id,
-                        })
+                    gate_res = self.request_investigation(target_str, source=source, via="context_manager")
+                    if gate_res.get("handled"):
                         return
-                    self._emit("scan_status", {
-                        "message": f"AI identified investigation task from context — Target: {target_str}",
-                        "target": target_str,
-                        "is_investigation": True
-                    })
-                    self._run_stalk(target_str, None)
-                    return
 
                 # Tactical Target Lock dispatch
                 if intent_name == "target_lock":
@@ -2059,6 +2052,8 @@ class JarvisAPI:
             )
             if is_covo_intent or JarvisCognitiveLoop.is_conversational_query(eff_text):
                 print(f"[TIMING] Intent classified: +{(time.time() - t0)*1000.0:.1f}ms (conversational bypass)")
+                from core.agent_router import log_intent_decision
+                log_intent_decision(eff_text, "conversational_query", "conversation")
                 self._run_ask(eff_text, t0=t0)
                 return
 
@@ -2114,27 +2109,255 @@ class JarvisAPI:
             print(f"[desktop] AI Intent decision: {intent}")
             if intent["type"] == "investigate" and intent.get("target"):
                 target_str = intent["target"]
-                session_res = self.create_staging_session()
-                session_id = session_res.get("session_id", "")
-                self._emit("open_investigation_brief", {
-                    "target": target_str,
-                    "target_type": intent.get("target_type", "username"),
-                    "transcript": text if source == "voice" else "",
-                    "narrative": eff_text if _CONTEXT_SIGNALS.search(eff_text) else "",
-                    "source": source,
-                    "session_id": session_id,
-                })
-                return
+                gate_res = self.request_investigation(
+                    target_str,
+                    source=source,
+                    target_type=intent.get("target_type", "username"),
+                    via="intent_classifier"
+                )
+                if gate_res.get("handled"):
+                    return
             else:
+                from core.agent_router import log_intent_decision
+                log_intent_decision(eff_text, "conversational_ask", "conversation")
                 self._run_ask(eff_text, t0=t0)
         except Exception as e:
             print(f"[desktop] Error processing input: {e}")
             self._emit("error", {"message": f"System error: {str(e)}"})
 
+    def request_investigation(
+        self,
+        text_or_target: str,
+        source: str = "typed",
+        target_type: Optional[str] = None,
+        brief: Optional[Any] = None,
+        extra_data: Optional[Dict[str, Any]] = None,
+        via: str = "direct"
+    ) -> Dict[str, Any]:
+        """
+        The single central gate for all investigation requests.
+        Evaluates origin, natural language markers, ambiguity, and confirmation settings.
+        Decides:
+          - Open brief modal (voice, natural language, unclassifiable target, or always_confirm)
+          - Immediate run (explicit typed command with setting false and confident classification)
+          - Clarification (typed empty/ambiguous directive)
+        Logs decision to data/intent_decisions.log.
+        Returns:
+          {"handled": True, "action": "brief_modal" | "started" | "clarify", "target": str, ...}
+        """
+        raw_text = str(text_or_target or "").strip()
+        from core.agent_router import (
+            normalize_sentence,
+            extract_investigation_intent,
+            _clean_target_str,
+            log_intent_decision,
+            INVESTIGATION_PHRASES,
+            CONVERSATIONAL_INVESTIGATION_PATTERNS,
+            EXCLUSION_PATTERNS,
+        )
+        from core.input_parser import parse, is_classifiable_target
+        from core.config import get_config
+
+        # 1. Conversational negative pattern check
+        for pat in CONVERSATIONAL_INVESTIGATION_PATTERNS:
+            if pat.search(raw_text):
+                return {"handled": False, "action": "ignored", "reason": "conversational_negative"}
+
+        # 2. General exclusion pattern check
+        for pat in EXCLUSION_PATTERNS:
+            if pat.search(raw_text):
+                return {"handled": False, "action": "ignored", "reason": "general_exclusion"}
+
+        cleaned_text = normalize_sentence(raw_text)
+        inv = extract_investigation_intent(cleaned_text, raw_text=raw_text)
+
+        sal = "Sir"
+        if hasattr(self, "_voice") and self._voice and hasattr(self._voice, "memory"):
+            try:
+                sal = self._voice.memory.get_salutation() or "Sir"
+            except Exception:
+                pass
+
+        always_confirm = bool(get_config("ALWAYS_CONFIRM_INVESTIGATIONS", False))
+        is_voice = (source == "voice")
+
+        # 3. Voice Safety Net (Amendment 4):
+        # If an investigation verb from the documented list appears anywhere in a voice-origin
+        # sentence, the gate must open the brief modal with the best-effort target and never fall through.
+        has_voice_inv_verb = False
+        matched_verb = ""
+        if is_voice:
+            raw_lower = raw_text.lower()
+            sorted_phrases = sorted(INVESTIGATION_PHRASES, key=len, reverse=True)
+            for phrase in sorted_phrases:
+                if re.search(r'\b' + re.escape(phrase) + r'\b', raw_lower):
+                    has_voice_inv_verb = True
+                    matched_verb = phrase
+                    break
+
+        if inv is not None:
+            target_str = inv["target"]
+            is_explicit = inv["is_explicit"]
+            matched_phrase = inv["matched_phrase"]
+            matched_rule = f"investigation:{matched_phrase}"
+        elif has_voice_inv_verb:
+            raw_lower = raw_text.lower()
+            m = re.search(r'\b' + re.escape(matched_verb) + r'\b', raw_lower)
+            raw_after = raw_text[m.end():].strip() if m else ""
+            target_str = _clean_target_str(raw_after) or raw_after
+            is_explicit = False
+            matched_phrase = matched_verb
+            matched_rule = f"investigation:{matched_phrase}"
+        elif via in ("api_investigate", "direct_target", "skill", "cognitive", "context_manager", "intent_classifier"):
+            target_str = _clean_target_str(raw_text)
+            is_explicit = True
+            matched_rule = f"investigation:{via}"
+        else:
+            # Not an investigation intent
+            return {"handled": False, "action": "ignored", "reason": "not_an_investigation"}
+
+        is_classifiable = bool(target_str and is_classifiable_target(target_str))
+        nl_markers = bool(re.search(r'\b(?:this|that|him|her|them|someone|who|check|please|actually|need\s+you\s+to|want\s+you\s+to|dig\s+into|look\s+into|run\s+osint|find\s+out|user\s+called|guy\s+named)\b', raw_text, re.IGNORECASE))
+        is_natural = (not is_explicit) or nl_markers or (len(raw_text.split()) > 3 and not raw_text.lower().startswith("investigate "))
+
+        # Target classification & sanitization
+        resolved_type = target_type or "username"
+        sanitized_target = target_str
+        if target_str and is_classifiable:
+            parsed = parse(target_str)
+            if parsed.target_type not in ("username", "name"):
+                sanitized_target = parsed.value
+            resolved_type = parsed.target_type
+
+        # Check if typed input is completely empty of any target
+        if not is_voice and not target_str and is_explicit:
+            clarification_msg = f"Which target username, email, domain, or IP shall we investigate, {sal}?"
+            log_intent_decision(cleaned_text or raw_text, matched_rule, "clarification")
+            self._emit("jarvis_stream_chunk", {"chunk": clarification_msg})
+            self._emit("jarvis_answer", {"text": clarification_msg, "mode": "advisor"})
+            self._speak_and_suppress_echo(clarification_msg)
+            self._start_follow_up_window()
+            self._emit("show_thinking", {"state": False})
+            return {"handled": True, "action": "clarify", "target": "", "message": clarification_msg}
+
+        should_open_brief = (
+            is_voice
+            or is_natural
+            or always_confirm
+            or (not is_classifiable)
+            or (not target_str)
+        )
+
+        if should_open_brief:
+            outcome = "brief_modal"
+            log_intent_decision(cleaned_text or raw_text, matched_rule, outcome)
+            session_res = self.create_staging_session()
+            session_id = session_res.get("session_id", "")
+            from core.voice_variants import suggest_identifier_variants
+            suggestions = []
+            if target_str:
+                suggestions = suggest_identifier_variants(target_str, resolved_type)
+            if not suggestions and is_voice and raw_text:
+                suggestions = suggest_identifier_variants(raw_text, resolved_type)
+
+            brief_payload = {
+                "target": sanitized_target or target_str,
+                "target_type": resolved_type,
+                "transcript": raw_text if is_voice else "",
+                "heard": raw_text,
+                "best_guess": sanitized_target or target_str,
+                "suggestions": suggestions,
+                "source": source,
+                "session_id": session_id,
+                "narrative": raw_text if (is_natural and len(raw_text.split()) > 4) else "",
+            }
+            if extra_data:
+                brief_payload.update(extra_data)
+            self._emit("open_investigation_brief", brief_payload)
+            self._emit("show_thinking", {"state": False})
+            return {"handled": True, "action": "brief_modal", "target": sanitized_target or target_str, "payload": brief_payload}
+        else:
+            outcome = "immediate_run"
+            log_intent_decision(cleaned_text or raw_text, matched_rule, outcome)
+            start_res = self.start_investigation(
+                target=sanitized_target or target_str,
+                brief=brief,
+                switch_to_cold_room=True
+            )
+            return {"handled": True, "action": "started", "target": sanitized_target or target_str, "start_result": start_res}
+
+    def start_investigation(
+        self,
+        target: str,
+        brief: Optional[CaseBrief] = None,
+        task_id: Optional[str] = None,
+        switch_to_cold_room: bool = True,
+        target_obj: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """
+        The single designated start function for all OSINT investigations.
+        Creates the task, manages Cold Room navigation according to configuration
+        and switch_to_cold_room flag, and launches _run_stalk.
+        """
+        target_str = str(target or "").strip()
+        if target_obj is not None:
+            self._target = target_obj
+        elif not getattr(self, "_target", None) or getattr(self._target, "primary", None) != target_str:
+            try:
+                from core.target_model import Target
+                from core.input_parser import parse
+                parsed = parse(target_str)
+                self._target = Target(primary=parsed.value or target_str, target_type=parsed.target_type or "username")
+                self._target.save()
+            except Exception as ex:
+                print(f"[desktop] Warning initializing Target for {target_str}: {ex}")
+
+        if not task_id:
+            try:
+                from core.task_manager import get_task_manager
+                from core.task import TaskType
+                tm = get_task_manager()
+                task_inst = tm.create_task(
+                    type_=TaskType.OSINT_INVESTIGATE.value,
+                    title=f"OSINT: {target_str}",
+                    data={"target": target_str}
+                )
+                task_id = task_inst.task_id
+            except Exception as ex:
+                print(f"[desktop] Warning creating OSINT task: {ex}")
+
+        from core.config import get_config
+        auto_open = bool(get_config("AUTO_OPEN_COLD_ROOM", True))
+        should_glide = auto_open and bool(switch_to_cold_room)
+
+        self._emit("scan_status", {
+            "message": f"Autonomous OSINT reconnaissance initiated — Target: {target_str}",
+            "target": target_str,
+            "is_investigation": True,
+            "reset_auto_nav": True,
+            "auto_open_cold_room": should_glide,
+        })
+        if should_glide:
+            self._emit("glide_to_coldroom", {})
+
+        threading.Thread(
+            target=self._run_stalk,
+            args=(target_str, brief, task_id),
+            daemon=True
+        ).start()
+
+        return {
+            "handled": True,
+            "action": "started",
+            "target": target_str,
+            "task_id": task_id,
+            "cold_room_navigated": should_glide,
+        }
+
     def investigate(self, target: str):
         print(f"\n[desktop] Starting investigation: {target}")
         self._memory.add("user", f"investigate {target}")
-        threading.Thread(target=self._run_stalk, args=(target, None), daemon=True).start()
+        return self.request_investigation(target, source="typed", via="api_investigate")
 
     stalk = investigate
 
@@ -2179,7 +2402,30 @@ class JarvisAPI:
         target_data = dict(target_data or {})
         session_res = self.create_staging_session()
         target_data["session_id"] = session_res.get("session_id", "")
+        if target_data.get("source") == "voice" and "suggestions" not in target_data:
+            from core.voice_variants import suggest_identifier_variants
+            heard = target_data.get("heard") or target_data.get("transcript") or ""
+            target_str = target_data.get("target") or target_data.get("best_guess") or heard
+            target_type = target_data.get("target_type") or "username"
+            sugg = suggest_identifier_variants(heard, target_type) if heard else []
+            if not sugg and target_str:
+                sugg = suggest_identifier_variants(target_str, target_type)
+            target_data["suggestions"] = sugg
+            if "best_guess" not in target_data:
+                target_data["best_guess"] = target_data.get("target", "")
+            if "heard" not in target_data:
+                target_data["heard"] = target_data.get("transcript") or ""
         self._emit("open_investigation_brief", target_data)
+
+    def suggest_variants(self, text: str, id_type: str = "username") -> List[Dict[str, str]]:
+        """
+        Returns at most 8 deterministic suggestion variants for an identifier.
+        Enforces a length limit (120 chars) on input.
+        """
+        if not isinstance(text, str) or len(text) > 120:
+            return []
+        from core.voice_variants import suggest_identifier_variants
+        return suggest_identifier_variants(text, id_type)
 
     def load_case(self, target: str):
         self.resume(target)
@@ -2286,21 +2532,14 @@ class JarvisAPI:
         target.save()
         self._target = target
 
-        # 8. Dispatch investigation pipeline
+        # 8. Dispatch investigation pipeline via single start function
         brief_obj = CaseBrief(raw_text=narrative, hints=grounded_hints) if narrative or grounded_hints else None
-        self._emit("scan_status", {
-            "message": f"Autonomous OSINT reconnaissance initiated — Target: {primary_val}",
-            "target": primary_val,
-            "is_investigation": True
-        })
-        if switch_to_cold_room:
-            self._emit("glide_to_coldroom", {})
-
-        threading.Thread(
-            target=self._run_stalk,
-            args=(primary_val, brief_obj),
-            daemon=True
-        ).start()
+        self.start_investigation(
+            target=primary_val,
+            brief=brief_obj,
+            switch_to_cold_room=switch_to_cold_room,
+            target_obj=target
+        )
 
         return {"success": True, "slug": slug}
 
@@ -3544,45 +3783,6 @@ class JarvisAPI:
             if abs_path.exists():
                 url = abs_path.as_uri()
         webbrowser.open(url)
-
-    def _run_smart_stalk(self, text: str):
-        # Deterministic check for target extraction
-        match = re.match(r"^(investigate|stalk|pivot)\s+(\S+)", text, re.IGNORECASE)
-        if match and match.group(2).lower() not in ("again", "them", "him", "her", "it", "to", "the", "me"):
-            target_str = match.group(2)
-        else:
-            target_str = self._voice.extract_target(text, self._target)
-
-        if not target_str or target_str.lower() == "none":
-            self._emit("error", {"message": "Who do you want me to look into? I need a clear target."})
-            return
-
-        self._emit("scan_status", {"message": f"Target locked: {target_str}", "target": target_str, "is_investigation": True})
-
-        # Extract brief from context beyond the target
-        # If the user typed "investigate johndoe — they worked at Acme Corp"
-        # strip the command and target, use the rest as brief
-        brief = None
-        remainder = text
-        # Remove command prefix
-        for prefix in ["investigate ", "stalk ", "pivot "]:
-            if remainder.lower().startswith(prefix):
-                remainder = remainder[len(prefix):]
-                break
-        # Remove the target string itself
-        remainder = remainder.replace(target_str, "", 1).strip()
-        # Strip common separators
-        remainder = re.sub(r"^[\-—–,;:]+\s*", "", remainder).strip()
-
-        if remainder and _CONTEXT_SIGNALS.search(remainder):
-            self._emit("scan_status", {"message": "Parsing case brief from your context...", "target": target_str, "is_investigation": True})
-            brief = parse_brief_with_slm(remainder)
-            if brief.hints:
-                hints_summary = ", ".join(brief.hints.keys())
-                self._emit("scan_status", {"message": f"Brief extracted: {hints_summary}", "target": target_str, "is_investigation": True})
-
-        self._emit("scan_status", {"message": "Spinning up background engines...", "target": target_str, "is_investigation": True})
-        self._run_stalk(target_str, brief)
 
     def _run_stalk(self, target: str, brief: CaseBrief = None, task_id: str = None):
         if not task_id:
@@ -5600,18 +5800,19 @@ class JarvisAPI:
 
     def _emit(self, event: str, data: dict):
         if self._window:
-            try:
-                def _json_default(obj):
-                    if hasattr(obj, "to_dict"):
-                        return obj.to_dict()
-                    if hasattr(obj, "__dict__"):
-                        return obj.__dict__
-                    return str(obj)
-                json_str = json.dumps(data, default=_json_default)
-                js_code = f"(window.jarvis || window.joe) && (window.jarvis || window.joe).receive && (window.jarvis || window.joe).receive('{event}', {json_str})"
-                self._window.evaluate_js(js_code)
-            except Exception as e:
-                print(f"[desktop] JS evaluate error for {event}: {e}")
+            with getattr(self, '_emit_lock', threading.Lock()):
+                try:
+                    def _json_default(obj):
+                        if hasattr(obj, "to_dict"):
+                            return obj.to_dict()
+                        if hasattr(obj, "__dict__"):
+                            return obj.__dict__
+                        return str(obj)
+                    json_str = json.dumps(data, default=_json_default)
+                    js_code = f"(window.jarvis || window.joe) && (window.jarvis || window.joe).receive && (window.jarvis || window.joe).receive('{event}', {json_str})"
+                    self._window.evaluate_js(js_code)
+                except Exception as e:
+                    print(f"[desktop] JS evaluate error for {event}: {e}")
 
 
 
@@ -6277,6 +6478,24 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
             shutil.rmtree(staging_dir, ignore_errors=True)
         return json.dumps({"success": True})
 
+    @app.route('/api/suggest_variants', method=['POST', 'OPTIONS'])
+    def _bottle_suggest_variants():
+        if not _validate_local_origin_and_host(bottle.request):
+            return bottle.HTTPResponse(json.dumps({"error": "Forbidden - local access only"}), status=403, headers={'Content-Type': 'application/json'})
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        bottle.response.content_type = 'application/json'
+        try:
+            data = bottle.request.json or {}
+            text = str(data.get("text", ""))
+            id_type = str(data.get("id_type", "username"))
+            if len(text) > 120:
+                return json.dumps([])
+            from core.voice_variants import suggest_identifier_variants
+            return json.dumps(suggest_identifier_variants(text, id_type))
+        except Exception:
+            return json.dumps([])
+
     @app.route('/api/cases/<slug>/uploads', method=['POST', 'OPTIONS'])
     def _bottle_case_uploads(slug):
         if not _validate_local_origin_and_host(bottle.request):
@@ -6726,6 +6945,31 @@ class JarvisDesktop:
                 pass
             print("[desktop] J.A.R.V.I.S. process exited cleanly.")
             os._exit(0)
+
+
+_active_api_instance: Optional[JarvisAPI] = None
+
+
+def get_active_api() -> Optional[JarvisAPI]:
+    global _active_api_instance
+    return _active_api_instance
+
+
+def request_investigation(text_or_target: str, source: str = "typed", **kwargs) -> Dict[str, Any]:
+    api = get_active_api()
+    if api is not None:
+        return api.request_investigation(text_or_target, source=source, **kwargs)
+    temp_api = JarvisAPI(None)
+    return temp_api.request_investigation(text_or_target, source=source, **kwargs)
+
+
+def start_investigation(target: str, **kwargs) -> Dict[str, Any]:
+    api = get_active_api()
+    if api is not None:
+        return api.start_investigation(target, **kwargs)
+    temp_api = JarvisAPI(None)
+    return temp_api.start_investigation(target, **kwargs)
+
 
 
 

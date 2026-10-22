@@ -1080,6 +1080,7 @@
   .msg-answer strong { color: #ffffff; font-weight: 700; text-shadow: 0 0 1px rgba(255,255,255,0.4); }
   .msg-answer em { color: #fcd34d; font-style: italic; }
   .msg-answer ol, .msg-answer ul { margin: 10px 0 14px 22px; padding: 0; }
+  .msg-answer li > ol, .msg-answer li > ul { margin: 6px 0 6px 20px; }
   .msg-answer ol { list-style-type: decimal; }
   .msg-answer ul { list-style-type: disc; }
   .msg-answer li { margin-bottom: 8px; line-height: 1.68; color: #f4f4f5; }
@@ -4395,13 +4396,39 @@ select:focus,
   filter: contrast(1.45) saturate(1.7) hue-rotate(-20deg) brightness(1.05);
 }
 
-/* Orbital Reconnaissance Aperture Lens Vignette (Image 5 God's Eye Parity) */
+/* ─── Screen Frame Vignette Overlay (Scope / Soft / Off) ─────────────── */
+/* Adapted from God's Eye View (https://github.com/bilawalsidhu/gods-eye-view), MIT Copyright (c) 2026 Bilawal Sidhu */
 #orbital-space-aperture {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 3;
-  background: radial-gradient(ellipse 96% 90% at 50% 50%, transparent 68%, rgba(2, 6, 16, 0.45) 84%, rgba(0, 1, 4, 0.95) 100%);
+  --scope-radius: 0px;
+  --scope-r-inner: 0px;
+  --scope-r-outer: 0px;
+  --scope-alpha: 0.94;
+  --scope-color: 5, 5, 8;
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 0px,
+    transparent var(--scope-r-inner),
+    rgba(var(--scope-color), var(--scope-alpha)) var(--scope-r-outer),
+    rgba(var(--scope-color), var(--scope-alpha)) 100%
+  );
+  transition: opacity 0.2s ease;
+}
+
+#orbital-space-aperture.frame-soft {
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 0%,
+    transparent 70%,
+    rgba(var(--scope-color), 0.55) 100%
+  );
+}
+
+#orbital-space-aperture.frame-off {
+  display: none !important;
 }
 /* ── Full-globe Celestial Sun & Moon Keyhole Ring (God's Eye) ─────── */
 .celestial-ring-overlay {
@@ -6631,6 +6658,32 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
             Unlocks sub-100ms ultra-fast Groq LPU inference (LLaMA 3.3 70B & Whisper). Free at
             <a href="https://console.groq.com/keys" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">console.groq.com/keys ↗</a>.
           </div>
+
+          <!-- Screen Frame Vignette -->
+          <div class="settings-row" style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.06); padding-top:12px;">
+            <label>Screen Frame</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <select id="cfg-screen-frame" onchange="window.setScreenFrameMode(this.value)" style="flex:1; background:#08090A; border:1px solid rgba(255,255,255,0.08); border-radius:4px; color:#E6E6E6; padding:6px 8px; font-family:var(--mono); font-size:12px; outline:none;">
+                <option value="scope" selected>Scope (Keyhole Aperture)</option>
+                <option value="soft">Soft (Atmospheric Falloff)</option>
+                <option value="off">Off (Full Frame)</option>
+              </select>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Vignette overlay for World Telemetry: Scope provides altitude-adaptive optical masking; Soft provides gentle border fade; Off disables the overlay.
+          </div>
+
+          <!-- Reset Look to Default -->
+          <div class="settings-row" style="margin-top:8px;">
+            <label>Telemetry Appearance</label>
+            <button type="button" id="btn-reset-globe-look" onclick="window.resetWorldTelemetryLook()" style="padding:6px 12px; background:rgba(0,240,255,0.1); border:1px solid rgba(0,240,255,0.3); border-radius:4px; color:#00F0FF; font-family:var(--mono); font-size:11px; font-weight:700; cursor:pointer; transition:all 0.2s ease;">
+              Reset Look to Default
+            </button>
+          </div>
+          <div class="settings-hint">
+            Restores baseline photorealistic color grading (sat 1.35, cont 1.15, bri 1.05, gam 0.95, sharpen 1.08) and resets Screen Frame to Scope.
+          </div>
         </div>
       </div>
 
@@ -6912,7 +6965,7 @@ function renderMarkdownSafe(raw) {
     const safeLang = typeof escapeHtml === 'function' ? escapeHtml(lang || 'text') : (lang || 'text');
     const safeCode = typeof escapeHtml === 'function' ? escapeHtml(code.trim()) : code.trim();
     codeBlocks.push(`<pre><code class="language-${safeLang}">${safeCode}</code></pre>`);
-    return `__CODE_BLOCK_${idx}__`;
+    return `\n\x00CODE_BLOCK_${idx}\x00\n`;
   });
 
   // Preserve inline code spans
@@ -6921,7 +6974,7 @@ function renderMarkdownSafe(raw) {
     const idx = inlineCodes.length;
     const safeCode = typeof escapeHtml === 'function' ? escapeHtml(code) : code;
     inlineCodes.push(`<code>${safeCode}</code>`);
-    return `__INLINE_CODE_${idx}__`;
+    return `\x00INLINE_CODE_${idx}\x00`;
   });
 
   // Escape HTML in general text
@@ -6931,77 +6984,164 @@ function renderMarkdownSafe(raw) {
     text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  // Headers (H1 - H4)
-  text = text.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
-  text = text.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-  text = text.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-  text = text.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  // Inline formatting helper
+  function formatInlines(s) {
+    // Bold + Italic
+    s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    // Bold
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    // Italic (word boundary / non-space delimiters)
+    s = s.replace(/(^|[^\w*])\*([^\s*][^*]*?[^\s*]|[^\s*])\*(?=[^\w*]|$)/g, '$1<em>$2</em>');
+    s = s.replace(/(^|[^\w_])_([^\s_][^_]*?[^\s_]|[^\s_])_(?=[^\w_]|$)/g, '$1<em>$2</em>');
+    // Links [text](url)
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    return s;
+  }
 
-  // Bold & Italic combinations
-  text = text.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  text = text.replace(/__(.*?)__/g, '<strong>$1</strong>');
-  text = text.replace(/\*([^\*\n]+)\*/g, '<em>$1</em>');
-  text = text.replace(/\b_([^_\n]+)_\b/g, '<em>$1</em>');
+  // Parse markdown lines directly into HTML blocks
+  const lines = text.split(/\r?\n/);
+  const out = [];
+  let inUl = false;
+  let inOl = false;
+  let inQuote = false;
+  let paraBuf = [];
 
-  // Blockquotes
-  text = text.replace(/^>\s*(.*$)/gim, '<blockquote>$1</blockquote>');
-
-  // Horizontal rules
-  text = text.replace(/^(?:---|\*\*\*|___)$/gim, '<hr/>');
-
-  // Markdown links [label](url)
-  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-
-  // Normalize inline numbered lists if AI outputs "1. **Title:** ... 2. **Title:** ..."
-  text = text.replace(/(\s+)(\d+\.\s+\<strong\>)/g, '\n$2');
-
-  // Parse Ordered Lists
-  text = text.replace(/(?:(?:^|\n)\d+\.\s+[^\n]+(?:\n\d+\.\s+[^\n]+)*)/g, (match) => {
-    const items = match.trim().split(/\n/).map(line => {
-      const clean = line.replace(/^\d+\.\s+/, '');
-      return `<li>${clean}</li>`;
-    }).join('');
-    return `\n<ol>${items}</ol>\n`;
-  });
-
-  // Parse Unordered Lists
-  text = text.replace(/(?:(?:^|\n)[\*\-]\s+[^\n]+(?:\n[\*\-]\s+[^\n]+)*)/g, (match) => {
-    const items = match.trim().split(/\n/).map(line => {
-      const clean = line.replace(/^[\*\-]\s+/, '');
-      return `<li>${clean}</li>`;
-    }).join('');
-    return `\n<ul>${items}</ul>\n`;
-  });
-
-  // Paragraphs and line breaks
-  const paragraphs = text.split(/\n{2,}/).map(para => {
-    const trimmed = para.trim();
-    if (!trimmed) return '';
-    if (trimmed.startsWith('<ol>') || trimmed.startsWith('<ul>') || trimmed.startsWith('<pre>') ||
-        trimmed.startsWith('<h3>') || trimmed.startsWith('<h2>') || trimmed.startsWith('<h1>') ||
-        trimmed.startsWith('<h4>') || trimmed.startsWith('<blockquote>')) {
-      return trimmed;
+  function flushPara() {
+    if (paraBuf.length > 0) {
+      out.push('<p>' + paraBuf.map(formatInlines).join('<br/>') + '</p>');
+      paraBuf = [];
     }
-    return `<p>${trimmed.replace(/\n/g, '<br/>')}</p>`;
-  });
+  }
 
-  text = paragraphs.filter(Boolean).join('\n');
+  function closeLists() {
+    if (inUl) { out.push('</ul>'); inUl = false; }
+    if (inOl) { out.push('</ol>'); inOl = false; }
+  }
 
-  // Restore inline code
-  text = text.replace(/__INLINE_CODE_(\d+)__/g, (m, idx) => inlineCodes[Number(idx)] || '');
+  function closeQuote() {
+    if (inQuote) { out.push('</blockquote>'); inQuote = false; }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Check for code block placeholders
+    const cbMatch = trimmed.match(/^\x00CODE_BLOCK_(\d+)\x00$/);
+    if (cbMatch) {
+      flushPara();
+      closeLists();
+      closeQuote();
+      out.push(cbMatch[0]);
+      continue;
+    }
+
+    // Blank line
+    if (!trimmed) {
+      flushPara();
+      closeLists();
+      closeQuote();
+      continue;
+    }
+
+    // Blockquote
+    const quoteMatch = line.match(/^>\s*(.*)$/);
+    if (quoteMatch) {
+      flushPara();
+      closeLists();
+      if (!inQuote) { out.push('<blockquote>'); inQuote = true; }
+      out.push('<p>' + formatInlines(quoteMatch[1]) + '</p>');
+      continue;
+    } else {
+      closeQuote();
+    }
+
+    // Horizontal Rule
+    if (/^(?:---|\*\*\*|___)$/.test(trimmed)) {
+      flushPara();
+      closeLists();
+      out.push('<hr/>');
+      continue;
+    }
+
+    // Headers
+    const hMatch = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (hMatch) {
+      flushPara();
+      closeLists();
+      const level = hMatch[1].length;
+      out.push(`<h${level}>${formatInlines(hMatch[2])}</h${level}>`);
+      continue;
+    }
+
+    // Ordered List: e.g. "1. Item"
+    const olMatch = line.match(/^(\s*)\d+\.\s+(.+)$/);
+    if (olMatch) {
+      flushPara();
+      if (inUl) { out.push('</ul>'); inUl = false; }
+      if (!inOl) { out.push('<ol>'); inOl = true; }
+      out.push(`<li>${formatInlines(olMatch[2])}</li>`);
+      continue;
+    }
+
+    // Unordered List: e.g. "* Item", "- Item"
+    const ulMatch = line.match(/^(\s*)[\*\-]\s+(.+)$/);
+    if (ulMatch) {
+      flushPara();
+      if (inOl) { out.push('</ol>'); inOl = false; }
+      if (!inUl) { out.push('<ul>'); inUl = true; }
+      out.push(`<li>${formatInlines(ulMatch[2])}</li>`);
+      continue;
+    }
+
+    // Indented continuation of list item
+    if ((inUl || inOl) && /^\s{2,}\S/.test(line)) {
+      if (out.length > 0 && out[out.length - 1].endsWith('</li>')) {
+        const last = out.pop();
+        out.push(last.slice(0, -5) + ' ' + formatInlines(trimmed) + '</li>');
+        continue;
+      }
+    }
+
+    // Normal paragraph text
+    closeLists();
+    paraBuf.push(trimmed);
+  }
+
+  flushPara();
+  closeLists();
+  closeQuote();
+
+  let result = out.join('\n');
+
+  // Restore inline codes
+  result = result.replace(/\x00INLINE_CODE_(\d+)\x00/g, (m, idx) => inlineCodes[Number(idx)] || '');
 
   // Restore code blocks
-  text = text.replace(/__CODE_BLOCK_(\d+)__/g, (m, idx) => codeBlocks[Number(idx)] || '');
+  result = result.replace(/\x00CODE_BLOCK_(\d+)\x00/g, (m, idx) => codeBlocks[Number(idx)] || '');
 
-  return text;
+  return result;
 }
 window.renderMarkdownSafe = renderMarkdownSafe;
+
+function renderMarkdown(md) {
+  if (!md) return '';
+  if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+    try {
+      return marked.parse(md);
+    } catch (e) {
+      console.warn('[renderMarkdown] marked.parse failed, falling back:', e);
+    }
+  }
+  return renderMarkdownSafe(md);
+}
+window.renderMarkdown = renderMarkdown;
 
 // Ensure marked is ALWAYS available with standard API
 if (typeof marked === 'undefined' || !marked || typeof marked.parse !== 'function') {
   window.marked = {
-    parse: function(src) { return renderMarkdownSafe(src); },
+    parse: function(src) { return renderMarkdown(src); },
     setOptions: function() {}
   };
 } else if (marked.setOptions) {
@@ -7209,11 +7349,7 @@ function addAnswer(text) {
   const clean = cleanSpeakerPrefix(text);
   const el = document.createElement('div');
   el.className = 'msg-answer';
-  if (typeof marked !== 'undefined' && marked.parse) {
-    el.innerHTML = marked.parse(clean);
-  } else {
-    el.textContent = clean;
-  }
+  el.innerHTML = renderMarkdown(clean);
   appendCopyButton(el);
   thread.appendChild(el);
   scrollThreadToBottom();
@@ -7243,20 +7379,11 @@ function streamTextToThread(text, onComplete) {
     if (currentIdx < words.length) {
       currentText += (currentIdx === 0 ? '' : ' ') + words[currentIdx];
       currentIdx++;
-
-      if (typeof marked !== 'undefined' && marked.parse) {
-        el.innerHTML = marked.parse(currentText) + '<span class="cursor-blink">▌</span>';
-      } else {
-        el.textContent = currentText + ' ▌';
-      }
+      el.innerHTML = renderMarkdown(currentText) + '<span class="cursor-blink">▌</span>';
       scrollThreadToBottom();
     } else {
       clearInterval(timer);
-      if (typeof marked !== 'undefined' && marked.parse) {
-        el.innerHTML = marked.parse(text);
-      } else {
-        el.textContent = text;
-      }
+      el.innerHTML = renderMarkdown(text);
       el.classList.remove('streaming');
       appendCopyButton(el);
       setHudState('idle');
@@ -7327,11 +7454,7 @@ function updateStreamingChunk(chunkText, turnId) {
   const display = cleanSpeakerPrefix(streamingBuffer);
   if (display && display.trim().length > 0) {
     if (jarvisHudState === 'thinking') setHudState('speaking');
-    if (typeof marked !== 'undefined' && marked.parse) {
-      currentStreamingElem.innerHTML = marked.parse(display) + '<span class="cursor-blink">▌</span>';
-    } else {
-      currentStreamingElem.textContent = display;
-    }
+    currentStreamingElem.innerHTML = renderMarkdown(display) + '<span class="cursor-blink">▌</span>';
     const ticker = document.getElementById('voiceos-ticker');
     if (ticker) {
       ticker.textContent = display.replace(/\s+/g, ' ');
@@ -7359,11 +7482,7 @@ function finalizeStreamingAnswer(finalText, turnId) {
     }
     const raw = finalText || streamingBuffer;
     const text = cleanSpeakerPrefix(raw);
-    if (typeof marked !== 'undefined' && marked.parse) {
-      currentStreamingElem.innerHTML = marked.parse(text);
-    } else {
-      currentStreamingElem.textContent = text;
-    }
+    currentStreamingElem.innerHTML = renderMarkdown(text);
     currentStreamingElem.classList.remove('streaming');
     appendCopyButton(currentStreamingElem);
     currentStreamingElem = null;
@@ -7958,17 +8077,31 @@ function renderBriefIdentifiers(items = []) {
     items = [{ type: 'username', value: '', primary: true }];
   }
   items.forEach((item, idx) => {
-    addBriefIdentifierRow(item.type || 'username', item.value || '', item.primary || (idx === 0));
+    addBriefIdentifierRow(
+      item.type || 'username',
+      item.value || '',
+      item.primary || (idx === 0),
+      item.suggestions || [],
+      item.heard || '',
+      item.fromVoice || false
+    );
   });
 }
 
-function addBriefIdentifierRow(type = 'username', val = '', isPrimary = false) {
+function addBriefIdentifierRow(type = 'username', val = '', isPrimary = false, suggestions = [], heardText = '', fromVoice = false) {
   const listEl = document.getElementById('brief-identifiers-list');
   if (!listEl) return;
   const row = document.createElement('div');
   row.className = 'brief-id-row';
-  row.style.cssText = 'display: flex; gap: 8px; align-items: center;';
-  row.innerHTML = `
+  row.style.cssText = 'display: flex; flex-direction: column; gap: 6px;';
+
+  let originalGuess = val;
+  let restoreVal = heardText || val;
+
+  const mainRow = document.createElement('div');
+  mainRow.className = 'brief-id-main-row';
+  mainRow.style.cssText = 'display: flex; gap: 8px; align-items: center; width: 100%;';
+  mainRow.innerHTML = `
     <select class="brief-id-type" style="padding: 8px 10px; background: #0C1017; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; color: #E6E6E6; font-size: 13px; outline: none; width: 125px;">
       <option value="username"${type === 'username' ? ' selected' : ''}>Username</option>
       <option value="email"${type === 'email' ? ' selected' : ''}>Email</option>
@@ -7978,6 +8111,7 @@ function addBriefIdentifierRow(type = 'username', val = '', isPrimary = false) {
       <option value="phone"${type === 'phone' ? ' selected' : ''}>Phone</option>
     </select>
     <input type="text" class="brief-id-val" placeholder="e.g. target_handle" value="${escapeHtml(val)}" style="flex: 1; padding: 8px 12px; background: #0C1017; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; color: #E6E6E6; font-size: 13px; font-family: var(--mono); outline: none;" />
+    <button type="button" class="brief-suggest-spellings-btn" title="Request spelling suggestions" style="background: transparent; border: none; color: #00F0FF; font-size: 11px; text-decoration: underline; cursor: pointer; padding: 2px 4px; white-space: nowrap; display: ${['username', 'email', 'name'].includes(type) ? 'inline-block' : 'none'};">Suggest spellings</button>
     <label style="display: flex; align-items: center; gap: 4px; color: #9CA3AF; font-size: 11px; cursor: pointer; user-select: none; white-space: nowrap;">
       <input type="radio" name="brief-primary-radio" class="brief-id-primary" ${isPrimary ? 'checked' : ''} style="accent-color: #00F0FF;" />
       Primary
@@ -7985,7 +8119,165 @@ function addBriefIdentifierRow(type = 'username', val = '', isPrimary = false) {
     <button type="button" class="brief-id-del" title="Remove" style="background: transparent; border: 1px solid rgba(239, 68, 68, 0.3); color: #EF4444; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 14px; line-height: 1;">×</button>
   `;
 
-  row.querySelector('.brief-id-del').addEventListener('click', () => {
+  const sugContainer = document.createElement('div');
+  sugContainer.className = 'brief-suggestions-container';
+  sugContainer.style.cssText = 'display: none; flex-wrap: wrap; gap: 6px; align-items: center; padding-left: 133px;';
+
+  function renderChips(sugs) {
+    sugContainer.innerHTML = '';
+    if (!sugs || sugs.length === 0) {
+      sugContainer.style.display = 'none';
+      return;
+    }
+    sugContainer.style.display = 'flex';
+
+    const label = document.createElement('span');
+    label.className = 'brief-suggestions-label';
+    label.style.cssText = 'color: #9CA3AF; font-size: 11px; font-weight: 600; white-space: nowrap; margin-right: 2px;';
+    label.textContent = 'Did you mean:';
+    sugContainer.appendChild(label);
+
+    sugs.slice(0, 8).forEach((sug, idx) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'brief-suggestion-chip';
+      chip.tabIndex = 0;
+      chip.title = sug.reason || '';
+      chip.setAttribute('data-idx', (idx + 1).toString());
+      chip.setAttribute('data-val', sug.value);
+      chip.style.cssText = 'position: relative; display: inline-flex; align-items: center; gap: 4px; background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 4px; padding: 3px 8px; color: #38BDF8; font-size: 11px; font-family: var(--mono); cursor: pointer; outline: none; transition: background 0.15s ease, border-color 0.15s ease;';
+
+      const valSpan = document.createElement('span');
+      valSpan.className = 'chip-val';
+      valSpan.textContent = sug.value;
+      chip.appendChild(valSpan);
+
+      const reasonSpan = document.createElement('span');
+      reasonSpan.className = 'chip-reason';
+      reasonSpan.style.cssText = 'display: none; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: #07090C; border: 1px solid rgba(0, 240, 255, 0.4); border-radius: 4px; padding: 2px 6px; font-size: 10px; color: #00F0FF; white-space: nowrap; pointer-events: none; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.8);';
+      reasonSpan.textContent = `(${sug.reason})`;
+      chip.appendChild(reasonSpan);
+
+      chip.addEventListener('focus', () => {
+        chip.style.borderColor = '#00F0FF';
+        chip.style.background = 'rgba(0, 240, 255, 0.2)';
+        chip.style.color = '#FFF';
+        reasonSpan.style.display = 'block';
+      });
+
+      chip.addEventListener('blur', () => {
+        chip.style.borderColor = 'rgba(0, 240, 255, 0.25)';
+        chip.style.background = 'rgba(0, 240, 255, 0.08)';
+        chip.style.color = '#38BDF8';
+        reasonSpan.style.display = 'none';
+      });
+
+      chip.addEventListener('mouseenter', () => {
+        chip.style.borderColor = '#00F0FF';
+        chip.style.background = 'rgba(0, 240, 255, 0.15)';
+        chip.style.color = '#FFF';
+      });
+
+      chip.addEventListener('mouseleave', () => {
+        if (document.activeElement !== chip) {
+          chip.style.borderColor = 'rgba(0, 240, 255, 0.25)';
+          chip.style.background = 'rgba(0, 240, 255, 0.08)';
+          chip.style.color = '#38BDF8';
+        }
+      });
+
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const inputEl = row.querySelector('.brief-id-val');
+        if (inputEl) {
+          inputEl.value = sug.value;
+        }
+        showRestoreChip();
+      });
+
+      sugContainer.appendChild(chip);
+    });
+  }
+
+  function showRestoreChip() {
+    let existingRestore = sugContainer.querySelector('.brief-restore-chip');
+    if (!existingRestore) {
+      const restoreChip = document.createElement('button');
+      restoreChip.type = 'button';
+      restoreChip.className = 'brief-restore-chip';
+      restoreChip.tabIndex = 0;
+      restoreChip.title = 'Restore heard text: ' + originalGuess;
+      restoreChip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; background: rgba(245, 158, 11, 0.1); border: 1px dashed rgba(245, 158, 11, 0.5); border-radius: 4px; padding: 3px 8px; color: #FBBF24; font-size: 11px; font-family: var(--mono); cursor: pointer; outline: none; transition: all 0.15s ease;';
+      restoreChip.textContent = '↺ Restore heard text';
+
+      restoreChip.addEventListener('focus', () => {
+        restoreChip.style.borderColor = '#F59E0B';
+        restoreChip.style.background = 'rgba(245, 158, 11, 0.25)';
+      });
+      restoreChip.addEventListener('blur', () => {
+        restoreChip.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+        restoreChip.style.background = 'rgba(245, 158, 11, 0.1)';
+      });
+
+      restoreChip.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const inputEl = row.querySelector('.brief-id-val');
+        if (inputEl) {
+          inputEl.value = originalGuess;
+        }
+        restoreChip.remove();
+      });
+
+      sugContainer.appendChild(restoreChip);
+    }
+  }
+
+  const typeSelect = mainRow.querySelector('.brief-id-type');
+  const suggestBtn = mainRow.querySelector('.brief-suggest-spellings-btn');
+
+  suggestBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const inputEl = row.querySelector('.brief-id-val');
+    const currentVal = inputEl ? inputEl.value.trim() : '';
+    const currentType = typeSelect ? typeSelect.value : 'username';
+    if (!currentVal) return;
+    originalGuess = currentVal;
+    restoreVal = currentVal;
+    let res = [];
+    try {
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.suggest_variants) {
+        res = await window.pywebview.api.suggest_variants(currentVal, currentType);
+      } else if (api() && api().suggest_variants) {
+        res = await api().suggest_variants(currentVal, currentType);
+      } else {
+        const resp = await fetch('/api/suggest_variants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: currentVal, id_type: currentType })
+        });
+        res = await resp.json();
+      }
+    } catch (err) {
+      console.warn('[brief] Failed to fetch suggestions:', err);
+    }
+    renderChips(res);
+  });
+
+  typeSelect.addEventListener('change', () => {
+    const t = typeSelect.value;
+    if (['username', 'email', 'name'].includes(t)) {
+      suggestBtn.style.display = 'inline-block';
+    } else {
+      suggestBtn.style.display = 'none';
+      sugContainer.innerHTML = '';
+      sugContainer.style.display = 'none';
+    }
+  });
+
+  mainRow.querySelector('.brief-id-del').addEventListener('click', () => {
     const allRows = listEl.querySelectorAll('.brief-id-row');
     if (allRows.length > 1) {
       const wasChecked = row.querySelector('.brief-id-primary').checked;
@@ -7996,8 +8288,17 @@ function addBriefIdentifierRow(type = 'username', val = '', isPrimary = false) {
       }
     } else {
       row.querySelector('.brief-id-val').value = '';
+      sugContainer.innerHTML = '';
+      sugContainer.style.display = 'none';
     }
   });
+
+  row.appendChild(mainRow);
+  row.appendChild(sugContainer);
+
+  if (fromVoice && suggestions && suggestions.length > 0) {
+    renderChips(suggestions);
+  }
 
   listEl.appendChild(row);
 }
@@ -8141,8 +8442,9 @@ async function openInvestigationBrief(initData = {}) {
 
   const voiceBanner = document.getElementById('brief-voice-banner');
   const voiceText = document.getElementById('brief-voice-text');
-  if (initData.source === 'voice' && initData.transcript) {
-    if (voiceText) voiceText.textContent = initData.transcript;
+  const heardVal = initData.heard || initData.transcript || '';
+  if (heardVal && (initData.source === 'voice' || !initData.target)) {
+    if (voiceText) voiceText.textContent = heardVal;
     if (voiceBanner) voiceBanner.style.display = 'flex';
   } else {
     if (voiceBanner) voiceBanner.style.display = 'none';
@@ -8155,7 +8457,10 @@ async function openInvestigationBrief(initData = {}) {
     initialIdentifiers.push({
       type: initData.target_type || 'username',
       value: initData.target,
-      primary: true
+      primary: true,
+      suggestions: initData.suggestions || [],
+      heard: initData.heard || initData.transcript || '',
+      fromVoice: initData.source === 'voice'
     });
   }
   renderBriefIdentifiers(initialIdentifiers);
@@ -8334,7 +8639,30 @@ if (briefOverlayElem) {
       if (e.key === 'Escape') {
         e.preventDefault();
         closeInvestigationBrief(true);
-      } else if (e.key === 'Enter') {
+        return;
+      }
+
+      if (e.altKey && e.key >= '1' && e.key <= '8') {
+        const chipNum = parseInt(e.key, 10);
+        const targetChip = briefOverlayElem.querySelector(`.brief-suggestion-chip[data-idx="${chipNum}"]`);
+        if (targetChip) {
+          e.preventDefault();
+          targetChip.click();
+          return;
+        }
+      }
+
+      if (e.key === 'Enter') {
+        if (document.activeElement && (
+            document.activeElement.classList.contains('brief-suggestion-chip') ||
+            document.activeElement.classList.contains('brief-restore-chip') ||
+            document.activeElement.classList.contains('brief-suggest-spellings-btn')
+        )) {
+          e.preventDefault();
+          document.activeElement.click();
+          return;
+        }
+
         if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') {
           if (e.ctrlKey) {
             e.preventDefault();
@@ -8671,6 +8999,8 @@ function applyConfigToForm(cfg) {
   setVal('#cfg-cesium-token', clean(cfg.cesium_ion_token));
   setVal('#cfg-nasa-firms-key', clean(cfg.nasa_firms_key));
   setVal('#cfg-groq-key', clean(cfg.groq_api_key));
+  const frameMode = (window.safeStorageGet ? window.safeStorageGet('jarvis_screen_frame') : localStorage.getItem('jarvis_screen_frame')) || 'scope';
+  setVal('#cfg-screen-frame', frameMode);
 
   if (cfg.operator_salutation) {
     setVal('#cfg-operator-salutation', cfg.operator_salutation);
@@ -8717,6 +9047,11 @@ if (settingsSaveBtn) {
     const salVal = getVal('#cfg-operator-salutation');
     if (salVal && typeof window.setOperatorSalutation === 'function') {
       window.setOperatorSalutation(salVal);
+    }
+
+    const frameVal = getVal('#cfg-screen-frame');
+    if (frameVal && typeof window.setScreenFrameMode === 'function') {
+      window.setScreenFrameMode(frameVal);
     }
 
     const cfg = {
@@ -8964,11 +9299,6 @@ function handleSend(source = 'typed') {
       ColdRoom.reset();
       if (targetMatch) ColdRoom.setTarget(targetMatch);
       ColdRoom.setStatus('INITIALIZING INVESTIGATION...', true);
-    }
-    const autoOpen = window.jarvisConfig?.auto_open_cold_room !== false;
-    if (autoOpen && window.glideToSpatial) {
-      window._hasAutoNavigatedForCurrentInvestigation = true;
-      window.glideToSpatial(-950);
     }
   } else if (lowerText.includes('cross verify') || lowerText.includes('cross-verify') || lowerText.includes('correlate case') || lowerText.includes('cross check case')) {
     if (typeof window.crossVerifyCase === 'function') {
@@ -14728,10 +15058,14 @@ window.jarvis = window.joe = {
         break;
 
       case 'open_investigation_brief':
+        showThinking(false);
+        setHudState('idle');
         openInvestigationBrief(data);
         break;
 
       case 'open_investigate_dialog':
+        showThinking(false);
+        setHudState('idle');
         openInvestigationBrief(data);
         break;
 
@@ -14740,6 +15074,9 @@ window.jarvis = window.joe = {
         setHudState('thinking');
         showSubtitles(data.message, 'RECON STREAM');
         $('#session-status').textContent = 'running';
+        if (data && data.reset_auto_nav) {
+          window._hasAutoNavigatedForCurrentInvestigation = false;
+        }
         const isColdRoomInvestigation = data && !data.is_tactical && (data.is_investigation === true || (data.target && !data.is_telemetry));
         if (isColdRoomInvestigation) {
           const autoOpen = (typeof data.auto_open_cold_room === 'boolean' ? data.auto_open_cold_room : (window.jarvisConfig?.auto_open_cold_room !== false));
@@ -14834,6 +15171,7 @@ window.jarvis = window.joe = {
         break;
 
       case 'glide_to_coldroom':
+        window._hasAutoNavigatedForCurrentInvestigation = true;
         if (window.glideToSpatial) window.glideToSpatial(-950);
         break;
 
@@ -17980,6 +18318,9 @@ const SpatialNav = {
         cesiumWrap.style.pointerEvents = 'none';
       }
     }
+    if (typeof window.syncScreenFrameListener === 'function') {
+      window.syncScreenFrameListener();
+    }
 
     // Edge navigation strips
     const rightEdge = document.getElementById('spatial-edge-right');
@@ -20354,6 +20695,13 @@ function initCesiumGlobe() {
       }
     });
 
+    if (typeof window.syncScreenFrameListener === 'function') {
+      window.syncScreenFrameListener();
+    }
+    if (typeof window.updateScreenFrame === 'function') {
+      window.updateScreenFrame();
+    }
+
     // Tactical target beacon entity (hidden until coordinates are focused)
     window.cesiumBeacon = cesiumViewer.entities.add({
       position: Cesium.Cartesian3.fromDegrees(0.0, 20.0, 500),
@@ -21039,8 +21387,281 @@ window.setEarthVisualStyle = function(styleName) {
     else if (styleName === 'cyber') cesiumCont.classList.add('optical-cyber');
   }
 
+  if (typeof window.updateScreenFrame === 'function') {
+    window.updateScreenFrame();
+  }
+
   scene.requestRender();
 };
+
+/* ─── Screen Frame Scope Mask & Vignette Overlay Subsystem ─────────────── */
+// Adapted from God's Eye View (https://github.com/bilawalsidhu/gods-eye-view)
+// Copyright (c) 2026 Bilawal Sidhu, Licensed under MIT License
+(function() {
+  let _mode = 'scope'; // 'scope' | 'soft' | 'off'
+  let _lastQuantizedAlpha = null;
+  let _lastRadius = null;
+  let _lastRInner = null;
+  let _lastROuter = null;
+  let _lastColorStr = null;
+  let _lastSampleMs = -Infinity;
+  let _cameraListenerAttached = false;
+  let _resizeObserver = null;
+
+  // Diagnostic and testing state hook
+  window._screenFrameState = {
+    get mode() { return _mode; },
+    lastHeight: null,
+    lastAlpha: null,
+    lastRadius: null,
+    updateCount: 0,
+    cameraChangedCallCount: 0,
+    cameraChangedIgnoredCount: 0,
+    get listenerActive() { return _cameraListenerAttached; }
+  };
+
+  /**
+   * Pure altitude fade math:
+   * h >= 10,000,000 -> 0.94 (faint stars in space)
+   * h <= 7,000,000  -> 1.00 (solid opaque black)
+   * Quantized to steps of 0.005
+   */
+  function computeScopeAlpha(heightM) {
+    const h = Number(heightM);
+    if (!Number.isFinite(h)) return { rawAlpha: 0.94, quantizedAlpha: 0.94 };
+    if (h >= 10000000) return { rawAlpha: 0.94, quantizedAlpha: 0.94 };
+    if (h <= 7000000) return { rawAlpha: 1.0, quantizedAlpha: 1.0 };
+    const t = Math.max(0, Math.min(1, (10000000 - h) / 3000000));
+    const eased = t * t * (3 - 2 * t);
+    const rawAlpha = 0.94 + 0.06 * eased;
+    const quantizedAlpha = Math.round(Math.round(rawAlpha / 0.005) * 0.005 * 1000) / 1000;
+    return { rawAlpha, quantizedAlpha };
+  }
+  window.computeScreenFrameAlpha = computeScopeAlpha;
+
+  function isScreen3Active() {
+    if (typeof window.SpatialNav === 'undefined') return true;
+    return window.SpatialNav.currentX > 350;
+  }
+
+  function getCameraHeightM() {
+    if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return null;
+    const camera = window.cesiumViewer.camera;
+    if (!camera) return null;
+    const carto = camera.positionCartographic;
+    return carto ? carto.height : null;
+  }
+
+  function getPerModeOutsideColor() {
+    const style = (typeof _activeEarthStyle !== 'undefined' ? _activeEarthStyle : 'satellite').toLowerCase();
+    if (style === 'flir' || style === 'nvg' || style === 'nightvision') {
+      return { r: 0, g: 0, b: 0, forceSolidAlpha: true };
+    }
+    if (style === 'cyber') {
+      return { r: 1, g: 5, b: 15, forceSolidAlpha: false };
+    }
+    return { r: 5, g: 5, b: 8, forceSolidAlpha: false };
+  }
+
+  function updateScreenFrame(explicitHeightM) {
+    const el = document.getElementById('orbital-space-aperture');
+    if (!el) return false;
+
+    if (_mode === 'off') {
+      el.classList.add('frame-off');
+      el.classList.remove('frame-soft');
+      return false;
+    }
+    el.classList.remove('frame-off');
+
+    const container = document.getElementById('cesiumContainer') || el.parentElement;
+    const height = container && container.clientHeight > 0 ? container.clientHeight : (window.innerHeight || 600);
+    const R = Math.round(0.525 * height * 10) / 10;
+    const rInner = Math.round(0.945 * R * 10) / 10;
+    const rOuter = Math.round(1.055 * R * 10) / 10;
+
+    const color = getPerModeOutsideColor();
+    const colorStr = `${color.r}, ${color.g}, ${color.b}`;
+
+    if (_mode === 'soft') {
+      el.classList.add('frame-soft');
+      if (_lastColorStr !== colorStr) {
+        el.style.setProperty('--scope-color', colorStr);
+        _lastColorStr = colorStr;
+        window._screenFrameState.updateCount++;
+        return true;
+      }
+      return false;
+    }
+
+    // Scope mode
+    el.classList.remove('frame-soft');
+
+    let heightM = (explicitHeightM !== undefined) ? explicitHeightM : getCameraHeightM();
+    window._screenFrameState.lastHeight = heightM;
+
+    let targetAlpha = 0.94;
+    if (color.forceSolidAlpha) {
+      targetAlpha = 1.0;
+    } else if (heightM !== null && Number.isFinite(Number(heightM))) {
+      const calc = computeScopeAlpha(heightM);
+      targetAlpha = calc.quantizedAlpha;
+    }
+    window._screenFrameState.lastAlpha = targetAlpha;
+    window._screenFrameState.lastRadius = R;
+
+    // Check if quantized alpha, radius, or color actually changed
+    if (
+      _lastQuantizedAlpha === targetAlpha &&
+      _lastRInner === rInner &&
+      _lastROuter === rOuter &&
+      _lastColorStr === colorStr
+    ) {
+      return false; // zero DOM/style mutation on idle or redundant calls
+    }
+
+    _lastQuantizedAlpha = targetAlpha;
+    _lastRadius = R;
+    _lastRInner = rInner;
+    _lastROuter = rOuter;
+    _lastColorStr = colorStr;
+
+    el.style.setProperty('--scope-radius', `${R}px`);
+    el.style.setProperty('--scope-r-inner', `${rInner}px`);
+    el.style.setProperty('--scope-r-outer', `${rOuter}px`);
+    el.style.setProperty('--scope-alpha', targetAlpha.toFixed(3));
+    el.style.setProperty('--scope-color', colorStr);
+
+    window._screenFrameState.updateCount++;
+    return true;
+  }
+  window.updateScreenFrame = updateScreenFrame;
+
+  function _onCameraChanged() {
+    window._screenFrameState.cameraChangedCallCount++;
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (now - _lastSampleMs < 120) {
+      return;
+    }
+    _lastSampleMs = now;
+    if (!isScreen3Active() || _mode === 'off') {
+      window._screenFrameState.cameraChangedIgnoredCount++;
+      return;
+    }
+    updateScreenFrame();
+  }
+
+  function syncCameraListener() {
+    if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return;
+    const camera = window.cesiumViewer.camera;
+    if (!camera || !camera.changed) return;
+
+    const shouldBeActive = (_mode === 'scope') && isScreen3Active();
+    if (shouldBeActive && !_cameraListenerAttached) {
+      camera.changed.addEventListener(_onCameraChanged);
+      _cameraListenerAttached = true;
+    } else if (!shouldBeActive && _cameraListenerAttached) {
+      camera.changed.removeEventListener(_onCameraChanged);
+      _cameraListenerAttached = false;
+    }
+  }
+  window.syncScreenFrameListener = syncCameraListener;
+
+  window.setScreenFrameMode = function(mode) {
+    if (!['scope', 'soft', 'off'].includes(mode)) mode = 'scope';
+    _mode = mode;
+    try {
+      if (window.safeStorageSet) window.safeStorageSet('jarvis_screen_frame', mode);
+      else localStorage.setItem('jarvis_screen_frame', mode);
+    } catch(e) {}
+    const select = document.getElementById('cfg-screen-frame');
+    if (select && select.value !== mode) select.value = mode;
+
+    _lastQuantizedAlpha = null;
+    _lastRInner = null;
+    _lastROuter = null;
+    _lastColorStr = null;
+
+    updateScreenFrame();
+    syncCameraListener();
+  };
+
+  window.getScreenFrameMode = function() {
+    return _mode;
+  };
+
+  window.resetWorldTelemetryLook = function() {
+    // 1. Reset visual style to satellite
+    if (typeof window.setEarthVisualStyle === 'function') {
+      window.setEarthVisualStyle('satellite');
+    }
+    // 2. Ensure baseline values are explicitly applied:
+    if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
+      const scene = window.cesiumViewer.scene;
+      const globe = scene.globe;
+      const baseLayer = (window.cesiumViewer.imageryLayers && window.cesiumViewer.imageryLayers.length > 0) ? window.cesiumViewer.imageryLayers.get(0) : null;
+      
+      globe.baseColor = Cesium.Color.fromCssColorString('#020611');
+      globe.atmosphereBrightnessShift = -0.08;
+      globe.atmosphereHueShift = 0.0;
+      globe.atmosphereSaturationShift = -0.12;
+      if (scene.skyAtmosphere) {
+        scene.skyAtmosphere.show = true;
+        scene.skyAtmosphere.atmosphereLightIntensity = 18;
+        scene.skyAtmosphere.saturationShift = -0.12;
+        scene.skyAtmosphere.brightnessShift = -0.08;
+      }
+      if (baseLayer) {
+        baseLayer.saturation = 1.35;
+        baseLayer.contrast = 1.15;
+        baseLayer.brightness = 1.05;
+        baseLayer.gamma = 0.95;
+      }
+      if (window._godsEyeSharpenStage) {
+        window._godsEyeSharpenStage.enabled = true;
+        window._godsEyeSharpenStage.uniforms.amount = 1.08;
+      }
+      scene.requestRender();
+    }
+    // 3. Reset screen frame to Scope
+    window.setScreenFrameMode('scope');
+
+    console.log('[World Telemetry] Look reset to baseline defaults.');
+  };
+
+  function initScreenFrame() {
+    let savedMode = 'scope';
+    try {
+      savedMode = (window.safeStorageGet ? window.safeStorageGet('jarvis_screen_frame') : localStorage.getItem('jarvis_screen_frame')) || 'scope';
+    } catch(e) {}
+    if (!['scope', 'soft', 'off'].includes(savedMode)) savedMode = 'scope';
+    _mode = savedMode;
+
+    const select = document.getElementById('cfg-screen-frame');
+    if (select) select.value = savedMode;
+
+    updateScreenFrame();
+    syncCameraListener();
+
+    const container = document.getElementById('cesiumContainer');
+    if (container && typeof ResizeObserver !== 'undefined' && !_resizeObserver) {
+      _resizeObserver = new ResizeObserver(() => {
+        updateScreenFrame();
+      });
+      _resizeObserver.observe(container);
+    }
+    window.addEventListener('resize', () => {
+      updateScreenFrame();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initScreenFrame);
+  } else {
+    setTimeout(initScreenFrame, 50);
+  }
+  window.initScreenFrame = initScreenFrame;
+})();
 
 window.setMapColourPreset = function(presetName = 'vivid') {
   if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return;

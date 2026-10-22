@@ -1756,93 +1756,7 @@ class JarvisVoice:
 
         is_action_popup = bool(resolved_search_query)
 
-        def _process_final_text(raw_text: str) -> tuple[str, dict]:
-            cleaned = self._clean_reasoning(raw_text)
-            tactical = {}
-
-            # Detect autonomous [CMD: <command>] safely handling quotes and brackets
-            cmd_to_run, cleaned = extract_cmd_directive(cleaned)
-            if cmd_to_run:
-                try:
-                    from core.system_commander import get_system_commander
-                    commander = get_system_commander()
-                    commander.run_as_task(cmd_to_run, title=f"Terminal: {cmd_to_run[:30]}", skip_debrief=True)
-                    tactical["cmd"] = cmd_to_run
-                except Exception as e:
-                    print(f"[voice] Autonomous command launch error: {e}")
-
-                if not cleaned or len(cleaned) < 5:
-                    addressed = "Sir"
-                    cleaned = f"Executing `{cmd_to_run}` on your system now, {addressed}. Check the panel."
-
-            cleaned = re.sub(r'\[CMD[^\]]*\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-            # Detect [NAV: <location>] (whitespace-tolerant)
-            m_nav = re.search(r'\[\s*NAV\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_nav:
-                tactical["nav"] = m_nav.group(1).strip()
-                cleaned = re.sub(r'\[\s*NAV\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-            # Detect [LAYER: <layer> <on|off>]
-            m_layer = re.search(r'\[\s*LAYER\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_layer:
-                tactical["layer"] = m_layer.group(1).strip()
-                cleaned = re.sub(r'\[\s*LAYER\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-            # Detect [ZOOM: <in|out>]
-            m_zoom = re.search(r'\[\s*ZOOM\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_zoom:
-                tactical["zoom"] = m_zoom.group(1).strip()
-                cleaned = re.sub(r'\[\s*ZOOM\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-            # Detect [RADIO: <action>]
-            m_radio = re.search(r'\[\s*RADIO\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_radio:
-                tactical["radio"] = m_radio.group(1).strip()
-                cleaned = re.sub(r'\[\s*RADIO\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-            # Detect [SFX: <effect>]
-            m_sfx = re.search(r'\[\s*SFX\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_sfx:
-                tactical["sfx"] = m_sfx.group(1).strip()
-                cleaned = re.sub(r'\[\s*SFX\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-            # Detect [ANNOTATE: <directive>]
-            m_annotate = re.search(r'\[\s*ANNOTATE\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_annotate:
-                tactical["annotate"] = m_annotate.group(1).strip()
-                cleaned = re.sub(r'\[\s*ANNOTATE\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-
-            # Detect [SEARCH: <directive>]
-            m_search_dir = re.search(r'\[\s*SEARCH\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_search_dir:
-                tactical["search"] = m_search_dir.group(1).strip()
-                cleaned = re.sub(r'\[\s*SEARCH\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-            # Detect [YOUTUBE: <directive>]
-            m_yt_dir = re.search(r'\[\s*YOUTUBE\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_yt_dir:
-                tactical["youtube"] = m_yt_dir.group(1).strip()
-                cleaned = re.sub(r'\[\s*YOUTUBE\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-            # Detect [APP: <directive>]
-            m_app_dir = re.search(r'\[\s*APP\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_app_dir:
-                tactical["app"] = m_app_dir.group(1).strip()
-                cleaned = re.sub(r'\[\s*APP\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-            # Detect [MEDIA: <directive>]
-            m_media_dir = re.search(r'\[\s*MEDIA\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
-            if m_media_dir:
-                tactical["media"] = m_media_dir.group(1).strip()
-                cleaned = re.sub(r'\[\s*MEDIA\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
-
-            # Residual cleanup to ensure zero leaked tactical directives or brackets reach TTS
-            cleaned = re.sub(r'\[\s*(?:NAV|LAYER|CMD|ZOOM|RADIO|SFX|ANNOTATE|SEARCH|YOUTUBE|APP|MEDIA)[^\]]*\]', '', cleaned, flags=re.IGNORECASE)
-            cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-
-            return cleaned, tactical
+        _process_final_text = self._process_final_text
 
         # Try cloud engines first (NVIDIA → Gemini)
         cloud = self._ask_cloud(prompt, system, max_tokens=max_tok, on_token=on_token, image_path=image_path)
@@ -2161,6 +2075,8 @@ Output only the raw target string. No markdown, no quotes, no explanation."""
         for line in lines:
             l = line.strip()
             if not l:
+                if clean_lines and clean_lines[-1] != "":
+                    clean_lines.append("")
                 continue
             if re.match(r'^(Drafting mentally:|Internal check:|Self-check:|Constraints:|Rule:|- Must |- No |- Signature:|Check length:|Ensure format:)', l, re.IGNORECASE):
                 continue
@@ -2193,5 +2109,99 @@ Output only the raw target string. No markdown, no quotes, no explanation."""
         result = re.sub(r'[ \t]+', ' ', result).strip()
 
         return result if result else text.strip()
+
+    def _process_final_text(self, raw_text: str) -> tuple[str, dict]:
+        cleaned = self._clean_reasoning(raw_text)
+        tactical = {}
+
+        # Detect autonomous [CMD: <command>] safely handling quotes and brackets
+        cmd_to_run, cleaned = extract_cmd_directive(cleaned)
+        if cmd_to_run:
+            tactical["cmd"] = cmd_to_run
+            try:
+                from core.system_commander import get_system_commander
+                commander = get_system_commander()
+                commander.run_as_task(cmd_to_run, title=f"Terminal: {cmd_to_run[:30]}", skip_debrief=True)
+            except Exception as e:
+                print(f"[voice] Autonomous command launch error: {e}")
+
+            if not cleaned or len(cleaned) < 5:
+                sal = "Sir"
+                try:
+                    if hasattr(self, 'memory') and self.memory:
+                        sal = self.memory.get_salutation() or "Sir"
+                except Exception:
+                    pass
+                cleaned = f"Executing `{cmd_to_run}` on your system now, {sal}. Check the panel."
+
+        cleaned = re.sub(r'\[CMD[^\]]*\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Detect [NAV: <location>] (whitespace-tolerant)
+        m_nav = re.search(r'\[\s*NAV\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+        if m_nav:
+            tactical["nav"] = m_nav.group(1).strip()
+            cleaned = re.sub(r'\[\s*NAV\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Detect [LAYER: <layer> <on|off>]
+        m_layer = re.search(r'\[\s*LAYER\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+        if m_layer:
+            tactical["layer"] = m_layer.group(1).strip()
+            cleaned = re.sub(r'\[\s*LAYER\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Detect [ZOOM: <in|out>]
+        m_zoom = re.search(r'\[\s*ZOOM\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+        if m_zoom:
+            tactical["zoom"] = m_zoom.group(1).strip()
+            cleaned = re.sub(r'\[\s*ZOOM\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Detect [RADIO: <action>]
+        m_radio = re.search(r'\[\s*RADIO\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+        if m_radio:
+            tactical["radio"] = m_radio.group(1).strip()
+            cleaned = re.sub(r'\[\s*RADIO\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Detect [SFX: <effect>]
+        m_sfx = re.search(r'\[\s*SFX\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+        if m_sfx:
+            tactical["sfx"] = m_sfx.group(1).strip()
+            cleaned = re.sub(r'\[\s*SFX\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Detect [ANNOTATE: <directive>]
+        m_annotate = re.search(r'\[\s*ANNOTATE\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+        if m_annotate:
+            tactical["annotate"] = m_annotate.group(1).strip()
+            cleaned = re.sub(r'\[\s*ANNOTATE\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Detect [SEARCH: <directive>]
+        m_search_dir = re.search(r'\[\s*SEARCH\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+        if m_search_dir:
+            tactical["search"] = m_search_dir.group(1).strip()
+            cleaned = re.sub(r'\[\s*SEARCH\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Detect [YOUTUBE: <directive>]
+        m_yt_dir = re.search(r'\[\s*YOUTUBE\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+        if m_yt_dir:
+            tactical["youtube"] = m_yt_dir.group(1).strip()
+            cleaned = re.sub(r'\[\s*YOUTUBE\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Detect [APP: <directive>]
+        m_app_dir = re.search(r'\[\s*APP\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+        if m_app_dir:
+            tactical["app"] = m_app_dir.group(1).strip()
+            cleaned = re.sub(r'\[\s*APP\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Detect [MEDIA: <directive>]
+        m_media_dir = re.search(r'\[\s*MEDIA\s*:\s*([^\]]+)\]', cleaned, re.IGNORECASE)
+        if m_media_dir:
+            tactical["media"] = m_media_dir.group(1).strip()
+            cleaned = re.sub(r'\[\s*MEDIA\s*:[^\]]+\]', '', cleaned, flags=re.IGNORECASE).strip()
+
+        # Residual cleanup to ensure zero leaked tactical directives or brackets reach TTS
+        cleaned = re.sub(r'\[\s*(?:NAV|LAYER|CMD|ZOOM|RADIO|SFX|ANNOTATE|SEARCH|YOUTUBE|APP|MEDIA)[^\]]*\]', '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r'[ \t]+', ' ', cleaned)
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned).strip()
+
+        return cleaned, tactical
+
 
 

@@ -1265,34 +1265,24 @@ Rules:
 
                 elif action == "osint_investigate":
                     tgt = str(step.get("target") or user_prompt).strip().strip("'\"<>:;,?")
-                    from core.input_parser import parse, is_classifiable_target
-                    if not is_classifiable_target(tgt):
-                        obs["result"] = f"Which target username, email, domain, or IP shall we investigate, {sal}?"
-                    else:
-                        parsed = parse(tgt)
-                        sanitized_target = parsed.value
-                        from core.orchestrator import Orchestrator, format_investigation_summary
-                        orch = Orchestrator()
-                        try:
-                            loop = asyncio.get_event_loop()
-                            if loop.is_running():
-                                import concurrent.futures
-                                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                                    target_obj = pool.submit(lambda: asyncio.run(orch.investigate(sanitized_target))).result()
-                            else:
-                                target_obj = loop.run_until_complete(orch.investigate(sanitized_target))
-                        except RuntimeError:
-                            target_obj = asyncio.run(orch.investigate(sanitized_target))
-
+                    from core.investigation_gate import request_investigation
+                    gate_res = request_investigation(tgt, source="cognitive", via="cognitive_loop")
+                    target_obj = gate_res.get("result")
+                    if target_obj:
+                        from core.orchestrator import format_investigation_summary
                         summary_text = format_investigation_summary(target_obj)
                         obs["result"] = summary_text
                         self.task_manager.add_finding(task.task_id, TaskFinding(
-                            title=f"OSINT: {sanitized_target}",
+                            title=f"OSINT: {tgt}",
                             url=f"file://{target_obj.report_path}" if getattr(target_obj, 'report_path', None) else "#osint",
                             snippet=summary_text,
                             source="osint_investigate",
-                            extra=target_obj.to_dict()
+                            extra=target_obj.to_dict() if hasattr(target_obj, "to_dict") else {}
                         ))
+                    elif gate_res.get("action") == "clarify":
+                        obs["result"] = gate_res.get("message") or f"Which target shall we investigate, {sal}?"
+                    else:
+                        obs["result"] = f"Investigation directive for '{tgt}' routed through central investigation gate."
 
                 elif action == "directions":
                     res = self.tool_osiris_directions(step.get("from", "Origin"), step.get("to", "Destination"))
