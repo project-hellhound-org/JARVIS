@@ -2300,6 +2300,35 @@ class JarvisAPI:
         and switch_to_cold_room flag, and launches _run_stalk.
         """
         target_str = str(target or "").strip()
+        from core.config import get_config
+        auto_open = bool(get_config("AUTO_OPEN_COLD_ROOM", True))
+        should_glide = auto_open and bool(switch_to_cold_room)
+
+        # Amendment B: If an investigation for this target is already running, attach to it.
+        is_running = bool(getattr(self, "_stalk_task", None) and not self._stalk_task.done())
+        curr_primary = getattr(self, "_active_target", None) or (getattr(self._target, "primary", None) if getattr(self, "_target", None) else None)
+        if is_running and curr_primary and curr_primary.strip().lower() == target_str.strip().lower():
+            case_title = (
+                getattr(self._target, "case_title", None)
+                or (getattr(brief, "case_title", None) if brief else None)
+                or target_str
+            )
+            attach_msg = f"Re-attached to ongoing investigation for **{case_title}**."
+            self._emit("jarvis_answer", {
+                "text": attach_msg,
+                "mode": "investigation",
+                "is_investigation_message": True
+            })
+            if should_glide:
+                self._emit("glide_to_coldroom", {})
+            return {
+                "handled": True,
+                "action": "attached",
+                "target": target_str,
+                "task_id": getattr(self, "_active_investigation_task_id", None),
+                "cold_room_navigated": should_glide,
+            }
+
         if target_obj is not None:
             self._target = target_obj
         elif not getattr(self, "_target", None) or getattr(self._target, "primary", None) != target_str:
@@ -2326,19 +2355,37 @@ class JarvisAPI:
             except Exception as ex:
                 print(f"[desktop] Warning creating OSINT task: {ex}")
 
-        from core.config import get_config
-        auto_open = bool(get_config("AUTO_OPEN_COLD_ROOM", True))
-        should_glide = auto_open and bool(switch_to_cold_room)
+        case_title = (
+            getattr(self._target, "case_title", None)
+            or (getattr(brief, "case_title", None) if brief else None)
+            or target_str
+        )
+        self._active_target = target_str
+        self._active_investigation_task_id = task_id
+
+        # Emit immediate investigation_started event so Cold Room immediately reflects case title & progress
+        self._emit("investigation_started", {
+            "target": target_str,
+            "case_title": case_title,
+            "task_id": task_id,
+            "state": "Starting",
+            "auto_open_cold_room": should_glide,
+            "timestamp": time.time(),
+        })
 
         self._emit("scan_status", {
             "message": f"Autonomous OSINT reconnaissance initiated — Target: {target_str}",
             "target": target_str,
+            "case_title": case_title,
             "is_investigation": True,
             "reset_auto_nav": True,
             "auto_open_cold_room": should_glide,
         })
         if should_glide:
             self._emit("glide_to_coldroom", {})
+
+        # Clear thinking indicator on chat handoff per Amendment A
+        self._emit("show_thinking", {"state": False})
 
         threading.Thread(
             target=self._run_stalk,
@@ -2350,6 +2397,7 @@ class JarvisAPI:
             "handled": True,
             "action": "started",
             "target": target_str,
+            "case_title": case_title,
             "task_id": task_id,
             "cold_room_navigated": should_glide,
         }
@@ -3817,6 +3865,12 @@ class JarvisAPI:
                 self._target.save()
                 self._stalk_loop.run_until_complete(self._on_done(self._target, aborted=True))
             else:
+                self._emit("investigation_done", {
+                    "target": {"primary": target},
+                    "summary": "Investigation cancelled by user.",
+                    "state": "Cancelled",
+                    "aborted": True,
+                })
                 self._emit("error", {"message": "Investigation aborted before any data was gathered."})
         except Exception as e:
             print(f"[desktop] Error in stalk: {e}")
@@ -3826,11 +3880,19 @@ class JarvisAPI:
                     get_task_manager().fail_task(task_id, str(e))
                 except Exception:
                     pass
+            self._emit("investigation_done", {
+                "target": getattr(self._target, "to_dict", lambda: {"primary": target})() if self._target else {"primary": target},
+                "summary": f"Investigation failed: {str(e)}",
+                "state": "Failed",
+                "error": True,
+            })
             self._emit("error", {"message": f"I hit an error: {str(e)}"})
         finally:
             self._stalk_loop.close()
             self._stalk_loop = None
             self._stalk_task = None
+            self._active_target = None
+            self._active_investigation_task_id = None
 
     def stop(self):
         if self._stalk_task and self._stalk_loop:
@@ -4704,7 +4766,14 @@ class JarvisAPI:
         })
 
     async def _on_status(self, msg: str):
-        self._emit("scan_status", {"message": msg})
+        primary_target = getattr(self._target, "primary", None) if getattr(self, "_target", None) else getattr(self, "_active_target", None)
+        case_title = getattr(self._target, "case_title", None) if getattr(self, "_target", None) else None
+        self._emit("scan_status", {
+            "message": msg,
+            "target": primary_target,
+            "case_title": case_title or primary_target,
+            "is_investigation": True,
+        })
 
     async def _on_find(self, entity, target):
         self._target = target
@@ -4748,44 +4817,52 @@ class JarvisAPI:
             ),
             "corroborated_with": entity.metadata.get("corroborated_with", []),
             "related_to": entity.metadata.get("related_to"),
+            "is_investigation": True,
         })
 
     async def _on_done(self, target, aborted=False):
         self._target = target
         error = False
-        from core.orchestrator import format_investigation_summary
+        from core.orchestrator import format_investigation_summary, get_sources_and_statuses
         summary_text = format_investigation_summary(target)
+        sources_status = get_sources_and_statuses(target)
+
         if aborted:
-            text = "Investigation aborted. You pulled me away. But I remember what we found so far."
+            status_state = "Cancelled"
+            summary_text = "Investigation cancelled by user."
             used_gemini = False
         else:
-            self._emit("jarvis_stream_start", {})
-            def on_token(chunk: str):
-                self._emit("jarvis_stream_chunk", {"chunk": chunk})
+            has_warnings = any(info.get("status") in ("skipped", "failed", "rate limited") for info in sources_status.values())
+            status_state = "Finished with warnings" if has_warnings else "Finished"
+            used_gemini = False
 
-            if self._voice:
-                result = self._voice.closing_monologue(target, on_token=on_token)
-                text = result.get("text", "")
-                used_gemini = result.get("used_gemini", False)
-                error = result.get("error", False)
-                if result.get("rate_limited"):
-                    self._emit("rate_limited", {})
-            else:
-                text = ""
-                used_gemini = False
+        verified_count = len([e for e in getattr(target, 'entities', []) if e.metadata.get('verified') is True or getattr(e, 'verified', None) is True])
+        uncertain_count = len([e for e in getattr(target, 'entities', []) if e.metadata.get('verified') is None and getattr(e, 'verified', None) is None])
+        rejected_count = len([e for e in getattr(target, 'entities', []) if e.metadata.get('verified') is False or getattr(e, 'verified', None) is False])
 
         if getattr(self, '_memory', None):
-            self._memory.add("jarvis", text or summary_text)
+            self._memory.add("jarvis", summary_text)
+
+        case_title = getattr(target, "case_title", None) or getattr(target, "primary", None)
         self._emit("investigation_done", {
             "target": target.to_dict(),
+            "case_title": case_title,
             "summary": summary_text,
-            "monologue": text,
+            "monologue": summary_text,
+            "state": status_state,
             "report_path": getattr(target, 'report_path', None),
+            "sources_status": sources_status,
+            "counts": {
+                "verified": verified_count,
+                "uncertain": uncertain_count,
+                "rejected": rejected_count,
+            },
             "audio": None,
             "used_gemini": used_gemini,
-            "error": error
+            "error": error,
+            "aborted": aborted,
         })
-        self._emit("jarvis_answer", {"text": summary_text, "mode": "investigation"})
+        self._emit("show_thinking", {"state": False})
         self._speak_and_suppress_echo(summary_text)
 
     def transcribe_audio(self, audio_b64: str) -> dict:

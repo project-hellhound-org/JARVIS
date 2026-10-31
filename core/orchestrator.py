@@ -147,11 +147,14 @@ class Orchestrator:
 
             # ── HTML Report Generation ──
             if parsed.target_type in ("email", "username", "domain", "ip", "name"):
+                await self._status("Generating investigative HTML report...")
                 try:
                     from exporters.html_report import generate
                     target.report_path = str(generate(target))
+                    await self._status(f"HTML dossier generated: {target.report_path}")
                 except Exception as e:
                     target.report_path = None
+                    await self._status(f"HTML report generation skipped: {e}")
 
             self._report_task_progress(100, f"Reconnaissance complete: {len(target.entities)} entities identified")
             if self.task_id:
@@ -207,6 +210,9 @@ class Orchestrator:
             swarm_tasks.append(wayback.run(target, dom, self._make_find_cb(target)))
 
         await asyncio.gather(*swarm_tasks, return_exceptions=True)
+        for n in getattr(target, "notes", []):
+            if any(t in n.lower() for t in ("holehe", "breachdirectory", "xposedornot", "hudson rock", "playwright")):
+                await self._status(n)
 
     async def _username_pipeline(self, target, parsed, plan=None):
         await self._status(f"⚡ Deploying autonomous reconnaissance swarm for: {parsed.value}...")
@@ -217,6 +223,9 @@ class Orchestrator:
             wayback.run(target, parsed.value, self._make_find_cb(target)),
         ]
         await asyncio.gather(*swarm_tasks, return_exceptions=True)
+        for n in getattr(target, "notes", []):
+            if any(t in n.lower() for t in ("maigret", "sherlock", "holehe", "breachdirectory", "playwright")):
+                await self._status(n)
 
         await self._status("Dorking Google for username...")
         import modules.dork_fallback as dork_fallback

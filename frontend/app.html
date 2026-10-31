@@ -1934,11 +1934,19 @@
   #jarvis-task-surfaces-container { pointer-events: none !important; }
   #jarvis-task-surfaces-container .jarvis-task-surface { pointer-events: auto !important; }
 
+  #global-chat-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9995;
+    overflow: visible;
+  }
+
   /* Focused Assistant Dialogue HUD directly above input bar (JARVIS Tactical HUD) */
   #jarvis-chat-container {
     opacity: 1 !important;
     position: fixed !important;
-    bottom: 78px !important;
+    bottom: var(--chat-panel-bottom, 78px) !important;
     left: var(--chat-panel-left, calc(50% - var(--chat-panel-width, min(680px, 54vw)) / 2)) !important;
     transform: none !important;
     width: var(--chat-panel-width, min(680px, 54vw)) !important;
@@ -1954,7 +1962,7 @@
     -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 157, 46, 0.08) !important;
     overflow: hidden !important;
-    z-index: 250 !important;
+    z-index: 9996 !important;
     pointer-events: auto !important;
     display: flex !important;
     flex-direction: column !important;
@@ -1971,7 +1979,9 @@
     pointer-events: none !important;
   }
   body.chat-panel-resizing #jarvis-chat-container,
-  body.chat-panel-resizing #jarvis-input-bar {
+  body.chat-panel-resizing #jarvis-input-bar,
+  body.chat-panel-dragging #jarvis-chat-container,
+  body.chat-panel-dragging #jarvis-input-bar {
     transition: none !important;
     user-select: none !important;
   }
@@ -2035,6 +2045,11 @@
     user-select: none !important;
     pointer-events: auto !important;
     font-family: var(--mono) !important;
+    cursor: grab;
+    touch-action: none;
+  }
+  body.chat-panel-dragging .chat-panel-header {
+    cursor: grabbing !important;
   }
   .chat-panel-header-title {
     display: flex !important;
@@ -2150,13 +2165,14 @@
   #case-title, #case-sub, .case-sub-inline, #thinking-indicator { display: none !important; }
   #jarvis-input-bar {
     opacity: 1 !important;
-    z-index: 300 !important;
+    z-index: 9997 !important;
     position: fixed !important;
     width: var(--chat-panel-width, min(680px, 54vw)) !important;
     max-width: none !important;
     left: var(--chat-panel-left, calc(50% - var(--chat-panel-width, min(680px, 54vw)) / 2)) !important;
     transform: none !important;
-    bottom: 12px !important;
+    bottom: calc(var(--chat-panel-bottom, 78px) - 66px) !important;
+    pointer-events: auto !important;
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease !important;
   }
   body.chat-panel-collapsed #jarvis-input-bar {
@@ -2638,6 +2654,144 @@ body.app-ready {
   background: rgba(255, 157, 46, 0.12);
   border-color: rgba(255, 157, 46, 0.35);
   color: #FFB84D;
+}
+
+/* Cold Room Live Progress Strip */
+.cr-progress-strip {
+  background: rgba(10, 16, 26, 0.94);
+  border-bottom: 1px solid rgba(0, 240, 255, 0.22);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 6px 20px;
+  z-index: 19;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cr-strip-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cr-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.cr-strip-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+.cr-strip-badge.starting {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38BDF8;
+}
+.cr-strip-badge.running {
+  background: rgba(0, 240, 255, 0.18);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  color: #00F0FF;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+}
+.cr-strip-badge.finished {
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #10B981;
+}
+.cr-strip-badge.warning {
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #F59E0B;
+}
+.cr-strip-badge.failed {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #EF4444;
+}
+.cr-strip-badge.cancelled {
+  background: rgba(156, 163, 175, 0.18);
+  border: 1px solid rgba(156, 163, 175, 0.4);
+  color: #9CA3AF;
+}
+.cr-strip-timer {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #00F0FF;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.cr-strip-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: #FFB84D;
+  font-weight: 700;
+}
+.cr-strip-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+}
+.cr-strip-step {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  white-space: nowrap;
+  color: #94A3B8;
+}
+.cr-strip-step.step-running {
+  border-color: rgba(0, 240, 255, 0.5);
+  color: #00F0FF;
+  background: rgba(0, 240, 255, 0.08);
+}
+.cr-strip-step.step-done {
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #10B981;
+}
+.cr-strip-step.step-skipped {
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #F59E0B;
+}
+.cr-strip-step.step-failed {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #EF4444;
+}
+.cr-strip-step-badge {
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+.cr-strip-summary {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: #E2E8F0;
+  line-height: 1.4;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border-left: 2px solid #00F0FF;
+  border-radius: 2px;
+  margin-top: 2px;
+  white-space: pre-wrap;
 }
 .cr-return-btn:hover {
   background: rgba(255, 157, 46, 0.22);
@@ -4250,7 +4404,7 @@ body.chat-panel-collapsed .chat-panel-collapse-btn svg {
   font-weight: 800;
   letter-spacing: 1px;
   cursor: grab;
-  z-index: 9995;
+  z-index: 9998;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7), 0 0 14px rgba(0, 240, 255, 0.35);
@@ -4273,6 +4427,14 @@ body.chat-panel-collapsed .chat-panel-collapse-btn svg {
 }
 body.chat-panel-collapsed #chat-expand-launcher {
   display: flex !important;
+}
+
+/* Screen 3 (World Telemetry) performance: suppress backdrop-filter to prevent GPU stalls with Cesium 3D Globe */
+body.screen-3-active #jarvis-chat-container,
+body.screen-3-active #composer {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(6, 10, 18, 0.94) !important;
 }
 
 /* Tactical Panel Drag, Resize & Select Clamping System */
@@ -4565,7 +4727,7 @@ body.voiceos-mode:not(.chat-panel-collapsed) #jarvis-chat-container {
   min-height: 240px !important;
   left: var(--chat-panel-left, calc(50% - var(--chat-panel-width, min(680px, 54vw)) / 2)) !important;
   transform: none !important;
-  bottom: 78px !important;
+  bottom: var(--chat-panel-bottom, 78px) !important;
   z-index: 9996 !important;
 }
 
@@ -4574,12 +4736,12 @@ body.voiceos-mode:not(.chat-panel-collapsed) #jarvis-input-bar {
   display: flex !important;
   pointer-events: auto !important;
   position: fixed !important;
-  bottom: 12px !important;
+  bottom: calc(var(--chat-panel-bottom, 78px) - 66px) !important;
   left: var(--chat-panel-left, calc(50% - var(--chat-panel-width, min(680px, 54vw)) / 2)) !important;
   transform: none !important;
   width: var(--chat-panel-width, min(680px, 54vw)) !important;
   max-width: none !important;
-  z-index: 9996 !important;
+  z-index: 9997 !important;
 }
 
 #jarvis-hud-notch-wrapper {
@@ -5944,6 +6106,22 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
     </div>
   </div>
 
+  <!-- Live Investigation Progress Strip -->
+  <div id="cr-progress-strip" class="cr-progress-strip" style="display:none;">
+    <div class="cr-strip-bar">
+      <div class="cr-strip-left">
+        <span class="cr-strip-badge" id="cr-strip-state-badge">Starting</span>
+        <span class="cr-strip-timer" id="cr-strip-timer">00:00</span>
+        <span class="cr-strip-count" id="cr-strip-entity-count">0 entities</span>
+      </div>
+      <div class="cr-strip-center" id="cr-strip-steps"></div>
+      <div class="cr-strip-right">
+        <button class="cr-mini-btn" onclick="window.toggleCaseDrawer()" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#94A3B8; font-size:10px; padding:3px 8px; border-radius:4px; cursor:pointer;" title="View Case Dossier">DOSSIER ↗</button>
+      </div>
+    </div>
+    <div id="cr-strip-summary" class="cr-strip-summary" style="display:none;"></div>
+  </div>
+
   <!-- Expandable Case Drawer & Cross-Verification Command Center -->
   <div id="cr-case-drawer" class="cr-case-drawer">
     <div class="cr-drawer-inner">
@@ -6185,94 +6363,14 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
     <!-- 3. MAIN WORKSPACE -->
     <main id="jarvis-main-workspace">
 
-      <!-- WORKSPACE CONTENT GRID (CHAT + HUD ORB PANE) -->
-      <div id="workspace-content-grid">
-        
-        <!-- CHAT CONVERSATION CONTAINER CARD -->
-        <div id="jarvis-chat-container">
-          <!-- Chat Panel Resize Handles (anchored bottom-left, expands up & right) -->
-          <div class="chat-resize-handle chat-resize-t" data-direction="t" aria-label="Resize height" title="Resize Height"></div>
-          <div class="chat-resize-handle chat-resize-r" data-direction="r" aria-label="Resize width" title="Resize Width"></div>
-          <div class="chat-resize-handle chat-resize-tr" data-direction="tr" aria-label="Resize both" title="Resize Both"></div>
-
-          <div id="chat-panel-header" class="chat-panel-header" onclick="window.handleChatPanelHeaderClick(event)" ondblclick="window.handleChatPanelHeaderDblClick(event)">
-            <div class="chat-panel-header-title">
-              <span class="chat-panel-pulse"></span>
-              <span>INTELLIGENCE FEED</span>
-            </div>
-            <button type="button" class="chat-panel-collapse-btn composer-collapse-btn" onclick="event.stopPropagation(); window.toggleChatPanel()" title="Collapse Chat Panel (Hide Text Box)">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
-          </div>
-
-          <div class="workspace-card-header" aria-hidden="true">
-            <span class="card-header-title" id="case-title"></span>
-            <span class="case-sub-inline" id="case-sub"></span>
-          </div>
-
-          <div id="thread">
-            <div class="msg msg-answer" style="margin: 0; padding: 2px 0; font-size: 11px; opacity: 0.90; color: #94A3B8;">Systems operational. Standing by for voice or text directives.</div>
-          </div>
-
-          <div id="thinking-indicator">
-            <div class="thinking-spinner"></div>
-            <span>Analyzing telemetry & executing directives...</span>
-          </div>
-        </div>
-      </div>
+      <!-- WORKSPACE CONTENT GRID -->
+      <div id="workspace-content-grid"></div>
 
       <!-- 4. RESERVED TASK SURFACE AREA -->
       <div id="jarvis-task-surfaces-container"></div>
 
       <!-- 5. RESERVED MINIMIZED TASK AREA -->
       <div id="jarvis-minimized-tasks-bar"></div>
-
-      <!-- 6. VOICE / INPUT FOOTER REGION -->
-      <footer id="jarvis-input-bar">
-        <div id="hint">/skills &nbsp;/email &nbsp;/ip &nbsp;/github &nbsp;/wayback &nbsp;— or ask in plain language</div>
-
-        <!-- Image Staging Strip (Up to 4 images for Geolocation & Multimodal AI) -->
-        <div id="image-staging-bar" style="display:none; padding:6px 10px; background:rgba(15,23,42,0.95); border:1px solid rgba(0,240,255,0.3); border-radius:6px; margin-bottom:6px; gap:8px; align-items:center; flex-wrap:wrap; box-sizing:border-box;">
-          <div style="font-size:10px; color:#00F0FF; font-weight:700; font-family:var(--mono); display:flex; align-items:center; gap:4px;">
-            <span>📸 STAGED (<span id="staged-count">0</span>/4):</span>
-          </div>
-          <div id="staged-thumbnails-list" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;"></div>
-        </div>
-
-        <!-- Vision Mode Bar: Local Only Toggle & Cloud Data Notice -->
-        <div id="vision-mode-bar" style="display:none; padding:4px 8px; margin-bottom:6px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.08); border-radius:4px; font-size:10px; font-family:var(--mono); color:#8A8D91; align-items:center; justify-content:space-between; gap:8px; box-sizing:border-box;">
-          <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#E6E6E6; user-select:none;">
-            <input type="checkbox" id="toggle-vision-local-only" style="accent-color:#00F0FF; cursor:pointer;" />
-            <span>Local only (Ollama)</span>
-          </label>
-          <div id="vision-mode-notice" style="color:#F59E0B; font-size:9.5px; text-align:right;">
-            Warning: Cloud analysis sends image data to external third-party model providers.
-          </div>
-        </div>
-
-        <div id="composer">
-          <button id="attach-btn" title="Attach image / screenshot (Up to 4)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-          </button>
-          <input type="file" id="file-input" accept="image/*" multiple style="display:none;" />
-          <div id="attachment-chip" style="display:none; align-items:center; gap:6px; background:var(--bg-2); border:1px solid var(--border-strong); padding:4px 8px; border-radius:4px; font-size:11px; color:var(--accent-text);">
-            <span id="attachment-name"></span>
-            <span id="remove-attachment" style="cursor:pointer; display:flex; align-items:center;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </span>
-          </div>
-          <input type="text" id="chat-input" placeholder="Ask anything or enter directive... (or hold Space to speak)" />
-          <button type="button" id="mic-btn" class="mic-btn" title="Voice Input (or hold Space to speak)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-            </svg>
-          </button>
-          <button class="send" id="send-btn" title="Send">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          </button>
-        </div>
-      </footer>
     </main>
 
   </div>
@@ -6293,13 +6391,95 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
   </div>
 </div>
 
-<!-- Fixed Draggable Floating Launcher when Chat Panel is Collapsed (Visible on all screens) -->
-<button id="chat-expand-launcher" title="Toggle Intelligence Chat Panel (Drag to Reposition)">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-  </svg>
-  <span>CHAT FEED</span>
-</button>
+<!-- GLOBAL CHAT OVERLAY LAYER (Visible across all screens) -->
+<div id="global-chat-layer">
+  <!-- CHAT CONVERSATION CONTAINER CARD -->
+  <div id="jarvis-chat-container">
+    <!-- Chat Panel Resize Handles (anchored bottom-left, expands up & right) -->
+    <div class="chat-resize-handle chat-resize-t" data-direction="t" aria-label="Resize height" title="Resize Height"></div>
+    <div class="chat-resize-handle chat-resize-r" data-direction="r" aria-label="Resize width" title="Resize Width"></div>
+    <div class="chat-resize-handle chat-resize-tr" data-direction="tr" aria-label="Resize both" title="Resize Both"></div>
+
+    <div id="chat-panel-header" class="chat-panel-header" onclick="window.handleChatPanelHeaderClick(event)" ondblclick="window.handleChatPanelHeaderDblClick(event)">
+      <div class="chat-panel-header-title">
+        <span class="chat-panel-pulse"></span>
+        <span>INTELLIGENCE FEED</span>
+      </div>
+      <button type="button" class="chat-panel-collapse-btn composer-collapse-btn" onclick="event.stopPropagation(); window.toggleChatPanel()" title="Collapse Chat Panel (Hide Text Box)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+    </div>
+
+    <div class="workspace-card-header" aria-hidden="true">
+      <span class="card-header-title" id="case-title"></span>
+      <span class="case-sub-inline" id="case-sub"></span>
+    </div>
+
+    <div id="thread">
+      <div class="msg msg-answer" style="margin: 0; padding: 2px 0; font-size: 11px; opacity: 0.90; color: #94A3B8;">Systems operational. Standing by for voice or text directives.</div>
+    </div>
+
+    <div id="thinking-indicator">
+      <div class="thinking-spinner"></div>
+      <span>Analyzing telemetry & executing directives...</span>
+    </div>
+  </div>
+
+  <!-- VOICE / INPUT FOOTER REGION -->
+  <footer id="jarvis-input-bar">
+    <div id="hint">/skills &nbsp;/email &nbsp;/ip &nbsp;/github &nbsp;/wayback &nbsp;— or ask in plain language</div>
+
+    <!-- Image Staging Strip (Up to 4 images for Geolocation & Multimodal AI) -->
+    <div id="image-staging-bar" style="display:none; padding:6px 10px; background:rgba(15,23,42,0.95); border:1px solid rgba(0,240,255,0.3); border-radius:6px; margin-bottom:6px; gap:8px; align-items:center; flex-wrap:wrap; box-sizing:border-box;">
+      <div style="font-size:10px; color:#00F0FF; font-weight:700; font-family:var(--mono); display:flex; align-items:center; gap:4px;">
+        <span>📸 STAGED (<span id="staged-count">0</span>/4):</span>
+      </div>
+      <div id="staged-thumbnails-list" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;"></div>
+    </div>
+
+    <!-- Vision Mode Bar: Local Only Toggle & Cloud Data Notice -->
+    <div id="vision-mode-bar" style="display:none; padding:4px 8px; margin-bottom:6px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.08); border-radius:4px; font-size:10px; font-family:var(--mono); color:#8A8D91; align-items:center; justify-content:space-between; gap:8px; box-sizing:border-box;">
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#E6E6E6; user-select:none;">
+        <input type="checkbox" id="toggle-vision-local-only" style="accent-color:#00F0FF; cursor:pointer;" />
+        <span>Local only (Ollama)</span>
+      </label>
+      <div id="vision-mode-notice" style="color:#F59E0B; font-size:9.5px; text-align:right;">
+        Warning: Cloud analysis sends image data to external third-party model providers.
+      </div>
+    </div>
+
+    <div id="composer">
+      <button id="attach-btn" title="Attach image / screenshot (Up to 4)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </button>
+      <input type="file" id="file-input" accept="image/*" multiple style="display:none;" />
+      <div id="attachment-chip" style="display:none; align-items:center; gap:6px; background:var(--bg-2); border:1px solid var(--border-strong); padding:4px 8px; border-radius:4px; font-size:11px; color:var(--accent-text);">
+        <span id="attachment-name"></span>
+        <span id="remove-attachment" style="cursor:pointer; display:flex; align-items:center;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </span>
+      </div>
+      <input type="text" id="chat-input" placeholder="Ask anything or enter directive... (or hold Space to speak)" />
+      <button type="button" id="mic-btn" class="mic-btn" title="Voice Input (or hold Space to speak)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+        </svg>
+      </button>
+      <button class="send" id="send-btn" title="Send">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- Fixed Draggable Floating Launcher when Chat Panel is Collapsed (Visible on all screens) -->
+  <button id="chat-expand-launcher" title="Toggle Intelligence Chat Panel (Drag to Reposition)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+    <span>CHAT FEED</span>
+  </button>
+</div>
 
 <!-- 3D Case Graph Overlay -->
 <div class="overlay" id="graph-overlay">
@@ -7660,71 +7840,52 @@ function buildMiniGraphSvg(entities, width, height, rootLabel) {
 }
 
 function maybeAddInlineViz(entity) {
-  if (state.entities.length >= 2 && state.entities.length !== state.lastVizEntityCount) {
-    state.lastVizEntityCount = state.entities.length;
-    const cardId = `inline-viz-3d-${Date.now()}-${state.entities.length}`;
-    const card = document.createElement('div');
-    card.className = 'viz-card-3d';
-    card.innerHTML = `
-      <div class="viz-head">
-        <span class="lbl">⚡ DYNAMIC CORRELATION 3D GRAPH (${state.entities.length} ENTITIES)</span>
-        <a id="expand-graph-${state.entities.length}">EXPAND FULL GRAPH ↗</a>
+  // Amendment A: Inline mini 3D graph embeds in chat have been decommissioned.
+  // The Cold Room renders the real 3D correlation topology and Screen 2 provides the 2D graph.
+  return;
+}
+
+function appendInvestigationStartMessage(data) {
+  const thread = $('#thread');
+  if (!thread) return;
+  const title = data.case_title || data.target || 'Target';
+  const card = document.createElement('div');
+  card.className = 'jarvis-msg investigation-start-card';
+  card.innerHTML = `
+    <div class="msg-bubble" style="background:rgba(10, 16, 26, 0.88); border:1px solid rgba(0, 240, 255, 0.3); border-radius:8px; padding:10px 14px; margin:4px 0;">
+      <div style="font-size:12px; font-weight:700; color:#E2E8F0; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+        <span style="color:#00F0FF;">⚡</span>
+        <span>Investigation started for <b style="color:#00F0FF;">${escapeHtml(title)}</b></span>
       </div>
-      <div class="viz-canvas-container" id="${cardId}"></div>
-    `;
-    thread.appendChild(card);
-    card.querySelector(`#expand-graph-${state.entities.length}`).addEventListener('click', openGraphOverlay);
-    scrollThreadToBottom();
+      <button class="cr-mini-btn" style="background:rgba(0,240,255,0.12); border:1px solid rgba(0,240,255,0.5); color:#00F0FF; padding:4px 12px; border-radius:4px; cursor:pointer; font-family:var(--mono); font-size:11px; font-weight:700;" onclick="if(window.glideToSpatial) window.glideToSpatial(-950);">
+        Open in Cold Room ↗
+      </button>
+    </div>
+  `;
+  thread.appendChild(card);
+  scrollThreadToBottom();
+}
 
-    setTimeout(() => {
-      const containerEl = document.getElementById(cardId);
-      if (!containerEl) return;
-      
-      const miniData = buildGraphData(state.entities, []);
-      if (typeof ForceGraph3D !== 'undefined' && typeof THREE !== 'undefined') {
-        try {
-          const mini3D = ForceGraph3D()(containerEl)
-            .backgroundColor('#0a0303')
-            .showNavInfo(false)
-            .width(containerEl.clientWidth || 360)
-            .height(220)
-            .linkDirectionalArrowLength(3)
-            .linkWidth(1.2)
-            .nodeThreeObject(node => {
-              const group = new THREE.Group();
-              const isRoot = node.type === 'target';
-              const radius = isRoot ? 10 : 5 + (node.confidence || 0.5) * 4;
-              const color = getNodeBorderColor(node);
-
-              const sphereGeo = new THREE.SphereGeometry(radius, 12, 12);
-              const sphereMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 });
-              group.add(new THREE.Mesh(sphereGeo, sphereMat));
-
-              const wireGeo = new THREE.SphereGeometry(radius + 1.5, 6, 6);
-              const wireMat = new THREE.MeshBasicMaterial({ color: color, wireframe: true, transparent: true, opacity: 0.3 });
-              group.add(new THREE.Mesh(wireGeo, wireMat));
-              return group;
-            })
-            .linkColor(link => getLinkColor(link.signal));
-
-          mini3D.graphData({
-            nodes: miniData.nodes.map(n => ({ ...n })),
-            links: miniData.links.map(l => ({
-              source: typeof l.source === 'object' ? l.source.id : l.source,
-              target: typeof l.target === 'object' ? l.target.id : l.target,
-              signal: l.signal
-            }))
-          });
-          setTimeout(() => { if (mini3D) mini3D.zoomToFit(300); }, 250);
-        } catch (err) {
-          console.warn("Inline 3D mini-graph error, falling back to 2D SVG:", err);
-          containerEl.innerHTML = buildMiniGraphSvg(state.entities, containerEl.clientWidth || 360, 220, state.activeCase);
-        }
-      } else {
-        containerEl.innerHTML = buildMiniGraphSvg(state.entities, containerEl.clientWidth || 360, 220, state.activeCase);
-      }
-    }, 50);
-  }
+function appendInvestigationSummaryMessage(data) {
+  const thread = $('#thread');
+  if (!thread) return;
+  const summary = data.summary || (data.aborted ? 'Investigation cancelled by user.' : 'Reconnaissance concluded.');
+  const reportPath = data.report_path || '';
+  const card = document.createElement('div');
+  card.className = 'jarvis-msg investigation-summary-card';
+  card.innerHTML = `
+    <div class="msg-bubble" style="background:rgba(10, 16, 26, 0.88); border:1px solid rgba(16, 185, 129, 0.35); border-radius:8px; padding:10px 14px; margin:4px 0;">
+      <div style="font-size:12px; line-height:1.5; color:#E2E8F0; margin-bottom:8px; white-space:pre-wrap;">${escapeHtml(summary)}</div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button class="cr-mini-btn" style="background:rgba(0,240,255,0.12); border:1px solid rgba(0,240,255,0.5); color:#00F0FF; padding:4px 12px; border-radius:4px; cursor:pointer; font-family:var(--mono); font-size:11px; font-weight:700;" onclick="if(window.glideToSpatial) window.glideToSpatial(-950);">
+          Open in Cold Room ↗
+        </button>
+        ${reportPath ? `<button class="cr-mini-btn" style="background:rgba(255,184,77,0.12); border:1px solid rgba(255,184,77,0.4); color:#FFB84D; padding:4px 12px; border-radius:4px; cursor:pointer; font-family:var(--mono); font-size:11px; font-weight:700;" onclick="if(api()&&api().open_url) api().open_url('${escapeHtml(reportPath)}');">View Report ↗</button>` : ''}
+      </div>
+    </div>
+  `;
+  thread.appendChild(card);
+  scrollThreadToBottom();
 }
 
 /* ---------- Overlays ---------- */
@@ -15069,6 +15230,25 @@ window.jarvis = window.joe = {
         openInvestigationBrief(data);
         break;
 
+      case 'investigation_started':
+        window._hasAutoNavigatedForCurrentInvestigation = false;
+        window._activeInvestigationTarget = data.target || data.case_title || true;
+        showThinking(false);
+        setHudState('idle');
+        $('#session-status').textContent = 'running';
+        if (window.ColdRoom) {
+          ColdRoom.startInvestigation(data);
+        }
+        const autoOpenStart = (typeof data?.auto_open_cold_room === 'boolean' ? data.auto_open_cold_room : (window.jarvisConfig?.auto_open_cold_room !== false));
+        if (autoOpenStart && !window._hasAutoNavigatedForCurrentInvestigation) {
+          window._hasAutoNavigatedForCurrentInvestigation = true;
+          if (window.glideToSpatial) {
+            window.glideToSpatial(-950);
+          }
+        }
+        appendInvestigationStartMessage(data);
+        break;
+
       case 'scan_status':
         showThinking(true);
         setHudState('thinking');
@@ -15088,16 +15268,19 @@ window.jarvis = window.joe = {
           }
           if (window.ColdRoom) {
             ColdRoom.setStatus(data.message || 'Scanning...', true);
-            if (data.target) ColdRoom.setTarget(data.target);
+            if (data.target) ColdRoom.setTarget(data.target, data.case_title);
+            if (data.message) ColdRoom.handleStatusMessage(data.message);
           }
         }
         break;
 
       case 'entity_found':
         state.entities.push(data);
-        addEvidenceCard(data);
-        addInlineEvidenceCard(data);
-        maybeAddInlineViz(data);
+        const isInvFinding = data.is_investigation === true || !!(window._activeInvestigationTarget || (window.ColdRoom && window.ColdRoom.activeTarget));
+        if (!isInvFinding) {
+          addEvidenceCard(data);
+          addInlineEvidenceCard(data);
+        }
         $('#findings-count').textContent = state.entities.length;
         if (typeof addNodeToGraph === 'function') {
           addNodeToGraph(data);
@@ -15105,11 +15288,13 @@ window.jarvis = window.joe = {
         }
         if (window.ColdRoom) {
           ColdRoom.addEntity(data);
+          ColdRoom.updateEntityCount(state.entities.length);
         }
         break;
 
       case 'investigation_done':
         window._hasAutoNavigatedForCurrentInvestigation = false;
+        window._activeInvestigationTarget = null;
         showThinking(false);
         setHudState('idle');
         $('#session-status').textContent = 'idle';
@@ -15119,10 +15304,14 @@ window.jarvis = window.joe = {
         if (window.ColdRoom) {
           ColdRoom.finish(data);
         }
-        if (data.monologue) {
-          finalizeStreamingAnswer(data.monologue);
+        if (currentStreamingElem) {
+          try { currentStreamingElem.closest('.jarvis-msg')?.remove(); } catch(e){}
+          currentStreamingElem = null;
         }
-        playJarvisAudio(data.monologue, data.audio);
+        appendInvestigationSummaryMessage(data);
+        if (data.monologue) {
+          playJarvisAudio(data.monologue, data.audio);
+        }
         break;
 
       case 'jarvis_stream_start':
@@ -16354,6 +16543,69 @@ const ColdRoomGraph = {
         scene.add(this._labelGroup);
       }
 
+      // Configure tuned D3 forces
+      try {
+        const linkForce = this.graph3d.d3Force('link');
+        if (linkForce && typeof linkForce.distance === 'function') {
+          linkForce.distance(60).strength(0.35);
+        }
+        const chargeForce = this.graph3d.d3Force('charge');
+        if (chargeForce && typeof chargeForce.strength === 'function') {
+          chargeForce.strength(node => {
+            const count = Math.max(this.nodes.length, 1);
+            return -120 / Math.sqrt(count);
+          });
+        }
+        const centerForce = this.graph3d.d3Force('center');
+        if (centerForce && typeof centerForce.strength === 'function') {
+          centerForce.strength(0.08);
+        }
+        if (typeof this.graph3d.d3VelocityDecay === 'function') {
+          this.graph3d.d3VelocityDecay(0.42);
+        }
+        this.graph3d.d3Force('clamp', () => {
+          const maxR = 350;
+          const maxR2 = maxR * maxR;
+          for (let i = 0; i < this.nodes.length; i++) {
+            const n = this.nodes[i];
+            if (n.fx != null) continue; // Pinned target stays at (0,0,0)
+            const nx = n.x || 0, ny = n.y || 0, nz = n.z || 0;
+            const d2 = nx * nx + ny * ny + nz * nz;
+            if (d2 > maxR2) {
+              const d = Math.sqrt(d2);
+              const scale = maxR / d;
+              n.x = nx * scale;
+              n.y = ny * scale;
+              n.z = nz * scale;
+            }
+          }
+        });
+      } catch (fErr) {
+        console.warn('[ColdRoomGraph] D3 force configuration notice:', fErr);
+      }
+
+      // Track user camera interaction for auto-fit guard (10 seconds)
+      this._lastUserCameraInteraction = 0;
+      this._isPointerDown = false;
+      const controls = (typeof this.graph3d.controls === 'function') ? this.graph3d.controls() : null;
+      if (controls && typeof controls.addEventListener === 'function') {
+        controls.addEventListener('start', () => {
+          this._lastUserCameraInteraction = Date.now();
+        });
+        controls.addEventListener('change', () => {
+          if (this._isPointerDown) {
+            this._lastUserCameraInteraction = Date.now();
+          }
+        });
+      }
+      this.mount3d.addEventListener('pointerdown', () => {
+        this._isPointerDown = true;
+        this._lastUserCameraInteraction = Date.now();
+      });
+      window.addEventListener('pointerup', () => {
+        this._isPointerDown = false;
+      });
+
       // Default camera view
       this.graph3d.cameraPosition({ x: 0, y: 0, z: 280 }, { x: 0, y: 0, z: 0 }, 0);
 
@@ -16579,8 +16831,12 @@ const ColdRoomGraph = {
       x: 0,
       y: 0,
       z: 0,
+      fx: 0,
+      fy: 0,
+      fz: 0,
       vx: 0,
       vy: 0,
+      vz: 0,
       fixed: true,
       data: { type: 'TARGET', value: targetName, confidence: 1.0, source: 'Primary Case Target' }
     };
@@ -16629,11 +16885,26 @@ const ColdRoomGraph = {
 
     const conf = (typeof data.confidence === 'number' && !isNaN(data.confidence)) ? data.confidence : 0.5;
     const radius2D = 9 + conf * 7;
-    const val3D = 3.0 + conf * 4.5;
+    const val3D = Math.max(3.5, 3.5 + conf * 4.0);
     const isDimmed = (data.verified === null || (data.metadata && data.metadata.status === 'unverified') || data.status === 'unverified');
 
-    const angle = clusterAngle + (Math.random() - 0.5) * 0.6;
-    const dist = 90 + Math.random() * 85;
+    // Near-parent / near-target node spawning with small random jitter (+/- 15 units)
+    // Eliminates the static Southwest clusterAngle down-fling
+    const discoveredFrom = data.discovered_from || (data.metadata && (data.metadata.discovered_from || data.metadata.parent_entity));
+    let parentNode = null;
+    if (discoveredFrom) {
+      parentNode = this.nodes.find(n => n !== this.targetNode && (n.fullLabel === discoveredFrom || (n.data && n.data.value === discoveredFrom)));
+    }
+    if (!parentNode) {
+      parentNode = this.targetNode;
+    }
+    const baseX = (parentNode && typeof parentNode.x === 'number' && !isNaN(parentNode.x)) ? parentNode.x : 0;
+    const baseY = (parentNode && typeof parentNode.y === 'number' && !isNaN(parentNode.y)) ? parentNode.y : 0;
+    const baseZ = (parentNode && typeof parentNode.z === 'number' && !isNaN(parentNode.z)) ? parentNode.z : 0;
+
+    const spawnX = baseX + (Math.random() - 0.5) * 30;
+    const spawnY = baseY + (Math.random() - 0.5) * 30;
+    const spawnZ = baseZ + (Math.random() - 0.5) * 30;
 
     const node = {
       id: id,
@@ -16645,9 +16916,9 @@ const ColdRoomGraph = {
       val: val3D,
       dimmed: isDimmed,
       confidence: conf,
-      x: Math.cos(angle) * dist,
-      y: Math.sin(angle) * dist,
-      z: (Math.random() - 0.5) * 40,
+      x: spawnX,
+      y: spawnY,
+      z: spawnZ,
       clusterAngle: clusterAngle,
       vx: 0,
       vy: 0,
@@ -16677,7 +16948,6 @@ const ColdRoomGraph = {
 
     // 2. Real Entity -> Entity links (NO random links)
     // Check discovered_from / parent_entity
-    const discoveredFrom = data.discovered_from || (data.metadata && (data.metadata.discovered_from || data.metadata.parent_entity));
     if (discoveredFrom) {
       const parentNode = this.nodes.find(n => n !== node && n !== this.targetNode && (n.fullLabel === discoveredFrom || (n.data && n.data.value === discoveredFrom)));
       if (parentNode) {
@@ -16792,8 +17062,7 @@ const ColdRoomGraph = {
 
   update3DData(incremental = false) {
     if (!this.graph3d) return;
-    const gNodes = this.nodes.map(n => ({ ...n }));
-    const nodeMap = new Set(gNodes.map(n => n.id));
+    const nodeMap = new Set(this.nodes.map(n => n.id));
     const gLinks = this.links
       .map(l => ({
         ...l,
@@ -16805,14 +17074,40 @@ const ColdRoomGraph = {
     if (incremental) {
       // Retain existing camera orientation and position during incremental live updates
       const currCam = this.graph3d.cameraPosition();
-      this.graph3d.graphData({ nodes: gNodes, links: gLinks });
+      this.graph3d.graphData({ nodes: this.nodes, links: gLinks });
       if (currCam && typeof currCam.x === 'number') {
         this.graph3d.cameraPosition(currCam, null, 0);
       }
-      this.graph3d.d3ReheatSimulation();
+      // Gentle reheat decaying quickly to 0
+      if (typeof this.graph3d.d3AlphaTarget === 'function') {
+        this.graph3d.d3AlphaTarget(0.1);
+        setTimeout(() => {
+          if (this.graph3d && typeof this.graph3d.d3AlphaTarget === 'function') {
+            this.graph3d.d3AlphaTarget(0);
+          }
+        }, 300);
+      }
     } else {
-      this.graph3d.graphData({ nodes: gNodes, links: gLinks });
+      this.graph3d.graphData({ nodes: this.nodes, links: gLinks });
     }
+
+    this._scheduleAutoFit();
+  },
+
+  _scheduleAutoFit() {
+    if (this._autoFitTimer) clearTimeout(this._autoFitTimer);
+    this._autoFitTimer = setTimeout(() => {
+      this.autoFitCamera(false);
+    }, 400);
+  },
+
+  autoFitCamera(force = false) {
+    if (!this.graph3d || typeof this.graph3d.zoomToFit !== 'function') return;
+    const now = Date.now();
+    if (!force && (now - (this._lastUserCameraInteraction || 0)) < 10000) {
+      return; // User interacted within the last 10 seconds; do not fight user!
+    }
+    this.graph3d.zoomToFit(600, 40);
   },
 
   selectNode(node, notifyController = true) {
@@ -16858,8 +17153,9 @@ const ColdRoomGraph = {
   },
 
   recenter() {
+    this._lastUserCameraInteraction = 0;
     if (this.mode === '3d' && this.graph3d) {
-      this.graph3d.cameraPosition({ x: 0, y: 0, z: 280 }, { x: 0, y: 0, z: 0 }, 800);
+      this.autoFitCamera(true);
     } else {
       this.panX = 0;
       this.panY = 0;
@@ -17207,24 +17503,162 @@ const ColdRoom = {
   searchQuery: '',
   caseDrawerOpen: false,
 
+  activeCaseTitle: '',
+  _timerInterval: null,
+  _startTime: null,
+  steps: [],
+
   init() {
     ColdRoomGraph.init();
     window.pivotFromColdRoom = () => this.pivot();
     this.loadStoredCases();
   },
 
-  setTarget(target) {
+  setTarget(target, caseTitle) {
     this.activeTarget = target || 'UNKNOWN';
+    this.activeCaseTitle = caseTitle || target || 'UNKNOWN';
     const disp = document.getElementById('cr-target-display');
-    if (disp) disp.textContent = this.activeTarget.toUpperCase();
+    if (disp) disp.textContent = this.activeCaseTitle.toUpperCase();
     
     const drawerTarget = document.getElementById('cr-drawer-target-val');
     const drawerBadge = document.getElementById('cr-drawer-target-badge');
-    if (drawerTarget) drawerTarget.textContent = this.activeTarget.toUpperCase();
+    if (drawerTarget) drawerTarget.textContent = this.activeCaseTitle.toUpperCase();
     if (drawerBadge) drawerBadge.textContent = 'ACTIVE';
 
     ColdRoomGraph.setTarget(this.activeTarget);
     this.saveActiveCase();
+  },
+
+  startInvestigation(data) {
+    const target = data.target || 'UNKNOWN';
+    const caseTitle = data.case_title || target;
+    this.setTarget(target, caseTitle);
+
+    // Show progress strip immediately
+    const strip = document.getElementById('cr-progress-strip');
+    if (strip) strip.style.display = 'flex';
+
+    this.setProgressState(data.state || 'Starting');
+    this.startTimer(data.timestamp);
+    this.updateEntityCount(0);
+    this.initSteps(data.target_type || 'username');
+    const sumEl = document.getElementById('cr-strip-summary');
+    if (sumEl) sumEl.style.display = 'none';
+  },
+
+  startTimer(startTimestamp) {
+    if (this._timerInterval) clearInterval(this._timerInterval);
+    this._startTime = startTimestamp ? (startTimestamp * 1000) : Date.now();
+    const update = () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - this._startTime) / 1000));
+      const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const ss = String(elapsed % 60).padStart(2, '0');
+      const timerEl = document.getElementById('cr-strip-timer');
+      if (timerEl) timerEl.textContent = `${mm}:${ss}`;
+    };
+    update();
+    this._timerInterval = setInterval(update, 1000);
+  },
+
+  stopTimer() {
+    if (this._timerInterval) {
+      clearInterval(this._timerInterval);
+      this._timerInterval = null;
+    }
+  },
+
+  setProgressState(stateName) {
+    const badge = document.getElementById('cr-strip-state-badge');
+    if (!badge) return;
+    badge.textContent = stateName;
+    badge.className = 'cr-strip-badge';
+    const s = (stateName || '').toLowerCase();
+    if (s.includes('running')) badge.classList.add('running');
+    else if (s.includes('warning')) badge.classList.add('warning');
+    else if (s.includes('finish') || s.includes('complete')) badge.classList.add('finished');
+    else if (s.includes('fail')) badge.classList.add('failed');
+    else if (s.includes('cancel')) badge.classList.add('cancelled');
+    else badge.classList.add('starting');
+  },
+
+  updateEntityCount(count) {
+    const el = document.getElementById('cr-strip-entity-count');
+    if (el) el.textContent = `${count} ${count === 1 ? 'entity' : 'entities'}`;
+    const headerCount = document.getElementById('cr-entities-count');
+    if (headerCount) headerCount.textContent = String(count);
+  },
+
+  initSteps(targetType) {
+    this.steps = [
+      { id: 'recon_swarm', label: 'Reconnaissance Swarm', status: 'running', detail: 'running' },
+      { id: 'verification', label: 'Account Verification', status: 'waiting', detail: 'waiting' },
+      { id: 'breach_lookup', label: 'Breach Providers', status: 'waiting', detail: 'waiting' },
+      { id: 'domain_ip', label: 'Domain & IP Checks', status: 'waiting', detail: 'waiting' },
+      { id: 'pivots', label: 'Identity & Pivots', status: 'waiting', detail: 'waiting' },
+      { id: 'report', label: 'Report Generation', status: 'waiting', detail: 'waiting' }
+    ];
+    this.renderSteps();
+  },
+
+  updateStep(id, status, detail) {
+    const step = this.steps ? this.steps.find(s => s.id === id) : null;
+    if (step) {
+      step.status = status;
+      if (detail) step.detail = detail;
+      this.renderSteps();
+    }
+  },
+
+  handleStatusMessage(msg) {
+    if (!msg) return;
+    const m = msg.toLowerCase();
+    this.setProgressState('Running');
+
+    if (!this.steps || this.steps.length === 0) {
+      this.initSteps();
+    }
+
+    if (m.includes('maigret not found') || m.includes('maigret check failed') || m.includes('maigret execution timed out') || (m.includes('maigret') && m.includes('skip'))) {
+      this.updateStep('recon_swarm', 'skipped', 'maigret skipped');
+    } else if (m.includes('sherlock') && (m.includes('skipped') || m.includes('failed') || m.includes('not found'))) {
+      this.updateStep('recon_swarm', 'skipped', 'sherlock skipped');
+    }
+
+    if (m.includes('verif') || m.includes('playwright')) {
+      if (m.includes('skipped') || m.includes('unavailable') || m.includes('not found') || m.includes('failed')) {
+        this.updateStep('verification', 'skipped', 'playwright unavailable');
+      } else {
+        this.updateStep('verification', 'running', 'verifying accounts');
+      }
+    } else if (m.includes('breach') || m.includes('holehe') || m.includes('xposedornot') || m.includes('hudson rock')) {
+      if (m.includes('skipped') || m.includes('failed')) {
+        this.updateStep('breach_lookup', 'skipped', 'breach check skipped');
+      } else {
+        this.updateStep('breach_lookup', 'running', 'querying providers');
+      }
+    } else if (m.includes('domain') || m.includes('geolocating') || m.includes('whois') || m.includes('dns')) {
+      this.updateStep('domain_ip', 'running', 'resolving network');
+    } else if (m.includes('pivot') || m.includes('correlation')) {
+      this.updateStep('pivots', 'running', 'pivoting & correlating');
+    } else if (m.includes('html report') || m.includes('report') || m.includes('dossier')) {
+      this.updateStep('report', 'running', 'generating dossier');
+    } else if (m.includes('deploying') || m.includes('searching') || m.includes('swarm') || m.includes('recon')) {
+      const reconStep = this.steps ? this.steps.find(s => s.id === 'recon_swarm') : null;
+      if (!reconStep || (reconStep.status !== 'skipped' && reconStep.status !== 'done')) {
+        this.updateStep('recon_swarm', 'running', 'in progress');
+      }
+    }
+  },
+
+  renderSteps() {
+    const container = document.getElementById('cr-strip-steps');
+    if (!container || !this.steps) return;
+    container.innerHTML = this.steps.map(s => `
+      <div class="cr-strip-step step-${s.status}">
+        <span>${s.label}:</span>
+        <span class="cr-strip-step-badge">${this._escapeHtml(s.detail || s.status)}</span>
+      </div>
+    `).join('');
   },
 
   setStatus(text, isScanning) {
@@ -17614,14 +18048,66 @@ const ColdRoom = {
   },
 
   finish(data) {
-    this.setStatus('CONCLUDED (ANALYSIS COMPLETE)', false);
+    this.stopTimer();
+    const state = (data && data.state) || (data && data.aborted ? 'Cancelled' : (data && data.error ? 'Failed' : 'Finished'));
+    this.setProgressState(state);
+    this.setStatus(`CONCLUDED (${state.toUpperCase()})`, false);
+
+    // Update steps based on sources_status
+    if (data && data.sources_status && this.steps) {
+      const ss = data.sources_status;
+      if (ss.maigret && ss.maigret.status === 'skipped') {
+        this.updateStep('recon_swarm', 'skipped', 'maigret skipped');
+      } else if (ss.sherlock && ss.sherlock.status === 'skipped') {
+        this.updateStep('recon_swarm', 'skipped', 'sherlock skipped');
+      } else {
+        this.updateStep('recon_swarm', 'done', 'done');
+      }
+
+      if (ss.browser_verification && ss.browser_verification.status === 'skipped') {
+        this.updateStep('verification', 'skipped', 'playwright unavailable');
+      } else {
+        this.updateStep('verification', 'done', 'done');
+      }
+
+      if (ss.holehe && ss.holehe.status === 'skipped') {
+        this.updateStep('breach_lookup', 'skipped', 'holehe skipped');
+      } else {
+        this.updateStep('breach_lookup', 'done', 'done');
+      }
+
+      this.updateStep('domain_ip', 'done', 'done');
+      this.updateStep('pivots', 'done', 'done');
+      this.updateStep('report', 'done', 'done');
+    } else if (this.steps) {
+      this.steps.forEach(s => {
+        if (s.status === 'running' || s.status === 'waiting') s.status = 'done';
+      });
+      this.renderSteps();
+    }
+
+    // Show 1-3 line summary in strip
+    const summary = (data && data.summary) || (data && data.aborted ? 'Investigation cancelled by user.' : 'Reconnaissance concluded.');
+    const sumEl = document.getElementById('cr-strip-summary');
+    if (sumEl) {
+      sumEl.textContent = summary;
+      sumEl.style.display = 'block';
+    }
+
     if (window.JarvisSFX && window.JarvisSFX.targetLock) {
       window.JarvisSFX.targetLock();
     }
   },
 
   reset() {
+    this.stopTimer();
+    const strip = document.getElementById('cr-progress-strip');
+    if (strip) strip.style.display = 'none';
+    const sumEl = document.getElementById('cr-strip-summary');
+    if (sumEl) sumEl.style.display = 'none';
+
     this.activeTarget = '';
+    this.activeCaseTitle = '';
     this.entities = [];
     this.selectedEntity = null;
     const disp = document.getElementById('cr-target-display');
@@ -18268,6 +18754,7 @@ const SpatialNav = {
     document.documentElement.style.setProperty('--spatial-x', this.currentX.toFixed(2) + 'px');
     document.documentElement.style.setProperty('--spatial-ratio', ratio.toFixed(4));
     document.documentElement.style.setProperty('--spatial-abs-ratio', absRatio.toFixed(4));
+    document.body.classList.toggle('screen-3-active', this.currentX > 475);
 
     // Screen 1: The Cold Room wrapper pointer-events & visibility
     const coldRoom = document.getElementById('cold-room-wrapper');
@@ -18511,8 +18998,10 @@ document.body.classList.add('chat-panel-collapsed');
 window.isChatPanelCollapsed = true;
 
 let headerClickTimer = null;
+window._wasChatHeaderDragging = false;
 window.handleChatPanelHeaderClick = function(e) {
   if (e && e.target && e.target.closest('.chat-panel-collapse-btn')) return;
+  if (window._wasChatHeaderDragging) return;
   if (headerClickTimer) {
     clearTimeout(headerClickTimer);
     headerClickTimer = null;
@@ -18543,6 +19032,7 @@ window.resetChatPanelSize = function() {
   document.documentElement.style.removeProperty('--chat-panel-width');
   document.documentElement.style.removeProperty('--chat-panel-height');
   document.documentElement.style.removeProperty('--chat-panel-left');
+  document.documentElement.style.removeProperty('--chat-panel-bottom');
   if (document.body.classList.contains('chat-panel-collapsed')) {
     window.toggleChatPanel(false);
   }
@@ -18689,6 +19179,7 @@ function initChatPanelResize() {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed.width === 'number' && typeof parsed.height === 'number') {
         const left = (typeof parsed.left === 'number') ? parsed.left : null;
+        const bottom = (typeof parsed.bottom === 'number') ? parsed.bottom : null;
         const maxW = Math.max(MIN_WIDTH, window.innerWidth - (left !== null ? left : (window.innerWidth * 0.2)) - 16);
         const maxH = Math.max(MIN_HEIGHT, window.innerHeight - 78 - 40);
         const w = Math.max(MIN_WIDTH, Math.min(maxW, parsed.width));
@@ -18698,6 +19189,10 @@ function initChatPanelResize() {
         if (left !== null) {
           const clampedLeft = Math.max(10, Math.min(window.innerWidth - w - 10, left));
           document.documentElement.style.setProperty('--chat-panel-left', `${clampedLeft}px`);
+        }
+        if (bottom !== null) {
+          const clampedBottom = Math.max(78, Math.min(window.innerHeight - h - 20, bottom));
+          document.documentElement.style.setProperty('--chat-panel-bottom', `${clampedBottom}px`);
         }
       }
     }
@@ -18795,11 +19290,15 @@ function initChatPanelResize() {
 
         // Persist to localStorage
         try {
-          localStorage.setItem('jarvis_chat_panel_size', JSON.stringify({
-            width: currentW,
-            height: currentH,
-            left: anchorLeft
-          }));
+          const saved = localStorage.getItem('jarvis_chat_panel_size');
+          const obj = saved ? JSON.parse(saved) : {};
+          obj.width = currentW;
+          obj.height = currentH;
+          obj.left = anchorLeft;
+          if (typeof obj.bottom !== 'number') {
+            obj.bottom = window.innerHeight - rect.bottom;
+          }
+          localStorage.setItem('jarvis_chat_panel_size', JSON.stringify(obj));
         } catch (_) {}
       };
 
@@ -18817,16 +19316,119 @@ function initChatPanelResize() {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed.width === 'number' && typeof parsed.height === 'number') {
         const left = (typeof parsed.left === 'number') ? parsed.left : (window.innerWidth - parsed.width) / 2;
+        const bottom = (typeof parsed.bottom === 'number') ? parsed.bottom : 78;
         const maxW = Math.max(MIN_WIDTH, window.innerWidth - left - 16);
         const maxH = Math.max(MIN_HEIGHT, window.innerHeight - 78 - 40);
         const w = Math.max(MIN_WIDTH, Math.min(maxW, parsed.width));
         const h = Math.max(MIN_HEIGHT, Math.min(maxH, parsed.height));
         const clampedLeft = Math.max(10, Math.min(window.innerWidth - w - 10, left));
+        const clampedBottom = Math.max(78, Math.min(window.innerHeight - h - 20, bottom));
         document.documentElement.style.setProperty('--chat-panel-width', `${w}px`);
         document.documentElement.style.setProperty('--chat-panel-height', `${h}px`);
         document.documentElement.style.setProperty('--chat-panel-left', `${clampedLeft}px`);
+        document.documentElement.style.setProperty('--chat-panel-bottom', `${clampedBottom}px`);
       }
     } catch (_) {}
+  });
+}
+
+function initChatPanelDrag() {
+  const container = document.getElementById('jarvis-chat-container');
+  const header = document.getElementById('chat-panel-header');
+  if (!container || !header || header._dragInitialized) return;
+  header._dragInitialized = true;
+
+  header.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('.chat-panel-collapse-btn')) return;
+    if (document.body.classList.contains('chat-panel-resizing')) return;
+
+    const rect = container.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startLeft = rect.left;
+    const startBottom = window.innerHeight - rect.bottom;
+    const width = rect.width;
+    const height = rect.height;
+
+    let isDragging = false;
+    let currentLeft = startLeft;
+    let currentBottom = startBottom;
+    let rafId = null;
+
+    try {
+      header.setPointerCapture(e.pointerId);
+    } catch (_) {}
+
+    const onPointerMove = (ev) => {
+      ev.preventDefault();
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+
+      if (!isDragging && Math.hypot(dx, dy) > 4) {
+        isDragging = true;
+        document.body.classList.add('chat-panel-dragging');
+      }
+
+      if (isDragging) {
+        const minLeft = 10;
+        const maxLeft = Math.max(minLeft, window.innerWidth - width - 10);
+        const clampedLeft = Math.max(minLeft, Math.min(maxLeft, Math.round(startLeft + dx)));
+
+        const minBottom = 78;
+        const maxBottom = Math.max(minBottom, window.innerHeight - height - 20);
+        const clampedBottom = Math.max(minBottom, Math.min(maxBottom, Math.round(startBottom - dy)));
+
+        currentLeft = clampedLeft;
+        currentBottom = clampedBottom;
+
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            rafId = null;
+            document.documentElement.style.setProperty('--chat-panel-left', `${currentLeft}px`);
+            document.documentElement.style.setProperty('--chat-panel-bottom', `${currentBottom}px`);
+          });
+        }
+      }
+    };
+
+    const onPointerUp = (ev) => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+
+      try {
+        header.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+
+      if (isDragging) {
+        window._wasChatHeaderDragging = true;
+        setTimeout(() => { window._wasChatHeaderDragging = false; }, 120);
+        document.body.classList.remove('chat-panel-dragging');
+
+        document.documentElement.style.setProperty('--chat-panel-left', `${currentLeft}px`);
+        document.documentElement.style.setProperty('--chat-panel-bottom', `${currentBottom}px`);
+
+        try {
+          const saved = localStorage.getItem('jarvis_chat_panel_size');
+          const obj = saved ? JSON.parse(saved) : {};
+          obj.width = width;
+          obj.height = height;
+          obj.left = currentLeft;
+          obj.bottom = currentBottom;
+          localStorage.setItem('jarvis_chat_panel_size', JSON.stringify(obj));
+        } catch (_) {}
+      }
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
   });
 }
 
@@ -18834,10 +19436,12 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     initDraggableChatLauncher();
     initChatPanelResize();
+    initChatPanelDrag();
   });
 } else {
   initDraggableChatLauncher();
   initChatPanelResize();
+  initChatPanelDrag();
 }
 
 document.addEventListener('keydown', function(e) {
