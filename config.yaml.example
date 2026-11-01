@@ -6,6 +6,8 @@ model: qwen2.5:3b-instruct-q4_0
 ollama_url: http://localhost:11434
 
 # ── Multimodal Vision & LLM Providers ──────────────────────────
+primary_llm: nvidia
+
 # Optional: NVIDIA NIM API key for fast Nemotron & vision models (free credits at https://build.nvidia.com)
 nvidia_api_key: YOUR_NVIDIA_API_KEY_HERE
 nvidia_model: nvidia/nemotron-3-ultra-550b-a55b
@@ -13,9 +15,9 @@ nvidia_model: nvidia/nemotron-3-ultra-550b-a55b
 # Optional: Google AI Studio Gemini API key for multimodal reasoning (free tier at https://aistudio.google.com/apikey)
 gemini_api_key: YOUR_GEMINI_API_KEY_HERE
 
-# Optional: Groq Cloud API key for ultra-fast LLaMA inference and Whisper STT (free tier at https://console.groq.com/keys)
+# Optional: Groq Cloud API key for ultra-fast inference and Whisper STT (free tier at https://console.groq.com/keys)
 groq_api_key: YOUR_GROQ_API_KEY_HERE
-groq_model: openai/gpt-oss-120b
+groq_model: qwen/qwen3.8-27b
 
 # ── God's Eye Geointel & Satellites ─────────────────────────────
 # Optional: Cesium Ion token for 3D globe terrain and photorealistic photogrammetry (free tier at https://ion.cesium.com/tokens)

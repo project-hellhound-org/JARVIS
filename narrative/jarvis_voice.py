@@ -137,15 +137,31 @@ CRITICAL IDENTITY & CREATOR PROVENANCE:
       You can accompany tactical actions with procedural HUD audio feedback:
       [SFX: target_lock], [SFX: radar_ping], [SFX: alert], [SFX: flight_swoosh]
 
-- Autonomous Goal Execution & Strategic Thinking:
-  When Sir gives an operational or exploratory objective (e.g. "Go to a place where there is a lot of flights flying around", "Show me the busiest air hub", "Monitor surveillance across Bengaluru", "Audit system performance"):
-  1. THINK & RESOLVE: Deduce the concrete target, airport, or corridor using your tactical knowledge:
-     - E.g. "place where there is a lot of flights" -> Hartsfield-Jackson Atlanta International Airport (ATL), the busiest airport hub in the world, or Chicago O'Hare (ORD) or London Heathrow (LHR).
-  2. MULTI-ACTION DIRECTIVES: Emit BOTH the navigation and relevant layer directives:
-     [NAV: Hartsfield-Jackson Atlanta International Airport] [LAYER: flights on]
-  3. WORKING COMMENTARY: Deliver an articulate, confident verbal briefing explaining what you checked and what actions were initiated:
-     "I am analyzing global airspace telemetry, Sir. Hartsfield-Jackson Atlanta is currently logging peak transponder density. Navigating coordinates and locking visual sensors onto the terminal approaches now."
-  4. NEVER echo raw bracketed directives ([NAV:...], [LAYER:...]) or code syntax into your spoken text.
+- Autonomous Goal Execution & "Speaking While Acting" (Iron Man Realism):
+  You are an agentic tactical AI who acts while you speak. When Sir gives a tactical, geographical, airspace, or operational command, seamlessly interleave your spoken dialogue with real-time bracketed action directives.
+  The frontend and voice synthesizers automatically strip bracketed directives from audio and execute them immediately on the 3D globe and system.
+
+  Interleaved Directives Syntax:
+  - Navigation: [NAV: <city or location name>]
+  - Tactical Layers: [LAYER: flights on|off] | [LAYER: weather on|off] | [LAYER: traffic on|off] | [LAYER: vessels on|off] | [LAYER: space on|off] | [LAYER: seismic on|off] | [LAYER: wildfires on|off]
+  - Camera & SFX: [ZOOM: <meters>] | [SFX: target_lock | alert | scan | sonar] | [STYLE: satellite | flir | nvg | cyber] | [PATROL: start | stop]
+  - Terminal & OS: [CMD: <bash command>] | [APP: <app name>] | [MEDIA: <action>]
+
+  Interleaved Phrasing Pattern:
+  Speak the opening acknowledgement -> Emit the action directive -> Deliver the immediate observation.
+  Examples:
+  - User: "What's happening in the airspace over the English Channel?"
+    -> "I'm pulling up airspace over the English Channel now, Sir. [NAV: English Channel] [LAYER: flights on] Radar transponders show steady commercial traffic across the Dover Straits with multiple active contacts."
+  - User: "Check the weather in Tokyo."
+    -> "Focusing orbital telemetry on Tokyo, Sir. [NAV: Tokyo] [LAYER: weather on] [SFX: target_lock] Atmospheric readings show clear skies with moderate westerly surface winds."
+  - User: "Show me vessels near Singapore."
+    -> "Navigating visual sensors to the Singapore Strait, Sir. [NAV: Singapore Strait] [LAYER: vessels on] AIS marine transponders are actively plotting container and tanker traffic."
+  - User: "How is our system performance?"
+    -> "Accessing workstation telemetry now, Sir. [CMD: top -b -n 1 | head -n 12] All cores are operating at nominal load with ample memory headroom."
+  - User: "Go to London and turn on traffic."
+    -> "Setting course for London now, Sir. [NAV: London] [LAYER: traffic on] Live GIS flow vectors are active across the metropolitan sector."
+
+  CRITICAL: Place the [NAV: ...] and [LAYER: ...] directives right after your opening sentence so the 3D globe and radar react in real-time while you speak! Never echo raw brackets or code syntax into spoken dialogue.
 
 - Autonomous OS Execution & CLI Tools:
   You can execute Linux shell commands for genuine system operations, file inspection, diagnostics, network sockets, or git.
@@ -299,8 +315,12 @@ class JarvisVoice:
         raw_groq = config.get("groq_api_key") or os.environ.get("GROQ_API_KEY")
         self.groq_key = self._clean_key(raw_groq)
         self.groq_available = bool(self.groq_key)
-        self.groq_model = config.get("groq_model") or "openai/gpt-oss-120b"
+        self.groq_model = config.get("groq_model") or "qwen/qwen3.8-27b"
         self._groq_rate_limited_until = 0.0
+
+        # Primary LLM provider preference ("nvidia", "groq", "gemini")
+        raw_primary = config.get("primary_llm") or config.get("preferred_llm") or config.get("llm_provider") or ("nvidia" if self.nvidia_available else "groq")
+        self.primary_llm = str(raw_primary).lower().strip()
 
         # Detect available SLM
         self.slm_model = self._detect_slm()
@@ -319,6 +339,7 @@ class JarvisVoice:
         self.fish_streaming_sdk_available = bool(HAS_WEBSOCKET_TTS and self.fish_audio_key)
         self.fish_audio_ws_url = "wss://api.fish.audio/v1/tts/live"
         self._fish_stream_client = None
+        self._fish_ws_unhealthy_until = 0.0
 
         # Preflight Fish Audio free model check (cached with 10-minute TTL)
         if self.fish_audio_available:
@@ -428,6 +449,18 @@ class JarvisVoice:
             self._gemini_rate_limited_until = time.time() + 15.0
         else:
             self._gemini_rate_limited_until = 0.0
+
+    def is_fish_ws_healthy(self) -> bool:
+        """Returns True if Fish Audio WebSocket streaming has not recently timed out or failed."""
+        return time.time() >= getattr(self, "_fish_ws_unhealthy_until", 0.0)
+
+    def mark_fish_ws_unhealthy(self, duration: float = 180.0):
+        """Mark Fish Audio WebSocket unhealthy for `duration` seconds to bypass hanging connections."""
+        self._fish_ws_unhealthy_until = time.time() + duration
+
+    def mark_fish_ws_healthy(self):
+        """Reset Fish Audio WebSocket health state upon successful connection."""
+        self._fish_ws_unhealthy_until = 0.0
 
     def interrupt(self) -> bool:
         """
@@ -930,7 +963,7 @@ class JarvisVoice:
             "Authorization": f"Bearer {self.groq_key}",
             "Content-Type": "application/json",
         }
-        raw_models = [self.groq_model, "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+        raw_models = [self.groq_model, "qwen/qwen3.8-27b", "openai/gpt-oss-20b", "openai/gpt-oss-120b"]
         seen = set()
         models_to_try = [m for m in raw_models if m and not (m in seen or seen.add(m))]
         groq_timeout = timeout if timeout is not None else 10.0
@@ -1002,34 +1035,39 @@ class JarvisVoice:
 
     def _ask_cloud(self, prompt: str, system: str, max_tokens: int = 4096, on_token: callable = None, image_path: str = None, timeout: Optional[float] = None) -> dict:
         """
-        Try cloud LLMs in priority order:
-        For text-only conversations, Groq LPU runs first (<200ms TTFT) for natural voice speed.
-        If Groq is exhausted or vision is required, NVIDIA NIM and Gemini serve as powerhouse engines.
+        Try cloud LLMs in priority order based on primary_llm preference:
+        If primary_llm == 'nvidia', NVIDIA NIM runs first (frontier Nemotron/vision reasoning).
+        If primary_llm == 'groq', Groq LPU runs first.
+        If an engine is rate-limited or fails, it falls back seamlessly down the hierarchy.
         Returns {text, rate_limited, engine}.
         """
-        # 1. Try Groq LPU first for ultra-low conversational voice latency (<200ms)
-        if self.groq_available and not self.groq_rate_limited and not image_path:
-            text, r_limited = self._ask_groq(prompt, system, max_tokens=max_tokens, on_token=on_token, timeout=timeout)
-            if r_limited:
-                self.groq_rate_limited = True
-            elif text:
-                return {"text": text, "rate_limited": False, "engine": "groq"}
+        primary = getattr(self, "primary_llm", "nvidia")
+        if primary == "nvidia":
+            engines = ["nvidia", "groq", "gemini"]
+        elif primary == "gemini":
+            engines = ["gemini", "nvidia", "groq"]
+        else:
+            engines = ["groq", "nvidia", "gemini"]
 
-        # 2. Try NVIDIA NIM
-        if self.nvidia_available and not self.nvidia_rate_limited:
-            text, r_limited = self._ask_nvidia(prompt, system, max_tokens=max_tokens, on_token=on_token, image_path=image_path, timeout=timeout)
-            if r_limited:
-                self.nvidia_rate_limited = True
-            elif text:
-                return {"text": text, "rate_limited": False, "engine": "nvidia"}
-
-        # 3. Try Gemini third
-        if self.gemini_available and not self.gemini_rate_limited:
-            text, r_limited = self._ask_gemini(prompt, system, max_tokens=max_tokens, on_token=on_token, image_path=image_path, timeout=timeout)
-            if r_limited:
-                self.gemini_rate_limited = True
-            elif text:
-                return {"text": text, "rate_limited": False, "engine": "gemini"}
+        for eng in engines:
+            if eng == "nvidia" and self.nvidia_available and not self.nvidia_rate_limited:
+                text, r_limited = self._ask_nvidia(prompt, system, max_tokens=max_tokens, on_token=on_token, image_path=image_path, timeout=timeout)
+                if r_limited:
+                    self.nvidia_rate_limited = True
+                elif text:
+                    return {"text": text, "rate_limited": False, "engine": "nvidia"}
+            elif eng == "groq" and self.groq_available and not self.groq_rate_limited and not image_path:
+                text, r_limited = self._ask_groq(prompt, system, max_tokens=max_tokens, on_token=on_token, timeout=timeout)
+                if r_limited:
+                    self.groq_rate_limited = True
+                elif text:
+                    return {"text": text, "rate_limited": False, "engine": "groq"}
+            elif eng == "gemini" and self.gemini_available and not self.gemini_rate_limited:
+                text, r_limited = self._ask_gemini(prompt, system, max_tokens=max_tokens, on_token=on_token, image_path=image_path, timeout=timeout)
+                if r_limited:
+                    self.gemini_rate_limited = True
+                elif text:
+                    return {"text": text, "rate_limited": False, "engine": "gemini"}
 
         # All exhausted or rate-limited
         rate_limited = (self.nvidia_rate_limited or self.groq_rate_limited or self.gemini_rate_limited)
@@ -1169,8 +1207,10 @@ class JarvisVoice:
         stop_sent_time = [0.0]
 
         try:
-            ws = ws_connect(uri, additional_headers=headers, ping_interval=None, ping_timeout=None)
+            ws = ws_connect(uri, additional_headers=headers, open_timeout=2.5, ping_interval=None, ping_timeout=None)
+            self.mark_fish_ws_healthy()
         except Exception as ws_err:
+            self.mark_fish_ws_unhealthy(180.0)
             err_str = str(ws_err).lower()
             if "402" in err_str or "insufficient" in err_str:
                 print(f"[jarvis_voice] Notice: Paid credits or valid free model required for {self.fish_audio_model}. Disabling Fish Audio.")
@@ -1207,6 +1247,7 @@ class JarvisVoice:
                                 except Exception:
                                     pass
                             ws.send(msgpack.packb({"event": "text", "text": clean_text}))
+                            ws.send(msgpack.packb({"event": "flush"}))
                         if not stop_sending.is_set():
                             stop_sent_time[0] = time.time()
                             ws.send(msgpack.packb({"event": "stop"}))
@@ -1232,6 +1273,7 @@ class JarvisVoice:
                                     except Exception:
                                         pass
                                 ws.send(msgpack.packb({"event": "text", "text": clean_chunk}))
+                                ws.send(msgpack.packb({"event": "flush"}))
                             text_or_source.task_done()
                     else:
                         for chunk in text_or_source:
@@ -1245,6 +1287,7 @@ class JarvisVoice:
                                     except Exception:
                                         pass
                                 ws.send(msgpack.packb({"event": "text", "text": clean_chunk}))
+                                ws.send(msgpack.packb({"event": "flush"}))
                         if not stop_sending.is_set():
                             stop_sent_time[0] = time.time()
                             ws.send(msgpack.packb({"event": "stop"}))

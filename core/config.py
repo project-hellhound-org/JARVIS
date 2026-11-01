@@ -24,6 +24,11 @@ CONFIG_KEY_SPECS: Dict[str, Dict[str, Any]] = {
         "aliases": [],
         "default": "",
     },
+    "PRIMARY_LLM": {
+        "yaml_keys": ["primary_llm", "preferred_llm", "llm_provider"],
+        "aliases": ["PRIMARY_LLM", "PREFERRED_LLM", "LLM_PROVIDER"],
+        "default": "nvidia",
+    },
     "GROQ_API_KEY": {
         "yaml_keys": ["groq_api_key"],
         "aliases": [],

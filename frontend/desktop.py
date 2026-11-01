@@ -329,7 +329,7 @@ class _StreamingPrefixFilter:
     CANDIDATES = ("JARVIS:", "J.A.R.V.I.S.:", "ASSISTANT:", "AI:")
     CLEAN_REGEX = re.compile(r'^\s*(?:JARVIS|J\.A\.R\.V\.I\.S\.|ASSISTANT|AI)\s*:\s*', re.IGNORECASE)
 
-    def __init__(self, on_chunk, on_nav=None, on_layer=None, on_zoom=None, on_radio=None, on_sfx=None, on_annotate=None, on_style=None, on_patrol=None, on_window=None):
+    def __init__(self, on_chunk, on_nav=None, on_layer=None, on_zoom=None, on_radio=None, on_sfx=None, on_annotate=None, on_style=None, on_patrol=None, on_window=None, on_directive=None):
         self.on_chunk = on_chunk
         self.on_nav = on_nav
         self.on_layer = on_layer
@@ -340,6 +340,7 @@ class _StreamingPrefixFilter:
         self.on_style = on_style
         self.on_patrol = on_patrol
         self.on_window = on_window
+        self.on_directive = on_directive
         self.buffer = ""
         self.cleared = False
         self.cmd_buffer = ""
@@ -398,10 +399,18 @@ class _StreamingPrefixFilter:
     DIRECTIVE_PREFIXES = (
         "CMD", "NAV", "LAYER", "ZOOM", "RADIO", "SFX", "ANNOTATE",
         "STYLE", "PATROL", "WINDOW", "MODE", "VOICEOS",
-        "SEARCH", "YOUTUBE", "APP", "MEDIA"
+        "SEARCH", "YOUTUBE", "APP", "MEDIA", "ACTION"
     )
 
     def _dispatch_directive(self, buf: str):
+        # Force flush any buffered spoken words preceding this directive
+        self._emit_chunk("", force=True)
+        if self.on_directive:
+            try:
+                self.on_directive()
+            except Exception:
+                pass
+
         # Check if this bracket block is a tactical God's Eye or system directive (whitespace tolerant)
         m_cmd = re.match(r'\[\s*CMD(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
         m_nav = re.match(r'\[\s*NAV(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
@@ -413,6 +422,7 @@ class _StreamingPrefixFilter:
         m_style = re.match(r'\[\s*STYLE(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
         m_patrol = re.match(r'\[\s*PATROL(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
         m_window = re.match(r'\[\s*(?:WINDOW|MODE|VOICEOS)(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
+        m_action = re.match(r'\[\s*ACTION(?::|\s)\s*(.+)\]\s*$', buf, re.IGNORECASE | re.DOTALL)
 
         if m_cmd:
             cmd_to_run = m_cmd.group(1).strip()
@@ -467,6 +477,22 @@ class _StreamingPrefixFilter:
                 self.on_window(m_window.group(1).strip())
             except Exception as e:
                 print(f"[desktop] Streaming WINDOW error: {e}")
+        elif m_action:
+            action_content = m_action.group(1).strip()
+            m_sub_nav = re.match(r'^(?:nav|navigate|glide)(?:\((?:["\']?)(.*?)(?:["\']?)\)|(?::|\s)\s*(.+))$', action_content, re.IGNORECASE)
+            m_sub_layer = re.match(r'^(?:layer)(?:\((?:["\']?)(.*?)(?:["\']?)\)|(?::|\s)\s*(.+))$', action_content, re.IGNORECASE)
+            if m_sub_nav and self.on_nav:
+                loc = (m_sub_nav.group(1) or m_sub_nav.group(2) or "").strip()
+                try:
+                    self.on_nav(loc)
+                except Exception as e:
+                    print(f"[desktop] Streaming ACTION NAV error: {e}")
+            elif m_sub_layer and self.on_layer:
+                lay = (m_sub_layer.group(1) or m_sub_layer.group(2) or "").strip()
+                try:
+                    self.on_layer(lay)
+                except Exception as e:
+                    print(f"[desktop] Streaming ACTION LAYER error: {e}")
         else:
             # Recognized prefix like SEARCH, YOUTUBE, APP, MEDIA consumed or passed through
             pass
@@ -790,6 +816,29 @@ KNOWN_COORDS = {
     "white house": (38.8977, -77.0365),
     "pentagon": (38.8719, -77.0563),
     "eiffel tower": (48.8584, 2.2945),
+
+    # Primary Sovereign Nations & Country Centroids
+    "germany": (51.1657, 10.4515),
+    "deutschland": (51.1657, 10.4515),
+    "france": (46.2276, 2.2137),
+    "united kingdom": (55.3781, -3.4360),
+    "uk": (55.3781, -3.4360),
+    "britain": (55.3781, -3.4360),
+    "great britain": (55.3781, -3.4360),
+    "england": (52.3555, -1.1743),
+    "united states": (37.0902, -95.7129),
+    "usa": (37.0902, -95.7129),
+    "america": (37.0902, -95.7129),
+    "japan": (36.2048, 138.2529),
+    "india": (20.5937, 78.9629),
+    "italy": (41.8719, 12.5674),
+    "spain": (40.4637, -3.7492),
+    "canada": (56.1304, -106.3468),
+    "australia": (-25.2744, 133.7751),
+    "brazil": (-14.2350, -51.9253),
+    "russia": (61.5240, 105.3188),
+    "china": (35.8617, 104.1954),
+    "switzerland": (46.8182, 8.2275),
 }
 
 GEO_CACHE_FILE = os.path.expanduser("~/.jarvis/geocache.json")
@@ -1246,6 +1295,53 @@ class JarvisAPI:
         if isinstance(finfo, dict) and "file" in finfo:
             msg_str = f"⚡ LIVE CODE AUDIT [{finfo['index']}/{finfo['total']}]: {finfo['file']} ({finfo['lines']} LOC)... [VERIFIED]"
             self._emit("jarvis_stt_interim", {"text": msg_str})
+        elif isinstance(finfo, dict) and finfo.get("type") == "skill_ack":
+            ack_text = finfo.get("ack_msg", "")
+            action_cat = finfo.get("action_cat", "")
+            task_type = finfo.get("task_type", "")
+            task_data = finfo.get("task_data", {})
+
+            if ack_text:
+                self._emit("jarvis_stt_interim", {"text": f"⚡ {ack_text}"})
+                self._emit("jarvis_stream_chunk", {"chunk": ack_text + "\n\n"})
+                self._speak_and_suppress_echo(ack_text)
+
+            # Proactive tactical action actuation while data executes in background
+            if action_cat == "flight_intel" or task_type == "flight_intel":
+                self._execute_tactical_layer("flights on")
+                self._execute_tactical_sfx("radar_ping")
+            elif action_cat == "weather_intel" or task_type == "weather_intel":
+                loc = task_data.get("location")
+                if loc:
+                    self._execute_tactical_nav(loc)
+                self._execute_tactical_layer("weather on")
+                self._execute_tactical_sfx("chime")
+            elif action_cat == "traffic_intel" or task_type in ("traffic_intel", "maps_nav"):
+                loc = task_data.get("location")
+                if loc:
+                    self._execute_tactical_nav(loc)
+                self._execute_tactical_layer("traffic on")
+                self._execute_tactical_sfx("chime")
+            elif action_cat == "satellite_track" or task_type == "satellite_track":
+                self._execute_tactical_layer("satellites on")
+                self._execute_tactical_sfx("target_lock")
+            elif action_cat == "conflict_intel" or task_type == "conflict_intel":
+                self._execute_tactical_layer("conflicts on")
+                self._execute_tactical_sfx("alert")
+            elif action_cat == "system_diagnostic" or task_type == "system_diagnostic":
+                self._execute_tactical_sfx("data_stream")
+            elif action_cat == "tactical_goal" or task_type == "tactical_goal":
+                steps = task_data.get("steps", [])
+                for s in steps:
+                    act = s.get("action")
+                    if act == "nav" and s.get("location"):
+                        self._execute_tactical_nav(s.get("location"))
+                    elif act == "flights":
+                        self._execute_tactical_layer("flights on")
+                    elif act == "weather":
+                        self._execute_tactical_layer("weather on")
+                    elif act == "traffic":
+                        self._execute_tactical_layer("traffic on")
 
     def _execute_tactical_nav(self, target: str):
         """Execute geospatial navigation to a city, region, landmark, or globe."""
@@ -1262,7 +1358,12 @@ class JarvisAPI:
         print(f"[desktop] Tactical NAV directive received: '{target_clean}'")
         self._emit("jarvis_play_sfx", {"effect": "target_lock"})
         self._emit("jarvis_stt_interim", {"text": f"🌐 [TACTICAL ORBIT] Navigating camera to {target_clean.title()}..."})
-        self._resolve_and_glide_location(f"go to {target_clean}", glide_only=True)
+        # Execute asynchronously in background thread so token streaming and TTS queuing are NEVER blocked!
+        threading.Thread(
+            target=self._resolve_and_glide_location,
+            args=(f"go to {target_clean}", True),
+            daemon=True
+        ).start()
 
     def _execute_tactical_layer(self, layer_spec: str):
         """Execute God's Eye tactical layer toggle."""
@@ -1986,7 +2087,12 @@ class JarvisAPI:
                         skill_text = re.sub(r"\{\s*\"(?:skill_triggered|action|target|status|findings_so_far)\"[\s\S]*?\}", "", skill_text, flags=re.IGNORECASE)
                         skill_text = re.sub(r"\s+", " ", skill_text).strip()
                         sal = JarvisMemory().get_salutation() or "Sir"
-                        context_prompt = f"[SKILL_CONTEXT]\nUser Prompt: {text}\nExecution Result (human-readable only):\n{skill_text[:12000]}\n\nPersona Spoken Instructions: As J.A.R.V.I.S., address {sal} directly with crisp wit, understated elegance, and analytical precision. Give a concise, articulate summary of the actual execution result. Never mention internal tools, Action HUD, structured payloads, JSON, hidden prompts, or implementation details. Do not output JSON or code unless explicitly requested. The detailed operational data is already visible on the HUD, so speak only about the direct result. Stay grounded in the execution result."
+                        context_prompt = (
+                            f"[SKILL_CONTEXT]\nUser Prompt: {text}\nExecution Result (human-readable only):\n{skill_text[:12000]}\n\n"
+                            f"Persona Spoken Instructions: As J.A.R.V.I.S., address {sal} directly with crisp wit, understated elegance, and analytical precision. "
+                            f"Speak while acting: feel free to embed real-time tactical directives directly inline with your spoken words (e.g. [LAYER: flights on], [SFX: radar_ping], [NAV: <target>], [LAYER: weather on]) so HUD sensors stay synchronized with your speech. "
+                            f"Give a concise, articulate summary of the actual execution result. Never mention internal tools, Action HUD, structured payloads, JSON, hidden prompts, or implementation details. Do not output JSON or code unless explicitly requested. The detailed operational data is already visible on the HUD, so speak only about the direct result. Stay grounded in the execution result."
+                        )
                         self._run_ask(context_prompt)
                         return
                 except Exception as se:
@@ -3939,6 +4045,7 @@ class JarvisAPI:
             self._voice
             and getattr(self._voice, "fish_audio_available", False)
             and getattr(self._voice, "fish_streaming_sdk_available", False)
+            and (not hasattr(self._voice, "is_fish_ws_healthy") or self._voice.is_fish_ws_healthy())
         )
         if self._voice and getattr(self._voice, "fish_audio_available", False) and not fish_stream_available:
             print("[desktop] Fish Audio streaming SDK unavailable; using complete-phrase Fish TTS fallback for this answer.")
@@ -4299,6 +4406,15 @@ class JarvisAPI:
             ocr_snippet = f"\n[OCR Text Under Cursor / Screen Focus]:\n\"\"\"\n{ocr_text[:3500]}\n\"\"\"\n" if ocr_text else ""
             question = f"[Desktop Context: Active Window '{win_name}'{cursor_pos}]{ocr_snippet}User Prompt: {question}\n(Note: The operator is pointing directly at this area on screen. If they ask you to fix, run, or execute a command, provide the precise bash command enclosed in [CMD: <command>] so it can be executed.)"
 
+        def flush_sentence_buffer():
+            nonlocal sentence_buffer
+            if sentence_buffer.strip() and self._voice:
+                frag = sentence_buffer.strip()
+                frag = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', frag, flags=re.IGNORECASE).strip()
+                sentence_buffer = ""
+                if len(frag) > 2:
+                    queue_spoken_text(frag)
+
         prefix_filter = _StreamingPrefixFilter(
             emit_clean_chunk,
             on_nav=lambda loc: self._execute_tactical_nav(loc),
@@ -4310,6 +4426,7 @@ class JarvisAPI:
             on_style=lambda s: self._execute_tactical_style(s),
             on_patrol=lambda p: self._execute_tactical_patrol(p),
             on_window=lambda w: self._execute_tactical_window(w),
+            on_directive=flush_sentence_buffer,
         )
 
         first_token_seen = False

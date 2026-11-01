@@ -718,6 +718,8 @@
     font-size: calc(11px * var(--win-scale, 1));
     line-height: 1.4;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
   }
   .win-led-indicator {
     font-size: 8.5px;
@@ -5450,7 +5452,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         <span>ACTIVE TRANSPONDERS: <span id="radar-contact-count-win" style="color:#00F0FF; font-weight:700;">0</span></span>
         <button onclick="window.glideToTelemetryTarget && window.glideToTelemetryTarget()" style="background:none; border:none; color:#38BDF8; font-size:9px; cursor:pointer; text-decoration:underline;">TRACK TOP</button>
       </div>
-      <div id="win-airspace-list" style="max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; font-size:9px;">
+      <div id="win-airspace-list" style="flex:1; min-height:120px; max-height:none; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; gap:4px; font-size:9px;">
         <div style="color:#64748B; text-align:center; padding:10px;">Awaiting ADS-B airspace telemetry packets...</div>
       </div>
     </div>
@@ -5492,7 +5494,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         <span>SURFACE TARGETS: <span id="vessel-contact-count-win" style="color:#38BDF8; font-weight:700;">0</span></span>
         <span style="font-size:8.5px; color:#64748B;">STREAM: LIVE AIS</span>
       </div>
-      <div id="win-maritime-list" style="max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; font-size:9px;">
+      <div id="win-maritime-list" style="flex:1; min-height:120px; max-height:none; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; gap:4px; font-size:9px;">
         <div style="color:#64748B; text-align:center; padding:10px;">Scanning global shipping corridors & naval transponders...</div>
       </div>
     </div>
@@ -5539,7 +5541,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
           Target locked on active planetary horizon. Orbit ground track projected.
         </div>
       </div>
-      <div id="win-satellite-list" style="max-height:120px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; font-size:9px;">
+      <div id="win-satellite-list" style="flex:1; min-height:120px; max-height:none; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; gap:4px; font-size:9px;">
         <div style="display:flex; justify-content:space-between; color:#E6E6E6; background:rgba(255,255,255,0.04); padding:4px 6px; border-radius:3px;">
           <span style="font-weight:700; color:#00F0FF;">ISS (ZARYA)</span>
           <span style="color:#A1A1AA;">NORAD 25544 • 420 km ALT</span>
@@ -5594,7 +5596,7 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
           🏙️ CITY-LEVEL CONTACTS
         </button>
       </div>
-      <div id="win-ground-intel-feed-list" style="display:flex; flex-direction:column; gap:6px; max-height:240px; overflow-y:auto;">
+      <div id="win-ground-intel-feed-list" style="flex:1; min-height:120px; max-height:none; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; gap:6px;">
         <div style="color:#64748B; text-align:center; padding:12px; font-size:9.5px;">
           No ground media pins in active sector. Orbiting globe camera or searching city acquires geotagged footage & Wikimedia photography.
         </div>
@@ -20962,6 +20964,10 @@ function initCesiumGlobe() {
     scene.globe.show = true;
     scene.globe.depthTestAgainstTerrain = true;
     if (isHeadlessTest) scene.globe.depthTestAgainstTerrain = false;
+    scene.globe.backFaceCulling = true;
+    if (scene.globe.translucency) {
+      scene.globe.translucency.enabled = false;
+    }
     scene.globe.baseColor = Cesium.Color.fromCssColorString('#020611');
     scene.globe.showGroundAtmosphere = true;
     if (isHeadlessTest) scene.globe.showGroundAtmosphere = false;
@@ -24883,6 +24889,21 @@ function initGlobeIntelligence(viewer) {
     });
     const vesselCountEl = document.getElementById('vessel-contact-count');
     if (vesselCountEl) vesselCountEl.textContent = MARITIME_VESSELS.length;
+    const winVesselCountEl = document.getElementById('vessel-contact-count-win');
+    if (winVesselCountEl) winVesselCountEl.textContent = MARITIME_VESSELS.length;
+    const winMaritimeList = document.getElementById('win-maritime-list');
+    if (winMaritimeList && MARITIME_VESSELS.length > 0) {
+      winMaritimeList.innerHTML = MARITIME_VESSELS.map(v => `
+        <div onclick="if(window.inspectTarget) window.inspectTarget({type:'VESSEL', id:'${v.id}', name:'${v.name}', vesselType:'${v.type}', lat:${v.lat}, lon:${v.lon}, speedKnots:${v.speedKnots}})"
+             style="display:flex; justify-content:space-between; align-items:center; color:#E6E6E6; background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:3px; font-family:var(--mono); cursor:pointer; transition:background 0.15s ease;"
+             onmouseover="this.style.background='rgba(56,189,248,0.12)'"
+             onmouseout="this.style.background='rgba(255,255,255,0.03)'"
+             title="Click to track ${v.name}">
+          <span style="font-weight:700; color:#38BDF8;">🚢 ${v.name}</span>
+          <span style="color:#A1A1AA; font-size:8.5px;">${v.type} • ${v.speedKnots} kts</span>
+        </div>
+      `).join('');
+    }
   };
 
   // Start with authentic empty state by default (No fake data on screen)
@@ -24977,6 +24998,21 @@ function initGlobeIntelligence(viewer) {
         });
         const vesselCountEl = document.getElementById('vessel-contact-count');
         if (vesselCountEl) vesselCountEl.textContent = vessels.length;
+        const winVesselCountEl = document.getElementById('vessel-contact-count-win');
+        if (winVesselCountEl) winVesselCountEl.textContent = vessels.length;
+        const winMaritimeList = document.getElementById('win-maritime-list');
+        if (winMaritimeList && vessels.length > 0) {
+          winMaritimeList.innerHTML = vessels.map(v => `
+            <div onclick="if(window.inspectTarget) window.inspectTarget({type:'VESSEL', id:'${v.id}', name:'${v.name}', vesselType:'${v.type}', lat:${v.lat}, lon:${v.lon}, speedKnots:${v.speedKnots}})"
+                 style="display:flex; justify-content:space-between; align-items:center; color:#E6E6E6; background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:3px; font-family:var(--mono); cursor:pointer; transition:background 0.15s ease;"
+                 onmouseover="this.style.background='rgba(56,189,248,0.12)'"
+                 onmouseout="this.style.background='rgba(255,255,255,0.03)'"
+                 title="Click to track ${v.name}">
+              <span style="font-weight:700; color:#38BDF8;">🚢 ${v.name}</span>
+              <span style="color:#A1A1AA; font-size:8.5px;">${v.type || 'VESSEL'} • ${v.speedKnots || 0} kts</span>
+            </div>
+          `).join('');
+        }
       }
       return vessels;
     } catch (err) {
@@ -25006,6 +25042,15 @@ function initGlobeIntelligence(viewer) {
   };
 
   _groundMediaDataSource.clustering.clusterEvent.addEventListener((clusteredEntities, cluster) => {
+    cluster.billboard.show = true;
+    cluster.billboard.id = cluster;
+    cluster.billboard.width = 36;
+    cluster.billboard.height = 36;
+    cluster.billboard.verticalOrigin = Cesium.VerticalOrigin.BOTTOM;
+    cluster.billboard.heightReference = Cesium.HeightReference.RELATIVE_TO_GROUND;
+    cluster.billboard.disableDepthTestDistance = 150000;
+    cluster.billboard.image = CLUSTER_PIN_SVG(clusteredEntities.length);
+
     cluster.label.show = true;
     cluster.label.text = String(clusteredEntities.length);
     cluster.label.font = 'bold 11px "JetBrains Mono", monospace';
@@ -25015,14 +25060,9 @@ function initGlobeIntelligence(viewer) {
     cluster.label.style = Cesium.LabelStyle.FILL_AND_OUTLINE;
     cluster.label.verticalOrigin = Cesium.VerticalOrigin.CENTER;
     cluster.label.horizontalOrigin = Cesium.HorizontalOrigin.CENTER;
-    cluster.label.pixelOffset = new Cesium.Cartesian2(0, 0);
-
-    cluster.billboard.show = true;
-    cluster.billboard.id = cluster;
-    cluster.billboard.width = 36;
-    cluster.billboard.height = 36;
-    cluster.billboard.verticalOrigin = Cesium.VerticalOrigin.CENTER;
-    cluster.billboard.image = CLUSTER_PIN_SVG(clusteredEntities.length);
+    cluster.label.pixelOffset = new Cesium.Cartesian2(0, -18);
+    cluster.label.heightReference = Cesium.HeightReference.RELATIVE_TO_GROUND;
+    cluster.label.disableDepthTestDistance = 150000;
   });
 
   const VIDEO_PIN_ICON = (() => {
@@ -25302,7 +25342,8 @@ function initGlobeIntelligence(viewer) {
           width: 38,
           height: 38,
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-          disableDepthTestDistance: 5000,
+          heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+          disableDepthTestDistance: 150000,
           scaleByDistance: new Cesium.NearFarScalar(500, 1.15, 4000000, 0.20),
           distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 8000000)
         },
@@ -25322,7 +25363,8 @@ function initGlobeIntelligence(viewer) {
           color: Cesium.Color.fromCssColorString(isVideo ? '#00F0FF' : '#10B981'),
           outlineColor: Cesium.Color.WHITE,
           outlineWidth: 1.5,
-          disableDepthTestDistance: 50000,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          disableDepthTestDistance: 150000,
           distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 150000)
         },
         show: true,
@@ -26932,9 +26974,13 @@ function initGlobeIntelligence(viewer) {
         if (winBadgeEl) winBadgeEl.textContent = `${_aircraftFlightMap.size} CONTACTS`;
         const winAirList = document.getElementById('win-airspace-list');
         if (winAirList && _aircraftFlightMap.size > 0) {
-          const topContacts = Array.from(_aircraftFlightMap.values()).slice(0, 15);
-          winAirList.innerHTML = topContacts.map(c => `
-            <div style="display:flex; justify-content:space-between; align-items:center; color:#E6E6E6; background:rgba(255,255,255,0.03); padding:3px 6px; border-radius:3px; font-family:var(--mono);">
+          const allContacts = Array.from(_aircraftFlightMap.values());
+          winAirList.innerHTML = allContacts.map(c => `
+            <div onclick="if(window.inspectTarget) window.inspectTarget(_aircraftFlightMap.get('${c.callsign}')?.entity?._tacticalData || {type:'AIRCRAFT', callsign:'${c.callsign}', lat:${c.lat}, lon:${c.lon}})"
+                 style="display:flex; justify-content:space-between; align-items:center; color:#E6E6E6; background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:3px; font-family:var(--mono); cursor:pointer; transition:background 0.15s ease;"
+                 onmouseover="this.style.background='rgba(0,240,255,0.12)'"
+                 onmouseout="this.style.background='rgba(255,255,255,0.03)'"
+                 title="Click to track and inspect ${c.callsign}">
               <span style="font-weight:700; color:${c.catColor || '#38BDF8'};">✈ ${c.callsign}</span>
               <span style="color:#A1A1AA; font-size:8.5px;">${c.altMeters ? Math.round(c.altMeters * 3.28084) + ' ft' : 'GND'} • ${Math.round(c.speedKnots || 0)} kts</span>
             </div>
@@ -28119,8 +28165,7 @@ function initGlobeIntelligence(viewer) {
           outlineWidth: 3,
           style: Cesium.LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-          pixelOffset: new Cesium.Cartesian2(0, -14),
-          disableDepthTestDistance: 50000000
+          pixelOffset: new Cesium.Cartesian2(0, -14)
         }
       });
 
@@ -28676,8 +28721,7 @@ function initGlobeIntelligence(viewer) {
             image: spriteCanvas,
             width: spriteW,
             height: spriteH,
-            id: tacticalData,
-            disableDepthTestDistance: 50000000
+            id: tacticalData
           });
           bb._tacticalData = tacticalData;
           _satelliteBillboardsMap.set(noradKey, bb);
@@ -28692,8 +28736,46 @@ function initGlobeIntelligence(viewer) {
         }
       });
 
+      // Update win-satellite-list with active satellites
+      const satListEl = document.getElementById('win-satellite-list');
+      if (satListEl && sats.length > 0) {
+        satListEl.innerHTML = sats.slice(0, 50).map(s => {
+          const altK = Math.round(Number(s.alt) || 420);
+          const style = getSatelliteStyle(s);
+          return `
+            <div onclick="if(window.inspectTarget) window.inspectTarget({type:'SATELLITE', id:'${s.noradId || s.name}', name:'${(s.name || 'SAT').replace(/'/g, "\\'")}', altKm:${altK}, lat:${Number(s.lat) || 0}, lon:${Number(s.lng != null ? s.lng : s.lon) || 0}}); if(window.setFocusedSatelliteTrack) window.setFocusedSatelliteTrack({name:'${(s.name || 'SAT').replace(/'/g, "\\'")}', altKm:${altK}, lat:${Number(s.lat) || 0}, lon:${Number(s.lng != null ? s.lng : s.lon) || 0}});"
+                 style="display:flex; justify-content:space-between; align-items:center; color:#E6E6E6; background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:3px; font-family:var(--mono); cursor:pointer; transition:background 0.15s ease;"
+                 onmouseover="this.style.background='rgba(0,240,255,0.12)'"
+                 onmouseout="this.style.background='rgba(255,255,255,0.03)'"
+                 title="Click to track orbital path of ${s.name || 'SAT'}">
+              <span style="font-weight:700; color:${style.accentHex || '#00F0FF'};">🛰 ${s.name || 'SAT'}</span>
+              <span style="color:#A1A1AA; font-size:8.5px;">${s.noradId ? 'NORAD ' + s.noradId + ' • ' : ''}${altK} km</span>
+            </div>
+          `;
+        }).join('');
+      }
+      const satBadge = document.getElementById('win-satellites-badge');
+      if (satBadge) satBadge.textContent = `${sats.length} ORBITS`;
+
+      updateSatelliteHorizonOcclusion();
       if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
     }
+
+    function updateSatelliteHorizonOcclusion() {
+      if (!_satelliteBillboards || !_satelliteBillboards.show || !_satelliteBillboards.length || !viewer || viewer.isDestroyed() || !viewer.scene) return;
+      try {
+        const occluder = new Cesium.EllipsoidalOccluder(Cesium.Ellipsoid.WGS84, viewer.camera.positionWC);
+        const len = _satelliteBillboards.length;
+        for (let i = 0; i < len; i++) {
+          const bb = _satelliteBillboards.get(i);
+          if (bb && bb.position) {
+            bb.show = occluder.isPointVisible(bb.position);
+          }
+        }
+      } catch (occErr) {}
+    }
+    window.updateSatelliteHorizonOcclusion = updateSatelliteHorizonOcclusion;
+    viewer.camera.changed.addEventListener(updateSatelliteHorizonOcclusion);
 
     async function fetchOsirisConflicts() {
       if (!_osirisActive) return;

@@ -272,6 +272,19 @@ class SystemSkillEngine:
                 return True, ack_msg, False, "", payload
 
             if task:
+                if on_progress and ack_msg:
+                    try:
+                        on_progress({
+                            "type": "skill_ack",
+                            "ack_msg": ack_msg,
+                            "action_cat": action_cat,
+                            "task_type": getattr(task, "type", ""),
+                            "task_id": getattr(task, "task_id", ""),
+                            "task_data": getattr(task, "data", {})
+                        })
+                    except Exception:
+                        pass
+
                 if task.type == TaskType.YOUTUBE_SEARCH.value:
                     query = task.data.get("query", text)
                     task_mgr.update_progress(task.task_id, 30, f"Searching YouTube for '{query}'...")
