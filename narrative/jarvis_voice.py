@@ -15,11 +15,16 @@ try:
     import msgpack
     from websockets.sync.client import connect as ws_connect
     from websockets.exceptions import ConnectionClosed
+    try:
+        from websockets.protocol import State
+    except Exception:
+        State = None
     HAS_WEBSOCKET_TTS = True
 except Exception:
     msgpack = None
     ws_connect = None
     ConnectionClosed = Exception
+    State = None
     HAS_WEBSOCKET_TTS = False
 
 FishAudio = None
@@ -340,6 +345,8 @@ class JarvisVoice:
         self.fish_audio_ws_url = "wss://api.fish.audio/v1/tts/live"
         self._fish_stream_client = None
         self._fish_ws_unhealthy_until = 0.0
+        self._warm_fish_ws = None
+        self._warm_fish_ws_lock = threading.RLock()
 
         # Preflight Fish Audio free model check (cached with 10-minute TTL)
         if self.fish_audio_available:
@@ -457,10 +464,83 @@ class JarvisVoice:
     def mark_fish_ws_unhealthy(self, duration: float = 180.0):
         """Mark Fish Audio WebSocket unhealthy for `duration` seconds to bypass hanging connections."""
         self._fish_ws_unhealthy_until = time.time() + duration
+        self.close_warm_fish_ws()
 
     def mark_fish_ws_healthy(self):
         """Reset Fish Audio WebSocket health state upon successful connection."""
         self._fish_ws_unhealthy_until = 0.0
+
+    def get_warm_fish_ws(self, timeout: float = 2.5):
+        """Thread-safe acquisition of a warm, connected Fish Audio WebSocket."""
+        if not self.fish_audio_available or not self.fish_audio_key:
+            return None
+        if not HAS_WEBSOCKET_TTS or ws_connect is None:
+            return None
+
+        with self._warm_fish_ws_lock:
+            ws = self._warm_fish_ws
+            if ws is not None:
+                is_closed = False
+                try:
+                    if hasattr(ws, "close_code") and ws.close_code is not None:
+                        is_closed = True
+                    elif hasattr(ws, "state") and State is not None:
+                        is_closed = (ws.state != State.OPEN)
+                except Exception:
+                    is_closed = True
+
+                if not is_closed:
+                    return ws
+                try:
+                    ws.close()
+                except Exception:
+                    pass
+                self._warm_fish_ws = None
+
+            uri = getattr(self, "fish_audio_ws_url", "wss://api.fish.audio/v1/tts/live")
+            headers = {
+                "Authorization": f"Bearer {self.fish_audio_key}",
+                "model": self.fish_audio_model,
+            }
+            try:
+                ws = ws_connect(uri, additional_headers=headers, open_timeout=timeout, ping_interval=None, ping_timeout=None)
+                self.mark_fish_ws_healthy()
+                self._warm_fish_ws = ws
+                return ws
+            except Exception as ws_err:
+                self.mark_fish_ws_unhealthy(180.0)
+                err_str = str(ws_err).lower()
+                if "402" in err_str or "insufficient" in err_str:
+                    print(f"[jarvis_voice] Notice: Paid credits or valid free model required for {self.fish_audio_model}. Disabling Fish Audio.")
+                    self.fish_audio_available = False
+                else:
+                    print(f"[jarvis_voice] Fish Audio WebSocket connection error: {ws_err}")
+                raise
+
+    def warm_fish_ws_async(self):
+        """Pre-warm Fish Audio WebSocket in background so connection handshake finishes before LLM tokens arrive."""
+        if not self.fish_audio_available or not self.fish_streaming_sdk_available or not self.is_fish_ws_healthy():
+            return
+        if self._warm_fish_ws is not None:
+            return
+
+        def _worker():
+            try:
+                self.get_warm_fish_ws(timeout=2.5)
+            except Exception:
+                pass
+
+        threading.Thread(target=_worker, daemon=True, name="FishAudioPrewarm").start()
+
+    def close_warm_fish_ws(self):
+        """Cleanly close and clear the warm WebSocket session."""
+        with self._warm_fish_ws_lock:
+            if self._warm_fish_ws is not None:
+                try:
+                    self._warm_fish_ws.close()
+                except Exception:
+                    pass
+                self._warm_fish_ws = None
 
     def interrupt(self) -> bool:
         """
@@ -468,6 +548,7 @@ class JarvisVoice:
         and signals any streaming generators to abort.
         """
         self._interrupted.set()
+        self.close_warm_fish_ws()
         halted = False
         with self._playback_lock:
             if self._current_player_proc is not None:
@@ -1205,18 +1286,14 @@ class JarvisVoice:
         sender_thread = None
         stop_sending = threading.Event()
         stop_sent_time = [0.0]
+        received_finish_event = False
+        is_interrupted = False
 
         try:
-            ws = ws_connect(uri, additional_headers=headers, open_timeout=2.5, ping_interval=None, ping_timeout=None)
-            self.mark_fish_ws_healthy()
-        except Exception as ws_err:
-            self.mark_fish_ws_unhealthy(180.0)
-            err_str = str(ws_err).lower()
-            if "402" in err_str or "insufficient" in err_str:
-                print(f"[jarvis_voice] Notice: Paid credits or valid free model required for {self.fish_audio_model}. Disabling Fish Audio.")
-                self.fish_audio_available = False
-            else:
-                print(f"[jarvis_voice] Fish Audio WebSocket connection error: {ws_err}")
+            ws = self.get_warm_fish_ws(timeout=2.5)
+            if ws is None:
+                return
+        except Exception:
             raise
 
         try:
@@ -1364,11 +1441,13 @@ class JarvisVoice:
                 raise
         finally:
             stop_sending.set()
-            if ws is not None:
-                try:
-                    ws.close()
-                except Exception:
-                    pass
+            if self._interrupted.is_set() or (bool(is_interrupted_fn and is_interrupted_fn())) or not received_finish_event:
+                self.close_warm_fish_ws()
+                if ws is not None:
+                    try:
+                        ws.close()
+                    except Exception:
+                        pass
             if sender_thread is not None and sender_thread.is_alive():
                 sender_thread.join(timeout=1.0)
 

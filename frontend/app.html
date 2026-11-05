@@ -80,6 +80,270 @@
     window.safeSetStorage = window.safeStorageSet;
   })();
 
+  /* ---------- Hidden Globe Performance & Load Telemetry Tracker (Prompt 35) ---------- */
+  (function() {
+    const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    window._globeLoadTracker = {
+      appStartTime: t0,
+      screen3OpenTime: null,
+      modeSwitchTime: null,
+      viewerCreatedTime: null,
+      activeTrigger: 'app_start',
+      layers: {
+        gibs: {
+          name: 'NASA GIBS (epsg3857)',
+          addedTime: null,
+          firstTileLoadedTime: null,
+          orbitalRequests: 0,
+          orbitalLoaded: 0,
+          orbitalFailed: 0,
+          latencies: []
+        },
+        base: {
+          name: 'ESRI World Imagery (<50km)',
+          addedTime: null,
+          firstTileLoadedTime: null,
+          orbitalRequests: 0,
+          orbitalLoaded: 0,
+          orbitalFailed: 0,
+          latencies: []
+        },
+        labels: {
+          name: 'Reference Labels (<1.5Mm)',
+          addedTime: null,
+          firstTileLoadedTime: null,
+          orbitalRequests: 0,
+          orbitalLoaded: 0,
+          orbitalFailed: 0,
+          latencies: []
+        },
+        weather: {
+          name: 'Weather Radar Overlay',
+          addedTime: null,
+          firstTileLoadedTime: null,
+          orbitalRequests: 0,
+          orbitalLoaded: 0,
+          orbitalFailed: 0,
+          latencies: []
+        }
+      },
+      queueZero: {
+        app_start: null,
+        screen3_open: null,
+        mode_switch: null
+      },
+      features: {
+        terrain: { status: 'uninitialized', startTime: null, durationMs: null, type: null },
+        ion_imagery: { status: 'none', startTime: null, durationMs: null },
+        osm_buildings: { status: 'uninitialized', startTime: null, durationMs: null }
+      }
+    };
+
+    window.instrumentGlobeImageryProvider = function(provider, layerKey) {
+      if (!provider || typeof provider.requestImage !== 'function') return;
+      if (provider._jarvisInstrumented) return;
+      provider._jarvisInstrumented = true;
+      const tracker = window._globeLoadTracker;
+      const stats = tracker.layers[layerKey];
+      if (!stats) return;
+
+      const origRequestImage = provider.requestImage.bind(provider);
+      provider.requestImage = function(x, y, level, request) {
+        let isOrbital = true;
+        try {
+          const viewer = window.cesiumViewer;
+          if (viewer && viewer.camera && viewer.camera.positionCartographic) {
+            isOrbital = viewer.camera.positionCartographic.height > 50000;
+          }
+        } catch(_) {}
+
+        if (isOrbital) {
+          stats.orbitalRequests++;
+        }
+        const reqStart = performance.now();
+        const res = origRequestImage(x, y, level, request);
+        if (res && typeof res.then === 'function') {
+          return res.then(function(img) {
+            const dt = performance.now() - reqStart;
+            if (isOrbital) {
+              stats.orbitalLoaded++;
+              stats.latencies.push(dt);
+            }
+            if (!stats.firstTileLoadedTime) {
+              stats.firstTileLoadedTime = performance.now();
+            }
+            return img;
+          }).catch(function(err) {
+            if (isOrbital) {
+              stats.orbitalFailed++;
+            }
+            throw err;
+          });
+        }
+        return res;
+      };
+    };
+
+    window.debugGlobeLoad = function() {
+      const tracker = window._globeLoadTracker;
+      const formatElapsed = (time, base) => {
+        if (!time || !base) return 'N/A';
+        const d = time - base;
+        return d >= 0 ? `${d.toFixed(1)} ms` : `-${Math.abs(d).toFixed(1)} ms`;
+      };
+
+      const formatLatencies = (lats) => {
+        if (!lats || lats.length === 0) return { avg: 'N/A', max: 'N/A' };
+        const sum = lats.reduce((a, b) => a + b, 0);
+        const avg = (sum / lats.length).toFixed(1) + ' ms';
+        const max = Math.max(...lats).toFixed(1) + ' ms';
+        return { avg, max };
+      };
+
+      const gibsLats = formatLatencies(tracker.layers.gibs.latencies);
+      const baseLats = formatLatencies(tracker.layers.base.latencies);
+      const labelLats = formatLatencies(tracker.layers.labels.latencies);
+      const weatherLats = formatLatencies(tracker.layers.weather.latencies);
+
+      const tableData = [
+        {
+          "Milestone / Layer": "Trigger Reference Time (0.0 ms)",
+          "App Start": tracker.appStartTime ? "0.0 ms (T0)" : "N/A",
+          "Screen 3 First Open": tracker.screen3OpenTime ? formatElapsed(tracker.screen3OpenTime, tracker.appStartTime) : "Not Triggered",
+          "Mode Switch (Satellite Deep)": tracker.modeSwitchTime ? formatElapsed(tracker.modeSwitchTime, tracker.appStartTime) : "Not Triggered",
+          "Details": "Reference origin for respective event triggers"
+        },
+        {
+          "Milestone / Layer": "Cesium Viewer Created",
+          "App Start": formatElapsed(tracker.viewerCreatedTime, tracker.appStartTime),
+          "Screen 3 First Open": tracker.viewerCreatedTime ? formatElapsed(tracker.viewerCreatedTime, tracker.screen3OpenTime) : "N/A",
+          "Mode Switch (Satellite Deep)": tracker.viewerCreatedTime ? formatElapsed(tracker.viewerCreatedTime, tracker.modeSwitchTime) : "N/A",
+          "Details": "Cesium.Viewer instance instantiated"
+        },
+        {
+          "Milestone / Layer": "Layer: NASA GIBS Added",
+          "App Start": formatElapsed(tracker.layers.gibs.addedTime, tracker.appStartTime),
+          "Screen 3 First Open": formatElapsed(tracker.layers.gibs.addedTime, tracker.screen3OpenTime),
+          "Mode Switch (Satellite Deep)": formatElapsed(tracker.layers.gibs.addedTime, tracker.modeSwitchTime),
+          "Details": "WMTS EPSG:3857 Level 0-8 added to imageryLayers"
+        },
+        {
+          "Milestone / Layer": "Layer: NASA GIBS First Tile Loaded",
+          "App Start": formatElapsed(tracker.layers.gibs.firstTileLoadedTime, tracker.appStartTime),
+          "Screen 3 First Open": formatElapsed(tracker.layers.gibs.firstTileLoadedTime, tracker.screen3OpenTime),
+          "Mode Switch (Satellite Deep)": formatElapsed(tracker.layers.gibs.firstTileLoadedTime, tracker.modeSwitchTime),
+          "Details": "First GIBS tile arrival (Target <2000ms)"
+        },
+        {
+          "Milestone / Layer": "Layer: ESRI World Imagery Added",
+          "App Start": formatElapsed(tracker.layers.base.addedTime, tracker.appStartTime),
+          "Screen 3 First Open": formatElapsed(tracker.layers.base.addedTime, tracker.screen3OpenTime),
+          "Mode Switch (Satellite Deep)": formatElapsed(tracker.layers.base.addedTime, tracker.modeSwitchTime),
+          "Details": "Close-up layer (Active only <=50km altitude)"
+        },
+        {
+          "Milestone / Layer": "Layer: ESRI First Tile Loaded",
+          "App Start": formatElapsed(tracker.layers.base.firstTileLoadedTime, tracker.appStartTime),
+          "Screen 3 First Open": formatElapsed(tracker.layers.base.firstTileLoadedTime, tracker.screen3OpenTime),
+          "Mode Switch (Satellite Deep)": formatElapsed(tracker.layers.base.firstTileLoadedTime, tracker.modeSwitchTime),
+          "Details": tracker.layers.base.firstTileLoadedTime ? "Loaded" : "None (Hidden at orbit)"
+        },
+        {
+          "Milestone / Layer": "Layer: Reference Labels Added",
+          "App Start": formatElapsed(tracker.layers.labels.addedTime, tracker.appStartTime),
+          "Screen 3 First Open": formatElapsed(tracker.layers.labels.addedTime, tracker.screen3OpenTime),
+          "Mode Switch (Satellite Deep)": formatElapsed(tracker.layers.labels.addedTime, tracker.modeSwitchTime),
+          "Details": "Place names overlay (Active only <=1.5Mm altitude)"
+        },
+        {
+          "Milestone / Layer": "Layer: Reference Labels First Tile",
+          "App Start": formatElapsed(tracker.layers.labels.firstTileLoadedTime, tracker.appStartTime),
+          "Screen 3 First Open": formatElapsed(tracker.layers.labels.firstTileLoadedTime, tracker.screen3OpenTime),
+          "Mode Switch (Satellite Deep)": formatElapsed(tracker.layers.labels.firstTileLoadedTime, tracker.modeSwitchTime),
+          "Details": tracker.layers.labels.firstTileLoadedTime ? "Loaded" : "None (Hidden at orbit)"
+        },
+        {
+          "Milestone / Layer": "Layer: Weather Radar Added",
+          "App Start": formatElapsed(tracker.layers.weather.addedTime, tracker.appStartTime),
+          "Screen 3 First Open": formatElapsed(tracker.layers.weather.addedTime, tracker.screen3OpenTime),
+          "Mode Switch (Satellite Deep)": formatElapsed(tracker.layers.weather.addedTime, tracker.modeSwitchTime),
+          "Details": tracker.layers.weather.addedTime ? "Active" : "None (Inactive)"
+        },
+        {
+          "Milestone / Layer": "Globe Tile Queue Zero (Orbital Settled)",
+          "App Start": formatElapsed(tracker.queueZero.app_start, tracker.appStartTime),
+          "Screen 3 First Open": formatElapsed(tracker.queueZero.screen3_open, tracker.screen3OpenTime),
+          "Mode Switch (Satellite Deep)": formatElapsed(tracker.queueZero.mode_switch, tracker.modeSwitchTime),
+          "Details": "Tile load queue reaches 0 at orbital view (Target <5000ms)"
+        },
+        {
+          "Milestone / Layer": "GIBS Tile Requests @ Orbit",
+          "App Start": String(tracker.layers.gibs.orbitalRequests),
+          "Screen 3 First Open": String(tracker.layers.gibs.orbitalRequests),
+          "Mode Switch (Satellite Deep)": String(tracker.layers.gibs.orbitalRequests),
+          "Details": `Loaded: ${tracker.layers.gibs.orbitalLoaded}, Failed: ${tracker.layers.gibs.orbitalFailed}`
+        },
+        {
+          "Milestone / Layer": "GIBS Tile Latency (Avg / Max)",
+          "App Start": `Avg: ${gibsLats.avg} | Max: ${gibsLats.max}`,
+          "Screen 3 First Open": `Avg: ${gibsLats.avg} | Max: ${gibsLats.max}`,
+          "Mode Switch (Satellite Deep)": `Avg: ${gibsLats.avg} | Max: ${gibsLats.max}`,
+          "Details": `Based on ${tracker.layers.gibs.latencies.length} received tile chunks`
+        },
+        {
+          "Milestone / Layer": "ESRI Close-Up Tile Requests @ Orbit",
+          "App Start": String(tracker.layers.base.orbitalRequests),
+          "Screen 3 First Open": String(tracker.layers.base.orbitalRequests),
+          "Mode Switch (Satellite Deep)": String(tracker.layers.base.orbitalRequests),
+          "Details": tracker.layers.base.orbitalRequests === 0 ? "0 (Verified suppressed at orbit)" : `WARNING: ${tracker.layers.base.orbitalRequests} leaked`
+        },
+        {
+          "Milestone / Layer": "Labels Tile Requests @ Orbit",
+          "App Start": String(tracker.layers.labels.orbitalRequests),
+          "Screen 3 First Open": String(tracker.layers.labels.orbitalRequests),
+          "Mode Switch (Satellite Deep)": String(tracker.layers.labels.orbitalRequests),
+          "Details": tracker.layers.labels.orbitalRequests === 0 ? "0 (Verified suppressed at orbit)" : `WARNING: ${tracker.layers.labels.orbitalRequests} leaked`
+        },
+        {
+          "Milestone / Layer": "Terrain Provider",
+          "App Start": tracker.features.terrain.status,
+          "Screen 3 First Open": tracker.features.terrain.status,
+          "Mode Switch (Satellite Deep)": tracker.features.terrain.status,
+          "Details": `Type: ${tracker.features.terrain.type || 'None'}, Init: ${tracker.features.terrain.durationMs !== null ? tracker.features.terrain.durationMs.toFixed(1) + ' ms' : 'N/A'}`
+        },
+        {
+          "Milestone / Layer": "Cesium Ion Imagery",
+          "App Start": tracker.features.ion_imagery.status,
+          "Screen 3 First Open": tracker.features.ion_imagery.status,
+          "Mode Switch (Satellite Deep)": tracker.features.ion_imagery.status,
+          "Details": tracker.features.ion_imagery.status
+        },
+        {
+          "Milestone / Layer": "Cesium 3D OSM Buildings",
+          "App Start": tracker.features.osm_buildings.status,
+          "Screen 3 First Open": tracker.features.osm_buildings.status,
+          "Mode Switch (Satellite Deep)": tracker.features.osm_buildings.status,
+          "Details": tracker.features.osm_buildings.status
+        }
+      ];
+
+      if (typeof console !== 'undefined' && console.table) {
+        console.table(tableData);
+      }
+      return {
+        triggers: {
+          app_start: tracker.appStartTime,
+          screen3_open: tracker.screen3OpenTime,
+          mode_switch: tracker.modeSwitchTime
+        },
+        viewer_created: tracker.viewerCreatedTime,
+        queue_zero: tracker.queueZero,
+        layers: tracker.layers,
+        features: tracker.features
+      };
+    };
+  })();
+
   window.CESIUM_BASE_URL = 'cesium/';
   // Eliminate WebGL INVALID_VALUE: uniform3fv: no array warnings across WebGL 1/2 contexts
   (function() {
@@ -4886,6 +5150,9 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
 <div id="cesium-spatial-wrapper">
   <div id="cesiumContainer"></div>
   <div id="orbital-space-aperture"></div>
+  <div id="globe-attribution-banner" class="globe-attribution-banner" style="position:absolute; bottom:10px; right:12px; z-index:4; font-family:var(--mono); font-size:8.5px; color:rgba(255,255,255,0.48); pointer-events:none; background:rgba(2,6,12,0.72); padding:3px 8px; border-radius:3px; border:1px solid rgba(255,255,255,0.1); letter-spacing:0.3px; user-select:none; transition:opacity 0.2s ease;">
+    Imagery © Esri, Maxar, Earthstar Geographics, OpenStreetMap
+  </div>
   <button id="btn-reset-view" onclick="window.resetViewToHome()" style="position:fixed; top:80px; left:24px; z-index:9998; display:none; align-items:center; gap:6px; background:rgba(6,10,18,0.92); border:1px solid #00F0FF; color:#00F0FF; font-family:var(--mono); font-size:11px; font-weight:800; padding:8px 14px; border-radius:6px; cursor:pointer; box-shadow:0 0 16px rgba(0,240,255,0.4); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); user-select:none; transition:all 0.2s ease;" title="Reset View to Home Orbital Pose (Shortcut: Home key)">
     <span>⌂</span>
     <span>RESET VIEW</span>
@@ -5031,11 +5298,12 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         <span>🎨 EARTH COLOR CODING</span>
         <div style="display:flex; align-items:center; gap:6px;">
           <button class="card-detach-btn" onclick="window.GlobeCardDetachManager.toggleDetach('style')" title="Detach panel into floating window">⧉</button>
-          <span id="globe-style-label" style="color:#00F0FF; font-size:10px;">SATELLITE</span>
+          <span id="globe-style-label" style="color:#00F0FF; font-size:10px;">SATELLITE DEEP</span>
         </div>
       </div>
       <div class="globe-style-grid">
-        <button class="globe-style-btn active" id="style-btn-satellite" onclick="window.setEarthVisualStyle('satellite')">🛰 SATELLITE</button>
+        <button class="globe-style-btn active" id="style-btn-satellite_deep" onclick="window.setEarthVisualStyle('satellite_deep')">🛰 SATELLITE DEEP</button>
+        <button class="globe-style-btn" id="style-btn-clean_dark" onclick="window.setEarthVisualStyle('clean_dark')">🌑 CLEAN DARK</button>
         <button class="globe-style-btn" id="style-btn-flir" onclick="window.setEarthVisualStyle('flir')">🟢 FLIR / NVG</button>
         <button class="globe-style-btn" id="style-btn-cyber" onclick="window.setEarthVisualStyle('cyber')">🌐 CYBER HUD</button>
         <button class="globe-style-btn" id="style-btn-terminator" onclick="window.setEarthVisualStyle('terminator')">☀️ DAY / NIGHT</button>
@@ -5702,10 +5970,11 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
       </div>
       <div style="font-size:9px; color:#8A8D91; margin-bottom:4px; font-weight:700;">EARTH COLOR CODING</div>
       <div class="globe-style-grid" style="margin-bottom:8px;">
-        <button class="globe-style-btn active" onclick="window.setEarthVisualStyle('satellite')">🛰 SATELLITE</button>
-        <button class="globe-style-btn" onclick="window.setEarthVisualStyle('flir')">🟢 FLIR / NVG</button>
-        <button class="globe-style-btn" onclick="window.setEarthVisualStyle('cyber')">🌐 CYBER HUD</button>
-        <button class="globe-style-btn" onclick="window.setEarthVisualStyle('terminator')">☀️ DAY / NIGHT</button>
+        <button class="globe-style-btn active" id="win-style-btn-satellite_deep" onclick="window.setEarthVisualStyle('satellite_deep')">🌊 SATELLITE DEEP</button>
+        <button class="globe-style-btn" id="win-style-btn-clean_dark" onclick="window.setEarthVisualStyle('clean_dark')">🌑 CLEAN DARK</button>
+        <button class="globe-style-btn" id="win-style-btn-flir" onclick="window.setEarthVisualStyle('flir')">🟢 FLIR / NVG</button>
+        <button class="globe-style-btn" id="win-style-btn-cyber" onclick="window.setEarthVisualStyle('cyber')">🌐 CYBER HUD</button>
+        <button class="globe-style-btn" id="win-style-btn-terminator" onclick="window.setEarthVisualStyle('terminator')">☀️ DAY / NIGHT</button>
       </div>
       <div style="font-size:9px; color:#8A8D91; margin-bottom:4px; font-weight:700;">TACTICAL TELEMETRY LOGS</div>
       <div id="win-system-telemetry-logs" style="max-height:100px; overflow-y:auto; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.08); border-radius:4px; padding:6px; font-size:8.5px; line-height:1.35; color:#38BDF8;">
@@ -6841,6 +7110,82 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
             <a href="https://console.groq.com/keys" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">console.groq.com/keys ↗</a>.
           </div>
 
+          <!-- CARTO Basemap API Key -->
+          <div class="settings-row">
+            <label>CARTO API Key</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-carto-key" placeholder="default_public..." />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-carto-key', this)" title="Show/Hide API Key">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Unlocks official watermark-free CARTO dark basemap tiles for Clean Dark mode. Free key at
+            <a href="https://carto.com/basemaps/apikey" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">carto.com/basemaps/apikey ↗</a>.
+          </div>
+
+          <!-- OpenSky Network Credentials -->
+          <div class="settings-row">
+            <label>OpenSky Username</label>
+            <input type="text" id="cfg-opensky-user" placeholder="e.g. pilot_recon" />
+          </div>
+          <div class="settings-row">
+            <label>OpenSky Password</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-opensky-pass" placeholder="••••••••" />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-opensky-pass', this)" title="Show/Hide Password">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Authenticates OpenSky Network ADS-B telemetry, expanding rate limits from 100 to 4,000 queries/day. Free at
+            <a href="https://opensky-network.org/" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">opensky-network.org ↗</a>.
+          </div>
+
+          <!-- AISStream Maritime API Key -->
+          <div class="settings-row">
+            <label>AISStream API Key</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-aisstream-key" placeholder="e.g. 5f8a..." />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-aisstream-key', this)" title="Show/Hide API Key">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Unlocks real-time live global maritime vessel AIS tracking stream. Free WebSocket API key at
+            <a href="https://aisstream.io/" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">aisstream.io ↗</a>.
+          </div>
+
+          <!-- YouTube Data API Key -->
+          <div class="settings-row">
+            <label>YouTube API Key</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-youtube-key" placeholder="AIza..." />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-youtube-key', this)" title="Show/Hide API Key">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Unlocks geotagged ground surveillance video intelligence and situational live feeds. Free API key at
+            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">console.cloud.google.com ↗</a>.
+          </div>
+
           <!-- Screen Frame Vignette -->
           <div class="settings-row" style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.06); padding-top:12px;">
             <label>Screen Frame</label>
@@ -6885,6 +7230,64 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
           <div class="settings-toggle-row"><div class="lbl">WHOIS</div><div class="voice-toggle on" data-tool="whois"><div class="knob"></div></div></div>
           <div class="settings-toggle-row"><div class="lbl">DNS Recon</div><div class="voice-toggle on" data-tool="dns"><div class="knob"></div></div></div>
           <div class="settings-toggle-row"><div class="lbl">crt.sh (Certificate Transparency)</div><div class="voice-toggle on" data-tool="crt_sh"><div class="knob"></div></div></div>
+
+          <!-- GitHub Personal Access Token -->
+          <div class="settings-row" style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.06); padding-top:12px;">
+            <label>GitHub Personal Access Token</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-github-token" placeholder="ghp_... or github_pat_..." />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-github-token', this)" title="Show/Hide Access Token">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Increases GitHub OSINT search rate limit from 60 to 5,000 requests/hour. Free token at
+            <a href="https://github.com/settings/tokens" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">github.com/settings/tokens ↗</a>.
+          </div>
+
+          <!-- RapidAPI Key -->
+          <div class="settings-row">
+            <label>RapidAPI Key</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-rapidapi-key" placeholder="e.g. 9a8b7c..." />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-rapidapi-key', this)" title="Show/Hide API Key">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Unlocks deep email breach lookup and secondary OSINT data verification. Free key at
+            <a href="https://rapidapi.com/" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">rapidapi.com ↗</a>.
+          </div>
+
+          <!-- Home Assistant Integration -->
+          <div class="settings-row" style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.06); padding-top:12px;">
+            <label>Home Assistant URL</label>
+            <input type="text" id="cfg-hass-url" placeholder="http://homeassistant.local:8123" />
+          </div>
+          <div class="settings-row">
+            <label>Home Assistant Token</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-hass-token" placeholder="eyJhbGciOi..." />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-hass-token', this)" title="Show/Hide Access Token">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-hint">
+            Connects JARVIS to Home Assistant smart home entities and tactical IoT telemetry. Long-lived access token at
+            <a href="https://www.home-assistant.io/docs/authentication/#your-account-profile" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">home-assistant.io ↗</a>.
+          </div>
         </div>
       </div>
 
@@ -7344,6 +7747,11 @@ const state = {
 
 let currentStreamingElem = null;
 let streamingBuffer = "";
+let speechPacingTimer = null;
+let revealedCharCount = 0;
+let pendingFinalAnswers = {};
+let isLlmDoneTurns = new Set();
+let audioFallbackWatchdog = null;
 
 let userHasScrolledUp = false;
 let thread = document.getElementById('thread');
@@ -7590,6 +7998,87 @@ const SPINNER_HTML = `
   </div>
 `;
 
+function startSpeechPacingLoop(tId) {
+  if (speechPacingTimer) {
+    clearInterval(speechPacingTimer);
+    speechPacingTimer = null;
+  }
+  speechPacingTimer = setInterval(() => {
+    if (!currentStreamingElem || Number(currentStreamingElem.dataset.turnId) !== Number(tId)) {
+      clearInterval(speechPacingTimer);
+      speechPacingTimer = null;
+      return;
+    }
+
+    const fullClean = cleanSpeakerPrefix(streamingBuffer);
+    if (!fullClean || fullClean.trim().length === 0) {
+      if (!currentStreamingElem.querySelector('.dot-spinner')) {
+        currentStreamingElem.innerHTML = SPINNER_HTML;
+      }
+      return;
+    }
+
+    const isAudioActive = Boolean(
+      isPlayingJarvisQueue ||
+      activePlayingChunkCount > 0 ||
+      hasReceivedAudioChunk
+    );
+    if (jarvisHudState === 'thinking' && isAudioActive) {
+      setHudState('speaking');
+    }
+
+    const remainingChars = fullClean.length - revealedCharCount;
+    if (remainingChars <= 0) {
+      if (isLlmDoneTurns.has(Number(tId))) {
+        const stillPlaying = isPlayingJarvisQueue || activePlayingChunkCount > 0;
+        if (!stillPlaying && ttsSynthesisFinishedTurns.has(Number(tId))) {
+          clearInterval(speechPacingTimer);
+          speechPacingTimer = null;
+          finalizeStreamingAnswer(pendingFinalAnswers[tId] || fullClean, tId);
+        }
+      }
+      return;
+    }
+
+    // Step calculation: synchronize character reveal to audio timeline
+    let charsToAdvance = 1;
+    const ctx = jarvisPcmContext;
+    if (isAudioActive && ctx && ctx.state === 'running') {
+      const audioTimeLeft = Math.max(0.25, jarvisPcmNextStartTime - ctx.currentTime);
+      const targetRate = Math.max(14, remainingChars / audioTimeLeft); // target chars/sec
+      charsToAdvance = Math.max(1, Math.min(22, Math.ceil(targetRate * 0.035)));
+    } else if (hasReceivedAudioChunk) {
+      charsToAdvance = 1;
+    } else {
+      // Paced typewriter before audio or for fast text (~25 chars/sec)
+      charsToAdvance = Math.max(1, Math.min(3, Math.ceil(remainingChars / 30)));
+    }
+
+    if (revealedCharCount === 0) {
+      const firstSpace = fullClean.indexOf(' ');
+      revealedCharCount = Math.min(fullClean.length, firstSpace > 0 ? firstSpace + 1 : Math.min(6, fullClean.length));
+    } else {
+      revealedCharCount = Math.min(fullClean.length, revealedCharCount + charsToAdvance);
+    }
+
+    const display = fullClean.slice(0, revealedCharCount);
+    currentStreamingElem.innerHTML = renderMarkdown(display) + '<span class="cursor-blink">▌</span>';
+
+    const ticker = document.getElementById('voiceos-ticker');
+    if (ticker) {
+      ticker.textContent = display.replace(/\s+/g, ' ');
+      ticker.title = display;
+    }
+    const hudText = document.getElementById('hud-notch-text');
+    if (hudText) {
+      hudText.dataset.customText = '1';
+      hudText.textContent = display.replace(/\s+/g, ' ');
+      if (typeof window.dropHudNotch === 'function') window.dropHudNotch();
+    }
+    scrollThreadToBottom();
+  }, 35);
+}
+
 function startStreamingAnswer(turnId) {
   const tId = turnId != null ? Number(turnId) : (typeof activeJarvisTtsTurn !== 'undefined' ? activeJarvisTtsTurn : 0);
   if (currentStreamingElem) {
@@ -7603,6 +8092,15 @@ function startStreamingAnswer(turnId) {
   showThinking(false);
   setHudState('thinking');
   streamingBuffer = "";
+  revealedCharCount = 0;
+  if (speechPacingTimer) {
+    clearInterval(speechPacingTimer);
+    speechPacingTimer = null;
+  }
+  if (audioFallbackWatchdog) {
+    clearTimeout(audioFallbackWatchdog);
+    audioFallbackWatchdog = null;
+  }
 
   const el = document.createElement('div');
   el.className = 'msg-answer streaming';
@@ -7612,6 +8110,8 @@ function startStreamingAnswer(turnId) {
   if (threadEl) threadEl.appendChild(el);
   currentStreamingElem = el;
   scrollThreadToBottom();
+
+  startSpeechPacingLoop(tId);
   return el;
 }
 
@@ -7633,28 +8133,20 @@ function updateStreamingChunk(chunkText, turnId) {
     console.log(`[TIMING] First token painted: +${elapsed}ms`);
   }
   jarvisAudioEnergy = Math.min(255, jarvisAudioEnergy + 55 + Math.random() * 35);
-  const display = cleanSpeakerPrefix(streamingBuffer);
-  if (display && display.trim().length > 0) {
-    if (jarvisHudState === 'thinking') setHudState('speaking');
-    currentStreamingElem.innerHTML = renderMarkdown(display) + '<span class="cursor-blink">▌</span>';
-    const ticker = document.getElementById('voiceos-ticker');
-    if (ticker) {
-      ticker.textContent = display.replace(/\s+/g, ' ');
-      ticker.title = display;
-    }
-    const hudText = document.getElementById('hud-notch-text');
-    if (hudText) {
-      hudText.dataset.customText = '1';
-      hudText.textContent = display.replace(/\s+/g, ' ');
-      if (typeof window.dropHudNotch === 'function') window.dropHudNotch();
-    }
-  } else if (!currentStreamingElem.querySelector('.dot-spinner')) {
-    currentStreamingElem.innerHTML = SPINNER_HTML;
+  if (!speechPacingTimer) {
+    startSpeechPacingLoop(tId);
   }
-  scrollThreadToBottom();
 }
 
 function finalizeStreamingAnswer(finalText, turnId) {
+  if (speechPacingTimer) {
+    clearInterval(speechPacingTimer);
+    speechPacingTimer = null;
+  }
+  if (audioFallbackWatchdog) {
+    clearTimeout(audioFallbackWatchdog);
+    audioFallbackWatchdog = null;
+  }
   if (currentStreamingElem) {
     const elemTurn = currentStreamingElem.dataset.turnId ? Number(currentStreamingElem.dataset.turnId) : null;
     const reqTurn = turnId != null ? Number(turnId) : null;
@@ -7668,6 +8160,7 @@ function finalizeStreamingAnswer(finalText, turnId) {
     currentStreamingElem.classList.remove('streaming');
     appendCopyButton(currentStreamingElem);
     currentStreamingElem = null;
+    revealedCharCount = 0;
     setHudState('idle');
     const ticker = document.getElementById('voiceos-ticker');
     if (ticker && text) {
@@ -9162,6 +9655,16 @@ function applyConfigToForm(cfg) {
   setVal('#cfg-cesium-token', clean(cfg.cesium_ion_token));
   setVal('#cfg-nasa-firms-key', clean(cfg.nasa_firms_key));
   setVal('#cfg-groq-key', clean(cfg.groq_api_key));
+  setVal('#cfg-carto-key', clean(cfg.carto_api_key));
+  setVal('#cfg-opensky-user', cfg.opensky_client_id !== undefined ? cfg.opensky_client_id : '');
+  setVal('#cfg-opensky-pass', clean(cfg.opensky_client_secret));
+  setVal('#cfg-aisstream-key', clean(cfg.aisstream_api_key));
+  setVal('#cfg-youtube-key', clean(cfg.youtube_api_key));
+  setVal('#cfg-github-token', clean(cfg.github_token));
+  setVal('#cfg-rapidapi-key', clean(cfg.rapidapi_key));
+  setVal('#cfg-hass-url', cfg.hass_url !== undefined ? cfg.hass_url : '');
+  setVal('#cfg-hass-token', clean(cfg.hass_token));
+  window._userCartoApiKey = clean(cfg.carto_api_key);
   const frameMode = (window.safeStorageGet ? window.safeStorageGet('jarvis_screen_frame') : localStorage.getItem('jarvis_screen_frame')) || 'scope';
   setVal('#cfg-screen-frame', frameMode);
 
@@ -9217,6 +9720,8 @@ if (settingsSaveBtn) {
       window.setScreenFrameMode(frameVal);
     }
 
+    window._userCartoApiKey = getVal('#cfg-carto-key');
+
     const cfg = {
       model: getVal('#cfg-model'),
       ollama_url: getVal('#cfg-ollama-url'),
@@ -9228,6 +9733,15 @@ if (settingsSaveBtn) {
       cesium_ion_token: getVal('#cfg-cesium-token'),
       nasa_firms_key: getVal('#cfg-nasa-firms-key'),
       groq_api_key: getVal('#cfg-groq-key'),
+      carto_api_key: getVal('#cfg-carto-key'),
+      opensky_client_id: getVal('#cfg-opensky-user'),
+      opensky_client_secret: getVal('#cfg-opensky-pass'),
+      aisstream_api_key: getVal('#cfg-aisstream-key'),
+      youtube_api_key: getVal('#cfg-youtube-key'),
+      github_token: getVal('#cfg-github-token'),
+      rapidapi_key: getVal('#cfg-rapidapi-key'),
+      hass_url: getVal('#cfg-hass-url'),
+      hass_token: getVal('#cfg-hass-token'),
       operator_salutation: salVal || 'Sir',
       tools: tools,
     };
@@ -12956,6 +13470,14 @@ function stopJarvisPcmStream() {
   jarvisPcmGeneration++;
   jarvisPcmNextStartTime = 0;
   activePlayingChunkCount = 0;
+  if (speechPacingTimer) {
+    clearInterval(speechPacingTimer);
+    speechPacingTimer = null;
+  }
+  if (audioFallbackWatchdog) {
+    clearTimeout(audioFallbackWatchdog);
+    audioFallbackWatchdog = null;
+  }
   if (jarvisPcmContext) {
     try { jarvisPcmContext.close(); } catch(e) {}
     jarvisPcmContext = null;
@@ -13309,6 +13831,14 @@ function checkAndNotifyPlaybackCompletion(turnId) {
 
   if (isSynthesisDone && isAudioDrained) {
     isPlayingJarvisQueue = false;
+    if (audioFallbackWatchdog) {
+      clearTimeout(audioFallbackWatchdog);
+      audioFallbackWatchdog = null;
+    }
+    if (currentStreamingElem) {
+      const finalTxt = (pendingFinalAnswers && pendingFinalAnswers[currentTurn]) || streamingBuffer;
+      finalizeStreamingAnswer(finalTxt, currentTurn);
+    }
     if (jarvisHudState === 'speaking') setHudState('idle');
     signalPlaybackFinished(currentTurn);
   }
@@ -15325,11 +15855,13 @@ window.jarvis = window.joe = {
         activeJarvisTtsTurn = Number(data?.turn_id || (activeJarvisTtsTurn + 1));
         ttsSynthesisFinishedTurns.delete(activeJarvisTtsTurn);
         ttsNotifiedPlaybackTurns.delete(activeJarvisTtsTurn);
+        isLlmDoneTurns.delete(activeJarvisTtsTurn);
+        delete pendingFinalAnswers[activeJarvisTtsTurn];
         activePlayingChunkCount = 0;
         if (window.JarvisSFX && window.JarvisSFX.speechReady) {
           window.JarvisSFX.speechReady();
         }
-        setHudState('speaking');
+        setHudState('thinking');
         startStreamingAnswer(activeJarvisTtsTurn);
         break;
 
@@ -15338,6 +15870,7 @@ window.jarvis = window.joe = {
           if (typeof window.refreshThinkingWatchdog === 'function') window.refreshThinkingWatchdog();
           console.log(`[JarvisAudio] Received PCM chunk (turn=${data.turn_id}, sample_rate=${data.sample_rate}, len=${data.audio ? data.audio.length : 0})`);
           hasReceivedAudioChunk = true;
+          setHudState('speaking');
           enqueueJarvisPcmChunk(data.audio, data.sample_rate || 44100, data.text || '', data.turn_id);
         }
         break;
@@ -15571,20 +16104,48 @@ window.jarvis = window.joe = {
         }
         console.log(`[JarvisText] Received answer (turn=${ansTurn}, text_len=${data?.text ? data.text.length : 0})`);
         showThinking(false);
-        setHudState('idle');
         if (data && data.text && data.text.trim()) {
           recentAgentTexts.push(data.text.trim());
           if (recentAgentTexts.length > 25) recentAgentTexts.shift();
         }
-        if (data.open_dialog) {
+        if (data && data.open_dialog) {
           openTargetDialog();
         }
-        if (currentStreamingElem) {
-          finalizeStreamingAnswer(data.text, ansTurn);
-        } else if (data.text) {
-          streamTextToThread(data.text);
+
+        pendingFinalAnswers[ansTurn] = data?.text || streamingBuffer;
+        isLlmDoneTurns.add(ansTurn);
+
+        // Check if audio has already arrived, is playing, or is still synthesizing for this turn
+        const isAudioActive = Boolean(
+          isPlayingJarvisQueue ||
+          activePlayingChunkCount > 0 ||
+          hasReceivedAudioChunk ||
+          !ttsSynthesisFinishedTurns.has(ansTurn)
+        );
+
+        if (isAudioActive) {
+          // Audio is in transit or actively playing: keep HUD in 'speaking' state, do NOT prematurely finalize.
+          // The progressive typewriter revealer will continue rendering text alongside speech,
+          // and checkAndNotifyPlaybackCompletion will finalize when speech finishes.
+          if (jarvisHudState === 'thinking') setHudState('speaking');
+          if (audioFallbackWatchdog) clearTimeout(audioFallbackWatchdog);
+          audioFallbackWatchdog = setTimeout(() => {
+            if (activeJarvisTtsTurn === ansTurn && currentStreamingElem) {
+              console.log('[JarvisAudio] Audio watchdog triggered: finalizing answer after timeout');
+              finalizeStreamingAnswer(data?.text || streamingBuffer, ansTurn);
+              setHudState('idle');
+              checkAndNotifyPlaybackCompletion(ansTurn);
+            }
+          }, 3500);
+        } else {
+          setHudState('idle');
+          if (currentStreamingElem) {
+            finalizeStreamingAnswer(data?.text || streamingBuffer, ansTurn);
+          } else if (data && data.text) {
+            streamTextToThread(data.text);
+          }
         }
-        playJarvisAudio(data.text, data.audio);
+        playJarvisAudio(data?.text, data?.audio);
         break;
 
       case 'error':
@@ -18949,6 +19510,10 @@ const SpatialNav = {
 
     // Screen 3 Detached Cards Governor: strictly visible only on Screen 3
     const isScreen3 = this.currentX > 350;
+    if (isScreen3 && window._globeLoadTracker && !window._globeLoadTracker.screen3OpenTime) {
+      window._globeLoadTracker.screen3OpenTime = performance.now();
+      window._globeLoadTracker.activeTrigger = 'screen3_open';
+    }
     const detachedCards = document.querySelectorAll('.globe-hud-card.detached-card');
     detachedCards.forEach(c => {
       c.style.display = isScreen3 ? 'block' : 'none';
@@ -19472,6 +20037,10 @@ window.addEventListener('unhandledrejection', function(event) {
 
 // Global helpers accessible to buttons, voice, and HUD
 window.glideToSpatial = function(x) {
+  if (x > 350 && window._globeLoadTracker && !window._globeLoadTracker.screen3OpenTime) {
+    window._globeLoadTracker.screen3OpenTime = performance.now();
+    window._globeLoadTracker.activeTrigger = 'screen3_open';
+  }
   if (x < 450 && window.JarvisPatrol && window.JarvisPatrol.active) {
     window.JarvisPatrol.stop();
   }
@@ -20939,6 +21508,9 @@ function initCesiumGlobe() {
 
     window.cesiumViewer = cesiumViewer;
     const viewer = cesiumViewer;
+    if (window._globeLoadTracker) {
+      window._globeLoadTracker.viewerCreatedTime = performance.now();
+    }
 
     const scene = cesiumViewer.scene;
     // Cesium RAM & Performance Governor (God's Eye demand rendering & memory capping)
@@ -20947,9 +21519,43 @@ function initCesiumGlobe() {
     const isHeadlessTest = (typeof navigator !== 'undefined' && navigator.webdriver);
     cesiumViewer.resolutionScale = Math.min(window.devicePixelRatio || 1.0, 1.25);
     if (isHeadlessTest) cesiumViewer.resolutionScale = 0.1;
-    scene.globe.maximumScreenSpaceError = 3.5; // Optimized tile geometry budget
-    if (isHeadlessTest) scene.globe.maximumScreenSpaceError = 16.0;
-    scene.globe.tileCacheSize = 50; // Capped tile cache RAM hoarding
+
+    // Detect startup style early to allocate proper cache size and orbital SSE
+    let startupEarthStyle = 'satellite_deep';
+    try {
+      const saved = window.safeStorageGet ? window.safeStorageGet('jarvis_earth_style') : localStorage.getItem('jarvis_earth_style');
+      if (saved && ['satellite_deep', 'clean_dark', 'flir', 'cyber', 'terminator'].includes(saved)) {
+        startupEarthStyle = saved;
+      }
+    } catch(_) {}
+    window._activeEarthStyle = startupEarthStyle;
+
+    if (startupEarthStyle === 'satellite_deep') {
+      scene.globe.maximumScreenSpaceError = isHeadlessTest ? 16.0 : 3.5;
+      scene.globe.tileCacheSize = 128; // Increased from 50 so orbital levels 0-3 (85 tiles) fit in RAM without thrashing
+    } else {
+      scene.globe.maximumScreenSpaceError = isHeadlessTest ? 16.0 : 3.5;
+      scene.globe.tileCacheSize = 50;
+    }
+
+    // Attach tile load progress tracker to record the moment the orbital queue reaches zero
+    if (scene.globe && scene.globe.tileLoadProgressEvent) {
+      scene.globe.tileLoadProgressEvent.addEventListener(function(queuedTiles) {
+        const tracker = window._globeLoadTracker;
+        if (!tracker) return;
+        if (queuedTiles === 0) {
+          const now = performance.now();
+          if (tracker.activeTrigger === 'app_start' && !tracker.queueZero.app_start && tracker.layers.gibs.orbitalLoaded > 0) {
+            tracker.queueZero.app_start = now;
+          } else if (tracker.activeTrigger === 'screen3_open' && !tracker.queueZero.screen3_open) {
+            tracker.queueZero.screen3_open = now;
+          } else if (tracker.activeTrigger === 'mode_switch' && !tracker.queueZero.mode_switch) {
+            tracker.queueZero.mode_switch = now;
+          }
+        }
+      });
+    }
+
     scene.highDynamicRange = false;
     if (scene.shadowMap) scene.shadowMap.enabled = false;
     if (scene.fog) scene.fog.enabled = false;
@@ -21055,12 +21661,41 @@ function initCesiumGlobe() {
       }
 
       if (imageryProvider && cesiumViewer && !cesiumViewer.isDestroyed()) {
-        cesiumViewer.imageryLayers.removeAll();
-        const baseLayer = cesiumViewer.imageryLayers.addImageryProvider(imageryProvider);
+        if (window.instrumentGlobeImageryProvider) {
+          window.instrumentGlobeImageryProvider(imageryProvider, 'base');
+        }
+        // Do NOT wipe existing layers (e.g. NASA GIBS at index 0)
+        let baseLayer = window._cesiumBaseLayer;
+        if (!baseLayer || baseLayer.isDestroyed()) {
+          const insertIdx = (window._satelliteDeepGibsLayer && !window._satelliteDeepGibsLayer.isDestroyed()) ? 1 : 0;
+          const curStyle = (typeof _activeEarthStyle !== 'undefined' ? _activeEarthStyle : null) || window._activeEarthStyle || startupEarthStyle || 'satellite_deep';
+          const isDeepOrDark = (curStyle === 'satellite_deep' || curStyle === 'clean_dark');
+          if (Cesium.ImageryLayer) {
+            baseLayer = new Cesium.ImageryLayer(imageryProvider, { show: !isDeepOrDark });
+            cesiumViewer.imageryLayers.add(baseLayer, insertIdx);
+          } else {
+            baseLayer = cesiumViewer.imageryLayers.addImageryProvider(imageryProvider, insertIdx);
+            if (isDeepOrDark) baseLayer.show = false;
+          }
+          window._cesiumBaseLayer = baseLayer;
+          if (isDeepOrDark) baseLayer.alpha = 0.0;
+          if (window._globeLoadTracker) {
+            window._globeLoadTracker.layers.base.addedTime = performance.now();
+          }
+        }
         baseLayer.saturation = 1.35;
         baseLayer.contrast = 1.15;
         baseLayer.brightness = 1.05;
         baseLayer.gamma = 0.95;
+
+        // If satellite_deep or clean_dark is active at orbital view (>50km), immediately hide ESRI layer to avoid tile requests
+        const cam = cesiumViewer.camera;
+        const cartoHeight = cam?.positionCartographic ? cam.positionCartographic.height : 10000000;
+        const curActiveStyle = (typeof _activeEarthStyle !== 'undefined' ? _activeEarthStyle : null) || window._activeEarthStyle || startupEarthStyle || 'satellite_deep';
+        if ((curActiveStyle === 'satellite_deep' || curActiveStyle === 'clean_dark') && cartoHeight > 50000) {
+          baseLayer.show = false;
+          baseLayer.alpha = 0.0;
+        }
         console.log('[Cesium] Satellite imagery provider active with clean photorealistic God\'s Eye Earth color tones');
 
         // Dynamic Altitude-Culled Reference Labels & Boundaries Overlay (cities, places, landmarks)
@@ -21079,16 +21714,29 @@ function initCesiumGlobe() {
             if (!labelProvider && Cesium.UrlTemplateImageryProvider) {
               try {
                 labelProvider = new Cesium.UrlTemplateImageryProvider({
-                  url: 'https://basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png',
-                  subdomains: ['a', 'b', 'c', 'd']
+                  url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+                  maximumLevel: 16,
+                  credit: 'Sources: Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS user community'
                 });
               } catch(e) {}
             }
             if (labelProvider && cesiumViewer && !cesiumViewer.isDestroyed()) {
-              const labelLayer = cesiumViewer.imageryLayers.addImageryProvider(labelProvider);
-              labelLayer.show = false; // default hidden in space orbit
+              if (window.instrumentGlobeImageryProvider) {
+                window.instrumentGlobeImageryProvider(labelProvider, 'labels');
+              }
+              let labelLayer;
+              if (Cesium.ImageryLayer) {
+                labelLayer = new Cesium.ImageryLayer(labelProvider, { show: false });
+                cesiumViewer.imageryLayers.add(labelLayer);
+              } else {
+                labelLayer = cesiumViewer.imageryLayers.addImageryProvider(labelProvider);
+                labelLayer.show = false;
+              }
               labelLayer.alpha = 0.0;
               window._cesiumLabelLayer = labelLayer;
+              if (window._globeLoadTracker) {
+                window._globeLoadTracker.layers.labels.addedTime = performance.now();
+              }
 
               function updateLabelVisibility() {
                 if (!cesiumViewer || cesiumViewer.isDestroyed()) return;
@@ -21102,7 +21750,9 @@ function initCesiumGlobe() {
                   if (labelLayer && !labelLayer.isDestroyed()) {
                     if (isLocked || isClose) {
                       labelLayer.show = true;
-                      if (isLocked || height <= 600000) {
+                      if (typeof _activeEarthStyle !== 'undefined' && _activeEarthStyle === 'clean_dark') {
+                        labelLayer.alpha = 0.45; // dimmed reference label overlay for clean dark
+                      } else if (isLocked || height <= 600000) {
                         labelLayer.alpha = 0.95;
                       } else {
                         const t = Math.max(0.0, Math.min(1.0, (1500000 - height) / 900000));
@@ -21136,12 +21786,53 @@ function initCesiumGlobe() {
               cesiumViewer.camera.changed.addEventListener(updateLabelVisibility);
               cesiumViewer.camera.moveEnd.addEventListener(updateLabelVisibility);
               updateLabelVisibility();
+
+              // Satellite Deep altitude cross-fade handler: fades in ESRI imagery below 50 km
+              function updateSatelliteDeepAltitudeFade() {
+                const viewer = window.cesiumViewer || (typeof cesiumViewer !== 'undefined' ? cesiumViewer : null);
+                if (!viewer || viewer.isDestroyed()) return;
+                if (typeof _activeEarthStyle === 'undefined' || _activeEarthStyle !== 'satellite_deep') return;
+                if (!window._satelliteDeepGibsLayer || window._satelliteDeepFallback) return;
+                try {
+                  const cam = viewer.camera;
+                  const carto = cam.positionCartographic;
+                  const height = carto ? carto.height : 10000000;
+                  const bl = window._cesiumBaseLayer;
+                  if (bl && !bl.isDestroyed()) {
+                    if (height <= 50000) {
+                      bl.show = true;
+                      const t = Math.max(0.0, Math.min(1.0, (50000 - height) / 25000));
+                      bl.alpha = t;
+                    } else {
+                      bl.alpha = 0.0;
+                      bl.show = false;
+                    }
+                  }
+                } catch(e) {}
+              }
+              window.updateSatelliteDeepAltitudeFade = updateSatelliteDeepAltitudeFade;
+              cesiumViewer.camera.changed.addEventListener(updateSatelliteDeepAltitudeFade);
+              cesiumViewer.camera.moveEnd.addEventListener(updateSatelliteDeepAltitudeFade);
+
               console.log('[Cesium] Altitude-culled reference labels active (clean orbit view; reveals place names upon zoom/lock)');
             }
           } catch (labelErr) {
             console.warn('[Cesium] Reference labels overlay notice:', labelErr);
           }
         })();
+      }
+    }
+
+    // Immediate startup initialization for Satellite Deep: create GIBS layer instantly without awaiting MapServer metadata
+    if (startupEarthStyle === 'satellite_deep') {
+      const nCap = getOrCreateNorthPoleCap();
+      if (nCap) nCap.show = true;
+      const sCap = getOrCreateSouthPoleCap();
+      if (sCap) sCap.show = true;
+      const gibs = getOrCreateGibsLayer();
+      if (gibs) {
+        gibs.show = true;
+        gibs.alpha = 1.0;
       }
     }
     loadCesiumImagery();
@@ -21186,8 +21877,27 @@ function initCesiumGlobe() {
 
     // High-Resolution Cesium World Terrain (Ion Authenticated) or Zero-Auth Keyless Ellipsoid
     async function loadCesiumTerrain() {
+      const tracker = window._globeLoadTracker;
+      const tStart = performance.now();
       try {
         if (hasUserCesiumToken()) {
+          // In satellite_deep mode at orbital distance (>200km), defer Ion terrain to keep orbital load lightweight
+          const cam = cesiumViewer?.camera;
+          const height = cam?.positionCartographic ? cam.positionCartographic.height : 10000000;
+          if (typeof _activeEarthStyle !== 'undefined' && _activeEarthStyle === 'satellite_deep' && height > 200000) {
+            if (cesiumViewer && !cesiumViewer.isDestroyed()) {
+              cesiumViewer.terrain = new Cesium.Terrain(new Cesium.EllipsoidTerrainProvider());
+            }
+            if (tracker) {
+              tracker.features.terrain = {
+                status: 'Deferred at orbit (Keyless Ellipsoid standby; activates <=200km)',
+                startTime: tStart,
+                durationMs: performance.now() - tStart,
+                type: 'EllipsoidStandby'
+              };
+            }
+            return;
+          }
           try {
             if (Cesium.Terrain && Cesium.Terrain.fromWorldTerrain) {
               const terrain = Cesium.Terrain.fromWorldTerrain();
@@ -21200,6 +21910,14 @@ function initCesiumGlobe() {
                 });
               }
               cesiumViewer.terrain = terrain;
+              if (tracker) {
+                tracker.features.terrain = {
+                  status: 'Active (Ion World Terrain)',
+                  startTime: tStart,
+                  durationMs: performance.now() - tStart,
+                  type: 'CesiumWorldTerrain'
+                };
+              }
               console.log('[Cesium] Cesium World Terrain active (Ion authenticated)');
               return;
             } else if (Cesium.createWorldTerrainAsync) {
@@ -21212,6 +21930,14 @@ function initCesiumGlobe() {
               }
               if (tp && cesiumViewer && !cesiumViewer.isDestroyed()) {
                 cesiumViewer.terrainProvider = tp;
+                if (tracker) {
+                  tracker.features.terrain = {
+                    status: 'Active (Ion World Terrain)',
+                    startTime: tStart,
+                    durationMs: performance.now() - tStart,
+                    type: 'CesiumWorldTerrain'
+                  };
+                }
                 console.log('[Cesium] Cesium World Terrain active (Ion authenticated)');
                 return;
               }
@@ -21224,8 +21950,24 @@ function initCesiumGlobe() {
           cesiumViewer.terrain = new Cesium.Terrain(new Cesium.EllipsoidTerrainProvider());
           console.log('[Cesium] Standard photorealistic WGS84 terrain active (Keyless Zero-Auth)');
         }
+        if (tracker) {
+          tracker.features.terrain = {
+            status: 'Active (Keyless Zero-Auth WGS84 Ellipsoid)',
+            startTime: tStart,
+            durationMs: performance.now() - tStart,
+            type: 'EllipsoidTerrainProvider'
+          };
+        }
       } catch (err) {
         console.log('[Cesium] Using default WGS84 ellipsoid terrain');
+        if (tracker) {
+          tracker.features.terrain = {
+            status: 'Default Ellipsoid',
+            startTime: tStart,
+            durationMs: performance.now() - tStart,
+            type: 'EllipsoidTerrainProvider'
+          };
+        }
       }
     }
     window.loadCesiumTerrain = loadCesiumTerrain;
@@ -21234,7 +21976,15 @@ function initCesiumGlobe() {
     // 3D OSM Photorealistic Buildings (Ion Authenticated)
     async function loadCesiumBuildings() {
       if (window._cesiumOsmBuildingsAdded) return;
+      const bStart = performance.now();
       if (!hasUserCesiumToken()) {
+        if (window._globeLoadTracker) {
+          window._globeLoadTracker.features.osm_buildings = {
+            status: 'Standby (Keyless Zero-Auth)',
+            startTime: bStart,
+            durationMs: 0
+          };
+        }
         console.log('[Cesium] 3D OSM Buildings standby: Keyless mode active (Configure Cesium Ion token in settings to unlock 3D architectural geometry)');
         return;
       }
@@ -21268,6 +22018,7 @@ function initCesiumGlobe() {
           if (cesiumViewer && !cesiumViewer.isDestroyed()) {
             cesiumViewer.scene.primitives.add(buildingsTileset);
             window._cesiumOsmBuildingsAdded = true;
+            window._cesiumOsmBuildingsTileset = buildingsTileset;
             console.log('[Cesium] Cesium 3D OSM Buildings active with photorealistic architectural materials');
           }
         } catch (bErr) {
@@ -21513,10 +22264,77 @@ function initCesiumGlobe() {
 }
 
 // =========================================================================
+// REUSABLE BATCHED POINT PRIMITIVE HELPER (PointPrimitiveCollection)
+// =========================================================================
+window.createPointPrimitiveLayer = function(points, options = {}) {
+  const viewer = window.cesiumViewer;
+  if (!viewer || viewer.isDestroyed() || !viewer.scene) {
+    console.warn('[Cesium] createPointPrimitiveLayer: cesiumViewer is not ready');
+    return null;
+  }
+  if (typeof Cesium === 'undefined' || !Cesium.PointPrimitiveCollection) {
+    console.warn('[Cesium] createPointPrimitiveLayer: Cesium.PointPrimitiveCollection not available');
+    return null;
+  }
+  const scene = viewer.scene;
+  const pointCollection = new Cesium.PointPrimitiveCollection();
+  const defaultColor = options.color ? ((typeof options.color === 'string') ? Cesium.Color.fromCssColorString(options.color) : options.color) : Cesium.Color.fromCssColorString('#00F0FF');
+  const defaultSize = options.pixelSize || 6;
+  const outlineColor = options.outlineColor ? ((typeof options.outlineColor === 'string') ? Cesium.Color.fromCssColorString(options.outlineColor) : options.outlineColor) : Cesium.Color.BLACK;
+  const outlineWidth = options.outlineWidth != null ? options.outlineWidth : 1;
+  const disableDepthTestDistance = options.disableDepthTestDistance !== undefined ? options.disableDepthTestDistance : Number.POSITIVE_INFINITY;
+
+  if (Array.isArray(points)) {
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (!p || p.lat == null || (p.lon == null && p.lng == null)) continue;
+      const lat = Number(p.lat);
+      const lon = Number(p.lon != null ? p.lon : p.lng);
+      const alt = Number(p.alt || 0);
+      let ptColor = defaultColor;
+      const cVal = p.colour || p.color;
+      if (cVal) {
+        ptColor = (typeof cVal === 'string') ? Cesium.Color.fromCssColorString(cVal) : cVal;
+      }
+      pointCollection.add({
+        position: Cesium.Cartesian3.fromDegrees(lon, lat, alt),
+        pixelSize: p.pixelSize || defaultSize,
+        color: ptColor,
+        outlineColor: outlineColor,
+        outlineWidth: outlineWidth,
+        disableDepthTestDistance: disableDepthTestDistance,
+        id: p.id !== undefined ? p.id : p
+      });
+    }
+  }
+
+  const origDestroy = (typeof pointCollection.destroy === 'function') ? pointCollection.destroy.bind(pointCollection) : null;
+  let isDestroyedFlag = false;
+  pointCollection.destroy = function() {
+    if (isDestroyedFlag) return;
+    isDestroyedFlag = true;
+    try {
+      if (viewer && !viewer.isDestroyed() && viewer.scene && viewer.scene.primitives) {
+        viewer.scene.primitives.remove(pointCollection);
+      }
+    } catch(e) {}
+    if (origDestroy) {
+      try { origDestroy(); } catch(e) {}
+    }
+  };
+  pointCollection.isDestroyed = function() {
+    return isDestroyedFlag;
+  };
+
+  scene.primitives.add(pointCollection);
+  return pointCollection;
+};
+
+// =========================================================================
 // GOD'S EYE OSINT INTELLIGENCE ENGINE (Weather, Flights, Radio, Styles)
 // =========================================================================
 
-let _activeEarthStyle = 'satellite';
+let _activeEarthStyle = 'satellite_deep';
 let _tacticalLayers = {
   flights: false,
   vessels: false,
@@ -21726,7 +22544,13 @@ async function _loadWeatherRadarLayer() {
     if (_weatherImageryLayer) {
       window.cesiumViewer.imageryLayers.remove(_weatherImageryLayer);
     }
+    if (window.instrumentGlobeImageryProvider) {
+      window.instrumentGlobeImageryProvider(provider, 'weather');
+    }
     _weatherImageryLayer = window.cesiumViewer.imageryLayers.addImageryProvider(provider);
+    if (window._globeLoadTracker) {
+      window._globeLoadTracker.layers.weather.addedTime = performance.now();
+    }
     _weatherImageryLayer.alpha = 0.65;
     window.cesiumViewer.scene.requestRender();
     if (typeof showSubtitles === 'function') showSubtitles('🌧️ Live RainViewer precipitation weather radar overlay active.', 'WEATHER');
@@ -21914,41 +22738,558 @@ const MARITIME_VESSELS = [
   { id: 'vessel-maersk-moller', name: 'MAERSK MC-KINNEY MOLLER', type: 'Triple-E Container Ship', lat: 37.80, lon: -122.52, speedKnots: 11.2, headingDeg: 235, mmsi: '219018271', destination: 'OAKLAND HARBOR' }
 ];
 
-// Earth Color Coding / Visual Styles
+// Earth Color Coding / Visual Styles Architecture
+let _gibsErrorCount = 0;
+window._gibsTileStats = {
+  requestedByLevel: {},
+  loadedByLevel: {},
+  failedByLevel: {},
+  first3FailingUrls: []
+};
+
+window.debugGibsTiles = function() {
+  const summary = {
+    requested: window._gibsTileStats.requestedByLevel,
+    loaded: window._gibsTileStats.loadedByLevel,
+    failed: window._gibsTileStats.failedByLevel,
+    first3FailingUrls: window._gibsTileStats.first3FailingUrls
+  };
+  console.log('[Cesium GIBS Debug] Tile Statistics:', summary);
+  if (typeof console.table === 'function') {
+    const tableData = [];
+    for (let l = 0; l <= 8; l++) {
+      if (summary.requested[l] || summary.loaded[l] || summary.failed[l]) {
+        tableData.push({
+          level: l,
+          requested: summary.requested[l] || 0,
+          loaded: summary.loaded[l] || 0,
+          failed: summary.failed[l] || 0
+        });
+      }
+    }
+    if (tableData.length > 0) console.table(tableData);
+  }
+  return summary;
+};
+
+let _gibsSelfCheckPassed = false;
+function selfCheckGibsConfiguration() {
+  if (_gibsSelfCheckPassed) return true;
+  try {
+    if (typeof Cesium === 'undefined' || !Cesium.WebMercatorTilingScheme) return false;
+    const scheme = new Cesium.WebMercatorTilingScheme();
+    const template = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg';
+    const gibsMaxCols = [1, 2, 4, 8];
+    const gibsMaxRows = [1, 2, 4, 8];
+    for (let z = 0; z <= 3; z++) {
+      const numX = scheme.getNumberOfXTilesAtLevel(z);
+      const numY = scheme.getNumberOfYTilesAtLevel(z);
+      if (numX > gibsMaxCols[z] || numY > gibsMaxRows[z]) {
+        console.warn(`[Cesium] GIBS self-check failed at level ${z}: scheme (${numX}x${numY}) exceeds GIBS matrix (${gibsMaxCols[z]}x${gibsMaxRows[z]})`);
+        return false;
+      }
+      for (let x = 0; x < numX; x++) {
+        for (let y = 0; y < numY; y++) {
+          const testUrl = template.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+          if (!testUrl || testUrl.includes('{') || testUrl.includes('NaN') || testUrl.includes('undefined')) {
+            console.warn(`[Cesium] GIBS self-check failed constructing URL for z=${z}, x=${x}, y=${y}: ${testUrl}`);
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  } catch (err) {
+    console.warn('[Cesium] GIBS self-check exception:', err);
+    return false;
+  }
+}
+window.selfCheckGibsConfiguration = selfCheckGibsConfiguration;
+
+let _northPoleCapEntity = null;
+let _southPoleCapEntity = null;
+
+function getOrCreateNorthPoleCap() {
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed() || !window.cesiumViewer.entities) return null;
+  if (_northPoleCapEntity && !_northPoleCapEntity.isDestroyed?.()) return _northPoleCapEntity;
+  try {
+    _northPoleCapEntity = window.cesiumViewer.entities.add({
+      id: 'satellite-deep-north-pole-cap',
+      position: Cesium.Cartesian3.fromDegrees(0, 90, 0),
+      ellipse: {
+        semiMajorAxis: 565000,
+        semiMinorAxis: 565000,
+        height: 0,
+        material: Cesium.Color.fromCssColorString('#0D244D'),
+        granularity: Cesium.Math?.toRadians ? Cesium.Math.toRadians(1.0) : 0.01745
+      },
+      show: false
+    });
+    return _northPoleCapEntity;
+  } catch (e) {
+    console.warn('[Cesium] Unable to create North Pole cap entity:', e);
+    return null;
+  }
+}
+
+function getOrCreateSouthPoleCap() {
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed() || !window.cesiumViewer.entities) return null;
+  if (_southPoleCapEntity && !_southPoleCapEntity.isDestroyed?.()) return _southPoleCapEntity;
+  try {
+    _southPoleCapEntity = window.cesiumViewer.entities.add({
+      id: 'satellite-deep-south-pole-cap',
+      position: Cesium.Cartesian3.fromDegrees(0, -90, 0),
+      ellipse: {
+        semiMajorAxis: 565000,
+        semiMinorAxis: 565000,
+        height: 0,
+        material: Cesium.Color.fromCssColorString('#E8E9E9'),
+        granularity: Cesium.Math?.toRadians ? Cesium.Math.toRadians(1.0) : 0.01745
+      },
+      show: false
+    });
+    return _southPoleCapEntity;
+  } catch (e) {
+    console.warn('[Cesium] Unable to create South Pole cap entity:', e);
+    return null;
+  }
+}
+
+function getOrCreateGibsLayer() {
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return null;
+  if (window._satelliteDeepGibsLayer && !window._satelliteDeepGibsLayer.isDestroyed()) {
+    return window._satelliteDeepGibsLayer;
+  }
+  if (!selfCheckGibsConfiguration()) {
+    if (typeof window.triggerSatelliteDeepFallback === 'function') {
+      window.triggerSatelliteDeepFallback();
+    }
+    return null;
+  }
+  try {
+    if (typeof Cesium === 'undefined' || !Cesium.UrlTemplateImageryProvider) return null;
+    const gibsProvider = new Cesium.UrlTemplateImageryProvider({
+      url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg',
+      tilingScheme: new Cesium.WebMercatorTilingScheme(),
+      tileWidth: 256,
+      tileHeight: 256,
+      maximumLevel: 8,
+      credit: 'Imagery courtesy of NASA EOSDIS GIBS'
+    });
+
+    if (typeof gibsProvider.requestImage === 'function') {
+      const origRequestImage = gibsProvider.requestImage.bind(gibsProvider);
+      gibsProvider.requestImage = function(x, y, level, request) {
+        window._gibsTileStats.requestedByLevel[level] = (window._gibsTileStats.requestedByLevel[level] || 0) + 1;
+        const res = origRequestImage(x, y, level, request);
+        if (res && typeof res.then === 'function') {
+          return res.then(function(img) {
+            window._gibsTileStats.loadedByLevel[level] = (window._gibsTileStats.loadedByLevel[level] || 0) + 1;
+            return img;
+          }).catch(function(err) {
+            window._gibsTileStats.failedByLevel[level] = (window._gibsTileStats.failedByLevel[level] || 0) + 1;
+            throw err;
+          });
+        }
+        return res;
+      };
+    }
+
+    _gibsErrorCount = 0;
+    if (gibsProvider.errorEvent && typeof gibsProvider.errorEvent.addEventListener === 'function') {
+      gibsProvider.errorEvent.addEventListener(function(tileErr) {
+        _gibsErrorCount++;
+        const errLevel = (tileErr && typeof tileErr.level === 'number') ? tileErr.level : -1;
+        if (errLevel >= 0) {
+          window._gibsTileStats.failedByLevel[errLevel] = (window._gibsTileStats.failedByLevel[errLevel] || 0) + 1;
+        }
+        const failingUrl = (gibsProvider.url || '')
+          .replace('{z}', String(tileErr?.level ?? ''))
+          .replace('{y}', String(tileErr?.y ?? ''))
+          .replace('{x}', String(tileErr?.x ?? ''));
+        if (failingUrl && window._gibsTileStats.first3FailingUrls.length < 3) {
+          window._gibsTileStats.first3FailingUrls.push(failingUrl);
+        }
+        console.warn(`[Cesium] NASA GIBS tile load failure (${_gibsErrorCount}/3):`, tileErr);
+        if (_gibsErrorCount >= 3 && typeof window.triggerSatelliteDeepFallback === 'function') {
+          window.triggerSatelliteDeepFallback();
+        }
+      });
+    }
+
+    // Insert at index 0 so ESRI World Imagery at index 1 can smoothly cross-fade over it
+    if (window.instrumentGlobeImageryProvider) {
+      window.instrumentGlobeImageryProvider(gibsProvider, 'gibs');
+    }
+    const gibsLayer = window.cesiumViewer.imageryLayers.addImageryProvider(gibsProvider, 0);
+    gibsLayer.show = false;
+    window._satelliteDeepGibsLayer = gibsLayer;
+    if (window._globeLoadTracker) {
+      window._globeLoadTracker.layers.gibs.addedTime = performance.now();
+    }
+    return gibsLayer;
+  } catch (err) {
+    console.warn('[Cesium] Error instantiating NASA GIBS imagery layer:', err);
+    if (typeof window.triggerSatelliteDeepFallback === 'function') {
+      window.triggerSatelliteDeepFallback();
+    }
+    return null;
+  }
+}
+
+function getOrCreateCleanDarkLayer() {
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return null;
+
+  // Retrieve user-configured CARTO key if present
+  let cartoKey = window._userCartoApiKey;
+  if (!cartoKey) {
+    try {
+      const cached = window.safeStorageGet ? window.safeStorageGet('jarvis_config') : null;
+      if (cached) {
+        const cfg = JSON.parse(cached);
+        if (cfg && cfg.carto_api_key && typeof cfg.carto_api_key === 'string') {
+          cartoKey = cfg.carto_api_key.trim();
+        }
+      }
+    } catch(e) {}
+  }
+
+  // Detect key configuration change to recreate layer if needed
+  const currentKeyMode = cartoKey ? `carto:${cartoKey}` : 'esri_dark';
+  if (window._cleanDarkKeyMode !== currentKeyMode) {
+    if (window._cleanDarkBaseLayer && !window._cleanDarkBaseLayer.isDestroyed()) {
+      try { window.cesiumViewer.imageryLayers.remove(window._cleanDarkBaseLayer, true); } catch(e) {}
+      window._cleanDarkBaseLayer = null;
+    }
+    if (window._cleanDarkRefLayer && !window._cleanDarkRefLayer.isDestroyed()) {
+      try { window.cesiumViewer.imageryLayers.remove(window._cleanDarkRefLayer, true); } catch(e) {}
+      window._cleanDarkRefLayer = null;
+    }
+    window._cleanDarkKeyMode = currentKeyMode;
+  }
+
+  if (window._cleanDarkBaseLayer && !window._cleanDarkBaseLayer.isDestroyed()) {
+    window._cartoDarkLayer = window._cleanDarkBaseLayer;
+    return window._cleanDarkBaseLayer;
+  }
+
+  try {
+    if (typeof Cesium === 'undefined' || !Cesium.UrlTemplateImageryProvider) return null;
+
+    if (cartoKey) {
+      // Keyed CARTO Raster Basemap
+      const cartoProvider = new Cesium.UrlTemplateImageryProvider({
+        url: `https://{s}.basemaps.cartocdn.com/rastertiles/dark_nolabels/{z}/{x}/{y}.png?key=${encodeURIComponent(cartoKey)}`,
+        subdomains: ['a', 'b', 'c', 'd'],
+        maximumLevel: 19,
+        credit: '© CARTO, © OpenStreetMap contributors'
+      });
+      const cartoLayer = window.cesiumViewer.imageryLayers.addImageryProvider(cartoProvider, 0);
+      cartoLayer.show = false;
+      window._cleanDarkBaseLayer = cartoLayer;
+      window._cartoDarkLayer = cartoLayer;
+      return cartoLayer;
+    } else {
+      // Default Keyless Esri Canvas World Dark Gray Base & Reference (No API key required)
+      const esriBaseProvider = new Cesium.UrlTemplateImageryProvider({
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        maximumLevel: 16,
+        credit: 'Sources: Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS user community'
+      });
+      const esriBaseLayer = window.cesiumViewer.imageryLayers.addImageryProvider(esriBaseProvider, 0);
+      esriBaseLayer.show = false;
+      window._cleanDarkBaseLayer = esriBaseLayer;
+      window._cartoDarkLayer = esriBaseLayer;
+
+      const esriRefProvider = new Cesium.UrlTemplateImageryProvider({
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+        maximumLevel: 16,
+        credit: 'Sources: Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS user community'
+      });
+      const esriRefLayer = window.cesiumViewer.imageryLayers.addImageryProvider(esriRefProvider, 1);
+      esriRefLayer.show = false;
+      window._cleanDarkRefLayer = esriRefLayer;
+
+      return esriBaseLayer;
+    }
+  } catch (err) {
+    console.warn('[Cesium] Error instantiating Clean Dark basemap layer:', err);
+    return null;
+  }
+}
+
+function getOrCreateCartoDarkLayer() {
+  return getOrCreateCleanDarkLayer();
+}
+
+window.triggerSatelliteDeepFallback = function() {
+  window._satelliteDeepFallback = true;
+  if (window._satelliteDeepGibsLayer && !window._satelliteDeepGibsLayer.isDestroyed()) {
+    window._satelliteDeepGibsLayer.show = false;
+  }
+  if (_northPoleCapEntity) {
+    _northPoleCapEntity.show = false;
+  }
+  if (_southPoleCapEntity) {
+    _southPoleCapEntity.show = false;
+  }
+  const baseLayer = window._cesiumBaseLayer;
+  if (baseLayer && !baseLayer.isDestroyed()) {
+    baseLayer.show = true;
+    baseLayer.alpha = 1.0;
+    baseLayer.brightness = 0.88;
+    baseLayer.contrast = 1.25;
+    baseLayer.gamma = 0.85;
+    baseLayer.saturation = 1.0;
+  }
+  if (typeof showSubtitles === 'function') {
+    showSubtitles('NASA GIBS UNAVAILABLE - ACTIVE FALLBACK: ESRI DEEP OCEAN', 'SATELLITE DEEP');
+  }
+  const banner = document.getElementById('globe-attribution-banner');
+  if (banner) {
+    banner.style.display = 'block';
+    banner.innerHTML = 'Imagery: ESRI World Imagery (NASA GIBS Fallback Mode)';
+  }
+  if (window.cesiumViewer && !window.cesiumViewer.isDestroyed() && window.cesiumViewer.scene) {
+    window.cesiumViewer.scene.requestRender();
+  }
+};
+
+window.resetSatelliteDeepFallback = function() {
+  window._satelliteDeepFallback = false;
+  _gibsErrorCount = 0;
+  if (window._gibsTileStats) {
+    window._gibsTileStats.first3FailingUrls = [];
+  }
+};
+
+function resetAllVisualModes(scene, globe, baseLayer) {
+  // 1. Reset imagery layers to default photorealistic satellite state
+  if (baseLayer && !baseLayer.isDestroyed()) {
+    if (typeof _activeEarthStyle !== 'undefined' && (_activeEarthStyle === 'satellite_deep' || _activeEarthStyle === 'clean_dark')) {
+      baseLayer.show = false;
+      baseLayer.alpha = 0.0;
+    } else {
+      baseLayer.show = true;
+      baseLayer.alpha = 1.0;
+      baseLayer.brightness = 1.05;
+      baseLayer.contrast = 1.15;
+      baseLayer.saturation = 1.35;
+      baseLayer.gamma = 0.95;
+    }
+  }
+  if (window._satelliteDeepGibsLayer && !window._satelliteDeepGibsLayer.isDestroyed()) {
+    window._satelliteDeepGibsLayer.show = false;
+    window._satelliteDeepGibsLayer.alpha = 0.0;
+  }
+  if (window._cleanDarkBaseLayer && !window._cleanDarkBaseLayer.isDestroyed()) {
+    window._cleanDarkBaseLayer.show = false;
+    window._cleanDarkBaseLayer.alpha = 0.0;
+  }
+  if (window._cleanDarkRefLayer && !window._cleanDarkRefLayer.isDestroyed()) {
+    window._cleanDarkRefLayer.show = false;
+    window._cleanDarkRefLayer.alpha = 0.0;
+  }
+  if (window._cartoDarkLayer && !window._cartoDarkLayer.isDestroyed()) {
+    window._cartoDarkLayer.show = false;
+    window._cartoDarkLayer.alpha = 0.0;
+  }
+
+  // 2. Reset Globe & Scene lighting / atmosphere / depth / celestial
+  globe.enableLighting = false;
+  globe.showGroundAtmosphere = true;
+  globe.depthTestAgainstTerrain = true;
+  globe.baseColor = Cesium.Color.fromCssColorString('#020B1E');
+  globe.atmosphereBrightnessShift = -0.08;
+  globe.atmosphereHueShift = 0.0;
+  globe.atmosphereSaturationShift = -0.12;
+
+  if (scene.skyAtmosphere) {
+    scene.skyAtmosphere.show = true;
+    scene.skyAtmosphere.atmosphereLightIntensity = 18;
+    scene.skyAtmosphere.saturationShift = -0.12;
+    scene.skyAtmosphere.brightnessShift = -0.08;
+  }
+  if (scene.sun) {
+    scene.sun.show = true;
+  }
+  if (scene.moon) {
+    scene.moon.show = true;
+  }
+  if (_northPoleCapEntity) {
+    _northPoleCapEntity.show = false;
+  }
+  if (_southPoleCapEntity) {
+    _southPoleCapEntity.show = false;
+  }
+  if (window._cesiumOsmBuildingsTileset && !window._cesiumOsmBuildingsTileset.isDestroyed()) {
+    window._cesiumOsmBuildingsTileset.show = true;
+  }
+  if (window._godsEyeSharpenStage) {
+    window._godsEyeSharpenStage.enabled = true;
+  }
+  if (window._celestialRing) {
+    window._celestialRing.enabled = false;
+    if (window._celestialRing._clear) window._celestialRing._clear();
+  }
+
+  // 3. Reset optical canvas filters
+  const cesiumCont = document.getElementById('cesiumContainer');
+  if (cesiumCont) {
+    cesiumCont.classList.remove('optical-flir', 'optical-nvg', 'optical-cyber');
+  }
+
+  // 4. Reset reference label culling
+  if (typeof window.updateCesiumLabelVisibility === 'function') {
+    window.updateCesiumLabelVisibility();
+  }
+
+  // 5. Restore standard performance budgets for default modes
+  globe.tileCacheSize = 50;
+  const isHeadlessReset = (typeof navigator !== 'undefined' && navigator.webdriver);
+  globe.maximumScreenSpaceError = isHeadlessReset ? 16.0 : 3.5;
+}
+
 window.setEarthVisualStyle = function(styleName) {
+  if (styleName === 'satellite') {
+    styleName = 'satellite_deep';
+  }
+  if (styleName === 'satellite_deep' && window._globeLoadTracker) {
+    window._globeLoadTracker.modeSwitchTime = performance.now();
+    window._globeLoadTracker.activeTrigger = 'mode_switch';
+  }
   _activeEarthStyle = styleName;
-  ['satellite', 'flir', 'cyber', 'terminator'].forEach(s => {
+
+  // Update button active states across HUD bar and Window diagnostics
+  const allStyles = ['satellite_deep', 'clean_dark', 'flir', 'cyber', 'terminator'];
+  allStyles.forEach(s => {
     const btn = document.getElementById(`style-btn-${s}`);
     if (btn) btn.classList.toggle('active', s === styleName);
+    const winBtn = document.getElementById(`win-style-btn-${s}`);
+    if (winBtn) winBtn.classList.toggle('active', s === styleName);
   });
+
   const lbl = document.getElementById('globe-style-label');
-  if (lbl) lbl.textContent = styleName.toUpperCase();
+  if (lbl) lbl.textContent = styleName.replace('_', ' ').toUpperCase();
+
+  // Update HUD Attribution Banner
+  const banner = document.getElementById('globe-attribution-banner');
+  if (banner) {
+    if (styleName === 'satellite_deep') {
+      banner.style.display = 'block';
+      banner.innerHTML = window._satelliteDeepFallback
+        ? 'Imagery: ESRI World Imagery (NASA GIBS Fallback)'
+        : 'Imagery: NASA EOSDIS GIBS / Blue Marble Bathymetry &amp; ESRI';
+    } else if (styleName === 'clean_dark') {
+      banner.style.display = 'block';
+      let cartoKey = window._userCartoApiKey;
+      if (!cartoKey) {
+        try {
+          const cached = window.safeStorageGet ? window.safeStorageGet('jarvis_config') : null;
+          if (cached) {
+            const cfg = JSON.parse(cached);
+            if (cfg && cfg.carto_api_key) cartoKey = cfg.carto_api_key.trim();
+          }
+        } catch(e) {}
+      }
+      if (cartoKey) {
+        banner.innerHTML = 'Basemap: &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">CARTO</a>, &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">OpenStreetMap</a> contributors';
+      } else {
+        banner.innerHTML = 'Basemap: &copy; <a href="https://www.esri.com/" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">Esri</a>, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">OpenStreetMap</a> contributors';
+      }
+    } else {
+      banner.style.display = 'none';
+      banner.innerHTML = '';
+    }
+  }
+
+  // Persist preference to browser safeStorage
+  if (typeof safeStorageSet === 'function') {
+    safeStorageSet('jarvis_earth_style', styleName);
+  }
 
   if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return;
   const scene = window.cesiumViewer.scene;
   const globe = scene.globe;
-  const baseLayer = (window.cesiumViewer.imageryLayers && window.cesiumViewer.imageryLayers.length > 0) ? window.cesiumViewer.imageryLayers.get(0) : null;
+  const baseLayer = window._cesiumBaseLayer || ((window.cesiumViewer.imageryLayers && window.cesiumViewer.imageryLayers.length > 0) ? window.cesiumViewer.imageryLayers.get(0) : null);
 
-  if (styleName === 'satellite') {
+  // Apply complete state reset to prevent style leakage
+  resetAllVisualModes(scene, globe, baseLayer);
+
+  const cesiumCont = document.getElementById('cesiumContainer');
+
+  if (styleName === 'satellite_deep') {
+    globe.tileCacheSize = 128; // Increased from 50 so orbital levels 0-3 (85 tiles) fit in RAM without thrashing
+    const isHeadless = (typeof navigator !== 'undefined' && navigator.webdriver);
+    globe.maximumScreenSpaceError = isHeadless ? 16.0 : 3.5;
+    if (baseLayer && !baseLayer.isDestroyed()) {
+      baseLayer.show = false;
+      baseLayer.alpha = 0.0;
+    }
     globe.enableLighting = false;
-    globe.baseColor = Cesium.Color.fromCssColorString('#020B1E');
-    globe.atmosphereBrightnessShift = -0.08;
-    globe.atmosphereHueShift = 0.0;
-    globe.atmosphereSaturationShift = -0.12;
+    globe.showGroundAtmosphere = false;
+    globe.baseColor = Cesium.Color.fromCssColorString('#010510');
     if (scene.skyAtmosphere) {
-      scene.skyAtmosphere.show = true;
-      scene.skyAtmosphere.atmosphereLightIntensity = 18;
-      scene.skyAtmosphere.saturationShift = -0.12;
-      scene.skyAtmosphere.brightnessShift = -0.08;
+      scene.skyAtmosphere.show = false;
+    }
+    if (scene.sun) {
+      scene.sun.show = false;
+    }
+    if (scene.moon) {
+      scene.moon.show = false;
+    }
+
+    const nCap = getOrCreateNorthPoleCap();
+    if (nCap) nCap.show = true;
+    const sCap = getOrCreateSouthPoleCap();
+    if (sCap) sCap.show = true;
+
+    getOrCreateGibsLayer();
+    if (window._satelliteDeepFallback) {
+      window.triggerSatelliteDeepFallback();
+    } else {
+      if (window._satelliteDeepGibsLayer) {
+        window._satelliteDeepGibsLayer.show = true;
+        window._satelliteDeepGibsLayer.alpha = 1.0;
+      }
+      if (typeof window.updateSatelliteDeepAltitudeFade === 'function') {
+        window.updateSatelliteDeepAltitudeFade();
+      }
+    }
+  } else if (styleName === 'clean_dark') {
+    globe.enableLighting = false;
+    globe.showGroundAtmosphere = false;
+    globe.baseColor = Cesium.Color.fromCssColorString('#050811');
+    globe.depthTestAgainstTerrain = false;
+
+    // Flat appearance: zero atmosphere, zero sun, zero sharpening, zero 3D buildings
+    if (scene.skyAtmosphere) scene.skyAtmosphere.show = false;
+    if (scene.sun) scene.sun.show = false;
+    if (window._cesiumOsmBuildingsTileset) window._cesiumOsmBuildingsTileset.show = false;
+    if (window._godsEyeSharpenStage) window._godsEyeSharpenStage.enabled = false;
+
+    getOrCreateCleanDarkLayer();
+    if (window._cleanDarkBaseLayer) {
+      window._cleanDarkBaseLayer.show = true;
+      window._cleanDarkBaseLayer.alpha = 1.0;
+    }
+    if (window._cleanDarkRefLayer) {
+      window._cleanDarkRefLayer.show = true;
+      window._cleanDarkRefLayer.alpha = 0.85;
     }
     if (baseLayer) {
-      baseLayer.saturation = 1.35;
-      baseLayer.contrast = 1.15;
-      baseLayer.brightness = 1.05;
-      baseLayer.gamma = 0.95;
+      baseLayer.show = false;
+      baseLayer.alpha = 0.0;
     }
-    if (window._godsEyeSharpenStage) {
-      window._godsEyeSharpenStage.enabled = true;
+    if (window._satelliteDeepGibsLayer) {
+      window._satelliteDeepGibsLayer.show = false;
+      window._satelliteDeepGibsLayer.alpha = 0.0;
+    }
+    if (typeof window.updateCesiumLabelVisibility === 'function') {
+      window.updateCesiumLabelVisibility();
+    } else if (window._cesiumLabelLayer) {
+      window._cesiumLabelLayer.show = false;
+      window._cesiumLabelLayer.alpha = 0.0;
     }
   } else if (styleName === 'flir') {
     globe.enableLighting = false;
@@ -21962,6 +23303,20 @@ window.setEarthVisualStyle = function(styleName) {
       baseLayer.brightness = 0.95;
       baseLayer.gamma = 1.0;
     }
+    if (cesiumCont) cesiumCont.classList.add('optical-flir');
+  } else if (styleName === 'nvg' || styleName === 'nightvision') {
+    globe.enableLighting = false;
+    globe.baseColor = Cesium.Color.fromCssColorString('#02140a');
+    globe.atmosphereBrightnessShift = -0.2;
+    globe.atmosphereHueShift = 0.35;
+    globe.atmosphereSaturationShift = 0.85;
+    if (baseLayer) {
+      baseLayer.saturation = 0.15;
+      baseLayer.contrast = 1.6;
+      baseLayer.brightness = 0.95;
+      baseLayer.gamma = 1.0;
+    }
+    if (cesiumCont) cesiumCont.classList.add('optical-nvg');
   } else if (styleName === 'cyber') {
     globe.enableLighting = false;
     globe.baseColor = Cesium.Color.fromCssColorString('#010814');
@@ -21974,6 +23329,7 @@ window.setEarthVisualStyle = function(styleName) {
       baseLayer.brightness = 0.9;
       baseLayer.gamma = 1.0;
     }
+    if (cesiumCont) cesiumCont.classList.add('optical-cyber');
   } else if (styleName === 'terminator') {
     globe.enableLighting = true; // Dynamic Sun/Earth day/night shadow terminator
     globe.baseColor = Cesium.Color.fromCssColorString('#02060d');
@@ -21986,19 +23342,19 @@ window.setEarthVisualStyle = function(styleName) {
       baseLayer.brightness = 1.05;
       baseLayer.gamma = 0.92;
     }
+    if (window._celestialRing) {
+      window._celestialRing.enabled = true;
+    }
   }
 
-  // Toggle Tactical Optical Canvas Filters (FLIR, NVG, Cyber HUD)
-  const cesiumCont = document.getElementById('cesiumContainer');
-  if (cesiumCont) {
-    cesiumCont.classList.remove('optical-flir', 'optical-nvg', 'optical-cyber');
-    if (styleName === 'flir') cesiumCont.classList.add('optical-flir');
-    else if (styleName === 'nvg' || styleName === 'nightvision') cesiumCont.classList.add('optical-nvg');
-    else if (styleName === 'cyber') cesiumCont.classList.add('optical-cyber');
-  }
-
+  // Update Screen Frame Scope Mask & Vignette Overlay
   if (typeof window.updateScreenFrame === 'function') {
     window.updateScreenFrame();
+  }
+
+  // Re-arm Render Governor (halts governor in Clean Dark when idle)
+  if (typeof window.rearmRenderGovernor === 'function') {
+    window.rearmRenderGovernor();
   }
 
   scene.requestRender();
@@ -22069,6 +23425,12 @@ window.setEarthVisualStyle = function(styleName) {
     }
     if (style === 'cyber') {
       return { r: 1, g: 5, b: 15, forceSolidAlpha: false };
+    }
+    if (style === 'satellite_deep') {
+      return { r: 1, g: 5, b: 16, forceSolidAlpha: false };
+    }
+    if (style === 'clean_dark') {
+      return { r: 5, g: 8, b: 17, forceSolidAlpha: true };
     }
     return { r: 5, g: 5, b: 8, forceSolidAlpha: false };
   }
@@ -22201,9 +23563,9 @@ window.setEarthVisualStyle = function(styleName) {
   };
 
   window.resetWorldTelemetryLook = function() {
-    // 1. Reset visual style to satellite
+    // 1. Reset visual style to satellite_deep
     if (typeof window.setEarthVisualStyle === 'function') {
-      window.setEarthVisualStyle('satellite');
+      window.setEarthVisualStyle('satellite_deep');
     }
     // 2. Ensure baseline values are explicitly applied:
     if (window.cesiumViewer && !window.cesiumViewer.isDestroyed()) {
@@ -26374,12 +27736,13 @@ function initGlobeIntelligence(viewer) {
   };
 
   window.cycleEarthVisualStyle = function() {
-    const styles = ['satellite', 'flir', 'cyber', 'terminator'];
-    const currentIdx = styles.indexOf(_activeEarthStyle || 'satellite');
-    const nextStyle = styles[(currentIdx + 1) % styles.length];
+    const styles = ['satellite_deep', 'clean_dark', 'flir', 'cyber', 'terminator'];
+    const currentIdx = styles.indexOf(_activeEarthStyle || 'satellite_deep');
+    const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % styles.length : 0;
+    const nextStyle = styles[nextIdx];
     window.setEarthVisualStyle(nextStyle);
     if (typeof showSubtitles === 'function') {
-      showSubtitles(`VISUAL PRESET: ${nextStyle.toUpperCase()} ACTIVE`, 'OPTICAL PRESET');
+      showSubtitles(`VISUAL PRESET: ${nextStyle.replace('_', ' ').toUpperCase()} ACTIVE`, 'OPTICAL PRESET');
     }
   };
 
@@ -28982,9 +30345,11 @@ function initGlobeIntelligence(viewer) {
         layers.flights ||
         layers.vessels ||
         layers.space ||
-        layers.satellites
+        layers.satellites ||
+        layers.traffic ||
+        layers.weather
       )
-    );
+    ) || Boolean(window._activeGroundMediaCoord);
   }
   window._isAnyAnimatedLayerActive = isAnyAnimatedLayerActive;
 
@@ -28993,6 +30358,18 @@ function initGlobeIntelligence(viewer) {
 
   function _scheduleGovernorTick() {
     const animatedActive = isAnyAnimatedLayerActive();
+    const isCleanDark = (typeof _activeEarthStyle !== 'undefined' && _activeEarthStyle === 'clean_dark');
+
+    // In Clean Dark with no animated tactical layers active, halt governor interval completely (0 FPS idle)
+    if (isCleanDark && !animatedActive) {
+      if (_govInterval) {
+        clearInterval(_govInterval);
+        _govInterval = null;
+      }
+      _lastGovernorCadence = 0;
+      return;
+    }
+
     // 20-22 FPS target (~45ms); <= 2 FPS = 500ms interval
     const cadence = animatedActive ? 45 : 500;
     if (_govInterval && _lastGovernorCadence === cadence) {
@@ -29016,6 +30393,8 @@ function initGlobeIntelligence(viewer) {
     }, cadence);
   }
   window.rearmRenderGovernor = _scheduleGovernorTick;
+  window._getGovernorCadence = function() { return _lastGovernorCadence; };
+  window._isGovernorActive = function() { return _govInterval !== null; };
 
   // Start governor loop
   _scheduleGovernorTick();
@@ -29054,6 +30433,21 @@ function initGlobeIntelligence(viewer) {
       }
     }
   }, 500);
+
+  // Load and apply saved visual style (or default to 'satellite_deep'), migrating legacy 'satellite' -> 'satellite_deep'
+  try {
+    let savedStyle = window.safeStorageGet ? window.safeStorageGet('jarvis_earth_style') : localStorage.getItem('jarvis_earth_style');
+    if (savedStyle === 'satellite') {
+      savedStyle = 'satellite_deep';
+      if (typeof safeStorageSet === 'function') safeStorageSet('jarvis_earth_style', 'satellite_deep');
+    }
+    const initialStyle = (savedStyle && ['satellite_deep', 'clean_dark', 'flir', 'cyber', 'terminator'].includes(savedStyle))
+      ? savedStyle
+      : 'satellite_deep';
+    if (typeof window.setEarthVisualStyle === 'function') {
+      window.setEarthVisualStyle(initialStyle);
+    }
+  } catch(e) {}
 
   viewer.scene.requestRender();
 }

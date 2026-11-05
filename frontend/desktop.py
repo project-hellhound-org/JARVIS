@@ -1263,6 +1263,8 @@ class JarvisAPI:
             t0 = time.time()
         self._msg_t0 = t0
         print(f"[TIMING] Backend received: +{(time.time() - t0)*1000.0:.1f}ms (source={source})")
+        if getattr(self, '_voice', None) and hasattr(self._voice, 'warm_fish_ws_async'):
+            self._voice.warm_fish_ws_async()
 
         norm = re.sub(r'[^\w\s]', '', text or '').strip().lower()
         now = time.time()
@@ -1415,7 +1417,7 @@ class JarvisAPI:
         self._emit("toggle_tactical_layer", {"layer": canonical_layer, "state": state})
 
     def _execute_tactical_style(self, style_spec: str):
-        """Execute God's Eye optical style preset (satellite, flir, nvg, cyber, terminator)."""
+        """Execute God's Eye optical style preset (satellite_deep, clean_dark, flir, nvg, cyber, terminator)."""
         target = style_spec.strip().lower()
         mapping = {
             "flir": "flir",
@@ -1428,9 +1430,14 @@ class JarvisAPI:
             "cyber": "cyber",
             "daynight": "terminator",
             "terminator": "terminator",
-            "satellite": "satellite",
+            "satellite": "satellite_deep",
+            "satellite_deep": "satellite_deep",
+            "deep": "satellite_deep",
+            "clean_dark": "clean_dark",
+            "dark": "clean_dark",
+            "clean": "clean_dark",
         }
-        canonical = mapping.get(target, "satellite")
+        canonical = mapping.get(target, "satellite_deep")
         print(f"[desktop] Tactical STYLE directive: {canonical}")
         self._emit("jarvis_play_sfx", {"effect": "layer_toggle", "state": True})
         self._emit("set_earth_visual_style", {"style": canonical})
@@ -2875,6 +2882,15 @@ class JarvisAPI:
                     "cesium_ion_token": clean("cesium_ion_token") or cesium_env,
                     "nasa_firms_key": clean("nasa_firms_key") or os.environ.get("NASA_FIRMS_MAP_KEY", "") or os.environ.get("FIRMS_MAP_KEY", ""),
                     "groq_api_key": clean("groq_api_key") or os.environ.get("GROQ_API_KEY", ""),
+                    "carto_api_key": clean("carto_api_key") or os.environ.get("CARTO_API_KEY", "") or os.environ.get("CARTO_KEY", ""),
+                    "aisstream_api_key": clean("aisstream_api_key") or os.environ.get("AISSTREAM_API_KEY", ""),
+                    "youtube_api_key": clean("youtube_api_key") or os.environ.get("YOUTUBE_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", ""),
+                    "github_token": clean("github_token") or os.environ.get("GITHUB_TOKEN", ""),
+                    "rapidapi_key": clean("rapidapi_key") or os.environ.get("RAPIDAPI_KEY", ""),
+                    "opensky_client_id": clean("opensky_client_id") or os.environ.get("OPENSKY_CLIENT_ID", "") or os.environ.get("OPENSKY_USERNAME", ""),
+                    "opensky_client_secret": clean("opensky_client_secret") or os.environ.get("OPENSKY_CLIENT_SECRET", "") or os.environ.get("OPENSKY_PASSWORD", ""),
+                    "hass_url": config.get("hass_url", "") or os.environ.get("HASS_URL", ""),
+                    "hass_token": clean("hass_token") or os.environ.get("HASS_TOKEN", ""),
                     "operator_salutation": cur_sal,
                     "tools": config.get("tools", {}),
                     "auto_open_cold_room": bool(config.get("ui", {}).get("auto_open_cold_room", config.get("auto_open_cold_room", True))),
@@ -3673,10 +3689,23 @@ class JarvisAPI:
                 "cesium_ion_token": "cesium_ion_token",
                 "nasa_firms_key": "nasa_firms_key",
                 "groq_api_key": "groq_api_key",
+                "carto_api_key": "carto_api_key",
+                "aisstream_api_key": "aisstream_api_key",
+                "youtube_api_key": "youtube_api_key",
+                "github_token": "github_token",
+                "rapidapi_key": "rapidapi_key",
+                "opensky_client_id": "opensky_client_id",
+                "opensky_client_secret": "opensky_client_secret",
+                "hass_url": "hass_url",
+                "hass_token": "hass_token",
             }
             for ui_key, yaml_key in field_map.items():
                 if ui_key in cfg:
-                    existing[yaml_key] = cfg[ui_key]
+                    val = cfg[ui_key]
+                    if val is None or (isinstance(val, str) and not val.strip()):
+                        existing.pop(yaml_key, None)
+                    else:
+                        existing[yaml_key] = val
 
             if "tools" in cfg and isinstance(cfg["tools"], dict):
                 existing.setdefault("tools", {})
@@ -3686,20 +3715,31 @@ class JarvisAPI:
                 yaml.dump(existing, f, default_flow_style=False, sort_keys=False)
 
             # Hot-apply environment variables in memory
-            if cfg.get("cesium_ion_token"):
-                os.environ["CESIUM_ION_TOKEN"] = cfg["cesium_ion_token"].strip()
-            if cfg.get("nasa_firms_key"):
-                val = cfg["nasa_firms_key"].strip()
-                os.environ["NASA_FIRMS_MAP_KEY"] = val
-                os.environ["FIRMS_MAP_KEY"] = val
-            if cfg.get("groq_api_key"):
-                os.environ["GROQ_API_KEY"] = cfg["groq_api_key"].strip()
-            if cfg.get("gemini_api_key"):
-                os.environ["GEMINI_API_KEY"] = cfg["gemini_api_key"].strip()
-            if cfg.get("nvidia_api_key"):
-                os.environ["NVIDIA_API_KEY"] = cfg["nvidia_api_key"].strip()
-            if cfg.get("fish_audio_api_key"):
-                os.environ["FISH_AUDIO_API_KEY"] = cfg["fish_audio_api_key"].strip()
+            env_apply_map = {
+                "cesium_ion_token": ["CESIUM_ION_TOKEN"],
+                "nasa_firms_key": ["NASA_FIRMS_MAP_KEY", "FIRMS_MAP_KEY"],
+                "groq_api_key": ["GROQ_API_KEY"],
+                "gemini_api_key": ["GEMINI_API_KEY"],
+                "nvidia_api_key": ["NVIDIA_API_KEY"],
+                "fish_audio_api_key": ["FISH_AUDIO_API_KEY"],
+                "carto_api_key": ["CARTO_API_KEY", "CARTO_KEY"],
+                "aisstream_api_key": ["AISSTREAM_API_KEY"],
+                "youtube_api_key": ["YOUTUBE_API_KEY", "GOOGLE_API_KEY"],
+                "github_token": ["GITHUB_TOKEN"],
+                "rapidapi_key": ["RAPIDAPI_KEY"],
+                "opensky_client_id": ["OPENSKY_CLIENT_ID", "OPENSKY_USERNAME"],
+                "opensky_client_secret": ["OPENSKY_CLIENT_SECRET", "OPENSKY_PASSWORD"],
+                "hass_url": ["HASS_URL"],
+                "hass_token": ["HASS_TOKEN"],
+            }
+            for cfg_k, env_vars in env_apply_map.items():
+                if cfg_k in cfg:
+                    val = str(cfg[cfg_k]).strip() if cfg[cfg_k] is not None else ""
+                    for ev in env_vars:
+                        if val and not self._is_placeholder(val):
+                            os.environ[ev] = val
+                        elif not val and ev in os.environ:
+                            os.environ.pop(ev, None)
 
             # Sync persistent keys into root .env file
             try:
@@ -3719,10 +3759,23 @@ class JarvisAPI:
                     "NVIDIA_API_KEY": cfg.get("nvidia_api_key"),
                     "NVIDIA_MODEL": cfg.get("nvidia_model"),
                     "FISH_AUDIO_API_KEY": cfg.get("fish_audio_api_key"),
+                    "CARTO_API_KEY": cfg.get("carto_api_key"),
+                    "AISSTREAM_API_KEY": cfg.get("aisstream_api_key"),
+                    "YOUTUBE_API_KEY": cfg.get("youtube_api_key"),
+                    "GITHUB_TOKEN": cfg.get("github_token"),
+                    "RAPIDAPI_KEY": cfg.get("rapidapi_key"),
+                    "OPENSKY_CLIENT_ID": cfg.get("opensky_client_id"),
+                    "OPENSKY_CLIENT_SECRET": cfg.get("opensky_client_secret"),
+                    "HASS_URL": cfg.get("hass_url"),
+                    "HASS_TOKEN": cfg.get("hass_token"),
                 }
                 for k, v in sync_items.items():
-                    if v and not self._is_placeholder(v):
-                        env_map[k] = v.strip()
+                    if v is not None:
+                        val_str = str(v).strip()
+                        if val_str and not self._is_placeholder(val_str):
+                            env_map[k] = val_str
+                        elif not val_str and k in env_map:
+                            del env_map[k]
                 out_lines = [f"{k}={v}" for k, v in sorted(env_map.items())]
                 env_file.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
             except Exception as env_err:
@@ -4034,6 +4087,9 @@ class JarvisAPI:
         with self._turn_events_lock:
             self._turn_playback_events[tts_turn_id] = playback_event
 
+        if self._voice and hasattr(self._voice, 'warm_fish_ws_async'):
+            self._voice.warm_fish_ws_async()
+
         self._emit("jarvis_stream_start", {"turn_id": tts_turn_id})
         sentence_buffer = ""
         tts_text_queue = queue.Queue()
@@ -4330,28 +4386,41 @@ class JarvisAPI:
                 # 1. Full sentence end boundary with acronym and decimal protection:
                 sentence_regex = r'(?:(?<!\b[A-Z])(?<!\d)[.!?]+(?=\s+[A-Z0-9"\'\u201c\u2018]|\n|$|\s*$))'
                 m = re.search(sentence_regex, sentence_buffer)
-                if m and m.end() >= 12:
+                min_end_len = 4 if sent_count == 0 else 12
+                if m and m.end() >= min_end_len:
                     sentence = sentence_buffer[:m.end()].strip()
                     sentence_buffer = sentence_buffer[m.end():].lstrip()
-                    if len(sentence) > 3:
+                    if len(sentence) >= 3:
                         clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
                         queue_spoken_text(clean_sentence)
                     return
 
                 # VoiceOS Low-Latency Clause Streaming:
-                # If this is the initial phrase (sent_count == 0) or subsequent natural clause with >= 4 words,
-                # queue it immediately so Fish Audio synthesizes and streams speech continuously with natural prosody.
-                if sent_count == 0 or len(sentence_buffer.split()) >= 4:
-                    clause_regex = r'[,:;—–]\s+'
-                    cm = re.search(clause_regex, sentence_buffer)
-                    if cm and cm.start() >= 12:
-                        words = sentence_buffer[:cm.start()].split()
-                        if len(words) >= 4:
-                            sentence = sentence_buffer[:cm.end()].strip()
-                            sentence_buffer = sentence_buffer[cm.end():].lstrip()
-                            if len(sentence) > 3:
-                                clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
-                                queue_spoken_text(clean_sentence)
+                # If this is the initial phrase (sent_count == 0) or subsequent natural clause:
+                clause_regex = r'[,:;—–]\s+'
+                cm = re.search(clause_regex, sentence_buffer)
+                if cm:
+                    words = sentence_buffer[:cm.start()].split()
+                    min_words = 1 if sent_count == 0 else 4
+                    min_start = 3 if sent_count == 0 else 12
+                    if cm.start() >= min_start and len(words) >= min_words:
+                        sentence = sentence_buffer[:cm.end()].strip()
+                        sentence_buffer = sentence_buffer[cm.end():].lstrip()
+                        if len(sentence) >= 3:
+                            clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
+                            queue_spoken_text(clean_sentence)
+                        return
+
+                # Fast early speech start: if sent_count == 0 and buffer has >= 4 words on space boundary,
+                # immediately dispatch opening words to synthesize in parallel with remaining LLM output (<200ms TTFA)
+                if sent_count == 0:
+                    words = sentence_buffer.split()
+                    if len(words) >= 4 and sentence_buffer.endswith((' ', '\t', '\n')):
+                        sentence = sentence_buffer.strip()
+                        sentence_buffer = ""
+                        if len(sentence) >= 3:
+                            clean_sentence = re.sub(r'(\w+)_(\w+)', r'\1 \2', sentence).replace('_', ' ')
+                            queue_spoken_text(clean_sentence)
                             return
 
                 # 2. Word boundary safety flush for unusually long unpunctuated run-on output (160+ chars)

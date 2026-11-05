@@ -145,3 +145,35 @@ Specifically:
 2. **Bhote Koshi River Centerline & Event Data** (`bhote-koshi-2026/`, `bhoteKoshiFloodPath.js`, CC BY-NC 4.0): **NOT present** in JARVIS.
 
 An exhaustive scan across all directories and files confirmed zero instances of these non-commercial datasets in the repository.
+
+---
+
+## 6. Remote Map Imagery Providers & Basemaps
+
+### NASA EOSDIS GIBS (Global Imagery Browse Services)
+* **Provider**: National Aeronautics and Space Administration (NASA) Earth Observing System Data and Information System (EOSDIS)
+* **Layer**: `BlueMarble_ShadedRelief_Bathymetry`
+* **WMTS REST Template**:
+  * EPSG:3857 (Web Mercator Quadtree): `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg`
+  * EPSG:4326 (Geographic Plate Carree): `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_ShadedRelief_Bathymetry/default/default/500m/{z}/{y}/{x}.jpeg`
+* **License**: Public Domain (United States Government work under 17 U.S.C. § 105; NASA Open Data Policy)
+* **Required Attribution**: "Imagery courtesy of NASA EOSDIS GIBS"
+* **Commercial / Free Usage Terms**: Free, zero-authentication, public domain. Permitted for open-source, commercial, and non-commercial use with required attribution.
+
+### Esri Canvas World Dark Gray Base & Reference
+* **Provider**: Environmental Systems Research Institute (Esri), HERE, Garmin, © OpenStreetMap contributors, and the GIS user community
+* **Layers**:
+  * Base: `https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`
+  * Reference (Labels & Borders): `https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`
+* **License & Terms**: Esri Master License Agreement. Permitted for public web mapping and visualization with visible on-screen attribution. No API key required for standard web display. Direct scraping or bulk offline tile storage is prohibited.
+* **Required Attribution**: "Sources: Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS user community"
+
+### CARTO Raster Basemaps & OpenStreetMap (Keyed Optional Mode)
+* **Provider**: CARTO (https://carto.com/basemaps/)
+* **Layer**: `dark_nolabels` (`https://{s}.basemaps.cartocdn.com/rastertiles/dark_nolabels/{z}/{x}/{y}.png?key=KEY`)
+* **License**:
+  * Map tiles and styling by CARTO licensed under Creative Commons Attribution 4.0 International (CC BY 4.0).
+  * Underlying map data © OpenStreetMap contributors, licensed under the Open Database License (ODbL).
+* **Required Attribution**: "© OpenStreetMap contributors, © CARTO"
+* **Commercial / Free Usage Terms**: CARTO requires an API key for watermark-free raster basemap access. Free API keys can be generated at https://carto.com/basemaps/apikey. Permitted for applications adhering to the CARTO Fair Use policy.
+

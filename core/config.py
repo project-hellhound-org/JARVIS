@@ -89,6 +89,21 @@ CONFIG_KEY_SPECS: Dict[str, Dict[str, Any]] = {
         "aliases": [],
         "default": "",
     },
+    "OPENSKY_CLIENT_ID": {
+        "yaml_keys": ["opensky_client_id", "opensky_username"],
+        "aliases": ["OPENSKY_USERNAME"],
+        "default": "",
+    },
+    "OPENSKY_CLIENT_SECRET": {
+        "yaml_keys": ["opensky_client_secret", "opensky_password"],
+        "aliases": ["OPENSKY_PASSWORD"],
+        "default": "",
+    },
+    "CARTO_API_KEY": {
+        "yaml_keys": ["carto_api_key", "carto_key"],
+        "aliases": ["CARTO_KEY"],
+        "default": "",
+    },
     "AUTO_OPEN_COLD_ROOM": {
         "yaml_keys": ["auto_open_cold_room"],
         "aliases": [],
