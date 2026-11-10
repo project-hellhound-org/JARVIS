@@ -63,144 +63,29 @@ Operate across three flexible interfaces:
 
 ```mermaid
 flowchart TD
-    subgraph UI["1. User Interfaces and Ingestion"]
-        DesktopApp["Desktop GUI (PyWebView / Bottle Server)"]
-        CLIRunner["Interactive CLI / TUI (tui/jarvis_cli.py)"]
-        VoiceInput["Voice Stream (Microphone / Push-to-Talk)"]
-    end
+    U(["Operator"]) --> INP["Voice, Desktop UI, or CLI<br/>Wake word, Whisper STT, or terminal"]
+    INP --> ORC["Cognitive Core &amp; Orchestrator<br/>Input parsing, intent routing,<br/>and dynamic ReAct reasoning"]
+    ORC --> GATE{{"Investigation Security Gate<br/>Target validation, action safety checks,<br/>and execution permission gate"}}
+    GATE -. model routing .-> ROUTER["Multi-Model Inference Router<br/>NVIDIA NIM / Groq / Gemini<br/>local Ollama fallback"]
+    GATE == tactical task ==> TOOLS["Tactical &amp; OSINT Toolchains<br/>Sherlock, network recon, email intel,<br/>threat feeds, app control &amp; IoT"]
+    GATE == geospatial query ==> GEO["God's Eye Telemetry Engine<br/>ADS-B air traffic, AIS maritime,<br/>weather radar, orbital passes, seismic"]
+    TOOLS --> LEDGER[("Case Memory &amp; Knowledge Graph<br/>Case blackboards, entity relations,<br/>lessons store, and persistent state")]
+    GEO --> LEDGER
+    LEDGER --> GUARD["Grounding &amp; Verification Guard<br/>Anti-hallucination check &amp; claim verification<br/>(evidence-gated response)"]
+    ROUTER -. model synthesis .-> GUARD
+    GUARD --> PRES["Operational Presentation<br/>CesiumJS 3D globe, reactive HUD cards,<br/>voice synthesis &amp; case dossier export"]
 
-    subgraph Perception["2. Perception and Ingestion Engine"]
-        WakeWord["Wake Word Engine (openWakeWord / ONNX)"]
-        VAD["Voice Activity Detection (Energy VAD + Hangover)"]
-        STT["Speech-to-Text (Web Speech / Google / Groq Whisper)"]
-        FastPath["Fast-Path Interceptor (Sub-50ms Local Tasks)"]
-    end
-
-    subgraph Cognitive["3. Cognitive Core and Reasoning Loop"]
-        InputParser["Input and Intent Classifier (core/input_parser.py)"]
-        InvestGate["Investigation Gate and Target Validator (core/investigation_gate.py)"]
-        Orchestrator["Task Orchestrator and ReAct Loop (core/orchestrator.py)"]
-        GroundingGuard["Anti-Hallucination Grounding Check (narrative/grounding_check.py)"]
-    end
-
-    subgraph Models["4. Multi-Model Inference Router"]
-        NIM["Primary Cloud LLM: NVIDIA NIM (Nemotron 3 Ultra 550B)"]
-        Groq["Fast Inference: Groq LPU (LLaMA 3.3 70B Versatile)"]
-        Gemini["Multimodal Vision: Google Gemini (Geo / Image OSINT)"]
-        Ollama["Local SLM Fallback: Ollama (Qwen 2.5 3B / 7B / 14B)"]
-    end
-
-    subgraph Execution["5. Tactical Execution and OSINT Toolchains"]
-        subgraph OSINT["OSINT Reconnaissance"]
-            Sherlock["Identity and Handles (Sherlock 300+, Maigret)"]
-            EmailIntel["Email and Accounts (Holehe, Gravatar)"]
-            NetworkIntel["Domain and Infrastructure (DNS, WHOIS, Wayback)"]
-            CodeIntel["Developer Profiles (GitHub Public API)"]
-            ThreatIntel["Threat and Breach (AbuseIPDB, BreachDirectory)"]
-        end
-        subgraph SystemCtrl["System and Assistant Automation"]
-            AppCtrl["App and Window Controller (open_app)"]
-            PersonalIntel["Personal Intel (Calendar, Inbox, Docs)"]
-            IoT["Smart Home Controller (Home Assistant / IoT)"]
-            SelfUpgrade["Self-Learning and Introspection (core/doctor.py)"]
-        end
-    end
-
-    subgraph Geointel["6. Gods Eye Geointel and Telemetry Engine"]
-        ADSB["Airspace Radar (ADS-B live military / civil flight feeds)"]
-        AIS["Maritime Telemetry (AISStream worldwide vessel tracking)"]
-        WeatherRadar["Atmospheric Intel (Open-Meteo weather radar)"]
-        Seismic["Planetary Seismic Monitor (USGS real-time M4.5+)"]
-        Orbital["Orbital Ephemeris (ISS and satellite nadir projections)"]
-        FIRMS["Thermal Anomalies (NASA FIRMS MODIS / VIIRS wildfire)"]
-        RadioScanner["Radio Tuner (Live ATC and emergency dispatch audio)"]
-    end
-
-    subgraph Persistence["7. Memory, Cases and Knowledge Persistence"]
-        CaseBlackboard["Isolated Case Blackboards (cases/target/)"]
-        KnowledgeGraph["Dynamic Knowledge Graph (core/knowledge_graph.py)"]
-        LessonsStore["Lessons and Feedback Store (memory/lessons_store.py)"]
-        JarvisMemory["Unified Memory State (data/jarvis_memory.json)"]
-    end
-
-    subgraph Presentation["8. Presentation and Operational Output"]
-        Screen1["Screen 1: Cold Room (3D Force Graph / 2D D3 Radial Topology)"]
-        Screen2["Screen 2: Tactical HUD (Collapsible Cards, Audio Visualizer)"]
-        Screen3["Screen 3: Spatial Canvas (CesiumJS 3D Globe, NASA GIBS, ESRI)"]
-        GlobalChat["Global Chat Overlay (Cross-Screen Telemetry and Prompting)"]
-        VoiceSynthesis["Speech Synthesis (Fish Audio Tactical Clone / Local TTS)"]
-        ReportExporter["Case Dossier Exporter (Submission-Ready HTML Report)"]
-    end
-
-    DesktopApp --> InputParser
-    CLIRunner --> InputParser
-    VoiceInput --> WakeWord
-    WakeWord --> VAD
-    VAD --> STT
-    STT --> InputParser
-
-    InputParser --> FastPath
-    FastPath --> AppCtrl
-    FastPath --> PersonalIntel
-
-    InputParser --> InvestGate
-    InvestGate --> Orchestrator
-    Orchestrator <--> NIM
-    Orchestrator <--> Groq
-    Orchestrator <--> Gemini
-    Orchestrator <--> Ollama
-
-    Orchestrator --> Sherlock
-    Orchestrator --> EmailIntel
-    Orchestrator --> NetworkIntel
-    Orchestrator --> CodeIntel
-    Orchestrator --> ThreatIntel
-
-    Orchestrator --> ADSB
-    Orchestrator --> AIS
-    Orchestrator --> WeatherRadar
-    Orchestrator --> Seismic
-    Orchestrator --> Orbital
-    Orchestrator --> FIRMS
-    Orchestrator --> RadioScanner
-
-    Orchestrator --> AppCtrl
-    Orchestrator --> PersonalIntel
-    Orchestrator --> IoT
-    Orchestrator --> SelfUpgrade
-
-    Sherlock --> CaseBlackboard
-    EmailIntel --> CaseBlackboard
-    NetworkIntel --> CaseBlackboard
-    CodeIntel --> CaseBlackboard
-    ThreatIntel --> CaseBlackboard
-
-    ADSB --> Screen3
-    AIS --> Screen3
-    WeatherRadar --> Screen3
-    Seismic --> Screen3
-    Orbital --> Screen3
-    FIRMS --> Screen3
-    RadioScanner --> Screen2
-
-    CaseBlackboard --> KnowledgeGraph
-    CaseBlackboard --> LessonsStore
-    CaseBlackboard --> JarvisMemory
-
-    Orchestrator --> GroundingGuard
-    GroundingGuard --> VoiceSynthesis
-    GroundingGuard --> ReportExporter
-
-    KnowledgeGraph --> Screen1
-    Orchestrator --> Screen2
-    Orchestrator --> GlobalChat
+    classDef gate fill:#3a0d0d,stroke:#ff4d4d,color:#ffd1d1;
+    classDef store fill:#0d2a3a,stroke:#4db8ff,color:#d1ecff;
+    class GATE gate;
+    class LEDGER store;
 ```
 
-- **All-in-One OSINT Capabilities**: Deep target enumeration, domain profiling, breach checking, and system task automation.
-- **Collapsible Card System**: Settings, ledgers, and telemetry render in responsive card components with collapsible header toggles and real-time status badges.
-- **Eye Toggle Security**: API key fields (Gemini, NVIDIA NIM, Fish Audio) feature transparent toggle buttons for password visibility control.
-- **Hands-Free Speech Input**: Direct voice interaction paired with Spacebar push-to-talk and intelligent conversational streaming.
-- **Interactive 2D/3D Topology Graphs**: Guaranteed 2D SVG radial network fallback + 3D WebGL graph rendering connected target entities and skills.
+- **Investigation Security Gate**: Unscoped targets and unauthorized system actions are validated and permission-gated before execution.
+- **Multi-Model Inference Router**: Dynamic dispatch between NVIDIA NIM, Groq LPU, Google Gemini, and local Ollama SLMs based on task complexity.
+- **God's Eye Geointel Engine**: Real-time telemetry ingestion and geospatial tracking across ADS-B aircraft, AIS maritime vessels, weather radar, orbital passes, and seismic feeds.
+- **Isolated Case Blackboards**: Target findings, entity relationship graphs, and harvested artifacts persist in dedicated case workspaces.
+- **Grounding Verification Guard**: Anti-hallucination checks compare synthesized claims against verified evidence before narration or dossier export.
 
 ---
 
