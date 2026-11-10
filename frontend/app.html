@@ -88,8 +88,14 @@
       screen3OpenTime: null,
       modeSwitchTime: null,
       viewerCreatedTime: null,
+      baseTextureReadyTime: null,
       activeTrigger: 'app_start',
       layers: {
+        underlay: {
+          name: 'Blue Marble Underlay (earth-blue-marble.jpg)',
+          addedTime: null,
+          readyTime: null
+        },
         gibs: {
           name: 'NASA GIBS (epsg3857)',
           addedTime: null,
@@ -138,6 +144,22 @@
         osm_buildings: { status: 'uninitialized', startTime: null, durationMs: null }
       }
     };
+
+    // Eager preload local Blue Marble texture so it is decoded in memory before Cesium viewer requests it
+    try {
+      if (typeof Image !== 'undefined') {
+        const _preTexture = new Image();
+        _preTexture.onload = function() {
+          if (window._globeLoadTracker && !window._globeLoadTracker.baseTextureReadyTime) {
+            window._globeLoadTracker.baseTextureReadyTime = performance.now();
+            if (window._globeLoadTracker.layers?.underlay) {
+              window._globeLoadTracker.layers.underlay.readyTime = window._globeLoadTracker.baseTextureReadyTime;
+            }
+          }
+        };
+        _preTexture.src = 'assets/textures/earth-blue-marble.jpg';
+      }
+    } catch (_) {}
 
     window.instrumentGlobeImageryProvider = function(provider, layerKey) {
       if (!provider || typeof provider.requestImage !== 'function') return;
@@ -219,6 +241,13 @@
           "Screen 3 First Open": tracker.viewerCreatedTime ? formatElapsed(tracker.viewerCreatedTime, tracker.screen3OpenTime) : "N/A",
           "Mode Switch (Satellite Deep)": tracker.viewerCreatedTime ? formatElapsed(tracker.viewerCreatedTime, tracker.modeSwitchTime) : "N/A",
           "Details": "Cesium.Viewer instance instantiated"
+        },
+        {
+          "Milestone / Layer": "base_texture_ready",
+          "App Start": formatElapsed(tracker.baseTextureReadyTime, tracker.appStartTime),
+          "Screen 3 First Open": tracker.baseTextureReadyTime ? formatElapsed(tracker.baseTextureReadyTime, tracker.screen3OpenTime) : "N/A",
+          "Mode Switch (Satellite Deep)": tracker.baseTextureReadyTime ? formatElapsed(tracker.baseTextureReadyTime, tracker.modeSwitchTime) : "N/A",
+          "Details": "Instant offline underlay (earth-blue-marble.jpg)"
         },
         {
           "Milestone / Layer": "Layer: NASA GIBS Added",
@@ -337,6 +366,7 @@
           mode_switch: tracker.modeSwitchTime
         },
         viewer_created: tracker.viewerCreatedTime,
+        base_texture_ready: tracker.baseTextureReadyTime,
         queue_zero: tracker.queueZero,
         layers: tracker.layers,
         features: tracker.features
@@ -21667,7 +21697,9 @@ function initCesiumGlobe() {
         // Do NOT wipe existing layers (e.g. NASA GIBS at index 0)
         let baseLayer = window._cesiumBaseLayer;
         if (!baseLayer || baseLayer.isDestroyed()) {
-          const insertIdx = (window._satelliteDeepGibsLayer && !window._satelliteDeepGibsLayer.isDestroyed()) ? 1 : 0;
+          let insertIdx = 0;
+          if (window._satelliteDeepUnderlayLayer && !window._satelliteDeepUnderlayLayer.isDestroyed()) insertIdx++;
+          if (window._satelliteDeepGibsLayer && !window._satelliteDeepGibsLayer.isDestroyed()) insertIdx++;
           const curStyle = (typeof _activeEarthStyle !== 'undefined' ? _activeEarthStyle : null) || window._activeEarthStyle || startupEarthStyle || 'satellite_deep';
           const isDeepOrDark = (curStyle === 'satellite_deep' || curStyle === 'clean_dark');
           if (Cesium.ImageryLayer) {
@@ -21823,17 +21855,23 @@ function initCesiumGlobe() {
       }
     }
 
-    // Immediate startup initialization for Satellite Deep: create GIBS layer instantly without awaiting MapServer metadata
+    // Immediate startup initialization for Satellite Deep: create underlay and GIBS layers instantly without awaiting MapServer metadata
     if (startupEarthStyle === 'satellite_deep') {
       const nCap = getOrCreateNorthPoleCap();
       if (nCap) nCap.show = true;
       const sCap = getOrCreateSouthPoleCap();
       if (sCap) sCap.show = true;
+      const underlay = getOrCreateSatelliteDeepUnderlay();
+      if (underlay) {
+        underlay.show = true;
+        underlay.alpha = 1.0;
+      }
       const gibs = getOrCreateGibsLayer();
       if (gibs) {
         gibs.show = true;
         gibs.alpha = 1.0;
       }
+      ensureSatelliteDeepLayerOrder();
     }
     loadCesiumImagery();
 
@@ -22855,6 +22893,101 @@ function getOrCreateSouthPoleCap() {
   }
 }
 
+let _satelliteDeepUnderlayLayer = null;
+
+function getOrCreateSatelliteDeepUnderlay() {
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return null;
+  if (window._satelliteDeepUnderlayLayer && !window._satelliteDeepUnderlayLayer.isDestroyed()) {
+    return window._satelliteDeepUnderlayLayer;
+  }
+  try {
+    if (typeof Cesium === 'undefined' || !Cesium.SingleTileImageryProvider) return null;
+    const underlayProvider = new Cesium.SingleTileImageryProvider({
+      url: 'assets/textures/earth-blue-marble.jpg',
+      rectangle: (Cesium.Rectangle && Cesium.Rectangle.MAX_VALUE) ? Cesium.Rectangle.MAX_VALUE : undefined
+    });
+
+    if (typeof underlayProvider.requestImage === 'function') {
+      const origRequestImage = underlayProvider.requestImage.bind(underlayProvider);
+      underlayProvider.requestImage = function(x, y, level, request) {
+        const res = origRequestImage(x, y, level, request);
+        if (res && typeof res.then === 'function') {
+          return res.then(function(img) {
+            if (window._globeLoadTracker && !window._globeLoadTracker.baseTextureReadyTime) {
+              window._globeLoadTracker.baseTextureReadyTime = performance.now();
+              if (window._globeLoadTracker.layers?.underlay) {
+                window._globeLoadTracker.layers.underlay.readyTime = window._globeLoadTracker.baseTextureReadyTime;
+              }
+            }
+            return img;
+          });
+        } else if (res) {
+          if (window._globeLoadTracker && !window._globeLoadTracker.baseTextureReadyTime) {
+            window._globeLoadTracker.baseTextureReadyTime = performance.now();
+            if (window._globeLoadTracker.layers?.underlay) {
+              window._globeLoadTracker.layers.underlay.readyTime = window._globeLoadTracker.baseTextureReadyTime;
+            }
+          }
+        }
+        return res;
+      };
+    }
+
+    // Insert at index 0 (offline base underlay)
+    const underlayLayer = window.cesiumViewer.imageryLayers.addImageryProvider(underlayProvider, 0);
+    underlayLayer.show = false;
+    underlayLayer.alpha = 1.0;
+    underlayLayer.brightness = 1.0;
+    underlayLayer.contrast = 1.0;
+    underlayLayer.saturation = 1.0;
+    underlayLayer.gamma = 1.0;
+    window._satelliteDeepUnderlayLayer = underlayLayer;
+    if (window._globeLoadTracker?.layers?.underlay) {
+      window._globeLoadTracker.layers.underlay.addedTime = performance.now();
+    }
+    return underlayLayer;
+  } catch (err) {
+    console.warn('[Cesium] Error instantiating Satellite Deep underlay layer:', err);
+    return null;
+  }
+}
+
+function ensureSatelliteDeepLayerOrder() {
+  if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return;
+  const layers = window.cesiumViewer.imageryLayers;
+  if (!layers) return;
+  const underlay = window._satelliteDeepUnderlayLayer;
+  const gibs = window._satelliteDeepGibsLayer;
+  const base = window._cesiumBaseLayer;
+  const label = window._cesiumLabelLayer;
+
+  const containsLayer = (l) => {
+    if (!l || l.isDestroyed?.()) return false;
+    if (typeof layers.contains === 'function') return layers.contains(l);
+    if (typeof layers.indexOf === 'function') return layers.indexOf(l) !== -1;
+    return false;
+  };
+
+  if (containsLayer(underlay) && typeof layers.lowerToBottom === 'function') {
+    layers.lowerToBottom(underlay);
+  }
+  if (containsLayer(gibs) && typeof layers.lowerToBottom === 'function') {
+    layers.lowerToBottom(gibs);
+    if (containsLayer(underlay)) {
+      layers.lowerToBottom(underlay);
+    }
+  }
+  if (containsLayer(base) && typeof layers.raise === 'function') {
+    const gibsIdx = containsLayer(gibs) ? layers.indexOf(gibs) : (containsLayer(underlay) ? layers.indexOf(underlay) : -1);
+    while (layers.indexOf(base) <= gibsIdx) {
+      layers.raise(base);
+    }
+  }
+  if (containsLayer(label) && typeof layers.raiseToTop === 'function') {
+    layers.raiseToTop(label);
+  }
+}
+
 function getOrCreateGibsLayer() {
   if (!window.cesiumViewer || window.cesiumViewer.isDestroyed()) return null;
   if (window._satelliteDeepGibsLayer && !window._satelliteDeepGibsLayer.isDestroyed()) {
@@ -22917,11 +23050,12 @@ function getOrCreateGibsLayer() {
       });
     }
 
-    // Insert at index 0 so ESRI World Imagery at index 1 can smoothly cross-fade over it
+    // Insert at index 1 if underlay exists at index 0, so underlay is below GIBS
     if (window.instrumentGlobeImageryProvider) {
       window.instrumentGlobeImageryProvider(gibsProvider, 'gibs');
     }
-    const gibsLayer = window.cesiumViewer.imageryLayers.addImageryProvider(gibsProvider, 0);
+    const insertIdx = (window._satelliteDeepUnderlayLayer && !window._satelliteDeepUnderlayLayer.isDestroyed()) ? 1 : 0;
+    const gibsLayer = window.cesiumViewer.imageryLayers.addImageryProvider(gibsProvider, insertIdx);
     gibsLayer.show = false;
     window._satelliteDeepGibsLayer = gibsLayer;
     if (window._globeLoadTracker) {
@@ -23077,6 +23211,10 @@ function resetAllVisualModes(scene, globe, baseLayer) {
       baseLayer.saturation = 1.35;
       baseLayer.gamma = 0.95;
     }
+  }
+  if (window._satelliteDeepUnderlayLayer && !window._satelliteDeepUnderlayLayer.isDestroyed()) {
+    window._satelliteDeepUnderlayLayer.show = false;
+    window._satelliteDeepUnderlayLayer.alpha = 0.0;
   }
   if (window._satelliteDeepGibsLayer && !window._satelliteDeepGibsLayer.isDestroyed()) {
     window._satelliteDeepGibsLayer.show = false;
@@ -23244,7 +23382,14 @@ window.setEarthVisualStyle = function(styleName) {
     const sCap = getOrCreateSouthPoleCap();
     if (sCap) sCap.show = true;
 
+    const underlay = getOrCreateSatelliteDeepUnderlay();
+    if (underlay) {
+      underlay.show = true;
+      underlay.alpha = 1.0;
+    }
+
     getOrCreateGibsLayer();
+    ensureSatelliteDeepLayerOrder();
     if (window._satelliteDeepFallback) {
       window.triggerSatelliteDeepFallback();
     } else {
@@ -23280,6 +23425,10 @@ window.setEarthVisualStyle = function(styleName) {
     if (baseLayer) {
       baseLayer.show = false;
       baseLayer.alpha = 0.0;
+    }
+    if (window._satelliteDeepUnderlayLayer) {
+      window._satelliteDeepUnderlayLayer.show = false;
+      window._satelliteDeepUnderlayLayer.alpha = 0.0;
     }
     if (window._satelliteDeepGibsLayer) {
       window._satelliteDeepGibsLayer.show = false;
