@@ -19,6 +19,7 @@
   <a href="#commands">Commands</a> ·
   <a href="#voice-engine">Voice Engine</a> ·
   <a href="#desktop-gui-app">Desktop GUI</a> ·
+  <a href="#mobile-companion">Mobile Companion</a> ·
   <a href="#license">License</a>
 </p>
 
@@ -371,6 +372,16 @@ All actions can be triggered via slash commands or natural language:
 | `calibrate` | `/calibrate` | Measure false-positive rate on random nonexistent usernames | `calibrate [--count N] [--no-control] [--apply-lessons] [--out PATH]` |
 | `help` | `/?`, `info` | Display command guide and available modules | `help` |
 | `exit` | `quit` | Exit workspace | `exit` |
+
+---
+
+## Mobile Companion
+
+Prefer a mobile interface on Android? Check out the **[J.A.R.V.I.S. Mobile Companion App](https://github.com/project-hellhound-org/JARVIS-Mobile)**.
+
+J.A.R.V.I.S. Mobile is a lightweight Android chat and voice companion powered by NVIDIA NIM free hosted endpoints. While this desktop application serves as the full autonomous OSINT reconnaissance suite and telemetry station, the phone app provides fast, tactical conversational intelligence on the go with zero OSINT or world-telemetry features.
+
+Pre-built APK releases will be published at https://github.com/project-hellhound-org/JARVIS-Mobile/releases (coming soon).
 
 ---
 
