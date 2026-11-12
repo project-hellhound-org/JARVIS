@@ -24,6 +24,21 @@ CONFIG_KEY_SPECS: Dict[str, Dict[str, Any]] = {
         "aliases": [],
         "default": "",
     },
+    "NVIDIA_FAST_MODEL": {
+        "yaml_keys": ["nvidia_fast_model", "fast_model"],
+        "aliases": ["NVIDIA_FAST_MODEL", "FAST_MODEL"],
+        "default": "nvidia/nemotron-3.5-bolt-e4b",
+    },
+    "NVIDIA_DEEP_MODEL": {
+        "yaml_keys": ["nvidia_deep_model", "deep_model"],
+        "aliases": ["NVIDIA_DEEP_MODEL", "DEEP_MODEL"],
+        "default": "nvidia/nemotron-3-ultra-550b-a55b",
+    },
+    "NVIDIA_ROUTING_MODE": {
+        "yaml_keys": ["nvidia_routing_mode", "routing_mode", "model_routing_mode"],
+        "aliases": ["NVIDIA_ROUTING_MODE", "ROUTING_MODE"],
+        "default": "auto",
+    },
     "PRIMARY_LLM": {
         "yaml_keys": ["primary_llm", "preferred_llm", "llm_provider"],
         "aliases": ["PRIMARY_LLM", "PREFERRED_LLM", "LLM_PROVIDER"],

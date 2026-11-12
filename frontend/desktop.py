@@ -3793,7 +3793,7 @@ class JarvisAPI:
                 self._voice = JarvisVoice()
                 engine = "SLM"
                 if self._voice.nvidia_available:
-                    engine = f"NVIDIA NIM ({self._voice.nvidia_model})"
+                    engine = "NVIDIA NIM (Smart Auto-Router)"
                 elif getattr(self._voice, 'groq_available', False):
                     engine = f"Groq LPU ({getattr(self._voice, 'groq_model', 'llama-3.3-70b')})"
                 elif self._voice.gemini_available:

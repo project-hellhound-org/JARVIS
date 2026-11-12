@@ -52,13 +52,65 @@ SLM_MODEL = SLM_MODEL_PREFERENCES[0]
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 GEMINI_MODEL = "gemini-2.5-flash"
 
-# ── NVIDIA NIM ────────────────────────────────────────────────
+# ── NVIDIA NIM & Dynamic Model Router ─────────────────────────
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-NVIDIA_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
-NVIDIA_FALLBACK_MODELS = [
+NVIDIA_DEEP_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+NVIDIA_FAST_MODEL = "nvidia/nemotron-3.5-bolt-e4b"
+NVIDIA_FAST_FALLBACKS = [
+    "nvidia/nemotron-3.5-bolt-e4b",
+    "poolside/laguna-xs-2.1",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+]
+NVIDIA_DEEP_FALLBACKS = [
     "nvidia/nemotron-3-ultra-550b-a55b",
     "nvidia/nemotron-3.5-lightning-30b-a3b",
 ]
+NVIDIA_MODEL = NVIDIA_DEEP_MODEL
+NVIDIA_FALLBACK_MODELS = NVIDIA_DEEP_FALLBACKS
+
+DEEP_TRIGGER_WORDS = {
+    "investigate", "investigation", "recon", "reconnaissance", "osint", "trace",
+    "analyze", "analysis", "audit", "deep dive", "exploit", "vulnerability",
+    "architecture", "refactor", "code", "python", "javascript", "algorithm",
+    "debug", "reverse engineer", "intelligence report", "breakdown"
+}
+
+def select_nvidia_model(
+    prompt: str,
+    task_hint: Optional[str] = None,
+    routing_mode: str = "auto",
+    fast_model: str = NVIDIA_FAST_MODEL,
+    deep_model: str = NVIDIA_DEEP_MODEL,
+) -> str:
+    """
+    Intelligently route task to fast reflex model or deep frontier model.
+    Modes:
+      - 'fast': always return fast_model
+      - 'deep': always return deep_model
+      - 'auto': classify based on task_hint, prompt length, and semantic triggers.
+    """
+    mode = (routing_mode or "auto").strip().lower()
+    if mode == "fast":
+        return fast_model
+    if mode == "deep":
+        return deep_model
+
+    # Auto mode routing:
+    if task_hint in ("intent", "covo", "fast_status", "summary", "joke"):
+        return fast_model
+    if task_hint in ("investigation", "osint", "deep", "code", "recon"):
+        return deep_model
+
+    lower = prompt.lower()
+    for trigger in DEEP_TRIGGER_WORDS:
+        if re.search(r'\b' + re.escape(trigger) + r'\b', lower):
+            return deep_model
+
+    words = lower.split()
+    if len(words) < 40:
+        return fast_model
+
+    return deep_model
 
 # ── J.A.R.V.I.S. Persona Prompts ──────────────────────────
 
@@ -313,8 +365,11 @@ class JarvisVoice:
         self.nvidia_available = bool(self.nvidia_key)
         self._nvidia_rate_limited_until = 0.0
 
-        # NVIDIA model override from config
-        self.nvidia_model = config.get("nvidia_model", NVIDIA_MODEL)
+        # NVIDIA model routing configuration
+        self.nvidia_fast_model = config.get("nvidia_fast_model") or os.environ.get("NVIDIA_FAST_MODEL") or NVIDIA_FAST_MODEL
+        self.nvidia_deep_model = config.get("nvidia_deep_model") or os.environ.get("NVIDIA_DEEP_MODEL") or config.get("nvidia_model") or os.environ.get("NVIDIA_MODEL") or NVIDIA_DEEP_MODEL
+        self.nvidia_routing_mode = config.get("nvidia_routing_mode") or os.environ.get("NVIDIA_ROUTING_MODE") or "auto"
+        self.nvidia_model = self.nvidia_deep_model
 
         # Groq LPU key & model
         raw_groq = config.get("groq_api_key") or os.environ.get("GROQ_API_KEY")
@@ -863,9 +918,9 @@ class JarvisVoice:
             "error": True
         }
 
-    def _ask_nvidia(self, prompt: str, system: str, max_tokens: int = 4096, on_token: callable = None, image_path: str = None, timeout: Optional[float] = None) -> tuple[str, bool]:
+    def _ask_nvidia(self, prompt: str, system: str, max_tokens: int = 4096, on_token: callable = None, image_path: str = None, timeout: Optional[float] = None, task_hint: Optional[str] = None, model: Optional[str] = None) -> tuple[str, bool]:
         """
-        Ask NVIDIA NIM API with real-time SSE streaming support and high token limit (4096).
+        Ask NVIDIA NIM API with real-time SSE streaming support and dynamic model routing.
         Returns (response_text, rate_limited).
         """
         if not self.nvidia_key or self.nvidia_rate_limited:
@@ -887,9 +942,27 @@ class JarvisVoice:
                     {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64_str}"}}
                 ]
 
-        candidate_models = [self.nvidia_model]
-        if timeout is None and max_tokens > 250:
-            for fb in NVIDIA_FALLBACK_MODELS:
+        if model:
+            primary_model = model
+        else:
+            primary_model = select_nvidia_model(
+                prompt,
+                task_hint=task_hint,
+                routing_mode=getattr(self, "nvidia_routing_mode", "auto"),
+                fast_model=getattr(self, "nvidia_fast_model", NVIDIA_FAST_MODEL),
+                deep_model=getattr(self, "nvidia_deep_model", NVIDIA_DEEP_MODEL),
+            )
+
+        is_fast_choice = (primary_model == getattr(self, "nvidia_fast_model", NVIDIA_FAST_MODEL))
+        candidate_models = [primary_model]
+        if is_fast_choice:
+            for fb in NVIDIA_FAST_FALLBACKS:
+                if fb not in candidate_models:
+                    candidate_models.append(fb)
+            if getattr(self, "nvidia_deep_model", NVIDIA_DEEP_MODEL) not in candidate_models:
+                candidate_models.append(getattr(self, "nvidia_deep_model", NVIDIA_DEEP_MODEL))
+        else:
+            for fb in NVIDIA_DEEP_FALLBACKS:
                 if fb not in candidate_models:
                     candidate_models.append(fb)
         for model_name in candidate_models:
@@ -1114,7 +1187,7 @@ class JarvisVoice:
 
         return "", False
 
-    def _ask_cloud(self, prompt: str, system: str, max_tokens: int = 4096, on_token: callable = None, image_path: str = None, timeout: Optional[float] = None) -> dict:
+    def _ask_cloud(self, prompt: str, system: str, max_tokens: int = 4096, on_token: callable = None, image_path: str = None, timeout: Optional[float] = None, task_hint: Optional[str] = None) -> dict:
         """
         Try cloud LLMs in priority order based on primary_llm preference:
         If primary_llm == 'nvidia', NVIDIA NIM runs first (frontier Nemotron/vision reasoning).
@@ -1132,7 +1205,7 @@ class JarvisVoice:
 
         for eng in engines:
             if eng == "nvidia" and self.nvidia_available and not self.nvidia_rate_limited:
-                text, r_limited = self._ask_nvidia(prompt, system, max_tokens=max_tokens, on_token=on_token, image_path=image_path, timeout=timeout)
+                text, r_limited = self._ask_nvidia(prompt, system, max_tokens=max_tokens, on_token=on_token, image_path=image_path, timeout=timeout, task_hint=task_hint)
                 if r_limited:
                     self.nvidia_rate_limited = True
                 elif text:
@@ -2047,7 +2120,7 @@ Output ONLY a JSON object:
         sys_prompt = "You are a precise intent classification agent. Output raw JSON only."
 
         res_text = ""
-        cloud = self._ask_cloud(prompt, sys_prompt, max_tokens=150, timeout=3.5)
+        cloud = self._ask_cloud(prompt, sys_prompt, max_tokens=150, timeout=3.5, task_hint="intent")
         res_text = cloud.get("text", "")
 
         if not res_text:

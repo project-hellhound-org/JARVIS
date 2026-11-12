@@ -7041,8 +7041,12 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
               </button>
             </div>
           </div>
-          <div class="settings-hint">NVIDIA NIM API key for ultra-fast Nemotron reasoning.</div>
-          <div class="settings-row"><label>NVIDIA Model</label><input type="text" id="cfg-nvidia-model" placeholder="nvidia/nemotron-3-ultra-550b-a55b" /></div>
+          <div class="settings-hint" style="margin-bottom:6px;">
+            NVIDIA NIM developer key. Get a free API key at <a href="https://build.nvidia.com/" target="_blank" style="color:#00F0FF; text-decoration:underline; font-weight:600;">build.nvidia.com ↗</a>.
+          </div>
+          <div class="settings-hint" style="color:#00e5ff; font-size:10.5px; background:rgba(0,229,255,0.06); border:1px solid rgba(0,229,255,0.22); border-radius:4px; padding:6px 10px; margin-bottom:12px; line-height:1.4;">
+            ⚡ <strong>Smart Multi-Model Router Active:</strong> Automatically routes casual talk, voice input, and quick replies to the sub-400ms reflex tier (Nemotron Bolt 4B) and deep investigations/OSINT to the frontier tier (Nemotron 550B Ultra). Zero manual model configuration needed.
+          </div>
         </div>
       </div>
 
@@ -11684,11 +11688,8 @@ const JarvisKnowledgeGraph = {
     arcGroup.name = 'orbitalArcs';
 
     const ringConfigs = [
-      { semiMajor: 192, semiMinor: 92, tiltX: 0.54, tiltZ: 0.28, opacity: 0.70, color: 0xFFA726, rotY: 0.0012, rotX: 0.0006 },
-      { semiMajor: 176, semiMinor: 84, tiltX: 0.54, tiltZ: 0.28, opacity: 0.55, color: 0xFFB84D, rotY: 0.0010, rotX: 0.0005 },
-      { semiMajor: 156, semiMinor: 74, tiltX: 0.54, tiltZ: 0.28, opacity: 0.45, color: 0xFFD54F, rotY: 0.0014, rotX: 0.0007 },
-      { semiMajor: 182, semiMinor: 118, tiltX: -0.32, tiltZ: 0.78, opacity: 0.42, color: 0xFFA726, rotY: -0.0010, rotX: 0.0008 },
-      { semiMajor: 166, semiMinor: 98, tiltX: 0.25, tiltZ: -0.62, opacity: 0.38, color: 0xFFCC80, rotY: 0.0008, rotX: -0.0009 }
+      { semiMajor: 188, semiMinor: 92, tiltX: 0.54, tiltZ: 0.28, opacity: 0.65, color: 0xFFA726, rotY: 0.0012, rotX: 0.0006 },
+      { semiMajor: 178, semiMinor: 112, tiltX: -0.35, tiltZ: 0.72, opacity: 0.50, color: 0xFFB84D, rotY: -0.0010, rotX: 0.0008 }
     ];
 
     const flarePositions = [];
