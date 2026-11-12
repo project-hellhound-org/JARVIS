@@ -1327,6 +1327,8 @@ class JarvisVoice:
         clean = clean.replace('_', ' ')
         # Remove markdown symbols (*, #, `, ~)
         clean = re.sub(r'[`*#~]', '', clean)
+        # Convert trailing dashes at end of clause into natural pause/comma
+        clean = re.sub(r'\s*[—–\-]+\s*$', ',', clean)
         # Normalize whitespace
         clean = re.sub(r'\s+', ' ', clean).strip()
         return clean
@@ -1455,15 +1457,15 @@ class JarvisVoice:
                 is_mock = "Mock" in type(ws).__name__ or (hasattr(ws, "__iter__") and "Mock" in type(getattr(ws, "__iter__")).__name__)
                 if not is_mock and hasattr(ws, "recv"):
                     while not (self._interrupted.is_set() or (is_interrupted_fn and is_interrupted_fn())):
-                        timeout_val = 10.0 if stop_sent_time[0] > 0.0 else 20.0
+                        timeout_val = 35.0 if stop_sent_time[0] > 0.0 else 30.0
                         try:
                             msg = ws.recv(timeout=timeout_val)
                         except TimeoutError:
                             if stop_sent_time[0] > 0.0:
-                                print("[jarvis_voice] Notice: Post-stop idle timeout (10.0s with no audio after stop); connection stalled.")
-                                raise TimeoutError("Fish Audio WebSocket post-stop idle timeout (10.0s)")
-                            print("[jarvis_voice] Notice: Fish Audio WebSocket idle timeout (20.0s with no audio); connection dead.")
-                            raise TimeoutError("Fish Audio WebSocket idle timeout (20.0s with no data)")
+                                print("[jarvis_voice] Notice: Post-stop idle timeout (35.0s with no audio after stop); connection stalled.")
+                                raise TimeoutError("Fish Audio WebSocket post-stop idle timeout (35.0s)")
+                            print("[jarvis_voice] Notice: Fish Audio WebSocket idle timeout (30.0s with no audio); connection dead.")
+                            raise TimeoutError("Fish Audio WebSocket idle timeout (30.0s with no data)")
                         yield msg
                 else:
                     for msg in ws:

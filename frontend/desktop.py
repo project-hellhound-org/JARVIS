@@ -4195,7 +4195,7 @@ class JarvisAPI:
             # If streaming was unavailable or failed mid-stream, drain remaining items via pipelined fallback narrate
             if not stream_completed_cleanly and not check_interrupted():
                 print(f"[desktop] Handoff: Entering fallback narrate loop (streamed_any={streamed_any}, turn={tts_turn_id})")
-                loop_deadline = time.time() + 45.0
+                loop_deadline = time.time() + 300.0  # 5-minute window prevents premature cutoff on long answers
                 pending_sentences = []
                 if not streamed_any:
                     pending_sentences.extend(consumed_clauses)
@@ -4718,12 +4718,12 @@ class JarvisAPI:
         def _await_speech_completion_and_open_mic():
             if synth_thread:
                 try:
-                    synth_thread.join(timeout=45.0)
+                    synth_thread.join(timeout=300.0)
                 except Exception:
                     pass
             if playback_thread:
                 try:
-                    playback_thread.join(timeout=45.0)
+                    playback_thread.join(timeout=300.0)
                 except Exception:
                     pass
 

@@ -15899,6 +15899,10 @@ window.jarvis = window.joe = {
       case 'jarvis_pcm_audio_chunk':
         if (data && data.audio) {
           if (typeof window.refreshThinkingWatchdog === 'function') window.refreshThinkingWatchdog();
+          if (audioFallbackWatchdog) {
+            clearTimeout(audioFallbackWatchdog);
+            audioFallbackWatchdog = null;
+          }
           console.log(`[JarvisAudio] Received PCM chunk (turn=${data.turn_id}, sample_rate=${data.sample_rate}, len=${data.audio ? data.audio.length : 0})`);
           hasReceivedAudioChunk = true;
           setHudState('speaking');
@@ -16162,12 +16166,16 @@ window.jarvis = window.joe = {
           if (audioFallbackWatchdog) clearTimeout(audioFallbackWatchdog);
           audioFallbackWatchdog = setTimeout(() => {
             if (activeJarvisTtsTurn === ansTurn && currentStreamingElem) {
-              console.log('[JarvisAudio] Audio watchdog triggered: finalizing answer after timeout');
-              finalizeStreamingAnswer(data?.text || streamingBuffer, ansTurn);
-              setHudState('idle');
-              checkAndNotifyPlaybackCompletion(ansTurn);
+              const ctx = jarvisPcmContext;
+              const hasActivePlayback = ctx && (activePlayingChunkCount > 0 || (ctx.currentTime < jarvisPcmNextStartTime));
+              if (!hasActivePlayback) {
+                console.log('[JarvisAudio] Audio watchdog triggered: finalizing answer after timeout');
+                finalizeStreamingAnswer(data?.text || streamingBuffer, ansTurn);
+                setHudState('idle');
+                checkAndNotifyPlaybackCompletion(ansTurn);
+              }
             }
-          }, 3500);
+          }, 8000);
         } else {
           setHudState('idle');
           if (currentStreamingElem) {
