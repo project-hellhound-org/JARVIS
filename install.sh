@@ -13,18 +13,22 @@ if [ ! -f "$INSTALL_DIR/config.yaml" ] && [ -f "$INSTALL_DIR/config.yaml.example
     cp "$INSTALL_DIR/config.yaml.example" "$INSTALL_DIR/config.yaml"
 fi
 
-if [ -n "$VIRTUAL_ENV" ]; then
+# Only use active virtual environment if it is explicitly a jarvis environment
+if [ -n "$VIRTUAL_ENV" ] && [[ "$VIRTUAL_ENV" == *"jarvis"* ]]; then
     echo "  using active virtual environment: $VIRTUAL_ENV"
     VENV_ACTIVATE="$VIRTUAL_ENV/bin/activate"
 else
+    if [ -n "$VIRTUAL_ENV" ]; then
+        echo "  ignoring active non-jarvis environment: $VIRTUAL_ENV"
+    fi
     if [ -f "$INSTALL_DIR/jarvis-env/bin/activate" ]; then
         echo "  using existing local virtual environment: jarvis-env"
         source "$INSTALL_DIR/jarvis-env/bin/activate"
         VENV_ACTIVATE="$INSTALL_DIR/jarvis-env/bin/activate"
-    elif [ -f "$INSTALL_DIR/joe-env/bin/activate" ]; then
-        echo "  using existing local virtual environment: joe-env"
-        source "$INSTALL_DIR/joe-env/bin/activate"
-        VENV_ACTIVATE="$INSTALL_DIR/joe-env/bin/activate"
+    elif [ -f "$HOME/.jarvis-env/bin/activate" ]; then
+        echo "  using existing home virtual environment: .jarvis-env"
+        source "$HOME/.jarvis-env/bin/activate"
+        VENV_ACTIVATE="$HOME/.jarvis-env/bin/activate"
     elif [ -f "$INSTALL_DIR/venv/bin/activate" ]; then
         echo "  using existing local virtual environment: venv"
         source "$INSTALL_DIR/venv/bin/activate"
@@ -40,6 +44,10 @@ else
 fi
 
 VENV_BIN="$(dirname "$VENV_ACTIVATE")"
+# Keep ~/.jarvis-env in sync with the environment
+if [ -d "$INSTALL_DIR/jarvis-env" ] && [ ! -e "$HOME/.jarvis-env" ]; then
+    ln -sfn "$INSTALL_DIR/jarvis-env" "$HOME/.jarvis-env" 2>/dev/null || true
+fi
 
 # ── Python deps ───────────────────────────────────────────────
 "$VENV_BIN/python3" -m pip install -e .
@@ -73,6 +81,7 @@ rm -f ~/.local/bin/joe 2>/dev/null || true
 mkdir -p ~/.local/bin
 cat > ~/.local/bin/jarvis << WRAPPER
 #!/bin/bash
+export PYTHONUNBUFFERED=1
 source $VENV_ACTIVATE
 cd $INSTALL_DIR
 exec $VENV_BIN/python3 $INSTALL_DIR/jarvis.py "\$@"
@@ -84,6 +93,7 @@ if command -v sudo &>/dev/null && [ -w /usr/local/bin ]; then
     sudo rm -f /usr/local/bin/joe 2>/dev/null || true
     sudo bash -c "cat > /usr/local/bin/jarvis << 'WRAPPER'
 #!/bin/bash
+export PYTHONUNBUFFERED=1
 source $VENV_ACTIVATE
 cd $INSTALL_DIR
 exec $VENV_BIN/python3 $INSTALL_DIR/jarvis.py \"\$@\"
