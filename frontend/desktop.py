@@ -4923,6 +4923,42 @@ class JarvisAPI:
         from modules.image_geolocator import ImageGeolocator
         return ImageGeolocator().copy_image_to_clipboard(image_path)
 
+    def copy_text_to_clipboard(self, text: str) -> bool:
+        """Reliably copy text to system clipboard using wl-copy or xclip."""
+        if not text:
+            return False
+        import shutil
+        import subprocess
+        # 1. Try wl-copy (Wayland)
+        if shutil.which("wl-copy"):
+            try:
+                subprocess.run(["wl-copy"], input=text.encode("utf-8"), check=True, timeout=2)
+                return True
+            except Exception:
+                pass
+        # 2. Try xclip (X11)
+        if shutil.which("xclip"):
+            try:
+                subprocess.run(["xclip", "-selection", "clipboard"], input=text.encode("utf-8"), check=True, timeout=2)
+                return True
+            except Exception:
+                pass
+        # 3. Try xsel (X11 alternative)
+        if shutil.which("xsel"):
+            try:
+                subprocess.run(["xsel", "--clipboard", "--input"], input=text.encode("utf-8"), check=True, timeout=2)
+                return True
+            except Exception:
+                pass
+        # 4. Fallback to pyperclip if installed
+        try:
+            import pyperclip
+            pyperclip.copy(text)
+            return True
+        except Exception:
+            pass
+        return False
+
     def open_image_folder(self, image_path: str) -> bool:
         """Open parent folder of image in file manager."""
         from modules.image_geolocator import ImageGeolocator
@@ -6577,6 +6613,19 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
             except Exception as ex:
                 results.append({"error": str(ex), "filename": orig_name})
         return json.dumps({"success": True, "analyses": results})
+
+    @app.route('/api/clipboard/copy_text', method=['POST', 'OPTIONS'])
+    def _bottle_copy_text():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        bottle.response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        bottle.response.content_type = 'application/json'
+        body = bottle.request.json or {}
+        text = body.get('text', '')
+        ok = self.copy_text_to_clipboard(text)
+        return json.dumps({"success": ok})
 
     @app.route('/api/geolocate/copy_clipboard', method=['POST', 'OPTIONS'])
     def _bottle_copy_clipboard():

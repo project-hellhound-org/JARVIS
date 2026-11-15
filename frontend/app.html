@@ -1400,7 +1400,8 @@
     opacity: 0.6;
     transition: opacity 0.15s ease;
   }
-  .msg-answer:hover .msg-actions {
+  .msg-answer:hover .msg-actions,
+  .msg-user:hover .msg-actions {
     opacity: 1;
   }
   .action-copy-btn {
@@ -7803,20 +7804,45 @@ function scrollThreadToBottom(force = false) {
 
 if (!thread) thread = document.getElementById('thread');
 if (thread) {
+  let lastScrollTop = thread.scrollTop;
   thread.addEventListener('scroll', () => {
     const distanceToBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight;
-    userHasScrolledUp = distanceToBottom > 80;
-  });
-}
+    const isScrollingUp = thread.scrollTop < lastScrollTop;
+    lastScrollTop = thread.scrollTop;
 
-  // Enable smooth mouse wheel scrolling for the message thread
-  window.addEventListener('wheel', (e) => {
-    const target = document.elementFromPoint(e.clientX, e.clientY);
-    if (!target) return;
-    if (target.closest('#thread, #jarvis-chat-container')) {
-      thread.scrollTop += e.deltaY;
+    if (isScrollingUp || distanceToBottom > 25) {
+      userHasScrolledUp = true;
+    } else if (distanceToBottom <= 8) {
+      userHasScrolledUp = false;
     }
   }, { passive: true });
+
+  thread.addEventListener('wheel', (e) => {
+    if (e.deltaY < 0) {
+      userHasScrolledUp = true;
+    } else if (e.deltaY > 0) {
+      const distanceToBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+      if (distanceToBottom <= 10) {
+        userHasScrolledUp = false;
+      }
+    }
+  }, { passive: true });
+}
+
+// Window wheel listener: if user scrolls wheel up over chat area, set userHasScrolledUp immediately
+window.addEventListener('wheel', (e) => {
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  if (!target) return;
+  if (target.closest('#thread, #jarvis-chat-container')) {
+    if (e.deltaY < 0) {
+      userHasScrolledUp = true;
+    }
+    // Only adjust scrollTop manually if event was on outer container and not natively scrolled thread
+    if (!target.closest('#thread') && thread) {
+      thread.scrollTop += e.deltaY;
+    }
+  }
+}, { passive: true });
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
@@ -7894,7 +7920,12 @@ function addUserMessage(text) {
   clearStatusLines();
   const el = document.createElement('div');
   el.className = 'msg-user';
-  el.textContent = text;
+  el.dataset.rawText = text;
+  const contentSpan = document.createElement('div');
+  contentSpan.className = 'msg-user-content';
+  contentSpan.textContent = text;
+  el.appendChild(contentSpan);
+  appendCopyButton(el);
   thread.appendChild(el);
   scrollThreadToBottom(true);
 }
@@ -7910,13 +7941,13 @@ function addStatusLine(text) {
   scrollThreadToBottom();
 }
 
-/* UNBOXED Response Rendering */
+/* UNBOXED Response & User Message Rendering */
 function appendCopyButton(el) {
   if (!el || el.querySelector('.msg-actions')) return;
   const actions = document.createElement('div');
   actions.className = 'msg-actions';
   actions.innerHTML = `
-    <button class="action-copy-btn" onclick="event.stopPropagation(); copyMessageText(this, event)" title="Copy narrative response">
+    <button class="action-copy-btn" onclick="event.stopPropagation(); copyMessageText(this, event)" title="Copy message">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -7927,31 +7958,102 @@ function appendCopyButton(el) {
   el.appendChild(actions);
 }
 
-function copyMessageText(btn, e) {
+async function copyMessageText(btn, e) {
   if (e && e.stopPropagation) e.stopPropagation();
   else if (window.event && window.event.stopPropagation) window.event.stopPropagation();
-  const msgAnswer = btn.closest('.msg-answer');
-  if (!msgAnswer) return;
-  const clone = msgAnswer.cloneNode(true);
-  const actions = clone.querySelector('.msg-actions');
-  if (actions) actions.remove();
-  const text = (clone.innerText || clone.textContent).trim();
+  const msgContainer = btn.closest('.msg-answer, .msg-user');
+  if (!msgContainer) return;
 
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(() => showCopySuccess(btn)).catch(() => fallbackCopy(text, btn));
+  // Prefer pristine rawText stored on dataset
+  let text = msgContainer.dataset.rawText || '';
+  if (!text) {
+    const clone = msgContainer.cloneNode(true);
+    const actions = clone.querySelector('.msg-actions');
+    if (actions) actions.remove();
+    text = (clone.innerText || clone.textContent || '').trim();
+  }
+
+  text = text.trim();
+  if (!text) return;
+
+  let copied = false;
+
+  // 1. Try python backend API via pywebview (reliable on Linux X11/Wayland)
+  try {
+    const pyApi = (typeof api === 'function' ? api() : null) || (window.pywebview && window.pywebview.api);
+    if (pyApi && pyApi.copy_text_to_clipboard) {
+      copied = await pyApi.copy_text_to_clipboard(text);
+    }
+  } catch(err) {
+    console.warn('[copy] pywebview clipboard error:', err);
+  }
+
+  // 2. Try Bottle HTTP backend route
+  if (!copied) {
+    try {
+      const resp = await fetch('/api/clipboard/copy_text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.success) copied = true;
+      }
+    } catch(err) {
+      console.warn('[copy] HTTP clipboard route error:', err);
+    }
+  }
+
+  // 3. Try standard Web Clipboard API
+  if (!copied && navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch(err) {
+      console.warn('[copy] navigator.clipboard error:', err);
+    }
+  }
+
+  // 4. Try execCommand fallback
+  if (!copied) {
+    copied = fallbackExecCopy(text);
+  }
+
+  if (copied) {
+    showCopySuccess(btn);
   } else {
-    fallbackCopy(text, btn);
+    showCopyFailure(btn);
   }
 }
 
-function fallbackCopy(text, btn) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand('copy');
-  document.body.removeChild(ta);
-  showCopySuccess(btn);
+function fallbackExecCopy(text) {
+  let ok = false;
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.width = '2em';
+    ta.style.height = '2em';
+    ta.style.padding = '0';
+    ta.style.border = 'none';
+    ta.style.outline = 'none';
+    ta.style.boxShadow = 'none';
+    ta.style.background = 'transparent';
+    ta.style.opacity = '0.01';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+  } catch(e) {
+    console.warn('[copy] execCommand copy failed:', e);
+  }
+  return ok;
 }
 
 function showCopySuccess(btn) {
@@ -7968,11 +8070,26 @@ function showCopySuccess(btn) {
   }, 1500);
 }
 
+function showCopyFailure(btn) {
+  const label = btn.querySelector('span');
+  if (!label) return;
+  const orig = label.textContent;
+  label.textContent = 'Failed';
+  btn.style.color = '#f87171';
+  btn.style.borderColor = '#ef4444';
+  setTimeout(() => {
+    label.textContent = orig;
+    btn.style.color = '';
+    btn.style.borderColor = '';
+  }, 1500);
+}
+
 function addAnswer(text) {
   clearStatusLines();
   const clean = cleanSpeakerPrefix(text);
   const el = document.createElement('div');
   el.className = 'msg-answer';
+  el.dataset.rawText = clean;
   el.innerHTML = renderMarkdown(clean);
   appendCopyButton(el);
   thread.appendChild(el);
@@ -7991,7 +8108,7 @@ function streamTextToThread(text, onComplete) {
   el.className = 'msg-answer streaming';
   el.innerHTML = '<span class="cursor-blink">▌</span>';
   thread.appendChild(el);
-  scrollThreadToBottom();
+  if (!userHasScrolledUp) scrollThreadToBottom();
 
   const words = text.split(' ');
   let currentIdx = 0;
@@ -8004,9 +8121,10 @@ function streamTextToThread(text, onComplete) {
       currentText += (currentIdx === 0 ? '' : ' ') + words[currentIdx];
       currentIdx++;
       el.innerHTML = renderMarkdown(currentText) + '<span class="cursor-blink">▌</span>';
-      scrollThreadToBottom();
+      if (!userHasScrolledUp) scrollThreadToBottom();
     } else {
       clearInterval(timer);
+      el.dataset.rawText = text;
       el.innerHTML = renderMarkdown(text);
       el.classList.remove('streaming');
       appendCopyButton(el);
@@ -8109,7 +8227,7 @@ function startSpeechPacingLoop(tId) {
       hudText.textContent = display.replace(/\s+/g, ' ');
       if (typeof window.dropHudNotch === 'function') window.dropHudNotch();
     }
-    scrollThreadToBottom();
+    if (!userHasScrolledUp) scrollThreadToBottom();
   }, 35);
 }
 
@@ -8143,7 +8261,7 @@ function startStreamingAnswer(turnId) {
   const threadEl = document.getElementById('thread') || (typeof thread !== 'undefined' ? thread : null);
   if (threadEl) threadEl.appendChild(el);
   currentStreamingElem = el;
-  scrollThreadToBottom();
+  if (!userHasScrolledUp) scrollThreadToBottom();
 
   startSpeechPacingLoop(tId);
   return el;
@@ -8190,6 +8308,7 @@ function finalizeStreamingAnswer(finalText, turnId) {
     }
     const raw = finalText || streamingBuffer;
     const text = cleanSpeakerPrefix(raw);
+    currentStreamingElem.dataset.rawText = text;
     currentStreamingElem.innerHTML = renderMarkdown(text);
     currentStreamingElem.classList.remove('streaming');
     appendCopyButton(currentStreamingElem);

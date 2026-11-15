@@ -8,6 +8,9 @@ from pathlib import Path
 HISTORY_FILE = Path(__file__).parent.parent / "data" / "session_history.json"
 
 
+SESSION_TIMEOUT_SECONDS = 7200  # 2 hours of inactivity demarcates a new conversation session
+
+
 class SessionMemory:
     def __init__(self, filepath: Optional[Path] = None):
         self.filepath = filepath or HISTORY_FILE
@@ -25,7 +28,26 @@ class SessionMemory:
                     self.past_sessions = data.get("past_sessions", [])
                     current = data.get("current_session", {})
                     if current and current.get("messages"):
-                        self.history = current.get("messages", [])
+                        msgs = current.get("messages", [])
+                        is_stale = False
+                        if msgs:
+                            last_at = msgs[-1].get("at")
+                            if last_at:
+                                try:
+                                    last_dt = datetime.fromisoformat(last_at)
+                                    if (datetime.now() - last_dt).total_seconds() > SESSION_TIMEOUT_SECONDS:
+                                        is_stale = True
+                                except Exception:
+                                    pass
+                        if is_stale:
+                            self.past_sessions.append({
+                                "started_at": current.get("started_at", self.started_at),
+                                "ended_at": msgs[-1].get("at", datetime.now().isoformat()),
+                                "messages": msgs[-15:]
+                            })
+                            self.history = []
+                        else:
+                            self.history = msgs
             except Exception as e:
                 print(f"[SessionMemory] Warning loading persistent history: {e}")
                 self.history = []
@@ -50,6 +72,23 @@ class SessionMemory:
         """Append a message. role = 'user' | 'jarvis'"""
         if not content or not str(content).strip():
             return
+        # Roll to new session if previous interaction was over 2 hours ago
+        if self.history:
+            last_at = self.history[-1].get("at")
+            if last_at:
+                try:
+                    last_dt = datetime.fromisoformat(last_at)
+                    if (datetime.now() - last_dt).total_seconds() > SESSION_TIMEOUT_SECONDS:
+                        self.past_sessions.append({
+                            "started_at": self.started_at,
+                            "ended_at": last_at,
+                            "messages": self.history[-15:]
+                        })
+                        self.history = []
+                        self.started_at = datetime.now().isoformat()
+                except Exception:
+                    pass
+
         # Never pollute conversation history with raw internal prompts, debriefs, or skill contexts
         if role == "user":
             stripped = str(content).lstrip()
@@ -86,9 +125,18 @@ class SessionMemory:
         self.started_at = datetime.now().isoformat()
         self._save_to_disk()
 
-    def to_text(self, n: int = 12) -> str:
+    def to_text(self, n: int = 12, max_age_seconds: int = SESSION_TIMEOUT_SECONDS) -> str:
         lines = []
+        now = datetime.now()
         for m in self.last_n(n):
+            at_str = m.get("at")
+            if at_str:
+                try:
+                    dt = datetime.fromisoformat(at_str)
+                    if (now - dt).total_seconds() > max_age_seconds:
+                        continue
+                except Exception:
+                    pass
             role_label = "User" if m.get("role") == "user" else "J.A.R.V.I.S."
             clean_content = re.sub(r'^(?:ASSISTANT|AI)\s*:\s*', '', m.get("content", ""), flags=re.IGNORECASE).strip()
             lines.append(f"{role_label}: {clean_content}")
@@ -112,5 +160,8 @@ class SessionMemory:
         """Build context summary for prompt injection."""
         summary = self.get_last_session_summary()
         if summary:
-            return f"[CROSS-SESSION MEMORY RECALL]: {summary}"
+            return (
+                f"[PAST SESSIONS REFERENCE ONLY]: {summary}\n"
+                f"Directive: The above past session topics are strictly for historical reference if the operator asks what was discussed earlier. Do NOT answer or merge these past topics into new, unrelated conversations."
+            )
         return ""

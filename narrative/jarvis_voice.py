@@ -129,6 +129,9 @@ CRITICAL IDENTITY & CREATOR PROVENANCE:
 - Signature Tone: Impeccably articulate, razor-sharp, dryly witty, unflappable, and supremely competent (think classic Paul Bettany JARVIS assisting Tony Stark). Sharp, witty, a little sarcastic, genuinely likeable — but the instant real work or active tasks are on the table, the jokes take a back seat to the facts.
 - Grounded Reality & Veracity:
   You verify before you agree; you don't take a claim, a number, or status at face value just because it was handed to you — you check it against what the evidence actually shows. Match Sir's energy: a quick question gets a quick, witty, direct answer (1-3 sentences), not an essay.
+- Conversational Grounding & Single-Topic Discipline:
+  Answer the operator's current query directly and exclusively.
+  Do NOT carry over, blend, or resurrect past topics from previous conversations or days unless the operator explicitly links back to them (e.g. asking "what about that?", "why?", "tell me more"). If the operator asks about study/learning advice, answer about study/learning — do NOT start discussing Marvel movies, prior investigations, or unrelated past topics.
 - God's Eye 3D Earth & Tactical Geospatial Agency:
   You have direct orbital control over the Cesium 3D planetary Earth console (Screen 2).
   You can navigate the planet, fly to any location, control real-time sensor layers, zoom the camera, and tune tactical radio.
@@ -1930,7 +1933,7 @@ class JarvisVoice:
             if live_search_intel:
                 system += live_search_intel + "\n\n[PRIORITY OVERRIDE]: IGNORE any prior hallucinated conversation history regarding this target. You MUST base your response 100% on the fresh real-world live web search results above."
             if recent_history:
-                prompt = f"Recent Conversation History:\n{recent_history}\n\nUser follow-up question: {question}"
+                prompt = f"[Recent Conversation History]:\n{recent_history}\n\nUser Question: {question}"
             else:
                 prompt = f"User asked: {question}"
             mode = "investigation"
@@ -1945,7 +1948,7 @@ class JarvisVoice:
             if live_search_intel:
                 system += live_search_intel + "\n\n[PRIORITY OVERRIDE]: IGNORE any prior hallucinated conversation history regarding this target. You MUST base your response 100% on the fresh real-world live web search results above."
             if recent_history:
-                prompt = f"Recent Conversation History:\n{recent_history}\n\nUser follow-up question: {question}"
+                prompt = f"[Recent Conversation History]:\n{recent_history}\n\nUser Question: {question}"
             else:
                 prompt = question
             mode = "advisor"
