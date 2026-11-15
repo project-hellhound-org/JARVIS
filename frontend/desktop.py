@@ -1115,6 +1115,19 @@ class JarvisAPI:
         except Exception as e:
             print(f"[desktop] Notice initializing reminder service: {e}")
 
+        # Autonomous Ambient Idle Watchdog & Telemetry Dispatcher
+        try:
+            from modules.autonomous_watchdog import AutonomousWatchdog
+            self._watchdog = AutonomousWatchdog(
+                config=self._cfg,
+                on_alert_callback=self._on_watchdog_alert,
+                voice_speak_callback=self._speak_and_suppress_echo,
+            )
+            self._watchdog.start()
+        except Exception as e:
+            print(f"[desktop] Notice initializing autonomous watchdog: {e}")
+            self._watchdog = None
+
         # Async Background Initialization for Instant App Launch (<0.2s)
         self._wake_engine = None
         threading.Thread(target=self._async_init_wake_engine, daemon=True).start()
@@ -1122,6 +1135,20 @@ class JarvisAPI:
             cleanup_stale_staging_folders()
         except Exception as e:
             print(f"[desktop] Staging cleanup notice: {e}")
+
+    def _on_watchdog_alert(self, alert: dict):
+        """Deliver ambient watchdog telemetry alert to HUD and subtitle overlay."""
+        text = alert.get("text", "")
+        title = alert.get("title", "J.A.R.V.I.S. Telemetry")
+        if not text:
+            return
+        with getattr(self, '_tts_turn_lock', threading.Lock()):
+            self._tts_turn_id += 1
+            t_id = self._tts_turn_id
+        self._emit("jarvis_stream_start", {"turn_id": t_id})
+        self._emit("jarvis_stream_chunk", {"chunk": f"📡 **[{title.upper()}]**\n{text}", "turn_id": t_id})
+        self._emit("jarvis_answer", {"text": text, "mode": "ambient_watchdog", "turn_id": t_id})
+        self._emit("scan_status", {"message": f"⚡ {title}: {text[:80]}...", "is_tactical": True})
 
     def resolve_coords(self, candidate: str) -> tuple[float, float, str] | None:
         """Context-aware geospatial coordinate resolver biased to the active viewport/city."""
@@ -1285,6 +1312,8 @@ class JarvisAPI:
         self._wake_window_expires = 0.0
 
         print(f"\n[desktop] Unified AI input received ({source}): {text}")
+        if getattr(self, '_watchdog', None):
+            self._watchdog.record_user_activity()
         if getattr(self, '_wake_engine', None):
             try:
                 self._wake_engine.reset_cooldown(2.0)
@@ -6267,6 +6296,39 @@ def setup_jarvis_bottle_routes(app, server_root_path, api=None, server_uid=None,
         # Standalone fallback if api instance is None
         curr_api = JarvisAPI(None)
         return json.dumps(curr_api.get_system_diagnostics())
+
+    @app.route('/api/watchdog/status', method=['GET', 'OPTIONS'])
+    def _bottle_watchdog_status():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        bottle.response.content_type = 'application/json'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        if api and hasattr(api, '_watchdog') and api._watchdog:
+            return json.dumps(api._watchdog.get_status())
+        from modules.autonomous_watchdog import AutonomousWatchdog
+        w = AutonomousWatchdog.get_instance()
+        return json.dumps(w.get_status())
+
+    @app.route('/api/watchdog/test_notification', method=['POST', 'OPTIONS'])
+    def _bottle_watchdog_test_notification():
+        bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        bottle.response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        bottle.response.content_type = 'application/json'
+        if bottle.request.method == 'OPTIONS':
+            return ""
+        try:
+            data = bottle.request.json or {}
+        except Exception:
+            data = {}
+        title = data.get('title', 'J.A.R.V.I.S. Ambient Alert')
+        message = data.get('message', 'Orbital telemetry check: all systems operational.')
+        urgency = data.get('urgency', 'normal')
+        from modules.secure_notifier import SecureNotifier
+        notifier = SecureNotifier.get_instance()
+        success = notifier.send_desktop_notification(title, message, urgency=urgency)
+        return json.dumps({'success': success, 'title': title, 'sanitized_message': message})
 
     @app.route('/api/vessels', method=['GET', 'POST', 'OPTIONS'])
     def _bottle_vessels():

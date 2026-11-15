@@ -129,6 +129,66 @@ CONFIG_KEY_SPECS: Dict[str, Dict[str, Any]] = {
         "aliases": ["UI_ALWAYS_CONFIRM_INVESTIGATIONS"],
         "default": False,
     },
+    "ANTHROPIC_API_KEY": {
+        "yaml_keys": ["anthropic_api_key", "claude_api_key"],
+        "aliases": ["CLAUDE_API_KEY"],
+        "default": "",
+    },
+    "ANTHROPIC_MODEL": {
+        "yaml_keys": ["anthropic_model", "claude_model"],
+        "aliases": ["CLAUDE_MODEL"],
+        "default": "claude-3-5-sonnet-20241022",
+    },
+    "IDLE_ALERT_INTERVAL_MIN": {
+        "yaml_keys": ["idle_alert_interval_min", "idle_interval_min"],
+        "aliases": ["IDLE_INTERVAL_MIN"],
+        "default": 45,
+    },
+    "AMBIENT_UPDATES_ENABLED": {
+        "yaml_keys": ["ambient_updates_enabled", "watchdog_enabled"],
+        "aliases": ["WATCHDOG_ENABLED"],
+        "default": True,
+    },
+    "DESKTOP_NOTIFICATIONS_ENABLED": {
+        "yaml_keys": ["desktop_notifications_enabled", "desktop_alerts"],
+        "aliases": ["DESKTOP_ALERTS"],
+        "default": True,
+    },
+    "SMS_ALERTS_ENABLED": {
+        "yaml_keys": ["sms_alerts_enabled", "sms_enabled"],
+        "aliases": ["SMS_ENABLED"],
+        "default": False,
+    },
+    "SMS_PROVIDER": {
+        "yaml_keys": ["sms_provider"],
+        "aliases": [],
+        "default": "twilio",
+    },
+    "SMS_TO_PHONE": {
+        "yaml_keys": ["sms_to_phone", "notification_phone"],
+        "aliases": ["NOTIFICATION_PHONE"],
+        "default": "",
+    },
+    "TWILIO_ACCOUNT_SID": {
+        "yaml_keys": ["twilio_account_sid"],
+        "aliases": [],
+        "default": "",
+    },
+    "TWILIO_AUTH_TOKEN": {
+        "yaml_keys": ["twilio_auth_token"],
+        "aliases": [],
+        "default": "",
+    },
+    "TWILIO_FROM_PHONE": {
+        "yaml_keys": ["twilio_from_phone"],
+        "aliases": [],
+        "default": "",
+    },
+    "NOTIFICATION_WEBHOOK_URL": {
+        "yaml_keys": ["notification_webhook_url", "webhook_url"],
+        "aliases": ["WEBHOOK_URL"],
+        "default": "",
+    },
 }
 
 

@@ -19,6 +19,10 @@ gemini_api_key: YOUR_GEMINI_API_KEY_HERE
 groq_api_key: YOUR_GROQ_API_KEY_HERE
 groq_model: qwen/qwen3.8-27b
 
+# Optional: Anthropic Claude API key for high-reasoning Claude models (https://console.anthropic.com)
+anthropic_api_key: YOUR_ANTHROPIC_API_KEY_HERE
+anthropic_model: claude-3-5-sonnet-20241022
+
 # ── God's Eye Geointel & Satellites ─────────────────────────────
 # Optional: Cesium Ion token for 3D globe terrain and photorealistic photogrammetry (free tier at https://ion.cesium.com/tokens)
 cesium_ion_token: YOUR_CESIUM_ION_TOKEN_HERE
@@ -86,3 +90,15 @@ audio_pipeline:
     - "yo jarvis"
   # Continued-conversation open-mic duration (seconds) after JARVIS replies
   follow_up_window_sec: 10.0
+
+# ── Autonomous Ambient Idle Watchdog & Secure Dispatch ─────────────
+ambient_updates_enabled: true
+idle_alert_interval_min: 45
+desktop_notifications_enabled: true
+sms_alerts_enabled: false
+sms_provider: twilio
+sms_to_phone: ""
+twilio_account_sid: ""
+twilio_auth_token: ""
+twilio_from_phone: ""
+notification_webhook_url: ""

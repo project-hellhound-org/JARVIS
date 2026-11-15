@@ -381,8 +381,15 @@ class JarvisVoice:
         self.groq_model = config.get("groq_model") or "qwen/qwen3.8-27b"
         self._groq_rate_limited_until = 0.0
 
-        # Primary LLM provider preference ("nvidia", "groq", "gemini")
-        raw_primary = config.get("primary_llm") or config.get("preferred_llm") or config.get("llm_provider") or ("nvidia" if self.nvidia_available else "groq")
+        # Anthropic Claude API key & model
+        raw_anthropic = config.get("anthropic_api_key") or os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY")
+        self.anthropic_key = self._clean_key(raw_anthropic)
+        self.anthropic_available = bool(self.anthropic_key)
+        self.anthropic_model = config.get("anthropic_model") or os.environ.get("ANTHROPIC_MODEL") or "claude-3-5-sonnet-20241022"
+        self._anthropic_rate_limited_until = 0.0
+
+        # Primary LLM provider preference ("nvidia", "anthropic", "groq", "gemini")
+        raw_primary = config.get("primary_llm") or config.get("preferred_llm") or config.get("llm_provider") or ("nvidia" if self.nvidia_available else ("anthropic" if self.anthropic_available else "groq"))
         self.primary_llm = str(raw_primary).lower().strip()
 
         # Detect available SLM
@@ -514,6 +521,17 @@ class JarvisVoice:
             self._gemini_rate_limited_until = time.time() + 15.0
         else:
             self._gemini_rate_limited_until = 0.0
+
+    @property
+    def anthropic_rate_limited(self) -> bool:
+        return time.time() < getattr(self, '_anthropic_rate_limited_until', 0.0)
+
+    @anthropic_rate_limited.setter
+    def anthropic_rate_limited(self, val: bool):
+        if val:
+            self._anthropic_rate_limited_until = time.time() + 20.0
+        else:
+            self._anthropic_rate_limited_until = 0.0
 
     def is_fish_ws_healthy(self) -> bool:
         """Returns True if Fish Audio WebSocket streaming has not recently timed out or failed."""
@@ -1190,24 +1208,123 @@ class JarvisVoice:
 
         return "", False
 
+    def _ask_anthropic(self, prompt: str, system: str, max_tokens: int = 4096, on_token: callable = None, timeout: Optional[float] = None) -> tuple[str, bool]:
+        """
+        Ask Anthropic Claude API with SSE streaming support.
+        Returns (response_text, rate_limited).
+        """
+        if not self.anthropic_key or self.anthropic_rate_limited:
+            return "", False
+
+        headers = {
+            "x-api-key": self.anthropic_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+        payload = {
+            "model": self.anthropic_model,
+            "max_tokens": min(max_tokens, 4096),
+            "system": system,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "stream": True,
+        }
+
+        cl_timeout = httpx.Timeout(timeout, connect=min(timeout, 4.0)) if timeout is not None else httpx.Timeout(15.0, connect=4.0)
+        try:
+            full_response = []
+            with self.client.stream("POST", "https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=cl_timeout) as r:
+                if r.status_code == 429:
+                    self.anthropic_rate_limited = True
+                    print(f"[jarvis_voice] Anthropic Claude API rate-limited (429). Switching to fallback.")
+                    return "", True
+                if r.status_code != 200:
+                    err_body = r.read().decode('utf-8', errors='ignore')[:300]
+                    print(f"[jarvis_voice] Anthropic API rejected request ({self.anthropic_model}): {r.status_code} — {err_body}")
+                    return "", False
+
+                for line in r.iter_lines():
+                    if self._interrupted.is_set():
+                        break
+                    if not line:
+                        continue
+                    if line.startswith("data:"):
+                        data_str = line[5:].strip()
+                        if data_str == "[DONE]":
+                            break
+                        try:
+                            chunk_json = json.loads(data_str)
+                            c_type = chunk_json.get("type")
+                            if c_type == "content_block_delta":
+                                tok = chunk_json.get("delta", {}).get("text", "")
+                                if tok:
+                                    full_response.append(tok)
+                                    if on_token:
+                                        on_token(tok)
+                        except Exception:
+                            continue
+
+            result_text = "".join(full_response).strip()
+            return result_text, False
+        except Exception as e:
+            print(f"[jarvis_voice] Anthropic streaming error with {self.anthropic_model}: {e}")
+            return "", False
+
+    def get_tier_model(self, tier: str = "fast", task_hint: Optional[str] = None) -> str:
+        """
+        Returns the designated model identifier for the requested tier ('fast' vs 'deep').
+        - For NVIDIA (Single-Key setup):
+            fast -> nvidia_fast_model ('meta/llama-3.3-70b-instruct' / 'nvidia/nemotron-3.5-bolt-e4b')
+            deep -> nvidia_deep_model ('nvidia/nemotron-3-ultra-550b-a55b')
+        - For Anthropic:
+            fast -> 'claude-3-5-haiku-20241022'
+            deep -> self.anthropic_model ('claude-3-5-sonnet-20241022')
+        - For Groq:
+            fast -> 'llama-3.1-8b-instant'
+            deep -> self.groq_model
+        - For Local SLM:
+            fast -> self.slm_model
+            deep -> self.slm_model
+        """
+        tier_norm = (tier or "fast").strip().lower()
+        primary = getattr(self, "primary_llm", "nvidia")
+
+        if primary == "nvidia" or (self.nvidia_available and not self.anthropic_available):
+            return getattr(self, "nvidia_fast_model", NVIDIA_FAST_MODEL) if tier_norm == "fast" else getattr(self, "nvidia_deep_model", NVIDIA_DEEP_MODEL)
+        elif primary in ("anthropic", "claude") or self.anthropic_available:
+            return "claude-3-5-haiku-20241022" if tier_norm == "fast" else getattr(self, "anthropic_model", "claude-3-5-sonnet-20241022")
+        elif primary == "groq" or self.groq_available:
+            return "llama-3.1-8b-instant" if tier_norm == "fast" else getattr(self, "groq_model", "qwen/qwen3.8-27b")
+        return getattr(self, "slm_model", "qwen2.5:3b-instruct-q4_0")
+
     def _ask_cloud(self, prompt: str, system: str, max_tokens: int = 4096, on_token: callable = None, image_path: str = None, timeout: Optional[float] = None, task_hint: Optional[str] = None) -> dict:
         """
         Try cloud LLMs in priority order based on primary_llm preference:
+        If primary_llm == 'anthropic', Anthropic Claude runs first.
         If primary_llm == 'nvidia', NVIDIA NIM runs first (frontier Nemotron/vision reasoning).
         If primary_llm == 'groq', Groq LPU runs first.
         If an engine is rate-limited or fails, it falls back seamlessly down the hierarchy.
         Returns {text, rate_limited, engine}.
         """
         primary = getattr(self, "primary_llm", "nvidia")
-        if primary == "nvidia":
-            engines = ["nvidia", "groq", "gemini"]
+        if primary in ("anthropic", "claude"):
+            engines = ["anthropic", "nvidia", "groq", "gemini"]
+        elif primary == "nvidia":
+            engines = ["nvidia", "anthropic", "groq", "gemini"]
         elif primary == "gemini":
-            engines = ["gemini", "nvidia", "groq"]
+            engines = ["gemini", "nvidia", "anthropic", "groq"]
         else:
-            engines = ["groq", "nvidia", "gemini"]
+            engines = ["groq", "nvidia", "anthropic", "gemini"]
 
         for eng in engines:
-            if eng == "nvidia" and self.nvidia_available and not self.nvidia_rate_limited:
+            if eng == "anthropic" and self.anthropic_available and not self.anthropic_rate_limited and not image_path:
+                text, r_limited = self._ask_anthropic(prompt, system, max_tokens=max_tokens, on_token=on_token, timeout=timeout)
+                if r_limited:
+                    self.anthropic_rate_limited = True
+                elif text:
+                    return {"text": text, "rate_limited": False, "engine": "anthropic"}
+            elif eng == "nvidia" and self.nvidia_available and not self.nvidia_rate_limited:
                 text, r_limited = self._ask_nvidia(prompt, system, max_tokens=max_tokens, on_token=on_token, image_path=image_path, timeout=timeout, task_hint=task_hint)
                 if r_limited:
                     self.nvidia_rate_limited = True
@@ -1227,7 +1344,7 @@ class JarvisVoice:
                     return {"text": text, "rate_limited": False, "engine": "gemini"}
 
         # All exhausted or rate-limited
-        rate_limited = (self.nvidia_rate_limited or self.groq_rate_limited or self.gemini_rate_limited)
+        rate_limited = (self.nvidia_rate_limited or self.groq_rate_limited or self.gemini_rate_limited or self.anthropic_rate_limited)
         return {"text": "", "rate_limited": rate_limited, "engine": None}
 
     def _sanitize_text_for_speech(self, text: str) -> str:
