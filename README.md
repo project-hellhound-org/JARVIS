@@ -25,7 +25,7 @@
 
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10+-blue?style=flat-square&logo=python&logoColor=white" alt="Python Version"/></a>
-  <a href="https://github.com/project-hellhound-org/JARVIS/releases"><img src="https://img.shields.io/badge/Release-v2.0.0--OSINT.Specialist-cyan?style=flat-square" alt="Release Version"/></a>
+  <a href="https://github.com/projecthellhound/JARVIS/releases"><img src="https://img.shields.io/badge/Release-v2.0.0--OSINT.Specialist-cyan?style=flat-square" alt="Release Version"/></a>
   <img src="https://img.shields.io/badge/Specialization-Autonomous%20OSINT%20Specialist-blueviolet?style=flat-square" alt="Specialization"/>
   <img src="https://img.shields.io/badge/AI--Powered-NVIDIA%20%7C%20Groq%20%7C%20Gemini%20%7C%20Ollama-red?style=flat-square" alt="AI Support"/>
   <img src="https://img.shields.io/badge/Geointel-Cesium%20%7C%20NASA%20FIRMS%20%7C%20ADS--B-orange?style=flat-square" alt="Geointel"/>
@@ -267,12 +267,12 @@ J.A.R.V.I.S. features high-fidelity, low-latency conversational speech powered b
 
 #### Option A: One-Line Remote Installer
 ```bash
-curl -fsSL https://raw.githubusercontent.com/project-hellhound-org/JARVIS/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/projecthellhound/JARVIS/main/install.sh | bash
 ```
 
 #### Option B: Standard Git Clone
 ```bash
-git clone https://github.com/project-hellhound-org/JARVIS.git
+git clone https://github.com/projecthellhound/JARVIS.git
 cd JARVIS
 
 # Initialize config from template
@@ -290,7 +290,7 @@ source ~/.bashrc   # or source ~/.zshrc
 
 #### Option C: Windows (PowerShell)
 ```powershell
-git clone https://github.com/project-hellhound-org/JARVIS.git
+git clone https://github.com/projecthellhound/JARVIS.git
 cd JARVIS
 
 # Create virtual environment
@@ -377,11 +377,11 @@ All actions can be triggered via slash commands or natural language:
 
 ## Mobile Companion
 
-Prefer a mobile interface on Android? Check out the **[J.A.R.V.I.S. Mobile Companion App](https://github.com/project-hellhound-org/JARVIS-Mobile)**.
+Prefer a mobile interface on Android? Check out the **[J.A.R.V.I.S. Mobile Companion App](https://github.com/projecthellhound/JARVIS-Mobile)**.
 
 J.A.R.V.I.S. Mobile is a lightweight Android chat and voice companion powered by NVIDIA NIM free hosted endpoints. While this desktop application serves as the full autonomous OSINT reconnaissance suite and telemetry station, the phone app provides fast, tactical conversational intelligence on the go with zero OSINT or world-telemetry features.
 
-Pre-built APK releases will be published at https://github.com/project-hellhound-org/JARVIS-Mobile/releases (coming soon).
+Pre-built APK releases will be published at https://github.com/projecthellhound/JARVIS-Mobile/releases (coming soon).
 
 ---
 
