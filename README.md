@@ -19,6 +19,7 @@
   <a href="#commands">Commands</a> ·
   <a href="#voice-engine">Voice Engine</a> ·
   <a href="#desktop-gui-app">Desktop GUI</a> ·
+  <a href="#autonomous-agents--account-integrations">Agents</a> ·
   <a href="#mobile-companion">Mobile Companion</a> ·
   <a href="#license">License</a>
 </p>
@@ -372,6 +373,83 @@ All actions can be triggered via slash commands or natural language:
 | `calibrate` | `/calibrate` | Measure false-positive rate on random nonexistent usernames | `calibrate [--count N] [--no-control] [--apply-lessons] [--out PATH]` |
 | `help` | `/?`, `info` | Display command guide and available modules | `help` |
 | `exit` | `quit` | Exit workspace | `exit` |
+
+---
+
+## Autonomous Agents & Account Integrations
+
+Alongside the OSINT core, J.A.R.V.I.S. includes a multi-agent assistant layer (`core/agents/`). A **supervisor** reads each request, sends it to the right agent (or several at once), and runs them in the background without blocking the voice loop. Progress is narrated in the J.A.R.V.I.S. persona through a paced **narration queue**.
+
+```mermaid
+flowchart LR
+    REQ(["Voice / Desktop request"]) --> SUP["Agent Supervisor<br/>LLM routing (existing Groq key)<br/>keyword fallback"]
+    SUP --> LR["Local Research"]
+    SUP --> SO["System Ops"]
+    SUP --> EM["Email (Gmail)"]
+    SUP --> CA["Calendar (Google)"]
+    LR & SO & EM & CA --> CONF{{"Risk tier check<br/>READ / WRITE / DESTRUCTIVE"}}
+    CONF -- destructive --> ASK["Asks you first<br/>yes / no"]
+    CONF -- safe --> NQ["Narration Queue<br/>persona lines, paced speech"]
+    ASK --> NQ
+
+    classDef gate fill:#3a0d0d,stroke:#ff4d4d,color:#ffd1d1;
+    class CONF gate;
+```
+
+### The Agents
+
+| Agent | What it does | Example requests |
+| :--- | :--- | :--- |
+| **Local Research** | Searches files by name, content (PDF, Word, text) and meaning, with filters for type, date, size and folder. Covers OneDrive, Dropbox and Google Drive folders and never downloads online-only files. Opens, previews, reveals in Explorer or summarises results, and remembers favourite folders. | `find my resume pdf from last week` · `open the second one` · `what does the board update say` |
+| **System Ops** | Runs commands matched to your OS (PowerShell on Windows, POSIX elsewhere) and explains the output in plain words. Controls apps, volume, brightness, Wi-Fi and Bluetooth, runs multi-step jobs, and watches CPU, disk, memory and frozen apps in the background. Deletes go to the Recycle Bin and can be undone. | `how much disk space is left` · `turn the volume down` · `delete old-notes.txt` · `undo that` |
+| **Email (Gmail)** | Triage, thread summaries, compose, reply and forward with CC, BCC, attachments and your signature. Finds contacts by name, reads the full draft back, edits it by voice, learns your writing style, tracks follow-ups and gives you an undo window after sending. | `anything new from Pepper` · `reply saying six works` · `email Tony the report and remind me if he doesn't reply in 3 days` |
+| **Calendar (Google)** | Lists events, checks when you're free, and creates or moves events. | `what's on my calendar tomorrow` · `book a call with Happy at 4pm Friday` |
+
+The supervisor can **chain** steps ("find the invoice and email it to Pepper"), run them **in parallel** and merge the answers, **cancel** a running task by voice, retry read-only work once, and time out hung tasks. Pending confirmations are numbered when more than one is waiting ("yes, send the first one"), expire after a short time, and survive a restart.
+
+### Safety Model
+
+- Every agent declares a **risk tier**. Anything destructive or outward-facing (deleting, sending mail, unsubscribing, Wi-Fi off, AI-written shell commands) is shown to you first and only runs after you say **yes**.
+- **Protected paths** are refused outright: system folders, drive roots, your profile folder and the J.A.R.V.I.S. install itself.
+- Essential processes can't be killed, and dangerous commands such as shutdown stay behind the existing `SystemCommander` guard.
+- OAuth tokens, client secrets and passwords are never logged, spoken or displayed. Actions are recorded in `data/agents/audit.jsonl` with secrets redacted.
+
+### Setup
+
+**1. Install the new dependencies** (inside your `jarvis-env`):
+```bash
+pip install -r requirements.txt   # adds google-auth-oauthlib, google-api-python-client, cryptography
+```
+
+**2. AI routing uses your existing Groq key.** No new key is needed: the supervisor reads `groq_api_key` from `config.yaml`. If Groq is unreachable it falls back to local Ollama, which is optional:
+```bash
+ollama pull qwen2.5:3b
+```
+File search, system commands and keyword routing work with no AI key at all.
+
+**3. Connect Google for Email and Calendar** (optional; only needed for those two agents). Each operator creates their own free OAuth client:
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Gmail API** and **Google Calendar API** under **APIs & Services > Library**.
+2. Configure the **OAuth consent screen** as **External**, leave it in **Testing**, and add the Gmail address you'll connect under **Test users**.
+3. Go to **Credentials > Create Credentials > OAuth client ID** and choose **Desktop app**. No redirect URI is needed, because J.A.R.V.I.S. catches the sign-in on a local `127.0.0.1` port.
+4. In J.A.R.V.I.S., open **⚙ SETTINGS > [MAIL] Email & Calendar Integration**, paste the **Client ID** and **Client Secret** (`GOCSPX-...`), and click **Save Settings**.
+5. Click **Connect Google Account** and approve access in the browser. Google will warn that the app isn't verified, which is expected for your own testing app: choose **Advanced > Go to (app name)**. Settings then shows **Connected as you@gmail.com**.
+
+Permissions requested: `openid`, `userinfo.email`, `gmail.readonly`, `gmail.send`, `calendar`.
+
+> [!IMPORTANT]
+> Tokens are stored **encrypted** in `data/oauth_tokens/` with a key tied to your machine, and the client secret lives in your local `config.yaml`. Both are gitignored: never commit them or share them. Tokens copied to another PC won't work; just reconnect there. To revoke access, click **Disconnect** in Settings or remove the app at [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
+
+### Optional Agent Settings
+
+| Setting | Where | Effect |
+| :--- | :--- | :--- |
+| `email_signature` | `config.yaml` | Sign-off appended to sent mail. If empty, J.A.R.V.I.S. learns your usual sign-off from your Sent folder. |
+| `JARVIS_UNDO_SEND_S` | environment | Seconds you have to undo a sent email (default `10`). |
+| `JARVIS_AGENT_LLM` | environment | Set to `0` for keyword-only routing with no AI calls. |
+| `OLLAMA_HOST` | environment | Ollama address if it isn't `http://localhost:11434`. |
+
+> [!NOTE]
+> Archiving, labelling and marking mail as read, Google Contacts lookup and Google Drive search need extra Google permissions (`gmail.modify`, `contacts`, `drive`) that aren't requested yet. Until then, the agents say so and fall back where they can, for example finding contacts from your email history.
 
 ---
 
