@@ -20,3 +20,8 @@ fish-audio-sdk>=1.3.0,<2.0
 websocket-client
 msgpack
 websockets
+
+# Account integrations (Gmail / Google Calendar OAuth) — modules/oauth_connector.py
+google-auth-oauthlib>=1.2.0
+google-api-python-client>=2.100.0
+cryptography>=42.0.0

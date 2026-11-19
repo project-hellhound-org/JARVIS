@@ -30,6 +30,143 @@ _DESTRUCTIVE_PATTERNS = [
     re.compile(r"\bshutdown\b|\breboot\b|\binit\s+0\b", re.I),
 ]
 
+# ── Risk classification (used by core/agents/system_ops_agent.py) ──────────
+# Broader than _DESTRUCTIVE_PATTERNS: those are blocked outright; these merely
+# require the operator's confirmation before running. Errs on the side of
+# DESTRUCTIVE -- a false positive costs one "yes", a false negative can't be undone.
+_CMD_START = r"(?:^|[;&|`(\n{]|\$\()\s*(?:(?:sudo|doas|nohup|exec|xargs|time|env|command)\b[^;&|\n]*?\s+)?"
+_SYSTEM_PATHS = (
+    r"(?:/(?:etc|usr|bin|sbin|boot|lib|lib32|lib64|var|opt|sys|proc|dev|root|System|Library|Applications)(?:/|\b)"
+    r"|[A-Za-z]:[\\/](?:Windows|Program Files|Program Files \(x86\)|ProgramData)\b"
+    r"|/\s*$|/\s+)"
+)
+_RISK_PATTERNS = [
+    # Deletion
+    re.compile(_CMD_START + r"(?:rm|rmdir|unlink|shred|srm|wipe|del|erase|rd|Remove-Item|trash|trash-put|gio\s+trash)\b", re.I),
+    re.compile(r"\bfind\b[^;&|\n]*\s-(?:delete\b|exec(?:dir)?\s+(?:rm|shred|unlink)\b)", re.I),
+    re.compile(r"\bgit\s+(?:rm\b|clean\s+-[a-zA-Z]*f|reset\s+--hard|push\b[^;&|\n]*(?:--force\b|\s-f\b)|branch\s+-D\b|stash\s+(?:drop|clear)\b)", re.I),
+    re.compile(r"\btruncate\b|>\s*/dev/(?!null\b)", re.I),
+    # Moves into (or onto) system paths, or into the void
+    re.compile(_CMD_START + r"(?:mv|move|Move-Item)\b[^;&|\n]*\s['\"]?(?:" + _SYSTEM_PATHS + r"|/dev/null\b)", re.I),
+    re.compile(_CMD_START + r"(?:cp|copy|Copy-Item|install|ln)\b[^;&|\n]*\s['\"]?" + _SYSTEM_PATHS, re.I),
+    re.compile(r"\b(?:chmod|chown|chgrp)\b[^;&|\n]*\s-[a-zA-Z]*R\b", re.I),
+    # Process killing
+    re.compile(_CMD_START + r"(?:kill|pkill|killall|xkill|skill|taskkill|Stop-Process|spps)\b", re.I),
+    # Power state / services
+    re.compile(_CMD_START + r"(?:shutdown|reboot|poweroff|halt|Restart-Computer|Stop-Computer|logoff)\b", re.I),
+    re.compile(r"\binit\s+[06]\b|\btelinit\s+[06]\b", re.I),
+    re.compile(r"\b(?:systemctl|loginctl)\s+(?:poweroff|reboot|halt|suspend|hibernate|kexec|stop|disable|mask|kill|terminate-session)\b", re.I),
+    re.compile(r"\b(?:service\s+\S+\s+stop|launchctl\s+(?:unload|remove|bootout))\b", re.I),
+    # Disks / filesystems
+    re.compile(_CMD_START + r"(?:mkfs(?:\.\w+)?|fdisk|sfdisk|gdisk|parted|wipefs|diskpart|format|Format-Volume|Clear-Disk)\b", re.I),
+    re.compile(r"\bdd\b[^;&|\n]*\bof=", re.I),
+    # Package / account removal
+    re.compile(r"\b(?:apt(?:-get)?|dnf|yum|zypper|pacman|brew|snap|winget|choco|pip3?|npm|conda)\s+(?:remove|purge|uninstall|autoremove|-R\w*)\b", re.I),
+    re.compile(_CMD_START + r"(?:userdel|deluser|groupdel|passwd)\b", re.I),
+    re.compile(r"\bcrontab\s+-r\b", re.I),
+]
+
+
+def classify_risk(cmd: str):
+    """Classify a shell command as RiskTier.DESTRUCTIVE or RiskTier.REVERSIBLE.
+
+    DESTRUCTIVE: deletion, process killing, shutdown/reboot, moving files into
+    system paths, disk/partition tools, package/user removal -- and anything the
+    hard safety guard (_DESTRUCTIVE_PATTERNS) would block. Everything else is
+    REVERSIBLE. Empty commands are treated as DESTRUCTIVE (never auto-run).
+    """
+    from core.agents.base_agent import RiskTier  # local import: avoids a core <-> core.agents cycle
+
+    text = (cmd or "").strip()
+    if not text:
+        return RiskTier.DESTRUCTIVE
+    for pat in _DESTRUCTIVE_PATTERNS:
+        if pat.search(text):
+            return RiskTier.DESTRUCTIVE
+    for pat in _RISK_PATTERNS:
+        if pat.search(text):
+            return RiskTier.DESTRUCTIVE
+    return RiskTier.REVERSIBLE
+
+
+_POSIX_SHELL = "/bin/bash"
+# Directories whose bash.exe is the WSL launcher, not a native bash: running a
+# command through it would execute inside the Linux VM, not on this machine.
+_WSL_BASH_DIRS = ("\\windows\\system32", "\\windows\\sysnative", "\\microsoft\\windowsapps")
+
+
+def _is_wsl_bash(path: str) -> bool:
+    p = os.path.normcase(os.path.abspath(path))
+    return any(d in p for d in _WSL_BASH_DIRS)
+
+
+def _find_windows_bash() -> Optional[str]:
+    """Locate a native bash (Git Bash / MSYS2 / Cygwin) on Windows, never WSL's."""
+    import shutil
+
+    # Prefer Git for Windows' bin\bash.exe: unlike usr\bin\bash.exe it puts the
+    # MSYS coreutils (ls, df, ps, ...) on PATH even when they aren't already.
+    git = shutil.which("git")
+    if git:
+        # git.exe lives in <root>\cmd, <root>\bin or <root>\mingw64\bin.
+        for git_root in Path(git).resolve().parents[:3]:
+            for cand in (git_root / "bin" / "bash.exe", git_root / "usr" / "bin" / "bash.exe"):
+                if cand.is_file() and not _is_wsl_bash(str(cand)):
+                    return str(cand)
+
+    for d in os.environ.get("PATH", "").split(os.pathsep):
+        if not d:
+            continue
+        cand = os.path.join(d, "bash.exe")
+        if os.path.isfile(cand) and not _is_wsl_bash(cand):
+            return cand
+
+    for base in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)"), os.environ.get("LOCALAPPDATA")):
+        if not base:
+            continue
+        for rel in (("Git", "bin", "bash.exe"), ("Programs", "Git", "bin", "bash.exe")):
+            cand = os.path.join(base, *rel)
+            if os.path.isfile(cand):
+                return cand
+    return None
+
+
+def _is_windows() -> bool:
+    return os.name == "nt"
+
+
+_shell_cache: Dict[str, Optional[str]] = {}
+
+
+def resolve_shell_executable() -> Optional[str]:
+    """Shell for subprocess.Popen(shell=True, executable=...).
+
+    POSIX: always /bin/bash (unchanged behaviour). Windows: a native bash if one
+    is installed, else None so Popen falls back to the default shell (cmd.exe).
+    """
+    if not _is_windows():
+        return _POSIX_SHELL
+    if "nt" not in _shell_cache:
+        _shell_cache["nt"] = _find_windows_bash()
+    return _shell_cache["nt"]
+
+
+def _shell_popen_args(cmd: str) -> Tuple[Any, Dict[str, Any]]:
+    """Return (args, kwargs) for subprocess.Popen to run `cmd` in a shell.
+
+    POSIX: (cmd, shell=True, executable=/bin/bash) -- exactly as before.
+    Windows + bash: Popen(shell=True) would build `<exe> /c "<cmd>"`, which is
+    cmd.exe syntax bash rejects, so pass an explicit argv [bash, -c, cmd].
+    Windows without bash: (cmd, shell=True) -- the default shell, cmd.exe.
+    """
+    shell = resolve_shell_executable()
+    if not _is_windows():
+        return cmd, {"shell": True, "executable": shell}
+    if shell:
+        return [shell, "-c", cmd], {"shell": False}
+    return cmd, {"shell": True}
+
+
 class SystemCommander:
     def __init__(self):
         self.task_manager: TaskManager = get_task_manager()
@@ -143,10 +280,10 @@ class SystemCommander:
             exec_cmd = re.sub(r'git\s+commit\s+([^&|;]+)', r'(git diff --cached --quiet || git commit \1)', exec_cmd)
 
         try:
+            popen_args, shell_kwargs = _shell_popen_args(exec_cmd)
             process = subprocess.Popen(
-                exec_cmd,
-                shell=True,
-                executable="/bin/bash",
+                popen_args,
+                **shell_kwargs,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 cwd=work_dir,
