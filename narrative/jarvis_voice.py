@@ -2522,3 +2522,83 @@ Output only the raw target string. No markdown, no quotes, no explanation."""
 
 
 
+# ── Agent narration phrasing ──────────────────────────────────
+# Used by core/agents/narration_queue.py. Agents hand over plain facts; this is
+# the single place those facts become JARVIS lines. Deliberately template-based
+# (no LLM round-trip): it runs every few seconds while agents work, so it must be
+# instant and can never hang the narration worker. Same voice as the advisor
+# prompt: articulate, dry, brief, "Sir" by default, facts first when work is live.
+import random as _agent_random
+
+_AGENT_ACTIVITY = {
+    "local_research": "sorting through those files",
+    "system_ops": "working through that on the terminal",
+    "email": "going through your inbox",
+    "calendar": "looking over your calendar",
+}
+
+_SECRET_PATTERNS = [
+    re.compile(r'(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+'),
+    re.compile(r'(?i)\b(password|passwd|secret|client[_ -]?secret|token|access[_ -]?token|refresh[_ -]?token|api[_ -]?key)\b(\s*[:=]\s*|\s+is\s+)\S+'),
+    re.compile(r'\b(?:sk|gsk|ghp|gho|xox[abpr]|ya29|AIza|nvapi)[-_.]?[A-Za-z0-9_\-]{12,}'),
+]
+
+_NUMBER_WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten"}
+
+
+def redact_secrets(text: str) -> str:
+    """Strip anything that looks like a token, key or password before it is spoken or shown."""
+    out = text
+    for pat in _SECRET_PATTERNS:
+        if pat.groups >= 2:
+            out = pat.sub(lambda m: f"{m.group(1)} [redacted]", out)
+        else:
+            out = pat.sub("[redacted]", out)
+    return out
+
+
+def phrase_agent_line(fact: str, context: Optional[dict] = None) -> str:
+    """Turn a plain agent fact into one short in-character JARVIS line.
+
+    context keys (all optional): kind ("progress" | "result" | "confirmation" |
+    "failure" | "filler"), agent, goal, active_count, mention_others, salutation,
+    rng (a random.Random, for deterministic tests).
+    """
+    ctx = context or {}
+    rng = ctx.get("rng") or _agent_random
+    sal = ctx.get("salutation") or "Sir"
+    kind = ctx.get("kind") or "progress"
+    body = redact_secrets(str(fact or "").strip()).rstrip(" .")
+    if body:
+        body = body[0].upper() + body[1:]
+
+    if kind == "filler":
+        activity = _AGENT_ACTIVITY.get(ctx.get("agent") or "", "on it")
+        count = int(ctx.get("active_count") or 1)
+        if ctx.get("mention_others") and count > 1:
+            n = _NUMBER_WORDS.get(count, str(count))
+            return rng.choice([
+                f"Still got {n} things running for you, {sal}. Nothing's caught fire yet.",
+                f"{n.capitalize()} jobs on the go, {sal} — still {activity}.",
+                f"Juggling {n} things at once, {sal}. Still {activity}.",
+            ])
+        return rng.choice([
+            f"Still {activity} for you, {sal}.",
+            f"Bear with me, {sal} — still {activity}.",
+            f"Haven't forgotten you, {sal}. Still {activity}.",
+            f"Still at it, {sal}. Thorough takes a moment.",
+        ])
+
+    if kind == "confirmation":
+        # The question itself must survive verbatim -- it may contain a command.
+        question = body if body.endswith("?") else f"{body}."
+        return f"I'll need your go-ahead on this one, {sal}. {question} Yes or no?"
+
+    if kind == "failure":
+        return rng.choice([f"Small snag, {sal}. {body}.", f"That didn't go to plan, {sal}. {body}."])
+
+    if kind == "result":
+        return rng.choice([f"Right, {sal}. {body}.", f"Done, {sal}. {body}.", f"There we are, {sal}. {body}."])
+
+    # Plain progress update.
+    return rng.choice([f"{body}, {sal}.", f"Quick update, {sal}: {body}.", f"{body}."])

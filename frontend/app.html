@@ -7326,6 +7326,57 @@ body.voiceos-mode #jarvis-hud-notch-wrapper {
         </div>
       </div>
 
+      <!-- Card 5: Email & Calendar Integration -->
+      <div class="collapsible-card settings-card">
+        <div class="collapsible-card-header" onclick="toggleCardCollapse(this)">
+          <div class="collapsible-card-title">
+            <span style="opacity:0.6; font-family:var(--mono); font-size:11px; margin-right:4px;">[MAIL]</span>
+            <span>Email &amp; Calendar Integration</span>
+          </div>
+          <div class="collapsible-card-badge">Google / Outlook</div>
+          <div class="collapsible-card-chevron">▼</div>
+        </div>
+        <div class="collapsible-card-body">
+          <!-- Google account connection -->
+          <div class="settings-row">
+            <label>Google Account</label>
+            <button type="button" id="btn-google-connect" onclick="window.googleOAuthConnect()" style="padding:6px 12px; background:rgba(0,240,255,0.1); border:1px solid rgba(0,240,255,0.3); border-radius:4px; color:#00F0FF; font-family:var(--mono); font-size:11px; font-weight:700; cursor:pointer; transition:all 0.2s ease;">
+              Connect Google Account
+            </button>
+            <div id="google-connected-row" style="display:none; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; color:#E6E6E6;">
+              <span style="width:8px; height:8px; border-radius:50%; background:#22C55E; box-shadow:0 0 6px #22C55E; flex-shrink:0;"></span>
+              <span>Connected as <span id="google-connected-email"></span></span>
+              <a href="#" id="btn-google-disconnect" onclick="window.googleOAuthDisconnect(); return false;" style="color:#FF9D2E; text-decoration:none; font-weight:600;">Disconnect</a>
+            </div>
+          </div>
+          <div class="settings-hint" id="google-oauth-status" style="display:none;"></div>
+
+          <!-- Google OAuth Client ID -->
+          <div class="settings-row" style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.06); padding-top:12px;">
+            <label>Google OAuth Client ID</label>
+            <input type="text" id="cfg-google-client-id" placeholder="1234567890-abc...apps.googleusercontent.com" />
+          </div>
+          <div class="settings-hint">
+            One-time setup: create an OAuth client (type "Desktop app") with the Gmail and Google Calendar APIs enabled, then paste its ID and secret here. Free at
+            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#FF9D2E; text-decoration:none; font-weight:600;">console.cloud.google.com ↗</a>.
+          </div>
+
+          <!-- Google OAuth Client Secret -->
+          <div class="settings-row">
+            <label>Google OAuth Client Secret</label>
+            <div class="key-input-wrap">
+              <input type="password" id="cfg-google-client-secret" placeholder="GOCSPX-..." />
+              <button type="button" class="eye-btn" onclick="togglePasswordVisibility('cfg-google-client-secret', this)" title="Show/Hide Client Secret">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
         <div style="display:flex; align-items:center; padding-top:12px;">
           <button type="button" id="settings-save">Save Settings</button>
           <span id="settings-status"></span>
@@ -8786,6 +8837,65 @@ window.openSettingsOverlay = function() {
       console.warn('[settings] Could not fetch config:', err);
     });
   }
+  if (typeof window.refreshGoogleOAuthStatus === 'function') window.refreshGoogleOAuthStatus();
+};
+
+// ── Email & Calendar Integration (Google OAuth) ──────────────
+// Only connection status + account email ever reach the page; tokens stay in Python.
+window.renderGoogleOAuthState = function(state, message) {
+  const btn = document.getElementById('btn-google-connect');
+  const row = document.getElementById('google-connected-row');
+  const emailEl = document.getElementById('google-connected-email');
+  const statusEl = document.getElementById('google-oauth-status');
+  const connected = !!(state && state.connected && state.email);
+  if (btn) btn.style.display = connected ? 'none' : '';
+  if (row) row.style.display = connected ? 'flex' : 'none';
+  if (emailEl) emailEl.textContent = connected ? state.email : '';
+  if (statusEl) {
+    statusEl.textContent = message || '';
+    statusEl.style.display = message ? '' : 'none';
+  }
+};
+
+window.refreshGoogleOAuthStatus = function() {
+  if (!(api() && api().google_oauth_status)) return;
+  api().google_oauth_status().then((st) => window.renderGoogleOAuthState(st, ''))
+    .catch(() => window.renderGoogleOAuthState({ connected: false }, ''));
+};
+
+window.googleOAuthConnect = function() {
+  const btn = document.getElementById('btn-google-connect');
+  if (!(api() && api().google_oauth_connect)) {
+    window.renderGoogleOAuthState({ connected: false }, 'Desktop bridge unavailable.');
+    return;
+  }
+  const clientId = (document.getElementById('cfg-google-client-id') || {}).value || '';
+  const clientSecret = (document.getElementById('cfg-google-client-secret') || {}).value || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Waiting for Google consent...'; }
+  window.renderGoogleOAuthState({ connected: false }, 'Complete sign-in in your browser window.');
+  api().google_oauth_connect(clientId, clientSecret).then((res) => {
+    if (res && res.status === 'ok') {
+      window.renderGoogleOAuthState(res, '');
+    } else {
+      window.renderGoogleOAuthState({ connected: false }, (res && res.message) || 'Connection failed.');
+    }
+  }).catch(() => {
+    window.renderGoogleOAuthState({ connected: false }, 'Connection failed.');
+  }).finally(() => {
+    if (btn) { btn.disabled = false; btn.textContent = 'Connect Google Account'; }
+  });
+};
+
+window.googleOAuthDisconnect = function() {
+  if (!(api() && api().google_oauth_disconnect)) return;
+  const email = (document.getElementById('google-connected-email') || {}).textContent || '';
+  api().google_oauth_disconnect(email).then((res) => {
+    if (res && res.status === 'ok') {
+      window.refreshGoogleOAuthStatus();
+    } else {
+      window.renderGoogleOAuthState({ connected: true, email: email }, (res && res.message) || 'Disconnect failed.');
+    }
+  }).catch(() => window.renderGoogleOAuthState({ connected: true, email: email }, 'Disconnect failed.'));
 };
 
 window.closeSettingsOverlay = function() {
@@ -9817,6 +9927,8 @@ function applyConfigToForm(cfg) {
   setVal('#cfg-rapidapi-key', clean(cfg.rapidapi_key));
   setVal('#cfg-hass-url', cfg.hass_url !== undefined ? cfg.hass_url : '');
   setVal('#cfg-hass-token', clean(cfg.hass_token));
+  setVal('#cfg-google-client-id', cfg.google_oauth_client_id !== undefined ? cfg.google_oauth_client_id : '');
+  setVal('#cfg-google-client-secret', clean(cfg.google_oauth_client_secret));
   window._userCartoApiKey = clean(cfg.carto_api_key);
   const frameMode = (window.safeStorageGet ? window.safeStorageGet('jarvis_screen_frame') : localStorage.getItem('jarvis_screen_frame')) || 'scope';
   setVal('#cfg-screen-frame', frameMode);
@@ -9895,6 +10007,8 @@ if (settingsSaveBtn) {
       rapidapi_key: getVal('#cfg-rapidapi-key'),
       hass_url: getVal('#cfg-hass-url'),
       hass_token: getVal('#cfg-hass-token'),
+      google_oauth_client_id: getVal('#cfg-google-client-id'),
+      google_oauth_client_secret: getVal('#cfg-google-client-secret'),
       operator_salutation: salVal || 'Sir',
       tools: tools,
     };
@@ -14483,6 +14597,8 @@ const TaskSurfaceManager = {
 
     if (isGoogleSearch) {
       contentHtml = this.renderGoogleSearchSurface(task);
+    } else if (task.type === 'email_unread') {
+      contentHtml = this.renderEmailUnreadSurface(task);
     } else if (isTrafficTask) {
       contentHtml = this.renderTrafficIntelSurface(task);
     } else if (task.type === 'terminal_command' || task.type === 'terminal') {
@@ -14628,6 +14744,83 @@ const TaskSurfaceManager = {
       cardsHtml = `
         <div style="padding:16px; text-align:center; color:#8A8D91; font-size:11.5px; background:#08090A; border-radius:6px;">
           No matching search results returned.
+        </div>
+      `;
+    }
+
+    return statusBadge + queryBox + `<div style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px;">${cardsHtml}</div>`;
+  },
+
+  renderEmailUnreadSurface(task) {
+    const queryText = task.query || task.title || 'Email';
+    const state = task.state || 'RUNNING';
+    const isDone = state === 'COMPLETED';
+    const isFailed = state === 'FAILED';
+    const isRunning = state === 'RUNNING' || state === 'CREATED' || state === 'STARTED';
+
+    let statusBadge = '';
+    if (isRunning) {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:#FF9D2E; font-weight:700;">
+            <span class="thinking-spinner" style="width:10px; height:10px; border-width:1.5px; border-top-color:#FF9D2E;"></span>
+            <span>● CHECKING INBOX...</span>
+          </div>
+          <span style="font-size:9.5px; color:#8A8D91;">ACTIVE TASK</span>
+        </div>
+      `;
+    } else if (isDone) {
+      const count = (task.findings || []).length;
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:#22C55E; font-weight:700;">
+            <span>✓</span>
+            <span>${count} EMAIL${count !== 1 ? 'S' : ''} FOUND</span>
+          </div>
+          <span style="font-size:9.5px; color:#22C55E; font-weight:600;">SUCCESS</span>
+        </div>
+      `;
+    } else if (isFailed) {
+      statusBadge = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:#EF4444; font-weight:700;">
+            <span>✕</span>
+            <span>EMAIL CHECK FAILED</span>
+          </div>
+          <span style="font-size:9.5px; color:#EF4444;">ERROR</span>
+        </div>
+      `;
+    }
+
+    const queryBox = `
+      <div style="background:#08090A; border:1px solid rgba(255, 255, 255, 0.06); border-radius:6px; padding:9px 12px; margin-bottom:12px; font-size:12.5px; flex-shrink:0;">
+        <span style="color:#8A8D91; font-weight:600;">FOLDER:</span> <span style="color:#FFB84D; font-weight:700;">${this.escapeHtml(queryText)}</span>
+      </div>
+    `;
+
+    let cardsHtml = '';
+    if (task.findings && task.findings.length > 0) {
+      cardsHtml = task.findings.map((f, idx) => `
+        <div style="background: #08090A; border: 1px solid rgba(255, 255, 255, 0.06); border-left: 3px solid #FF9D2E; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:4px;">
+            <div style="font-weight:700; color:#E6E6E6; font-size:15px; flex:1; line-height:1.5;">
+              <span style="color:#FF9D2E; font-family:var(--mono); margin-right:6px;">[${idx + 1}]</span>${this.escapeHtml(f.title || '(no subject)')}
+            </div>
+            ${f.url ? `<button onclick="TaskSurfaceManager.selectItem('${task.task_id}', ${idx})" style="background:rgba(255,157,46,0.15); border:1px solid #FF9D2E; color:#FFB84D; font-size:10px; font-weight:700; padding:3px 10px; border-radius:4px; cursor:pointer; flex-shrink:0;">OPEN</button>` : ''}
+          </div>
+          <div style="font-size:11.5px; color:#7B8087; font-family:var(--mono);">${this.escapeHtml(f.snippet || '')}</div>
+        </div>
+      `).join('');
+    } else if (isRunning) {
+      cardsHtml = `
+        <div style="padding:24px 14px; text-align:center; color:#8A8D91; font-size:11.5px; background:#08090A; border-radius:6px; border:1px dashed rgba(255,255,255,0.08);">
+          Pulling unread messages...
+        </div>
+      `;
+    } else {
+      cardsHtml = `
+        <div style="padding:16px; text-align:center; color:#8A8D91; font-size:11.5px; background:#08090A; border-radius:6px;">
+          No unread email.
         </div>
       `;
     }

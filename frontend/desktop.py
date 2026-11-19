@@ -1128,6 +1128,10 @@ class JarvisAPI:
             print(f"[desktop] Notice initializing autonomous watchdog: {e}")
             self._watchdog = None
 
+        # Multi-agent framework (core/agents): one supervisor + narration queue on its own loop thread
+        self._agent_bridge = None
+        self._init_agent_bridge()
+
         # Async Background Initialization for Instant App Launch (<0.2s)
         self._wake_engine = None
         threading.Thread(target=self._async_init_wake_engine, daemon=True).start()
@@ -1135,6 +1139,56 @@ class JarvisAPI:
             cleanup_stale_staging_folders()
         except Exception as e:
             print(f"[desktop] Staging cleanup notice: {e}")
+
+    # ── Multi-agent framework bridge ─────────────────────────────
+    def _init_agent_bridge(self):
+        try:
+            from core.agents.desktop_bridge import AgentBridge
+            self._agent_bridge = AgentBridge(
+                speak_fn=self._speak_and_suppress_echo,
+                display_fn=self._display_agent_line,
+                is_busy_fn=self._agent_tts_busy,
+                salutation_fn=lambda: JarvisMemory().get_salutation(),
+            ).start()
+        except Exception as e:
+            print(f"[desktop] Notice initializing agent framework: {type(e).__name__}: {e}")
+            self._agent_bridge = None
+
+    def _agent_tts_busy(self) -> bool:
+        """True while JARVIS is speaking or the operator holds push-to-talk; narration waits."""
+        return bool(
+            getattr(self, '_tts_speaking', False)
+            or time.time() < getattr(self, '_tts_playback_until', 0.0)
+            or getattr(self, '_current_tts_proc', None) is not None
+            or getattr(self, '_ptt_active', False)
+        )
+
+    def _display_agent_line(self, text: str):
+        """Show one narrated agent line in the chat transcript (same path as watchdog lines)."""
+        if not text:
+            return
+        if getattr(self, '_memory', None):
+            self._memory.add("jarvis", text)
+        with getattr(self, '_tts_turn_lock', threading.Lock()):
+            self._tts_turn_id += 1
+            t_id = self._tts_turn_id
+        self._emit("jarvis_stream_start", {"turn_id": t_id})
+        self._emit("jarvis_stream_chunk", {"chunk": text, "turn_id": t_id})
+        self._emit("jarvis_answer", {"text": text, "mode": "agent", "turn_id": t_id})
+
+    def _try_agent_dispatch(self, text: str, source: str = "typed") -> bool:
+        """Offer the request to the agents first. True means agents (or a yes/no) handled it."""
+        bridge = getattr(self, '_agent_bridge', None)
+        if bridge is None:
+            return False
+        try:
+            outcome = bridge.submit(text, {"source": source})
+        except Exception as e:
+            print(f"[desktop] Agent dispatch error ({type(e).__name__}); using chat path")
+            return False
+        if outcome.handled:
+            print(f"[desktop] Request handled by agents ({outcome.kind}): {', '.join(outcome.task_ids)}")
+        return outcome.handled
 
     def _on_watchdog_alert(self, alert: dict):
         """Deliver ambient watchdog telemetry alert to HUD and subtitle overlay."""
@@ -1971,6 +2025,10 @@ class JarvisAPI:
         if t0 is None:
             t0 = getattr(self, '_msg_t0', time.time())
         try:
+            # Agents first: returns as soon as tasks are dispatched (they run in the background).
+            if self._try_agent_dispatch(text, source):
+                return
+
             # Fast-path check: Window mode switching (Top-Center HUD notch vs God's Eye console)
             t_lower = (text or "").strip().lower()
             if any(p in t_lower for p in ("switch to hud", "enter hud", "enable hud", "open hud", "hud mode", "top hud", "switch to voice os", "enter voice os", "enable voice os", "switch to voice mode", "mini mode", "companion mode", "floating capsule", "switch to capsule", "shrink window", "minimize to capsule")):
@@ -2920,6 +2978,8 @@ class JarvisAPI:
                     "opensky_client_secret": clean("opensky_client_secret") or os.environ.get("OPENSKY_CLIENT_SECRET", "") or os.environ.get("OPENSKY_PASSWORD", ""),
                     "hass_url": config.get("hass_url", "") or os.environ.get("HASS_URL", ""),
                     "hass_token": clean("hass_token") or os.environ.get("HASS_TOKEN", ""),
+                    "google_oauth_client_id": clean("google_oauth_client_id"),
+                    "google_oauth_client_secret": clean("google_oauth_client_secret"),
                     "operator_salutation": cur_sal,
                     "tools": config.get("tools", {}),
                     "auto_open_cold_room": bool(config.get("ui", {}).get("auto_open_cold_room", config.get("auto_open_cold_room", True))),
@@ -3727,6 +3787,8 @@ class JarvisAPI:
                 "opensky_client_secret": "opensky_client_secret",
                 "hass_url": "hass_url",
                 "hass_token": "hass_token",
+                "google_oauth_client_id": "google_oauth_client_id",
+                "google_oauth_client_secret": "google_oauth_client_secret",
             }
             for ui_key, yaml_key in field_map.items():
                 if ui_key in cfg:
@@ -3854,6 +3916,61 @@ class JarvisAPI:
             return {"status": "ok", "salutation": actual}
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+    # ── Email & Calendar integration (Google OAuth) ─────────────
+    # Responses carry only status + account email: never tokens or the client secret.
+    def _google_oauth_connector(self, client_id: Optional[str] = None, client_secret: Optional[str] = None):
+        from modules.oauth_connector import google_connector_from_config
+        config = {}
+        try:
+            if CONFIG_PATH.exists():
+                with open(CONFIG_PATH) as f:
+                    config = yaml.safe_load(f) or {}
+        except Exception:
+            config = {}
+        if client_id and client_id.strip():
+            config["google_oauth_client_id"] = client_id.strip()
+        if client_secret and client_secret.strip():
+            config["google_oauth_client_secret"] = client_secret.strip()
+        return google_connector_from_config(config)
+
+    def google_oauth_status(self) -> dict:
+        try:
+            conn = self._google_oauth_connector()
+            accounts = conn.accounts()
+            return {"status": "ok", "configured": conn.configured, "connected": bool(accounts),
+                    "email": accounts[0] if accounts else None}
+        except Exception as e:
+            print(f"[desktop] Google OAuth status error: {type(e).__name__}")
+            return {"status": "error", "connected": False, "email": None}
+
+    def google_oauth_connect(self, client_id: Optional[str] = None, client_secret: Optional[str] = None) -> dict:
+        """Open the Google consent screen in the system browser and store the account's tokens."""
+        from modules.oauth_connector import OAuthError
+        try:
+            conn = self._google_oauth_connector(client_id, client_secret)
+            if not conn.configured:
+                return {"status": "error", "message": "Add your Google OAuth Client ID and Client Secret first."}
+            tokens = asyncio.run(conn.authorize())
+            email = tokens.get("email")
+            print(f"[desktop] Google account connected: {email}")
+            return {"status": "ok", "connected": True, "email": email}
+        except OAuthError as e:
+            print(f"[desktop] Google OAuth connect failed: {e}")
+            return {"status": "error", "message": str(e)}
+        except Exception as e:
+            print(f"[desktop] Google OAuth connect error: {type(e).__name__}")
+            return {"status": "error", "message": f"Connection failed ({type(e).__name__})."}
+
+    def google_oauth_disconnect(self, email: Optional[str] = None) -> dict:
+        """Revoke the stored Google token and delete it from disk."""
+        try:
+            conn = self._google_oauth_connector()
+            removed = asyncio.run(conn.disconnect(email or None))
+            return {"status": "ok", "connected": bool(conn.accounts()), "removed": removed}
+        except Exception as e:
+            print(f"[desktop] Google OAuth disconnect error: {type(e).__name__}")
+            return {"status": "error", "message": f"Disconnect failed ({type(e).__name__})."}
 
     def get_evidence_list(self) -> list:
         """Return list of captured evidence screenshot items for the active case."""
