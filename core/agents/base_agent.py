@@ -8,9 +8,9 @@ character -- the NarrationQueue is the only place a fact becomes a JARVIS line.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, Union
 
 
 class RiskTier(str, Enum):
@@ -46,11 +46,70 @@ class AgentResult:
                 raise ValueError("needs_confirmation results require pending_action={'execute': <callable>}")
 
 
+TOOL_CATEGORIES = ("read", "draft", "action")
+
+
+@dataclass
+class ToolSpec:
+    """One capability an agent offers to the supervisor's tool loop.
+
+    category  -- "read" (observes), "draft" (prepares something local and
+                 revisable; no effect outside JARVIS), "action" (changes the
+                 world: sends, deletes, archives...).
+    tier      -- risk tier. DESTRUCTIVE tools always pause the loop for the
+                 operator's yes/no; ``confirm`` can ask for it on other tiers.
+    handler   -- ``async handler(args, ctx) -> AgentResult``. ``ctx`` carries the
+                 running agent and anything the loop passes through.
+    preview   -- for confirmed tools: ``async preview(args, ctx) -> AgentResult``
+                 that validates the call and returns the read-back summary
+                 (status "done") or a failure, without doing anything.
+    untrusted_output -- the result contains outside content (mail, invites,
+                 file text); the loop fences it and records it as untrusted.
+    grounded_args -- argument names whose values must come from the operator
+                 (or trusted lookups), never only from untrusted content.
+    """
+
+    name: str
+    description: str
+    parameters: Dict[str, Any]
+    category: str
+    tier: RiskTier
+    handler: Callable[[dict, dict], Awaitable[AgentResult]]
+    preview: Optional[Callable[[dict, dict], Awaitable[AgentResult]]] = None
+    confirm: Union[bool, Callable[[dict], bool]] = False
+    untrusted_output: bool = False
+    grounded_args: Tuple[str, ...] = ()
+    progress: str = ""
+    agent: str = ""
+    extras: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.category not in TOOL_CATEGORIES:
+            raise ValueError(f"ToolSpec.category must be one of {TOOL_CATEGORIES}, got {self.category!r}")
+        if not isinstance(self.tier, RiskTier):
+            raise ValueError("ToolSpec.tier must be a RiskTier")
+
+    def needs_confirmation(self, args: dict) -> bool:
+        if self.tier is RiskTier.DESTRUCTIVE:
+            return True
+        return bool(self.confirm(args)) if callable(self.confirm) else bool(self.confirm)
+
+    def schema(self) -> dict:
+        """OpenAI/Groq function-calling schema. Category and tier are stated in the
+        description so the model knows what each tool costs."""
+        return {"type": "function", "function": {
+            "name": self.name,
+            "description": f"[{self.category}; risk: {self.tier.value}] {self.description}",
+            "parameters": self.parameters,
+        }}
+
+
 class BaseAgent:
     """Common plumbing for every agent.
 
     Subclasses set ``name``, ``default_tier`` and optionally ``route_keywords``
     (used by the supervisor's keyword router), then implement ``run()``.
+    Agents converted to the tool loop also implement ``tools()``.
     """
 
     name: str = "base"
@@ -95,3 +154,8 @@ class BaseAgent:
     # ── Work ───────────────────────────────────────────────────
     async def run(self, goal: str, context: dict) -> AgentResult:
         raise NotImplementedError(f"{type(self).__name__}.run() is not implemented")
+
+    def tools(self) -> list:
+        """Tool schemas for the supervisor's loop. Empty = not converted yet; the
+        loop then offers the whole agent as a single delegate tool."""
+        return []

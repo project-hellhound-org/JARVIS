@@ -21,6 +21,22 @@ from core.task_manager import get_task_manager, TaskManager
 from core.task import Task, TaskType, TaskFinding
 
 
+# This engine is the TACTICAL / OSINT namespace (globe, flights, satellites, maritime,
+# conflicts, recon, ground intel, weather, briefing...). General-purpose capabilities
+# that overlapped the agents' catalogue were folded into it -- two plausible tools for
+# one job is how a planner picks wrong:
+FOLDED_ACTIONS = {
+    "inbox": "email: check_inbox / triage_inbox",
+    "calendar": "calendar: list_events",
+    "diagnostics": "system_ops: disk_usage / memory_usage / cpu_and_processes",
+    "top_processes": "system_ops: cpu_and_processes",
+    "search": "assistant: web_search",
+    "memory_recall": "assistant: memory_recall",
+}
+NAMESPACE = "tactical"
+# tool_terminal_exec was removed: an unbounded shell is not something a planner gets.
+
+
 class JarvisCognitiveLoop:
     """
     Multi-Step Autonomous Tactical Cognitive Agent for J.A.R.V.I.S.
@@ -213,36 +229,6 @@ class JarvisCognitiveLoop:
         debrief = we.format_weather_debrief(w)
         return {"success": True, "weather": w, "debrief": debrief}
 
-    def tool_terminal_exec(self, command: str) -> Dict[str, Any]:
-        """Executes authorized system/CLI command."""
-        from core.system_commander import get_system_commander
-        commander = get_system_commander()
-        res = commander.execute(command, timeout=40.0)
-        return {"success": res["success"], "stdout": res.get("stdout", "")[:1000], "exit_code": res.get("exit_code", 0)}
-
-    def tool_web_search(self, query: str) -> Dict[str, Any]:
-        """Performs real-time web search."""
-        from core.system_skills import SystemSkillEngine
-        skills = SystemSkillEngine()
-        intel_summary, raw_results = skills.perform_live_search(query)
-        return {"success": bool(raw_results), "summary": intel_summary[:1200], "results_count": len(raw_results)}
-
-    def tool_diagnostics(self) -> Dict[str, Any]:
-        """Runs live hardware diagnostics."""
-        from modules.system_diagnostics import SystemDiagnosticsEngine
-        diag = SystemDiagnosticsEngine()
-        metrics = diag.get_metrics()
-        debrief = diag.format_tactical_debrief(metrics)
-        return {"success": True, "metrics": metrics, "debrief": debrief}
-
-    def tool_top_processes(self, limit: int = 5, by: str = "cpu") -> Dict[str, Any]:
-        """Inspects top active processes."""
-        from modules.system_controller import SystemController
-        sc = SystemController()
-        procs = sc.get_top_processes(limit=limit, by=by)
-        summary = ", ".join([f"{p['name']} ({p['cpu_percent']}% CPU, {p['memory_percent']}% RAM)" for p in procs[:3]])
-        return {"success": True, "processes": procs, "debrief": f"Top resource processes: {summary}."}
-
     def tool_git_intel(self) -> Dict[str, Any]:
         """Inspects Git repository and version control telemetry."""
         from modules.system_controller import SystemController
@@ -263,20 +249,6 @@ class JarvisCognitiveLoop:
         from modules.system_controller import SystemController
         sc = SystemController()
         debrief = sc.summarize_clipboard()
-        return {"success": True, "debrief": debrief}
-
-    def tool_calendar(self) -> Dict[str, Any]:
-        """Queries calendar schedule and conflicts."""
-        from modules.calendar_intel import CalendarIntelManager
-        cal = CalendarIntelManager()
-        debrief = cal.format_jarvis_reminders()
-        return {"success": True, "debrief": debrief}
-
-    def tool_inbox(self) -> Dict[str, Any]:
-        """Queries unread messages and urgent inbox alerts."""
-        from modules.inbox_intel import InboxIntelManager
-        inbox = InboxIntelManager()
-        debrief = inbox.get_tldr_summary()
         return {"success": True, "debrief": debrief}
 
     def tool_media_control(self, action: str) -> Dict[str, Any]:
@@ -327,28 +299,6 @@ class JarvisCognitiveLoop:
             route = get_osiris_client().get_turn_by_turn_route(c1[0], c1[1], c2[0], c2[1])
             return {"success": True, "from": from_loc, "to": to_loc, "route": route}
         return {"success": False, "from": from_loc, "to": to_loc}
-
-    def tool_memory_recall(self, query: str = "") -> Dict[str, Any]:
-        """Scans memory logs and recent conversational context."""
-        try:
-            from core.jarvis_memory import JarvisMemory
-            mem = JarvisMemory()
-            history = mem.get_recent_speech_patterns(limit=5)
-            sal = self.get_salutation()
-            if history:
-                return {
-                    "success": True,
-                    "count": len(history),
-                    "entries": history,
-                    "debrief": f"Retrieved {len(history)} recent context logs from memory, {sal}."
-                }
-            return {
-                "success": False,
-                "entries": [],
-                "debrief": f"No prior memory records found for that context, {sal}."
-            }
-        except Exception as e:
-            return {"success": False, "error": str(e), "debrief": "Memory retrieval unavailable."}
 
     def tool_live_news(self) -> Dict[str, Any]:
         """Accesses global SIGINT live news broadcasts."""
@@ -530,24 +480,12 @@ Available Tools:
   Parameters: {{"action": "cyber_recon", "target": "<domain, ip, or host>"}}
 - "osint_investigate": Deep OSINT target investigation across social platforms (Sherlock, Maigret), username existence, public profile verification, or email/domain/IP breach and exposure checks.
   Parameters: {{"action": "osint_investigate", "target": "<clean username, email, domain, or IP>", "target_type": "<optional: username|email|domain|ip>"}}
-- "search": Live web search for recent news, facts, people, or real-time online queries.
-  Parameters: {{"action": "search", "query": "<search terms>"}}
-- "diagnostics": System hardware diagnostics, CPU load, RAM usage, thermals.
-  Parameters: {{"action": "diagnostics"}}
-- "top_processes": Audit active system processes and resource hogs by CPU or memory.
-  Parameters: {{"action": "top_processes", "query": "<cpu or memory>"}}
 - "git_intel": Inspect git repository branches, uncommitted changes, and working state.
   Parameters: {{"action": "git_intel"}}
 - "briefing": Executive situational briefing aggregating weather, news, system telemetry.
   Parameters: {{"action": "briefing", "location": "<optional location>"}}
 - "clipboard": Inspect clipboard buffers.
   Parameters: {{"action": "clipboard"}}
-- "calendar": Agenda, upcoming meetings, schedule buffers.
-  Parameters: {{"action": "calendar"}}
-- "inbox": Communications buffer and unread messages.
-  Parameters: {{"action": "inbox"}}
-- "memory_recall": Search past conversation logs and persistent memory.
-  Parameters: {{"action": "memory_recall", "query": "<search topic>"}}
 - "directions": Turn-by-turn road driving route between two points.
   Parameters: {{"action": "directions", "from": "<origin>", "to": "<destination>"}}
 - "live_news": Access 24/7 global SIGINT live news broadcasts.
@@ -564,11 +502,11 @@ Rules:
 2. If weather or traffic is requested but NO location was provided at all in the prompt, set location to null.
 3. For compound directives (e.g. "Navigate to Mumbai and see how traffic is flowing"), return all required actions in execution order: nav, traffic.
 4. If the directive is general conversation, a question answerable without tools, or does not need these tools, return [].
-5. Distinguish OSINT vs Cyber Recon vs Search:
+5. Distinguish OSINT vs Cyber Recon:
    - Use "osint_investigate" when the user wants to find accounts, profiles, or usernames online, check if a username exists, check an email or account for breaches/leaks/exposure, or asks "who is <x> online".
    - Use "cyber_recon" for technical infrastructure reconnaissance (DNS records, WHOIS registration, IP network blocks, Shodan open ports).
-   - Use "search" for general questions, news, websites, and general web information.
-6. Output ONLY a valid raw JSON array of objects. No markdown formatting, no explanations."""
+6. This engine is the TACTICAL namespace only. Email, calendar, the operator's own files, this computer's processes/disk/memory, general web searches and what JARVIS remembers are handled by the assistant agents: return [] for those.
+7. Output ONLY a valid raw JSON array of objects. No markdown formatting, no explanations."""
 
         sys_prompt = "You are a precise tactical tool-selection agent. Output a raw JSON array of objects only."
 
@@ -593,6 +531,8 @@ Rules:
                             if not isinstance(item, dict) or "action" not in item:
                                 continue
                             action = item.get("action")
+                            if action in FOLDED_ACTIONS:
+                                continue  # belongs to the agents' catalogue now
                             # Check missing location for traffic / weather
                             if action in ("traffic", "weather") and not item.get("location"):
                                 if active_location:
@@ -683,18 +623,6 @@ Rules:
 
         text_lower = user_text.lower().strip()
         sal = self.get_salutation()
-
-        # Check explicit web search directives first
-        m_explicit_search = re.search(r'^(?:google\s+search|search\s+google|search\s+the\s+web|web\s+search)\s+(?:for\s+|about\s+|on\s+)?(.+)', text_lower)
-        if m_explicit_search:
-            q = m_explicit_search.group(1).strip()
-            q = re.sub(r'^(?:do\s+a|can\s+you|please|for|about)\s+', '', q, flags=re.IGNORECASE).strip()
-            if q:
-                return [{
-                    "action": "search",
-                    "query": q,
-                    "progress_phrase": f"Scanning real-time web intelligence for '{q}'..."
-                }]
 
         # Check explicit turn-by-turn routing directives
         has_directions = any(kw in text_lower for kw in [
@@ -862,21 +790,11 @@ Rules:
         elif not loc_candidate and active_location and any(re.search(rf'\b{w}\b', text_lower) for w in ["there", "here", "this area", "this place"]):
             loc_candidate = active_location
 
-        has_search = bool(re.search(r'\b(?:google\s+search|web\s+search|search\s+(?:the\s+web|google|online))\b', text_lower))
         has_briefing = any(w in text_lower for w in ["good morning", "briefing", "situational briefing", "status report", "morning protocol", "executive briefing", "how is the day looking", "how does the day look"]) and not any(w in text_lower for w in ["warzone", "conflict", "frontline", "cyber", "flight", "weather"])
-        has_diag = any(w in text_lower for w in ["diagnostic", "system resource", "hardware stat", "cpu load", "thermals", "system status", "hardware status", "system telemetry", "resource monitor"])
-        has_proc = any(w in text_lower for w in ["top process", "highest cpu", "highest memory", "what's using", "whats using", "memory hog", "cpu hog", "kill process", "terminate process", "running processes"])
         has_git = any(w in text_lower for w in ["git status", "repo status", "git branch", "uncommitted", "repository status", "git diff"])
-        has_calendar = any(w in text_lower for w in ["calendar", "schedule", "my meetings", "upcoming event", "agenda", "double booking"])
-        has_inbox = any(w in text_lower for w in ["scan email", "inbox", "urgent mail", "unread message", "check mail", "panic text"])
         has_clip = any(w in text_lower for w in ["clipboard", "what's on my clipboard", "whats on my clipboard", "read clipboard", "copied"])
         has_vol = any(w in text_lower for w in ["volume up", "volume down", "mute", "unmute", "set volume"])
         has_media = any(w in text_lower for w in ["pause music", "resume music", "play music", "next track", "previous track", "stop music"])
-        has_memory = any(kw in text_lower for kw in [
-            "do you remember", "what did we", "what did i", "recall our", "recall the",
-            "what did we discuss", "did we discuss", "remind me what", "past discussion",
-            "what was that", "search memory", "recall memory"
-        ])
         has_news = any(kw in text_lower for kw in [
             "live news", "world news", "breaking news", "news broadcast", "sigint broadcast", "latest news"
         ])
@@ -976,35 +894,10 @@ Rules:
                 "progress_phrase": f"Compiling multi-source executive situational briefing, {sal}..."
             })
 
-        if has_diag:
-            plan_steps.append({
-                "action": "diagnostics",
-                "progress_phrase": f"Querying live hardware diagnostic sensors and CPU telemetry, {sal}..."
-            })
-
-        if has_proc:
-            plan_steps.append({
-                "action": "top_processes",
-                "query": user_text,
-                "progress_phrase": f"Auditing active processes and resource allocation, {sal}..."
-            })
-
         if has_git:
             plan_steps.append({
                 "action": "git_intel",
                 "progress_phrase": f"Inspecting repository branch and working directory state, {sal}..."
-            })
-
-        if has_calendar:
-            plan_steps.append({
-                "action": "calendar",
-                "progress_phrase": f"Scanning your agenda and scheduling buffers, {sal}..."
-            })
-
-        if has_inbox:
-            plan_steps.append({
-                "action": "inbox",
-                "progress_phrase": f"Scanning inbox dispatches and priority communications, {sal}..."
             })
 
         if has_clip:
@@ -1018,13 +911,6 @@ Rules:
                 "action": "media_control",
                 "command": user_text,
                 "progress_phrase": f"Dispatching audio/media command to system controller, {sal}..."
-            })
-
-        if has_memory:
-            plan_steps.append({
-                "action": "memory_recall",
-                "query": user_text,
-                "progress_phrase": f"Querying long-term cognitive episodic and semantic memory banks, {sal}..."
             })
 
         if has_news:
@@ -1045,14 +931,6 @@ Rules:
             plan_steps.append({
                 "action": "conflicts",
                 "progress_phrase": f"Aggregating geopolitical and active warzone intelligence telemetry, {sal}..."
-            })
-
-        if not plan_steps and has_search:
-            clean_q = re.sub(r'^(?:search|google|find|look up)\s+(?:for\s+|about\s+)?', '', text_lower).strip()
-            plan_steps.append({
-                "action": "search",
-                "query": clean_q or user_text,
-                "progress_phrase": f"Scanning real-time web intelligence for '{clean_q}'..."
             })
 
         return plan_steps
@@ -1138,7 +1016,7 @@ Rules:
                         )
                         pts = media_res.get("points") or media_res.get("media_points") or []
                         if pts:
-                            want_open = bool(step.get("open_media") or any(s.get("action") == "ground_intel" for s in plan))
+                            want_open = bool(step.get("open_media") or any(s.get("action") == "ground_intel" for s in steps))
                             if want_open:
                                 self.tool_tactical_layer("groundMedia", True)
                             self.bus.emit("control_ground_intel", {
@@ -1264,7 +1142,7 @@ Rules:
                     obs["result"] = f"Completed OSINT cyber recon sweep for {step.get('target')}."
 
                 elif action == "osint_investigate":
-                    tgt = str(step.get("target") or user_prompt).strip().strip("'\"<>:;,?")
+                    tgt = str(step.get("target") or user_text).strip().strip("'\"<>:;,?")
                     from core.investigation_gate import request_investigation
                     gate_res = request_investigation(tgt, source="cognitive", via="cognitive_loop")
                     target_obj = gate_res.get("result")
@@ -1288,20 +1166,6 @@ Rules:
                     res = self.tool_osiris_directions(step.get("from", "Origin"), step.get("to", "Destination"))
                     obs["result"] = f"Computed Valhalla turn-by-turn road route between {step.get('from')} and {step.get('to')}."
 
-                elif action == "search":
-                    res = self.tool_web_search(step["query"])
-                    obs["result"] = res.get("summary", "Live search complete.")
-
-                elif action == "diagnostics":
-                    res = self.tool_diagnostics()
-                    obs["result"] = res.get("debrief", "Hardware diagnostics completed.")
-
-                elif action == "top_processes":
-                    q = step.get("query", "").lower()
-                    by = "memory" if any(w in q for w in ["memory", "ram"]) else "cpu"
-                    res = self.tool_top_processes(limit=4, by=by)
-                    obs["result"] = res.get("debrief", "Top process audit completed.")
-
                 elif action == "git_intel":
                     res = self.tool_git_intel()
                     obs["result"] = res.get("debrief", "Git repository telemetry acquired.")
@@ -1313,18 +1177,6 @@ Rules:
                 elif action == "clipboard":
                     res = self.tool_clipboard()
                     obs["result"] = res.get("debrief", "Clipboard inspect complete.")
-
-                elif action == "calendar":
-                    res = self.tool_calendar()
-                    obs["result"] = res.get("debrief", "Calendar agenda synchronized.")
-
-                elif action == "inbox":
-                    res = self.tool_inbox()
-                    obs["result"] = res.get("debrief", "Communications buffer scanned.")
-
-                elif action == "memory_recall":
-                    res = self.tool_memory_recall(step.get("query", ""))
-                    obs["result"] = res.get("debrief", "Memory scan completed.")
 
                 elif action == "live_news":
                     res = self.tool_live_news()

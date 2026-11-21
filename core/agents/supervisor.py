@@ -8,6 +8,15 @@ bridge gives ``handle()`` ~2 s before falling back to chat).
 
 What it does beyond dispatch:
 
+* Manager   -- agents that expose ``tools()`` (Email so far) are driven by the tool
+               loop (tool_loop.py): the model picks tools from one catalogue and the
+               loop runs them, with budgets, loop detection, failure escalation,
+               provenance checks, and pause/resume around confirmations. Agents not
+               converted yet appear in that catalogue as one ``ask_<agent>`` tool.
+               The keyword router below stays as the fast path for everything else.
+* Events    -- ``handle_event()`` is the second entry point, for things JARVIS
+               notices itself (``agent_event`` on the bus); it may read and draft,
+               never act.
 * Routing   -- LLM planner (Groq, using the existing GROQ_API_KEY; local Ollama as a
                slower backup) that can split a request into steps and chain agents
                ("find X and email it"). Keyword matching stays as the instant fallback.
@@ -44,6 +53,7 @@ from core.agents.narration_queue import (
     PRIORITY_FAILURE,
     PRIORITY_RESULT,
 )
+from core.agents.tool_loop import Budget, ToolLoop, delegate_tool, new_run_id
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -222,6 +232,110 @@ async def llm_chat(system: str, user: str, *, json_mode: bool = False, max_token
     raise LLMUnavailable("; ".join(errors) or "no LLM configured")
 
 
+async def llm_chat_tools(messages: List[dict], tools: List[dict], *, max_tokens: int = 900,
+                         timeout: float = 20.0, temperature: float = 0.1) -> dict:
+    """One tool-calling turn. Groq only (EXISTING GROQ_API_KEY): local models are
+    not reliable enough at function calling to drive actions.
+
+    Returns ``{"content": str, "tool_calls": [{"id", "name", "arguments"}], "tokens": int,
+    "message": <assistant message to append to the history>}``. ``arguments`` is
+    the raw JSON string the model produced. Raises LLMUnavailable.
+    """
+    if not llm_enabled():
+        raise LLMUnavailable("LLM disabled")
+    key = _config("GROQ_API_KEY")
+    if not key:
+        raise LLMUnavailable("no Groq key configured")
+    import httpx
+
+    errors = []
+    # Each Groq model has its own per-minute limit, so a rate-limited model is
+    # skipped (until its cooldown ends) and the next one is tried.
+    now = time.monotonic()
+    models = [m for m in dict.fromkeys(m for m in [_config("groq_model")] + _GROQ_FALLBACK_MODELS if m)
+              if now >= _tool_model_cooldown.get(m, 0.0)]
+    if not models:
+        raise LLMUnavailable("groq rate-limited")
+    async with httpx.AsyncClient(timeout=timeout) as http:
+        waited = False
+        queue = list(models)
+        while queue:
+            model = queue.pop(0)
+            body: Dict[str, Any] = {"model": model, "temperature": temperature, "max_tokens": max_tokens,
+                                    "messages": messages}
+            if tools:
+                body["tools"] = tools
+                body["tool_choice"] = "auto"
+            if "gpt-oss" in model:
+                body["reasoning_effort"] = "low"
+            try:
+                resp = await http.post(_GROQ_URL, headers={"Authorization": f"Bearer {key}"}, json=body)
+            except (httpx.HTTPError, OSError) as exc:
+                errors.append(type(exc).__name__)
+                break
+            if resp.status_code == 429:
+                # Per-minute token limits are common on the free tier: a short wait
+                # usually clears it, so wait once if Groq says it's brief.
+                retry = _retry_after(resp)
+                if not waited and retry is not None and retry <= 4:
+                    waited = True
+                    await asyncio.sleep(retry + 0.25)
+                    queue.insert(0, model)
+                    continue
+                _tool_model_cooldown[model] = time.monotonic() + min(60.0, retry if retry is not None else 60.0)
+                errors.append("groq rate-limited")
+                continue  # next model: separate limit
+            if resp.status_code >= 400:
+                errors.append(f"groq {resp.status_code}")
+                continue  # model retired, or doesn't support tools -> next one
+            data = resp.json()
+            msg = (data.get("choices") or [{}])[0].get("message") or {}
+            calls = []
+            for c in msg.get("tool_calls") or []:
+                fn = c.get("function") or {}
+                if fn.get("name"):
+                    calls.append({"id": c.get("id") or f"call_{uuid.uuid4().hex[:8]}", "name": fn["name"],
+                                  "arguments": fn.get("arguments") or "{}"})
+            assistant = {"role": "assistant", "content": msg.get("content") or ""}
+            if calls:
+                assistant["tool_calls"] = [{"id": c["id"], "type": "function",
+                                            "function": {"name": c["name"], "arguments": c["arguments"]}}
+                                           for c in calls]
+            return {"content": _strip_think(msg.get("content") or ""), "tool_calls": calls,
+                    "tokens": int((data.get("usage") or {}).get("total_tokens") or 0), "message": assistant}
+    raise LLMUnavailable("; ".join(errors) or "groq unavailable")
+
+
+def _retry_after(resp) -> Optional[float]:
+    """Seconds Groq asks us to wait (Retry-After header, or 'try again in 2.5s' in the body)."""
+    try:
+        value = resp.headers.get("retry-after")
+        if value:
+            return float(value)
+    except (TypeError, ValueError):
+        pass
+    try:
+        m = re.search(r"try again in (?:(\d+)m)?([\d.]+)s", resp.text or "")
+        if m:
+            return float(m.group(1) or 0) * 60 + float(m.group(2))
+    except Exception:
+        pass
+    return None
+
+
+_tool_model_cooldown: Dict[str, float] = {}
+
+
+def tool_llm_available() -> bool:
+    """Can the tool loop run at all? (Cheap check: no network.) True while at least
+    one Groq model isn't cooling down after a rate limit."""
+    if not (llm_enabled() and _config("GROQ_API_KEY")):
+        return False
+    now = time.monotonic()
+    models = [m for m in [_config("groq_model")] + _GROQ_FALLBACK_MODELS if m]
+    return any(now >= _tool_model_cooldown.get(m, 0.0) for m in models)
+
+
 def _strip_think(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text or "", flags=re.S | re.I).strip()
 
@@ -284,10 +398,25 @@ _PLANNER_SYSTEM = (
 )
 
 
+class _PendingOwner:
+    """Who a loop's pending confirmation belongs to (for TTL, restart replay, 'yes to the email')."""
+
+    def __init__(self, name: str, cls: Optional[type]):
+        self.name = name
+        self.confirmation_ttl = getattr(cls, "confirmation_ttl", None)
+
+
 class JarvisSupervisor:
+    """Routes requests; runs the tool loop for agents that expose tools().
+
+    Entry points: ``handle(user_text)`` for the operator, ``handle_event(event)``
+    for things JARVIS notices by itself (follow-ups due, watchers...).
+    """
+
     def __init__(self, event_bus, narration_queue, registry: Dict[str, type], *,
                  llm_router: Optional[bool] = None, task_timeout: float = DEFAULT_TASK_TIMEOUT_S,
-                 confirmation_ttl: float = DEFAULT_CONFIRMATION_TTL_S, persist: Optional[bool] = None):
+                 confirmation_ttl: float = DEFAULT_CONFIRMATION_TTL_S, persist: Optional[bool] = None,
+                 tool_llm: Optional[Callable] = None, loop_budget: Optional[Budget] = None):
         self.event_bus = event_bus
         self.narration = narration_queue
         self.registry = registry
@@ -307,6 +436,19 @@ class JarvisSupervisor:
         self._expiry_handles: Dict[str, asyncio.TimerHandle] = {}
         self._restored = False
         self.audit_log = AUDIT_MEMORY
+        self._tool_llm = tool_llm            # injected for tests; default: Groq via llm_chat_tools
+        self.loop_budget = loop_budget or Budget()
+        self.loops: Dict[str, ToolLoop] = {}  # paused / running tool loops by run id
+        self._event_loop: Optional[asyncio.AbstractEventLoop] = None
+        from core.agents.sensing import WorldModel, register_listener
+        self.world = WorldModel(self)
+        self.deferred_events: List[dict] = []   # routine events held while the operator is busy
+        self._flush_handle: Optional[asyncio.TimerHandle] = None
+        try:
+            event_bus.subscribe("agent_event", self._on_agent_event)
+            register_listener(event_bus)  # sensors now hand their observations to us instead of speaking
+        except Exception:
+            pass
 
     # ── Routing ────────────────────────────────────────────────
     def _route(self, user_text: str, context: Optional[dict] = None) -> List[str]:
@@ -354,11 +496,7 @@ class JarvisSupervisor:
         """LLM routing/decomposition. None = LLM unavailable/slow (use keywords)."""
         if not self.llm_router or not self.registry:
             return None
-        lines = []
-        for name, cls in self.registry.items():
-            desc = (getattr(cls, "description", "") or _FALLBACK_DESCRIPTIONS.get(name)
-                    or ((cls.__doc__ or "").strip().splitlines() or [""])[0])
-            lines.append(f"- {name}: {desc}")
+        lines = [f"- {name}: {_describe(name, cls)}" for name, cls in self.registry.items()]
         try:
             raw = await asyncio.wait_for(
                 llm_chat(_PLANNER_SYSTEM.format(agents="\n".join(lines)), user_text, json_mode=True,
@@ -397,6 +535,9 @@ class JarvisSupervisor:
             return control
 
         keyword_steps = self._keyword_plan(text)
+        if self._loop_wanted(keyword_steps):
+            # A converted agent is involved: the manager loop owns the whole request.
+            return [self._start_loop(text, context, world_lines=await self._world_lines())]
         if keyword_steps:
             if not self.llm_router:
                 return self._dispatch_plan(text, keyword_steps, context)
@@ -411,6 +552,8 @@ class JarvisSupervisor:
 
         # No keyword hit: give the LLM a short, bounded chance to claim it.
         steps = await self._llm_plan(text, LLM_ROUTE_BUDGET_S)
+        if self._loop_wanted(steps):
+            return [self._start_loop(text, context, world_lines=await self._world_lines())]
         if steps:
             return self._dispatch_plan(text, steps, context)
         return []
@@ -421,6 +564,12 @@ class JarvisSupervisor:
             if not steps:
                 steps = fallback  # LLM unavailable or said "none": trust the keyword hit
             write_audit("plan", task_id=plan_id, goal=text, steps=steps)
+            if self._loop_wanted(steps):
+                loop_id = self._start_loop(text, context, world_lines=await self._world_lines())
+                if plan_id in self._meta:
+                    self._meta[plan_id]["children"] = [loop_id]
+                task = self.active.get(loop_id)
+                return await task if task else None
             ids = self._dispatch_plan(text, steps, context, parent=plan_id)
             if plan_id in self._meta:
                 self._meta[plan_id]["children"] = list(ids)
@@ -467,6 +616,195 @@ class JarvisSupervisor:
         write_audit("dispatch", task_id=task_id, agent=name, goal=goal)
         self._save_state()
         return task_id
+
+    # ── Tool loop (the manager) ─────────────────────────────────
+    @staticmethod
+    def _is_tool_agent(cls: Optional[type]) -> bool:
+        return cls is not None and getattr(cls, "tools", BaseAgent.tools) is not BaseAgent.tools
+
+    def _loop_available(self) -> bool:
+        if self._tool_llm is not None:
+            return True
+        return bool(self.llm_router) and tool_llm_available()
+
+    def _loop_wanted(self, steps: Optional[List[dict]]) -> bool:
+        return bool(steps) and self._loop_available() and any(
+            self._is_tool_agent(self.registry.get(s.get("agent"))) for s in steps)
+
+    def _start_loop(self, text: str, context: dict, *, origin: str = "user", event_data: Any = None,
+                    categories: Optional[tuple] = None, world_lines: Optional[List[str]] = None) -> str:
+        """Build the catalogue for this request and run the loop in the background."""
+        run_id = new_run_id()
+        tools, lines = [], list(world_lines or [])
+        for name, cls in self.registry.items():
+            if self._is_tool_agent(cls):
+                agent = cls(self.event_bus, run_id, name=name, goal=text)
+                for spec in agent.tools():
+                    if categories is None or spec.category in categories:
+                        spec.agent = spec.agent or name
+                        tools.append(spec)
+                ctx_fn = getattr(cls, "loop_context", None)
+                if callable(ctx_fn):
+                    try:
+                        lines += list(ctx_fn() or [])
+                    except Exception:
+                        pass
+            else:
+                spec = delegate_tool(name, cls,
+                                     lambda name=name, cls=cls: cls(self.event_bus, run_id, name=name, goal=text),
+                                     _describe(name, cls))
+                if categories is None or spec.category in categories:
+                    tools.append(spec)
+
+        def _say(fact: str) -> None:
+            self.event_bus.emit("agent_progress", {"task_id": run_id, "agent": "supervisor", "goal": text,
+                                                   "fact": fact, "priority": 5})
+
+        loop = ToolLoop(run_id=run_id, goal=text, tools=tools, llm=self._tool_llm or llm_chat_tools,
+                        origin=origin, budget=self.loop_budget, context_lines=lines, event_data=event_data,
+                        say=_say, audit=write_audit, pending_lookup=self._pending_for_draft,
+                        on_outcome=_record_feedback)
+        self.loops[run_id] = loop
+        self._meta[run_id] = {"agent": "supervisor", "goal": text, "context": _json_safe(context), "started": time.time()}
+        self.narration.track_task(run_id, "supervisor", text)
+        self.active[run_id] = asyncio.create_task(self._run_loop(run_id, text, loop.run()), name=f"loop:{run_id}")
+        write_audit("dispatch_loop", task_id=run_id, goal=text, origin=origin, tools=[t.name for t in tools])
+        return run_id
+
+    async def _run_loop(self, run_id: str, goal: str, step) -> Optional[AgentResult]:
+        try:
+            result = await step
+            self.narration.finish_task(run_id)
+            self._finish_loop_step(run_id, goal, result)
+            return result
+        except asyncio.CancelledError:
+            write_audit("cancelled", task_id=run_id, agent="supervisor")
+            self.loops.pop(run_id, None)
+            raise
+        finally:
+            self.narration.finish_task(run_id)
+            self.active.pop(run_id, None)
+            self._meta.pop(run_id, None)
+            self._save_state()
+
+    def _finish_loop_step(self, run_id: str, goal: str, result: AgentResult) -> None:
+        """Speak a loop's outcome, or park it as a pending confirmation (paused)."""
+        if result.status == "needs_confirmation":
+            owner_name = (result.pending_action or {}).get("agent") or "supervisor"
+            owner = _PendingOwner(owner_name, self.registry.get(owner_name))
+            pending_id = f"{run_id}-c{uuid.uuid4().hex[:4]}"
+            result.pending_action["loop_id"] = run_id
+            self._add_pending(pending_id, owner, goal, result)
+            return
+        self.loops.pop(run_id, None)
+        write_audit("result", task_id=run_id, agent="supervisor", status=result.status, summary=result.summary)
+        priority, kind = (PRIORITY_RESULT, "result") if result.status == "done" else (PRIORITY_FAILURE, "failure")
+        self.narration.enqueue(result.summary, priority, kind=kind, task_id=run_id,
+                               context={"agent": "supervisor", "goal": goal})
+
+    def _pending_for_draft(self, details: dict) -> Optional[str]:
+        """A new send for a draft replaces an older unanswered send of the same draft."""
+        draft_id = (details or {}).get("draft_id")
+        if not draft_id:
+            return None
+        for tid, entry in reversed(list(self.pending.items())):
+            if (entry.get("pending_action") or {}).get("draft_id") == draft_id:
+                return tid
+        return None
+
+    # ── Events: things JARVIS notices by itself ─────────────────
+    def _on_agent_event(self, payload: dict) -> None:
+        """Event-bus callback (any thread): schedule handle_event on the supervisor's loop."""
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        target = self._event_loop
+        if running is not None and (target is None or running is target):
+            running.create_task(self.handle_event(payload))
+        elif target is not None and not target.is_closed():
+            asyncio.run_coroutine_threadsafe(self.handle_event(payload), target)
+
+    async def handle_event(self, event: dict) -> List[str]:
+        """Second entry point. ``event`` = {source, kind, summary, goal?, data?}.
+
+        With a ``goal`` and the tool loop available, the loop works on it with
+        read and draft tools only: an event can prepare things but never act.
+        Otherwise the summary is simply spoken.
+        """
+        await self._ensure_restored()
+        event = dict(event or {})
+        write_audit("event", source=event.get("source"), kind=event.get("kind"), summary=event.get("summary"),
+                    severity=event.get("severity"))
+        snap = await self.world.snapshot()
+        if snap.busy() and event.get("severity") != "critical" and not event.get("timely"):
+            # In a meeting / quiet mode: hold routine news, deliver it afterwards in one go.
+            self.deferred_events.append(event)
+            del self.deferred_events[:-20]
+            write_audit("event_deferred", kind=event.get("kind"), in_meeting=snap.in_meeting, quiet=snap.quiet_mode)
+            self._schedule_flush()
+            return []
+        await self.flush_deferred(snap)
+        goal = str(event.get("goal") or "").strip()
+        if goal and self._loop_available():
+            return [self._start_loop(goal, {}, origin="event", event_data=event.get("data"),
+                                     categories=("read", "draft"), world_lines=snap.context_lines())]
+        summary = str(event.get("summary") or "").strip()
+        if summary:
+            self.narration.enqueue(summary, PRIORITY_RESULT, kind="result",
+                                   task_id=f"event-{uuid.uuid4().hex[:6]}",
+                                   context={"agent": event.get("source") or "supervisor"})
+        return []
+
+    async def flush_deferred(self, snap=None) -> int:
+        """Deliver events held during a meeting / quiet mode, as one spoken line."""
+        if not self.deferred_events:
+            return 0
+        snap = snap or await self.world.snapshot()
+        if snap.busy():
+            return 0
+        held, self.deferred_events = self.deferred_events, []
+        parts = list(dict.fromkeys(str(e.get("summary") or "").strip().rstrip(".") for e in held if e.get("summary")))
+        if parts:
+            self.narration.enqueue("While you were busy: " + "; ".join(parts[:5])
+                                   + (f"; and {len(parts) - 5} more" if len(parts) > 5 else ""),
+                                   PRIORITY_RESULT, kind="result", task_id=f"deferred-{uuid.uuid4().hex[:6]}",
+                                   context={"agent": "supervisor"})
+        write_audit("events_delivered", count=len(held))
+        return len(held)
+
+    def _schedule_flush(self, delay: float = 120.0) -> None:
+        if self._flush_handle is not None and not self._flush_handle.cancelled():
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+
+        def _tick():
+            self._flush_handle = None
+            if self.deferred_events:
+                self._flush_task = loop.create_task(self._flush_then_reschedule(), name="deferred-events")
+
+        self._flush_handle = loop.call_later(delay, _tick)
+
+    async def _flush_then_reschedule(self) -> None:
+        try:
+            self.world.invalidate()  # the meeting may have ended: ask the calendar again
+            await self.flush_deferred()
+        finally:
+            if self.deferred_events:
+                self._schedule_flush()
+
+    async def _world_lines(self) -> List[str]:
+        """Context for a user request: cheap (no calendar call on the request path)."""
+        try:
+            snap = await self.world.snapshot(refresh_calendar=False)
+            if snap.in_meeting is None:  # unknown yet: refresh in the background for next time
+                asyncio.get_running_loop().create_task(self.world.snapshot())
+            return snap.context_lines()
+        except Exception:
+            return []
 
     # ── Running ────────────────────────────────────────────────
     async def _run_agent(self, agent: BaseAgent, goal: str, context: dict) -> AgentResult:
@@ -704,6 +1042,7 @@ class JarvisSupervisor:
         if not entry:
             return
         self._drop_pending(task_id)
+        self.loops.pop((entry.get("pending_action") or {}).get("loop_id"), None)
         write_audit("expired", task_id=task_id, agent=entry["agent"], summary=entry["summary"])
         self.narration.enqueue(f"I've dropped the unanswered request ({_short(entry['summary'])}); nothing was changed",
                                PRIORITY_RESULT, kind="result", task_id=f"{task_id}-expired")
@@ -728,6 +1067,9 @@ class JarvisSupervisor:
             return None
         ctx = {"agent": entry["agent"], "goal": entry["goal"]}
         if not approved:
+            self.loops.pop((entry.get("pending_action") or {}).get("loop_id"), None)
+            if (entry.get("pending_action") or {}).get("tool"):
+                _record_feedback(entry["pending_action"]["tool"], False, "operator declined")
             write_audit("denied", task_id=task_id, agent=entry["agent"], summary=entry["summary"])
             self.narration.enqueue("Cancelled; nothing was changed", PRIORITY_RESULT, kind="result",
                                    task_id=task_id, context=ctx)
@@ -763,6 +1105,11 @@ class JarvisSupervisor:
                 outcome = AgentResult(status="done", summary=str(outcome) if outcome else "Done")
             self.narration.finish_task(run_id)
             write_audit("executed", task_id=run_id, agent=entry["agent"], status=outcome.status, summary=outcome.summary)
+            loop_id = action.get("loop_id")
+            if loop_id:
+                # A resumed tool loop: it may have finished, or paused again on a later step.
+                self._finish_loop_step(loop_id, entry["goal"], outcome)
+                return outcome
             priority, kind = (PRIORITY_RESULT, "result") if outcome.status == "done" else (PRIORITY_FAILURE, "failure")
             self.narration.enqueue(outcome.summary, priority, kind=kind, task_id=run_id, context=ctx)
             return outcome
@@ -787,6 +1134,11 @@ class JarvisSupervisor:
         save_json_state("supervisor_state.json", {"pending": pending, "active": active, "saved": time.time()})
 
     async def _ensure_restored(self) -> None:
+        if self._event_loop is None:
+            try:
+                self._event_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
         if self._restored:
             return
         self._restored = True
@@ -840,6 +1192,19 @@ class JarvisSupervisor:
         if bits:
             self.narration.enqueue("Since the restart: " + "; ".join(bits), PRIORITY_RESULT, kind="progress")
         self._save_state()
+
+
+def _record_feedback(tool: str, ok: bool, note: str = "") -> None:
+    try:
+        from core.agents.sensing import Feedback
+        Feedback.record(tool, ok, note)
+    except Exception:
+        pass
+
+
+def _describe(name: str, cls: type) -> str:
+    return (getattr(cls, "description", "") or _FALLBACK_DESCRIPTIONS.get(name)
+            or ((cls.__doc__ or "").strip().splitlines() or [""])[0])
 
 
 def _short(text: str, n: int = 60) -> str:
