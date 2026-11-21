@@ -231,6 +231,17 @@ class AmbientSentinel:
             except Exception:
                 pass
 
+            # Hand it to the agent framework when it's running (it looks into the alert,
+            # holds routine ones during meetings, and speaks); otherwise speak it here.
+            try:
+                from core.agents.sensing import emit_event, sentinel_event
+                ev = sentinel_event(alert)
+                if emit_event(ev["source"], ev["kind"], ev["summary"], goal=ev["goal"], data=ev["data"],
+                              severity=ev["severity"], timely=ev.get("timely", False)):
+                    continue
+            except Exception:
+                pass
+
             # Vocalize if voice notifier hooked
             if self.voice_notifier and callable(self.voice_notifier):
                 try:

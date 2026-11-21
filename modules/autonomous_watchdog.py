@@ -78,6 +78,7 @@ class AutonomousWatchdog:
         self.boot_time = time.time()
         self.previous_shutdown_time = 0.0
         self.needs_catchup_briefing = False
+        self.returned_after_sec = float(self.config.get("catchup_after_idle_hours", 4)) * 3600.0
 
         self._load_state()
 
@@ -127,7 +128,13 @@ class AutonomousWatchdog:
 
     def record_user_activity(self):
         """Invoke whenever user types, speaks, or interacts with the console."""
-        self.last_user_activity = time.time()
+        now = time.time()
+        away = now - self.last_user_activity
+        self.last_user_activity = now
+        # Back after a long absence (without a reboot): the agents give a catch-up.
+        if away >= self.returned_after_sec and not self.needs_catchup_briefing:
+            threading.Thread(target=self._dispatch_catchup_briefing, args=(away / 3600.0,),
+                             name="WatchdogCatchup", daemon=True).start()
 
     def get_idle_seconds(self) -> float:
         return time.time() - self.last_user_activity
@@ -181,8 +188,29 @@ class AutonomousWatchdog:
             # Sleep between loop iterations (20s)
             self._stop_event.wait(20.0)
 
-    def _dispatch_catchup_briefing(self):
-        """Brief operator on status after laptop power-off or prolonged sleep."""
+    def _dispatch_catchup_briefing(self, hours_away: Optional[float] = None):
+        """Brief operator on status after laptop power-off, sleep, or a long absence."""
+        if hours_away is None:
+            hours_away = max(1.0, (time.time() - self.previous_shutdown_time) / 3600.0) if self.previous_shutdown_time else 1.0
+        # With the agent framework running, the briefing is built from live tools
+        # (inbox, calendar, follow-ups) instead of a canned line.
+        try:
+            from core.agents.sensing import agents_listening, catchup_event, emit_event
+            if agents_listening():
+                briefing = None
+                try:
+                    from modules.situational_briefing import SituationalBriefingEngine
+                    briefing = SituationalBriefingEngine().generate_briefing()
+                except Exception:
+                    briefing = None
+                ev = catchup_event(hours_away, briefing)
+                if emit_event(ev["source"], ev["kind"], ev["summary"], goal=ev["goal"], data=ev["data"],
+                              severity=ev["severity"]):
+                    self.notifier.send_desktop_notification(title="J.A.R.V.I.S. Online", message=ev["summary"],
+                                                            urgency="normal")
+                    return
+        except Exception as e:
+            print(f"[autonomous_watchdog] Agent catch-up notice: {e}")
         try:
             briefing_text = (
                 "Welcome back, Sir. Orbital telemetry and local monitoring have resumed. "
@@ -364,8 +392,18 @@ class AutonomousWatchdog:
             except Exception as e:
                 print(f"[autonomous_watchdog] HUD alert callback notice: {e}")
 
-        # 4. Voice TTS Speech
-        if self.voice_speak_callback and text:
+        # 4. Agent framework (looks into it, holds routine news during meetings, speaks) ...
+        handed_over = False
+        try:
+            from core.agents.sensing import emit_event, watchdog_event
+            ev = watchdog_event(alert)
+            handed_over = emit_event(ev["source"], ev["kind"], ev["summary"], goal=ev["goal"], data=ev["data"],
+                                     severity=ev["severity"])
+        except Exception:
+            handed_over = False
+
+        # 5. ... or Voice TTS Speech when the agents aren't running
+        if self.voice_speak_callback and text and not handed_over:
             try:
                 self.voice_speak_callback(text)
             except Exception as e:

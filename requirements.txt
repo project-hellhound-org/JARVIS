@@ -25,3 +25,5 @@ websockets
 google-auth-oauthlib>=1.2.0
 google-api-python-client>=2.100.0
 cryptography>=42.0.0
+# IANA time zones for Google Calendar times on Windows (Linux/WSL use the system database)
+tzdata>=2024.1

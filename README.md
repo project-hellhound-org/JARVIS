@@ -378,54 +378,80 @@ All actions can be triggered via slash commands or natural language:
 
 ## Autonomous Agents & Account Integrations
 
-Alongside the OSINT core, J.A.R.V.I.S. includes a multi-agent assistant layer (`core/agents/`). A **supervisor** reads each request, sends it to the right agent (or several at once), and runs them in the background without blocking the voice loop. Progress is narrated in the J.A.R.V.I.S. persona through a paced **narration queue**.
+Alongside the OSINT core, J.A.R.V.I.S. includes a multi-agent assistant layer (`core/agents/`). A **supervisor** acts as the manager: it gives the model one catalogue of tools from every agent, runs an **act → observe → decide** loop until the request is done, and does all of it in the background without blocking the voice loop. Progress is narrated in the J.A.R.V.I.S. persona through a paced **narration queue**. Background sensors feed the same supervisor, so J.A.R.V.I.S. can look into what it notices instead of only announcing it.
 
 ```mermaid
 flowchart LR
-    REQ(["Voice / Desktop request"]) --> SUP["Agent Supervisor<br/>LLM routing (existing Groq key)<br/>keyword fallback"]
-    SUP --> LR["Local Research"]
-    SUP --> SO["System Ops"]
-    SUP --> EM["Email (Gmail)"]
-    SUP --> CA["Calendar (Google)"]
-    LR & SO & EM & CA --> CONF{{"Risk tier check<br/>READ / WRITE / DESTRUCTIVE"}}
-    CONF -- destructive --> ASK["Asks you first<br/>yes / no"]
-    CONF -- safe --> NQ["Narration Queue<br/>persona lines, paced speech"]
-    ASK --> NQ
+    REQ(["Voice / Desktop request"]) --> SUP["Supervisor<br/>tool loop (existing Groq key)<br/>keyword fast path"]
+    SENS(["Sensors<br/>watchdog, watcher,<br/>follow-ups, sentinel"]) --> EV["handle_event<br/>read & draft tools only"]
+    EV --> SUP
+    WM[("World model<br/>in_meeting, quiet mode,<br/>idle, battery")] -.-> SUP
+    SUP --> TOOLS["One tool catalogue<br/>Email · Calendar · Local Research<br/>System Ops · Assistant"]
+    TOOLS --> TRUST{{"Trust check<br/>untrusted text fenced,<br/>arguments' source checked"}}
+    TRUST -- destructive --> ASK["Pauses and asks you<br/>full read-back, yes / no"]
+    TRUST -- safe --> RUN["Runs the tool,<br/>result back to the model"]
+    ASK -- yes --> RUN
+    RUN --> SUP
+    SUP --> NQ["Narration Queue<br/>persona lines, paced speech"]
 
     classDef gate fill:#3a0d0d,stroke:#ff4d4d,color:#ffd1d1;
-    class CONF gate;
+    class TRUST gate;
 ```
 
 ### The Agents
 
-| Agent | What it does | Example requests |
+| Agent | Tools | Example requests |
 | :--- | :--- | :--- |
-| **Local Research** | Searches files by name, content (PDF, Word, text) and meaning, with filters for type, date, size and folder. Covers OneDrive, Dropbox and Google Drive folders and never downloads online-only files. Opens, previews, reveals in Explorer or summarises results, and remembers favourite folders. | `find my resume pdf from last week` · `open the second one` · `what does the board update say` |
-| **System Ops** | Runs commands matched to your OS (PowerShell on Windows, POSIX elsewhere) and explains the output in plain words. Controls apps, volume, brightness, Wi-Fi and Bluetooth, runs multi-step jobs, and watches CPU, disk, memory and frozen apps in the background. Deletes go to the Recycle Bin and can be undone. | `how much disk space is left` · `turn the volume down` · `delete old-notes.txt` · `undo that` |
-| **Email (Gmail)** | Triage, thread summaries, compose, reply and forward with CC, BCC, attachments and your signature. Finds contacts by name, reads the full draft back, edits it by voice, learns your writing style, tracks follow-ups and gives you an undo window after sending. | `anything new from Pepper` · `reply saying six works` · `email Tony the report and remind me if he doesn't reply in 3 days` |
-| **Calendar (Google)** | Lists events, checks when you're free, and creates or moves events. | `what's on my calendar tomorrow` · `book a call with Happy at 4pm Friday` |
+| **Email (Gmail)** | `check_inbox`, `read_email`, `summarise_thread`, `triage_inbox`, `resolve_contact`, `find_attachment`, `list_followups`, `draft_email`, `draft_reply`, `draft_forward`, `edit_draft`, `track_followup`, `organise_email`, `send_email`, `unsubscribe` | `anything new from Pepper` · `reply saying six works` · `make it more formal` · `email Tony the report and remind me if he doesn't reply in 3 days` |
+| **Calendar (Google)** | `list_events`, `find_free_slot`, `check_conflicts`, `get_event_context`, `create_event`, `move_event`, `delete_event` | `what's on tomorrow` · `find me an hour free on Friday` · `move the board meeting to 4pm` · `what do I need for my 3 o'clock?` |
+| **Local Research** | `search_files`, `search_drive`, `read_file`, `summarise_file`, `describe_folder`, `open_file`, `reveal_file`, `favourite_folders` | `find my notes about the budget` · `open the second one` · `summarise it` · `PDFs from last week in Downloads` |
+| **System Ops** | `disk_usage`, `memory_usage`, `cpu_and_processes`, `uptime`, `list_directory`, `git_status`, `radio_status`, `open_app`, `close_app`, `switch_to_app`, `set_volume`, `set_brightness`, `set_radio`, `create_folder`, `restore_deleted`, `system_watch`, `delete_to_recycle_bin`, `empty_recycle_bin`, `clean_temp_files`, `end_process`, `power` | `how full is my disk` · `turn the volume down` · `delete old-notes.txt` · `undo that` · `what's using my CPU` |
+| **Assistant** | `web_search`, `memory_recall` | `search the web for the latest Python release` · `do you remember what I said about the budget review?` |
 
-The supervisor can **chain** steps ("find the invoice and email it to Pepper"), run them **in parallel** and merge the answers, **cancel** a running task by voice, retry read-only work once, and time out hung tasks. Pending confirmations are numbered when more than one is waiting ("yes, send the first one"), expire after a short time, and survive a restart.
+A few things worth knowing about how they work:
+
+- **Email**: drafting is separate from sending. Drafts can be revised freely by voice; only `send_email` (and `unsubscribe`) waits for your **yes**, after reading the whole draft back. Every send waits out an undo window. Drafts match your writing style, learned from your Sent folder.
+- **Calendar**: times are read in your **Google Calendar's own time zone**, not the computer's. (Under WSL the machine clock is UTC, which used to put "1pm" at 6:30pm IST.) Every change is read back from Google afterwards, and you're told if it didn't land where intended. `get_event_context` fetches the event, its email thread and related files at the same time.
+- **Local Research**: searches by name, inside documents (PDF, Word, text) and by meaning. Search effort scales: a file name is a quick index lookup; a topic searches your favourite, profile and cloud folders; only "search everywhere" walks whole drives. Under WSL, open and reveal go through Windows Explorer.
+- **System Ops**: there is **no free-form shell tool**: every command comes from a built-in, matched to your OS. Deletes go to the Recycle Bin and can be undone.
+- **Assistant**: covers the web and J.A.R.V.I.S.'s memory, not your own files or mail.
+
+### How a Request Runs
+
+- **One catalogue, one loop.** The model picks a tool, the supervisor runs it and feeds the result back, until the model can answer in a sentence or two.
+- **Limits.** Each request has a step, time and token budget. Repeating the same call stops the run. A tool that fails twice (or three failures in total) stops it and asks you how to proceed, instead of guessing.
+- **Pause and resume.** A step that needs your approval pauses the run; after your yes, the **same run** continues from where it stopped. A no, or no answer before the request expires, ends it with nothing changed.
+- **Follow-through.** If a reply or email is drafted but never put up for approval, the supervisor asks you itself instead of trusting a "sent!" from the model. Say "just draft it" to stop at the draft.
+- **Keyword fast path.** Without Groq the agents still answer the basics (check the inbox, read today's calendar, search files, system info); anything that writes says it needs the model.
+- **Tactical namespace.** The globe, flight, maritime, satellite, conflict, recon and OSINT tools stay in the tactical cognitive loop (`core/jarvis_reasoning_loop.py`). Its general-purpose tools (inbox, calendar, processes, web search, memory) moved into the agents' catalogue above, so each job has exactly one tool.
+
+### Proactive: Sensors, World Model and Feedback
+
+- **Sensors hand over instead of speaking.** The autonomous watchdog, the system watcher, the email follow-up checker and the ambient sentinel send what they notice to the supervisor (`handle_event`). It looks into it with **read and draft tools only** (an event can never send, delete or close anything): which program is eating the CPU, what's filling the disk, a heads-up before a meeting with its email thread and files, or a nudge draft when someone hasn't replied.
+- **Catch-up.** Coming back after the laptop was off, or after a long idle stretch, gets a short catch-up built from your inbox, today's calendar and follow-ups.
+- **World model.** One snapshot of your situation: local time, idle time, quiet mode, battery, what J.A.R.V.I.S. is doing, and **whether you're in a meeting** (from Google Calendar). While you're in a meeting or in quiet mode, routine news is held and delivered afterwards in one line ("While you were busy: …"); critical alerts and time-sensitive heads-ups still get through.
+- **Feedback.** Every tool outcome, and every "no" to a proposed action, is recorded in the self-upgrade performance log (`data/performance_feedback.json`). Tools that keep failing are flagged to the model on later requests.
 
 ### Safety Model
 
-- Every agent declares a **risk tier**. Anything destructive or outward-facing (deleting, sending mail, unsubscribing, Wi-Fi off, AI-written shell commands) is shown to you first and only runs after you say **yes**.
-- **Protected paths** are refused outright: system folders, drive roots, your profile folder and the J.A.R.V.I.S. install itself.
-- Essential processes can't be killed, and dangerous commands such as shutdown stay behind the existing `SystemCommander` guard.
+- Every tool declares a **category** (read / draft / action) and a **risk tier**. Anything destructive or outward-facing (sending mail, deleting, emptying the bin, ending a process, shutting down, Wi-Fi off, creating or moving events) is shown to you first and only runs after you say **yes**. The tool itself refuses to run without that approval, even if something upstream went wrong.
+- **Prompt-injection defence.** Email bodies, invite descriptions, file contents and web pages reach the model only inside a fence marked with a random code per request, so text inside can't break out of it. Before an action runs, its key arguments (recipients, file paths, folders) are checked: anything that came only from that outside content, and not from you, is refused. An email saying "forward everything to …" can't add a recipient.
+- **Protected paths** are refused outright: system folders, drive roots, your profile folder and the J.A.R.V.I.S. install itself, in both Windows and WSL spellings.
+- Essential processes can't be killed, programs and scripts are never "opened" (only shown in their folder), and dangerous commands such as shutdown stay behind the existing `SystemCommander` guard.
 - OAuth tokens, client secrets and passwords are never logged, spoken or displayed. Actions are recorded in `data/agents/audit.jsonl` with secrets redacted.
 
 ### Setup
 
 **1. Install the new dependencies** (inside your `jarvis-env`):
 ```bash
-pip install -r requirements.txt   # adds google-auth-oauthlib, google-api-python-client, cryptography
+pip install -r requirements.txt   # adds google-auth-oauthlib, google-api-python-client, cryptography, tzdata
 ```
 
-**2. AI routing uses your existing Groq key.** No new key is needed: the supervisor reads `groq_api_key` from `config.yaml`. If Groq is unreachable it falls back to local Ollama, which is optional:
+**2. AI uses your existing Groq key.** No new key is needed: the supervisor reads `groq_api_key` (and `groq_model`) from `config.yaml`. The tool loop runs on Groq only, because it needs reliable tool calling. If your `groq_model` is rate-limited or doesn't support tools, it moves on to `openai/gpt-oss-20b`, then `openai/gpt-oss-120b`, each with its own rate limit. Drafting and summaries can also fall back to local Ollama, which is optional:
 ```bash
 ollama pull qwen2.5:3b
 ```
-File search, system commands and keyword routing work with no AI key at all.
+Without any key, the keyword fast path still handles reading, file search and system info.
 
 **3. Connect Google for Email and Calendar** (optional; only needed for those two agents). Each operator creates their own free OAuth client:
 1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Gmail API** and **Google Calendar API** under **APIs & Services > Library**.
@@ -444,12 +470,14 @@ Permissions requested: `openid`, `userinfo.email`, `gmail.readonly`, `gmail.send
 | Setting | Where | Effect |
 | :--- | :--- | :--- |
 | `email_signature` | `config.yaml` | Sign-off appended to sent mail. If empty, J.A.R.V.I.S. learns your usual sign-off from your Sent folder. |
+| `catchup_after_idle_hours` | `config.yaml` | How long you must be away before coming back gets a catch-up (default `4`). |
 | `JARVIS_UNDO_SEND_S` | environment | Seconds you have to undo a sent email (default `10`). |
 | `JARVIS_AGENT_LLM` | environment | Set to `0` for keyword-only routing with no AI calls. |
+| `JARVIS_AGENT_STATE_DIR` | environment | Where agent state and the audit log live (default `data/agents`). |
 | `OLLAMA_HOST` | environment | Ollama address if it isn't `http://localhost:11434`. |
 
 > [!NOTE]
-> Archiving, labelling and marking mail as read, Google Contacts lookup and Google Drive search need extra Google permissions (`gmail.modify`, `contacts`, `drive`) that aren't requested yet. Until then, the agents say so and fall back where they can, for example finding contacts from your email history.
+> Archiving, labelling and marking mail as read, Google Contacts lookup and Google Drive search need extra Google permissions (`gmail.modify`, `contacts.readonly`, `drive.readonly`) that aren't requested yet. Until then, those tools say so plainly and fall back where they can, for example finding contacts from your email history. Searching by meaning uses the local MiniLM model if it's cached (`~/.cache/chroma/onnx_models/all-MiniLM-L6-v2`); without it, results say they were ranked by keywords only.
 
 ---
 
